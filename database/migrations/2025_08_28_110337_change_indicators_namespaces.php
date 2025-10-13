@@ -1,6 +1,6 @@
 <?php
 
-use Database\Seeders\SchemaSeeder9;
+use Martingalian\Core\Database\Seeders\SchemaSeeder9;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Artisan;
 

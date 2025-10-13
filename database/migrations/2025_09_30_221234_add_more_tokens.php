@@ -1,6 +1,6 @@
 <?php
 
-use Database\Seeders\SchemaSeeder14;
+use Martingalian\Core\Database\Seeders\SchemaSeeder14;
 use Illuminate\Database\Migrations\Migration;
 
 return new class extends Migration
