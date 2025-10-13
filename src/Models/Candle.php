@@ -1,7 +1,5 @@
 <?php
 
-// app/Models/Candle.php
-
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;

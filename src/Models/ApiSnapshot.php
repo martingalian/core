@@ -8,10 +8,6 @@ use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
 
-/**
- * @property array $api_response
- * @property string $canonical
- */
 class ApiSnapshot extends BaseModel
 {
     use HasDebuggable;
