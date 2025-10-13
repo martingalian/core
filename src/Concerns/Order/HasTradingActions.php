@@ -2,6 +2,4 @@
 
 namespace Martingalian\Core\Concerns\Order;
 
-trait HasTradingActions
-{
-}
+trait HasTradingActions {}

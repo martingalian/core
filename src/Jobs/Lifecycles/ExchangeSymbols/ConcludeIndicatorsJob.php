@@ -2,13 +2,13 @@
 
 namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Models\ExchangeSymbol\AssessIndicatorConclusionJob;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
-use Illuminate\Support\Str;
 
 /**
  * Iterates each exchange symbol on the database, and triggers the

@@ -2,12 +2,12 @@
 
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
+use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\User;
-use Illuminate\Support\Carbon;
 
 /**
  * CheckPriceSpikeAndCooldownJob

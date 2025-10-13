@@ -2,9 +2,9 @@
 
 namespace Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests;
 
+use GuzzleHttp\Psr7\Response;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
-use GuzzleHttp\Psr7\Response;
 
 trait MapsLeverageBracketsQuery
 {

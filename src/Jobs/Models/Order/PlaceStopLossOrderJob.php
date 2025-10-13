@@ -2,13 +2,13 @@
 
 namespace Martingalian\Core\Jobs\Models\Order;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\Martingalian;
-use Illuminate\Support\Str;
 
 class PlaceStopLossOrderJob extends BaseApiableJob
 {

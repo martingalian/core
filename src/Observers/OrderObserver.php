@@ -2,11 +2,11 @@
 
 namespace Martingalian\Core\Observers;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\User;
-use Illuminate\Support\Str;
 
 class OrderObserver
 {

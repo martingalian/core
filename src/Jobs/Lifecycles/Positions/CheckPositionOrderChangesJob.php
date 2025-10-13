@@ -2,13 +2,13 @@
 
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
-use Illuminate\Support\Str;
 
 class CheckPositionOrderChangesJob extends BaseQueueableJob
 {

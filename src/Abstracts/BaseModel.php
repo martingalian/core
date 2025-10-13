@@ -2,9 +2,9 @@
 
 namespace Martingalian\Core\Abstracts;
 
+use Illuminate\Database\Eloquent\Model;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
-use Illuminate\Database\Eloquent\Model;
 
 abstract class BaseModel extends Model
 {

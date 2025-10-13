@@ -2,6 +2,7 @@
 
 namespace Martingalian\Core\Jobs\Lifecycles\Accounts;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Models\Account\AssignTokensToNewPositionsJob;
@@ -11,7 +12,6 @@ use Martingalian\Core\Jobs\Models\Account\QueryPositionsJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
-use Illuminate\Support\Str;
 
 /**
  * Lifecycle that starts the positions dispatch lifecycle, but first

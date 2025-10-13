@@ -2,8 +2,8 @@
 
 namespace Martingalian\Core\Concerns\Account;
 
-use Martingalian\Core\Models\ExchangeSymbol;
 use Illuminate\Support\Collection;
+use Martingalian\Core\Models\ExchangeSymbol;
 
 trait HasCollections
 {

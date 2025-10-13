@@ -2,6 +2,7 @@
 
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Jobs\Models\Account\QueryPositionsJob;
@@ -11,7 +12,6 @@ use Martingalian\Core\Jobs\Models\Position\SyncPositionOrdersJob;
 use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
-use Illuminate\Support\Str;
 
 class CancelPositionJob extends BaseApiableJob
 {

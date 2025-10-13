@@ -2,6 +2,7 @@
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
@@ -11,7 +12,6 @@ use Martingalian\Core\Concerns\Position\HasScopes;
 use Martingalian\Core\Concerns\Position\HasStatuses;
 use Martingalian\Core\Concerns\Position\HasTradingActions;
 use Martingalian\Core\Concerns\Position\InteractsWithApis;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 /**
  * @property \Martingalian\Core\Models\Account $account

@@ -2,6 +2,7 @@
 
 namespace Martingalian\Core\Jobs\Models\Order;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Lifecycles\Positions\ApplyWAPJob;
 use Martingalian\Core\Jobs\Lifecycles\Positions\ClosePositionJob;
@@ -9,7 +10,6 @@ use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
-use Illuminate\Support\Str;
 
 class ProcessOrderChangesJob extends BaseQueueableJob
 {

@@ -2,9 +2,9 @@
 
 namespace Martingalian\Core\Models;
 
-use Martingalian\Core\Abstracts\BaseModel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Martingalian\Core\Abstracts\BaseModel;
 
 class ApplicationLog extends BaseModel
 {

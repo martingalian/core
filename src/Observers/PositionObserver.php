@@ -2,9 +2,9 @@
 
 namespace Martingalian\Core\Observers;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\Position;
-use Illuminate\Support\Str;
 
 class PositionObserver
 {

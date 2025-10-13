@@ -2,6 +2,4 @@
 
 namespace Martingalian\Core\Exceptions;
 
-class MaxRetriesReachedException extends \Exception
-{
-}
+class MaxRetriesReachedException extends \Exception {}

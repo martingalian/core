@@ -2,8 +2,8 @@
 
 namespace Martingalian\Core\Observers;
 
-use Martingalian\Core\Models\ApplicationLog;
 use Illuminate\Support\Str;
+use Martingalian\Core\Models\ApplicationLog;
 
 class ApplicationLogObserver
 {

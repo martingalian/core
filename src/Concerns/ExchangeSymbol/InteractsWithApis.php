@@ -2,11 +2,11 @@
 
 namespace Martingalian\Core\Concerns\ExchangeSymbol;
 
+use GuzzleHttp\Psr7\Response;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Martingalian\Core\Support\ValueObjects\ApiResponse;
-use GuzzleHttp\Psr7\Response;
 
 trait InteractsWithApis
 {

@@ -7,6 +7,4 @@ namespace Martingalian\Core\Exceptions;
  * it will not run the ignoreException cycles, and just call the
  * resolveException cycle.
  */
-class JustResolveException extends \Exception
-{
-}
+class JustResolveException extends \Exception {}

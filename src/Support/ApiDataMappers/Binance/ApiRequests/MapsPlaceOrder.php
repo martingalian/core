@@ -2,10 +2,10 @@
 
 namespace Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests;
 
-use Martingalian\Core\Models\Order;
-use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Str;
+use Martingalian\Core\Models\Order;
+use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsPlaceOrder
 {

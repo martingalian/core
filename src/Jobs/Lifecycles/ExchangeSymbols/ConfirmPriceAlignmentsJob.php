@@ -2,6 +2,7 @@
 
 namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Models\ExchangeSymbol\RemoveIndicatorDataJob;
@@ -10,7 +11,6 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
-use Illuminate\Support\Str;
 
 class ConfirmPriceAlignmentsJob extends BaseQueueableJob
 {

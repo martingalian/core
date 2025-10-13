@@ -2,11 +2,11 @@
 
 namespace Martingalian\Core\Concerns;
 
-use Martingalian\Core\Models\ForbiddenHostname;
-use Martingalian\Core\Models\User;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Martingalian\Core\Models\ForbiddenHostname;
+use Martingalian\Core\Models\User;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\ResponseInterface;
 

@@ -2,8 +2,8 @@
 
 namespace Martingalian\Core\Concerns;
 
-use Martingalian\Core\Models\ApplicationLog;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Martingalian\Core\Models\ApplicationLog;
 
 trait HasLoggable
 {

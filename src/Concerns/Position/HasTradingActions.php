@@ -2,11 +2,11 @@
 
 namespace Martingalian\Core\Concerns\Position;
 
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
-use Carbon\CarbonInterface;
-use Illuminate\Support\Carbon;
 
 trait HasTradingActions
 {

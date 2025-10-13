@@ -11,8 +11,7 @@ final class TimeTick
         public readonly int $tick,
         public readonly Carbon $start,
         public readonly Carbon $end,
-    ) {
-    }
+    ) {}
 
     public static function with(Carbon $carbon): TimeTickBuilder
     {

@@ -2,6 +2,4 @@
 
 namespace Martingalian\Core\Observers;
 
-class ApiRequestLogObserver
-{
-}
+class ApiRequestLogObserver {}

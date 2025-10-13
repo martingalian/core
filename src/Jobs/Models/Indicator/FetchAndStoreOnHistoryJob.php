@@ -2,13 +2,13 @@
 
 namespace Martingalian\Core\Jobs\Models\Indicator;
 
+use GuzzleHttp\Exception\RequestException;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
-use GuzzleHttp\Exception\RequestException;
 
 class FetchAndStoreOnHistoryJob extends BaseApiableJob
 {

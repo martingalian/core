@@ -7,6 +7,4 @@ namespace Martingalian\Core\Exceptions;
  * but on the BaseQueableJob it will not notify the admins under
  * the reportAndFail() method.
  */
-class NonNotifiableException extends \Exception
-{
-}
+class NonNotifiableException extends \Exception {}

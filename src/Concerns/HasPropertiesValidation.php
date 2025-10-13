@@ -2,9 +2,9 @@
 
 namespace Martingalian\Core\Concerns;
 
-use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait HasPropertiesValidation
 {

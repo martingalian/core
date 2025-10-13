@@ -2,12 +2,12 @@
 
 namespace Martingalian\Core\Concerns\Account;
 
+use GuzzleHttp\Psr7\Response;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
 use Martingalian\Core\Support\Proxies\ApiRESTProxy;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Martingalian\Core\Support\ValueObjects\ApiResponse;
-use GuzzleHttp\Psr7\Response;
 
 trait InteractsWithApis
 {

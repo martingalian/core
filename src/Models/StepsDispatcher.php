@@ -2,11 +2,11 @@
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 class StepsDispatcher extends BaseModel
 {

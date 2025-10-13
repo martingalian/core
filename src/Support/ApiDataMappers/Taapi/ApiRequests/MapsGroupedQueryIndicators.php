@@ -2,12 +2,12 @@
 
 namespace Martingalian\Core\Support\ApiDataMappers\Taapi\ApiRequests;
 
+use GuzzleHttp\Psr7\Response;
+use Illuminate\Database\Eloquent\Collection;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
-use GuzzleHttp\Psr7\Response;
-use Illuminate\Database\Eloquent\Collection;
 
 trait MapsGroupedQueryIndicators
 {

@@ -9,6 +9,4 @@ namespace Martingalian\Core\Exceptions;
  * Useful on the OrderApiObserver when, for instance, we are creating
  * too much orders of a type, and we don't want to rollback the position.
  */
-class JustEndException extends \Exception
-{
-}
+class JustEndException extends \Exception {}

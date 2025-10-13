@@ -3,12 +3,12 @@
 namespace Martingalian\Core\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
-use Martingalian\Core\Concerns\User\NotifiesViaPushover;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Martingalian\Core\Concerns\HasDebuggable;
+use Martingalian\Core\Concerns\HasLoggable;
+use Martingalian\Core\Concerns\User\NotifiesViaPushover;
 
 class User extends Authenticatable
 {

@@ -2,12 +2,12 @@
 
 namespace Martingalian\Core\Concerns\BaseQueueableJob;
 
+use Illuminate\Support\Carbon;
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Skipped;
 use Martingalian\Core\States\Stopped;
-use Illuminate\Support\Carbon;
 
 /*
  * Trait HandlesStepLifecycle

@@ -2,9 +2,9 @@
 
 namespace Martingalian\Core\Concerns\Account;
 
+use Illuminate\Support\Collection;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Position;
-use Illuminate\Support\Collection;
 
 /*
  * Trait HasTokenDiscovery

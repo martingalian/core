@@ -2,14 +2,14 @@
 
 namespace Martingalian\Core\Jobs\Models\Indicator;
 
+use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
-use GuzzleHttp\Exception\RequestException;
-use Illuminate\Support\Carbon;
 
 class FetchAndStoreOnCandleJob extends BaseApiableJob
 {

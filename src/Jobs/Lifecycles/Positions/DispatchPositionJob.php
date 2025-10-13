@@ -2,6 +2,7 @@
 
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Models\Order\PlaceMarketOrderJob;
@@ -13,7 +14,6 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
-use Illuminate\Support\Str;
 
 /**
  * Lifecycle that will dispatch pending positions that was previously created.

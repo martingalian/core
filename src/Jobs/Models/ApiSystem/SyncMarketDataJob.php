@@ -2,6 +2,7 @@
 
 namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
+use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Jobs\Lifecycles\Positions\ClosePositionJob;
@@ -13,7 +14,6 @@ use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Models\User;
-use Illuminate\Support\Carbon;
 
 /*
  * SyncMarketDataJob

@@ -2,12 +2,12 @@
 
 namespace Martingalian\Core\Support\Apis\REST;
 
+use Illuminate\Validation\Rule;
 use Martingalian\Core\Concerns\HasPropertiesValidation;
 use Martingalian\Core\Support\ApiClients\REST\BinanceApiClient;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Martingalian\Core\Support\ValueObjects\ApiRequest;
-use Illuminate\Validation\Rule;
 use Psr\Http\Message\ResponseInterface;
 
 class BinanceApi

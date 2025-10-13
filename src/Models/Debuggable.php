@@ -2,8 +2,8 @@
 
 namespace Martingalian\Core\Models;
 
-use Martingalian\Core\Concerns\Debuggable\HandlesDebuggableLogs;
 use Illuminate\Database\Eloquent\Model;
+use Martingalian\Core\Concerns\Debuggable\HandlesDebuggableLogs;
 
 class Debuggable extends Model
 {

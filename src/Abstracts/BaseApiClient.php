@@ -2,12 +2,12 @@
 
 namespace Martingalian\Core\Abstracts;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 use Martingalian\Core\Models\ApiRequestLog;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 use Martingalian\Core\Support\ValueObjects\ApiRequest;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
 
 /*
  * BaseApiClient

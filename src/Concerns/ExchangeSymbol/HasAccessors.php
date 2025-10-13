@@ -2,10 +2,10 @@
 
 namespace Martingalian\Core\Concerns\ExchangeSymbol;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 
 trait HasAccessors
 {

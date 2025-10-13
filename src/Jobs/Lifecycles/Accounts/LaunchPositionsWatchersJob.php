@@ -2,6 +2,7 @@
 
 namespace Martingalian\Core\Jobs\Lifecycles\Accounts;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Lifecycles\Positions\CheckPositionOrderChangesJob;
@@ -13,7 +14,6 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
-use Illuminate\Support\Str;
 
 class LaunchPositionsWatchersJob extends BaseQueueableJob
 {

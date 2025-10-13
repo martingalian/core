@@ -2,6 +2,7 @@
 
 namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
+use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
@@ -11,7 +12,6 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\LeverageBracket;
 use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Symbol;
-use Illuminate\Support\Facades\DB;
 
 /*
  * SyncLeverageBracketsJob

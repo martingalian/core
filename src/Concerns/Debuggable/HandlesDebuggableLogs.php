@@ -2,9 +2,9 @@
 
 namespace Martingalian\Core\Concerns\Debuggable;
 
-use Martingalian\Core\Models\DebuggableLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
+use Martingalian\Core\Models\DebuggableLog;
 
 trait HandlesDebuggableLogs
 {

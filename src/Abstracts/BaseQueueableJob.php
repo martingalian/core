@@ -2,13 +2,13 @@
 
 namespace Martingalian\Core\Abstracts;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Concerns\BaseQueueableJob\FormatsStepResult;
 use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepExceptions;
 use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepLifecycle;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\Running;
-use Illuminate\Support\Str;
 use Throwable;
 
 /*

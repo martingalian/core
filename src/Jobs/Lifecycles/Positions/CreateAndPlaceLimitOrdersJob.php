@@ -2,6 +2,7 @@
 
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
@@ -10,7 +11,6 @@ use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\Martingalian;
-use Illuminate\Support\Str;
 
 class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
 {

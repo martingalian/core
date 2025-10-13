@@ -2,8 +2,8 @@
 
 namespace Martingalian\Core\Abstracts;
 
-use Martingalian\Core\Models\User;
 use Exception;
+use Martingalian\Core\Models\User;
 use Ratchet\Client\Connector;
 use Ratchet\Client\WebSocket;
 use Ratchet\RFC6455\Messaging\Frame;

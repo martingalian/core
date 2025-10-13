@@ -2,6 +2,9 @@
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\Account\HasAccessors;
 use Martingalian\Core\Concerns\Account\HasCollections;
@@ -11,9 +14,6 @@ use Martingalian\Core\Concerns\Account\HasTokenDiscovery;
 use Martingalian\Core\Concerns\Account\InteractsWithApis;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Account extends BaseModel
 {

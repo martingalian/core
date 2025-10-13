@@ -2,11 +2,11 @@
 
 namespace Martingalian\Core\Concerns\Position;
 
+use GuzzleHttp\Psr7\Response;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Martingalian\Core\Support\ValueObjects\ApiResponse;
-use GuzzleHttp\Psr7\Response;
 
 trait InteractsWithApis
 {

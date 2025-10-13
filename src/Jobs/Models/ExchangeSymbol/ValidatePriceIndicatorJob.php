@@ -2,6 +2,7 @@
 
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
+use GuzzleHttp\Psr7\Response;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
@@ -10,7 +11,6 @@ use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\TradeConfiguration;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
-use GuzzleHttp\Psr7\Response;
 
 class ValidatePriceIndicatorJob extends BaseApiableJob
 {

@@ -2,8 +2,8 @@
 
 namespace Martingalian\Core\Concerns;
 
-use Martingalian\Core\Models\Debuggable;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Martingalian\Core\Models\Debuggable;
 
 trait HasDebuggable
 {

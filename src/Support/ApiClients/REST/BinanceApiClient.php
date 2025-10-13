@@ -2,12 +2,12 @@
 
 namespace Martingalian\Core\Support\ApiClients\REST;
 
+use Binance\Util\Url;
 use Martingalian\Core\Abstracts\BaseApiClient;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 use Martingalian\Core\Support\ValueObjects\ApiRequest;
-use Binance\Util\Url;
 
 class BinanceApiClient extends BaseApiClient
 {

@@ -2,6 +2,8 @@
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Abstracts\StepStatus;
 use Martingalian\Core\Concerns\HasLoggable;
@@ -13,8 +15,6 @@ use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Running;
 use Martingalian\Core\States\Skipped;
 use Martingalian\Core\States\Stopped;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Spatie\ModelStates\HasStates;
 
 class Step extends BaseModel

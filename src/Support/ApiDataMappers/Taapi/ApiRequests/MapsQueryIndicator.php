@@ -2,9 +2,9 @@
 
 namespace Martingalian\Core\Support\ApiDataMappers\Taapi\ApiRequests;
 
+use GuzzleHttp\Psr7\Response;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
-use GuzzleHttp\Psr7\Response;
 
 trait MapsQueryIndicator
 {
