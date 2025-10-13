@@ -1,0 +1,43 @@
+<?php
+
+namespace Martingalian\Core\Jobs\Models\Symbol;
+
+use Martingalian\Core\Abstracts\BaseApiableJob;
+use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\Debuggable;
+use Martingalian\Core\Models\Symbol;
+
+/**
+ * This job syncs an unique symbol. Normally it's just called once on its
+ * lifetime. After that, there are no more changes.
+ */
+class SyncSymbolJob extends BaseApiableJob
+{
+    public Symbol $symbol;
+
+    public function __construct(int $symbolId)
+    {
+        $this->symbol = Symbol::findOrFail($symbolId);
+    }
+
+    public function relatable()
+    {
+        return $this->symbol;
+    }
+
+    public function assignExceptionHandler()
+    {
+        $this->exceptionHandler = BaseExceptionHandler::make('coinmarketcap')
+            ->withAccount(
+                Account::admin('coinmarketcap')
+            );
+    }
+
+    public function computeApiable()
+    {
+        $this->symbol->apiSyncCMCData();
+
+        Debuggable::debug($this->symbol, 'CMC data synced', $this->symbol->token);
+    }
+}

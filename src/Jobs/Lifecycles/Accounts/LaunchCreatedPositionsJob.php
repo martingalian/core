@@ -1,0 +1,111 @@
+<?php
+
+namespace Martingalian\Core\Jobs\Lifecycles\Accounts;
+
+use Martingalian\Core\Abstracts\BaseQueueableJob;
+use Martingalian\Core\Exceptions\ExceptionParser;
+use Martingalian\Core\Jobs\Models\Account\AssignTokensToNewPositionsJob;
+use Martingalian\Core\Jobs\Models\Account\QueryAccountBalanceJob;
+use Martingalian\Core\Jobs\Models\Account\QueryOpenOrdersJob;
+use Martingalian\Core\Jobs\Models\Account\QueryPositionsJob;
+use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\Step;
+use Martingalian\Core\Models\User;
+use Illuminate\Support\Str;
+
+/**
+ * Lifecycle that starts the positions dispatch lifecycle, but first
+ * obtaining several account data, before triggering the dispatch positions.
+ * At the end, it will it will assign tokens to all new positions and
+ * dispatch those that have tokens assigned.
+ */
+class LaunchCreatedPositionsJob extends BaseQueueableJob
+{
+    public Account $account;
+
+    public function __construct(int $accountId)
+    {
+        $this->account = Account::findOrFail($accountId);
+    }
+
+    public function startOrSkip()
+    {
+        // Do we have positions with status = new?
+        if (! $this->account->positions()->where('positions.status', 'new')->exists()) {
+            $this->step->response = ['response' => 'No new positions found. Skipping lifecycle'];
+
+            return false;
+        }
+    }
+
+    public function compute()
+    {
+        $uuid = Str::uuid()->toString();
+
+        // Get all open positions for this account.
+        Step::create([
+            'class' => QueryPositionsJob::class,
+            'queue' => 'positions',
+            'block_uuid' => $uuid,
+            'index' => 1,
+            'arguments' => [
+                'accountId' => $this->account->id,
+            ],
+        ]);
+
+        // Get all open orders for this account.
+        Step::create([
+            'class' => QueryOpenOrdersJob::class,
+            'queue' => 'positions',
+            'block_uuid' => $uuid,
+            'index' => 1,
+            'arguments' => [
+                'accountId' => $this->account->id,
+            ],
+        ]);
+
+        // Get wallet balance too.
+        Step::create([
+            'class' => QueryAccountBalanceJob::class,
+            'queue' => 'positions',
+            'block_uuid' => $uuid,
+            'index' => 1,
+            'arguments' => [
+                'accountId' => $this->account->id,
+            ],
+        ]);
+
+        // Now assign tokens to the new positions (and close positions without tokens).
+        Step::create([
+            'class' => AssignTokensToNewPositionsJob::class,
+            'queue' => 'positions',
+            'block_uuid' => $uuid,
+            'index' => 2,
+            'arguments' => [
+                'accountId' => $this->account->id,
+            ],
+        ]);
+
+        // Finally dispatch each of the new positions.
+        Step::create([
+            'class' => DispatchNewPositionsWithTokensAssignedJob::class,
+            'queue' => 'positions',
+            'block_uuid' => $uuid,
+            'index' => 3,
+            'arguments' => [
+                'accountId' => $this->account->id,
+            ],
+        ]);
+
+        return ['response' => "Launching new positions for Account ID {$this->account->id} / {$this->account->user->name}"];
+    }
+
+    public function resolveException(\Throwable $e)
+    {
+        User::notifyAdminsViaPushover(
+            "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+            "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(static::class).'] - Error',
+            'nidavellir_errors'
+        );
+    }
+}

@@ -1,0 +1,37 @@
+<?php
+
+namespace Martingalian\Core\Models;
+
+use Martingalian\Core\Abstracts\BaseModel;
+use Martingalian\Core\Concerns\ApiSystem\HasScopes;
+use Martingalian\Core\Concerns\ApiSystem\InteractsWithApis;
+use Martingalian\Core\Concerns\HasDebuggable;
+use Martingalian\Core\Concerns\HasLoggable;
+
+class ApiSystem extends BaseModel
+{
+    use HasDebuggable;
+    use HasLoggable;
+    use HasScopes;
+    use InteractsWithApis;
+
+    public function steps()
+    {
+        return $this->morphMany(Step::class, 'relatable');
+    }
+
+    public function accounts()
+    {
+        return $this->hasMany(Account::class);
+    }
+
+    public function exchangeSymbols()
+    {
+        return $this->hasMany(ExchangeSymbol::class);
+    }
+
+    public function positions()
+    {
+        return $this->hasManyThrough(Position::class, Account::class);
+    }
+}
