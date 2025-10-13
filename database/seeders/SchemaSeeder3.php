@@ -3,7 +3,7 @@
 namespace Martingalian\Core\Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use App\Models\StepsDispatcher;
+use Martingalian\Core\Models\StepsDispatcher;
 use Illuminate\Database\Seeder;
 
 class SchemaSeeder3 extends Seeder

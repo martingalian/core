@@ -2,7 +2,7 @@
 
 namespace Martingalian\Core\Database\Seeders;
 
-use App\Models\Indicator;
+use Martingalian\Core\Models\Indicator;
 use Illuminate\Database\Seeder;
 
 class SchemaSeeder11 extends Seeder

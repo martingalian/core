@@ -2,7 +2,7 @@
 
 namespace Martingalian\Core\Database\Seeders;
 
-use App\Models\ExchangeSymbol;
+use Martingalian\Core\Models\ExchangeSymbol;
 use Illuminate\Database\Seeder;
 
 class SchemaSeeder12 extends Seeder

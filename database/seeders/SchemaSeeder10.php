@@ -2,7 +2,7 @@
 
 namespace Martingalian\Core\Database\Seeders;
 
-use App\Models\Position;
+use Martingalian\Core\Models\Position;
 use Illuminate\Database\Seeder;
 
 class SchemaSeeder10 extends Seeder

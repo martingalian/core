@@ -3,14 +3,14 @@
 namespace Martingalian\Core\Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use App\Models\Account;
-use App\Models\ApiSystem;
-use App\Models\BaseAssetMapper;
-use App\Models\Indicator;
-use App\Models\Quote;
-use App\Models\Symbol;
-use App\Models\TradeConfiguration;
-use App\Models\User;
+use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\ApiSystem;
+use Martingalian\Core\Models\BaseAssetMapper;
+use Martingalian\Core\Models\Indicator;
+use Martingalian\Core\Models\Quote;
+use Martingalian\Core\Models\Symbol;
+use Martingalian\Core\Models\TradeConfiguration;
+use Martingalian\Core\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
