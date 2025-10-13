@@ -9,10 +9,6 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
 
-/**
- * Lifecycle that will start the DispatchPosition for each new
- * position that has an exchange symbol assigned.
- */
 class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob
 {
     public int $accountId;

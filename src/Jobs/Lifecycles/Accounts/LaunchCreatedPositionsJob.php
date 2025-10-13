@@ -13,12 +13,6 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
 
-/**
- * Lifecycle that starts the positions dispatch lifecycle, but first
- * obtaining several account data, before triggering the dispatch positions.
- * At the end, it will it will assign tokens to all new positions and
- * dispatch those that have tokens assigned.
- */
 class LaunchCreatedPositionsJob extends BaseQueueableJob
 {
     public Account $account;

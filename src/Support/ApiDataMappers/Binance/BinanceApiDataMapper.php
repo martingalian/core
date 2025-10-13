@@ -39,9 +39,27 @@ class BinanceApiDataMapper extends BaseDataMapper
     use MapsSymbolMarginType;
     use MapsTokenLeverageRatios;
 
+    public function long()
+    {
+        return 'LONG';
+    }
+
+    public function short()
+    {
+        return 'SHORT';
+    }
+
     public function directionType(string $canonical)
     {
-        return $canonical;
+        if ($canonical == 'LONG') {
+            return 'LONG';
+        }
+
+        if ($canonical == 'SHORT') {
+            return 'SHORT';
+        }
+
+        throw new \InvalidArgumentException("Invalid Binance direction type: {$canonical}");
     }
 
     public function sideType(string $canonical)
@@ -50,7 +68,11 @@ class BinanceApiDataMapper extends BaseDataMapper
             return 'BUY';
         }
 
-        return 'SELL';
+        if ($canonical == 'SELL') {
+            return 'SELL';
+        }
+
+        throw new \InvalidArgumentException("Invalid Binance side type: {$canonical}");
     }
 
     /**

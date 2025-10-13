@@ -50,7 +50,7 @@ class LaunchPositionsWatchersJob extends BaseQueueableJob
             ],
         ]);
 
-        // For each ACTIVE position (only active!), only MAIN we need to start the watcher lifecycle.
+        // Active positions because "opening" positions will give a false positive.
         $this->account->positions()->where('positions.status', 'active')
             ->each(function (Position $position) {
 
