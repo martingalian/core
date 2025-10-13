@@ -1,0 +1,24 @@
+<?php
+
+namespace Martingalian\Core\Database\Seeders;
+
+use App\Models\Symbol;
+use Illuminate\Database\Seeder;
+
+class SchemaSeeder7 extends Seeder
+{
+    public function run(): void
+    {
+        $ids = [
+            7129, // USTC
+            5864, // YFI
+        ];
+
+        $rows = [];
+        foreach ($ids as $id) {
+            $rows[] = ['cmc_id' => $id, 'created_at' => now(), 'updated_at' => now()];
+        }
+
+        Symbol::insert($rows);
+    }
+}
