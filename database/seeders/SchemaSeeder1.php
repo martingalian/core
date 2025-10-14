@@ -3,6 +3,8 @@
 namespace Martingalian\Core\Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
@@ -11,8 +13,6 @@ use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Models\TradeConfiguration;
 use Martingalian\Core\Models\User;
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class SchemaSeeder1 extends Seeder
 {

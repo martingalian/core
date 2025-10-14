@@ -3,11 +3,11 @@
 namespace Martingalian\Core\Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Symbol;
-use Illuminate\Database\Seeder;
 
 class SchemaSeeder2 extends Seeder
 {

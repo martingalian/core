@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\Artisan;
 use Martingalian\Core\Database\Seeders\SchemaSeeder13;
 
 return new class extends Migration

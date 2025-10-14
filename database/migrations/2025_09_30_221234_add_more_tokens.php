@@ -1,7 +1,7 @@
 <?php
 
-use Martingalian\Core\Database\Seeders\SchemaSeeder14;
 use Illuminate\Database\Migrations\Migration;
+use Martingalian\Core\Database\Seeders\SchemaSeeder14;
 
 return new class extends Migration
 {

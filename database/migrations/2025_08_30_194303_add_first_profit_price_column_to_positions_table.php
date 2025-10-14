@@ -1,10 +1,10 @@
 <?php
 
-use Martingalian\Core\Database\Seeders\SchemaSeeder10;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Martingalian\Core\Database\Seeders\SchemaSeeder10;
 
 return new class extends Migration
 {

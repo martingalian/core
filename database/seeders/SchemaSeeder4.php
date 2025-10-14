@@ -3,8 +3,8 @@
 namespace Martingalian\Core\Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Martingalian\Core\Models\TradeConfiguration;
 use Illuminate\Database\Seeder;
+use Martingalian\Core\Models\TradeConfiguration;
 
 class SchemaSeeder4 extends Seeder
 {

@@ -27,11 +27,14 @@ trait DispatchesJobs
             $job = self::instantiateJobWithArguments($step->class, $step->arguments);
             $job->step = $step;
 
+            // Non-functional: improves observability
+            $groupLabel = isset($step->group) ? " group={$step->group}" : '';
+
             if ($step->queue === 'sync') {
-                info_if("Calling handle() for Step ID {$step->id}, class {$step->class} on queue {$step->queue}");
+                info_if("Calling handle() for Step ID {$step->id}, class {$step->class} on queue {$step->queue}{$groupLabel}");
                 $job->handle();
             } else {
-                info_if("Calling Queue::pushOn() for Step ID {$step->id}, class {$step->class} on queue {$step->queue}");
+                info_if("Calling Queue::pushOn() for Step ID {$step->id}, class {$step->class} on queue {$step->queue}{$groupLabel}");
                 Queue::pushOn($step->queue, $job);
             }
         } catch (\Throwable $e) {
