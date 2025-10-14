@@ -13,7 +13,7 @@ class SchemaSeeder11 extends Seeder
             'canonical' => 'price-volatility',
             'is_active' => true,
             'type' => 'reports',
-            'class' => "App\Indicators\Reports\PriceVolatilityIndicator",
+            'class' => "Martingalian\Core\Indicators\Reports\PriceVolatilityIndicator",
             'is_apiable' => true,
             'parameters' => ['results' => 2000],
         ]);

@@ -1,8 +1,9 @@
 <?php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Migrations\Migration;
+use Martingalian\Core\Database\Seeders\StepsDispatcherSeeder;
 
 return new class extends Migration
 {
@@ -18,5 +19,13 @@ return new class extends Migration
             $table->timestamp('last_tick_completed')->nullable()->after('current_tick_id');
             $table->index('last_tick_completed', 'steps_dispatcher_last_tick_completed_idx');
         });
+
+        Schema::table('steps_dispatcher_ticks', function (Blueprint $table) {
+            $table->string('group')->nullable()->after('id');
+        });
+
+        Artisan::call('db:seed', [
+            '--class' => StepsDispatcherSeeder::class,
+        ]);
     }
 };

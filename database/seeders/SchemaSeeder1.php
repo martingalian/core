@@ -24,14 +24,14 @@ class SchemaSeeder1 extends Seeder
         Indicator::create([
             'canonical' => 'emas-same-direction',
             'is_active' => true,
-            'class' => "App\Indicators\RefreshData\EMAsSameDirection",
+            'class' => "Martingalian\Core\Indicators\RefreshData\EMAsSameDirection",
             'is_apiable' => false,
         ]);
 
         Indicator::create([
             'canonical' => 'candle-comparison',
             'is_active' => false,
-            'class' => "App\Indicators\Ongoing\CandleComparisonIndicator",
+            'class' => "Martingalian\Core\Indicators\Ongoing\CandleComparisonIndicator",
             'parameters' => [
                 'results' => 2,
             ],
@@ -40,7 +40,7 @@ class SchemaSeeder1 extends Seeder
         Indicator::create([
             'canonical' => 'macd',
             'is_active' => false,
-            'class' => "App\Indicators\RefreshData\MACDIndicator",
+            'class' => "Martingalian\Core\Indicators\RefreshData\MACDIndicator",
             'parameters' => [
                 'backtrack' => 1,
                 'results' => 2,
@@ -52,7 +52,7 @@ class SchemaSeeder1 extends Seeder
 
         Indicator::create([
             'canonical' => 'obv',
-            'class' => "App\Indicators\RefreshData\OBVIndicator",
+            'class' => "Martingalian\Core\Indicators\RefreshData\OBVIndicator",
             'parameters' => [
                 'results' => 2,
             ],
@@ -60,7 +60,7 @@ class SchemaSeeder1 extends Seeder
 
         Indicator::create([
             'canonical' => 'adx',
-            'class' => "App\Indicators\RefreshData\ADXIndicator",
+            'class' => "Martingalian\Core\Indicators\RefreshData\ADXIndicator",
             'parameters' => [
                 'results' => 1,
             ],
@@ -70,13 +70,13 @@ class SchemaSeeder1 extends Seeder
         Indicator::create([
             'canonical' => 'emas-convergence',
             'is_active' => false,
-            'class' => "App\Indicators\RefreshData\EMAsConvergence",
+            'class' => "Martingalian\Core\Indicators\RefreshData\EMAsConvergence",
             'is_apiable' => false,
         ]);
 
         Indicator::create([
             'canonical' => 'ema-40',
-            'class' => "App\Indicators\RefreshData\EMAIndicator",
+            'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
             'parameters' => [
                 'backtrack' => 1,
                 'results' => 2,
@@ -86,7 +86,7 @@ class SchemaSeeder1 extends Seeder
 
         Indicator::create([
             'canonical' => 'ema-80',
-            'class' => "App\Indicators\RefreshData\EMAIndicator",
+            'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
             'parameters' => [
                 'backtrack' => 1,
                 'results' => 2,
@@ -96,7 +96,7 @@ class SchemaSeeder1 extends Seeder
 
         Indicator::create([
             'canonical' => 'ema-120',
-            'class' => "App\Indicators\RefreshData\EMAIndicator",
+            'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
             'parameters' => [
                 'backtrack' => 1,
                 'results' => 2,

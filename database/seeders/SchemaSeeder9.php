@@ -10,7 +10,7 @@ class SchemaSeeder9 extends Seeder
     public function run(): void
     {
         Indicator::query()->where('canonical', 'candle-comparison')
-            ->update(['class' => 'App\Indicators\RefreshData\CandleComparisonIndicator']);
+            ->update(['class' => 'Martingalian\Core\Indicators\RefreshData\CandleComparisonIndicator']);
 
         Indicator::create([
             'type' => 'history',
@@ -18,7 +18,7 @@ class SchemaSeeder9 extends Seeder
             'is_apiable' => true,
             'canonical' => 'candle',
             'parameters' => ['results' => 1],
-            'class' => "App\Indicators\History\CandleIndicator",
+            'class' => "Martingalian\Core\Indicators\History\CandleIndicator",
         ]);
     }
 }

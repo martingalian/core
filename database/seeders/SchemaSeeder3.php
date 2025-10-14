@@ -11,7 +11,7 @@ class SchemaSeeder3 extends Seeder
     public function run(): void
     {
         StepsDispatcher::create([
-            'can_dispatch' => false,
+            'can_dispatch' => true,
         ]);
     }
 }
