@@ -55,9 +55,7 @@ function info_if(string $message, ?callable $condition = null)
     }
 }
 
-function it2()
-{
-}
+function it2() {}
 
 function summarize_model_attributes(Model $model, array $only = []): string
 {

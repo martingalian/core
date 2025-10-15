@@ -27,22 +27,28 @@ class DispatchStepsCommand extends Command
 
     public function handle(): int
     {
+        // Clean laravel.log at the very start of each run
+        $this->clearLaravelLog();
+
         try {
             $opt = $this->option('group');
 
             if (is_string($opt) && trim($opt) !== '') {
                 // Support multiple separators: , : ; | and whitespace
                 $groups = preg_split('/[,\s;|:]+/', $opt, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
                 // Normalize "null"/"NULL" to actual null (to target the global group if desired)
                 $groups = array_map(function ($g) {
                     $g = trim($g);
+
                     return ($g === '' || strcasecmp($g, 'null') === 0) ? null : $g;
                 }, $groups);
+
                 $groups = array_values(array_unique($groups));
 
                 foreach ($groups as $group) {
                     StepDispatcher::dispatch($group);
-                    $this->info('Dispatched steps for group: ' . ($group === null ? 'NULL' : $group));
+                    $this->info('Dispatched steps for group: '.($group === null ? 'NULL' : $group));
                 }
 
                 return self::SUCCESS;
@@ -63,14 +69,39 @@ class DispatchStepsCommand extends Command
 
             foreach ($groups as $group) {
                 StepDispatcher::dispatch($group);
-                $this->info('Dispatched steps for group: ' . ($group === null ? 'NULL' : $group));
+                $this->info('Dispatched steps for group: '.($group === null ? 'NULL' : $group));
             }
         } catch (\Throwable $e) {
             report($e);
             $this->error($e->getMessage());
+
             return self::SUCCESS;
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Truncates storage/logs/laravel.log so each run starts with a clean log.
+     */
+    protected function clearLaravelLog(): void
+    {
+        $path = storage_path('logs/laravel.log');
+
+        // Ensure directory exists; if not, try to create it quietly.
+        $dir = dirname($path);
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+
+        // Truncate or create the file.
+        $ok = @file_put_contents($path, '');
+        if ($ok === false) {
+            $this->warn('Could not clear laravel.log (permission or path issue).');
+
+            return;
+        }
+
+        $this->info('laravel.log cleared.');
     }
 }

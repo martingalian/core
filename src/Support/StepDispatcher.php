@@ -33,7 +33,7 @@ class StepDispatcher
         $progress = 0;
 
         try {
-            info_if('-= TICK STARTED =-'.($group ? " [group={$group}]" : ''));
+            info('-= TICK STARTED =-'.($group ? " [group={$group}]" : ''));
 
             // Marks as skipped all children steps on a skipped step.
             if (static::skipAllChildStepsOnParentAndChildSingleStep($group)) {

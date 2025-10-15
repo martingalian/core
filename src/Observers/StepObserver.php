@@ -22,6 +22,10 @@ class StepObserver
         if ($step->type == 'resolve-exception') {
             $step->state = new NotRunnable($step);
         }
+
+        if ($step->index == 0) {
+            $step->index == 1;
+        }
     }
 
     public function created(Step $step): void

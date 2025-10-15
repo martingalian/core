@@ -7,6 +7,7 @@ use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Martingalian\Core\Commands\DispatchStepsCommand;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\AccountBalanceHistory;
 use Martingalian\Core\Models\ApiRequestLog;
@@ -40,7 +41,6 @@ use Martingalian\Core\Observers\QuoteObserver;
 use Martingalian\Core\Observers\StepObserver;
 use Martingalian\Core\Observers\SymbolObserver;
 use Martingalian\Core\Observers\UserObserver;
-use Martingalian\Core\Commands\DispatchStepsCommand;
 
 class CoreServiceProvider extends ServiceProvider
 {
@@ -48,7 +48,7 @@ class CoreServiceProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->commands([
-                DispatchStepsCommand::class
+                DispatchStepsCommand::class,
             ]);
         }
 

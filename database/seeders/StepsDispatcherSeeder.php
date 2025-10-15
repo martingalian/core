@@ -31,12 +31,12 @@ class StepsDispatcherSeeder extends Seeder
 
         $rows = array_map(static function (string $g) use ($now) {
             return [
-                'group'               => $g,
-                'can_dispatch'        => true,
-                'current_tick_id'     => null,
+                'group' => $g,
+                'can_dispatch' => true,
+                'current_tick_id' => null,
                 'last_tick_completed' => null,
-                'created_at'          => $now,
-                'updated_at'          => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
             ];
         }, $missing);
 
