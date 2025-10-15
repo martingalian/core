@@ -19,22 +19,21 @@ class StepsDispatcher extends BaseModel
         "last_tick_completed"  => "datetime",
     ];
 
-    // Legacy helper (kept as-is)
-    public static function canDispatch(): bool
+    /**
+     * Selects the next group to dispatch:
+     * among rows with can_dispatch = true, pick the one with the oldest updated_at.
+     *
+     * @return string|null The group name to dispatch (null means the global/NULL group)
+     */
+    public static function getDispatchGroup(): ?string
     {
-        $dispatcher = static::query()->first();
-        if (! $dispatcher) {
-            return false;
-        }
+        $row = static::query()
+            ->where('can_dispatch', true)
+            ->orderBy('updated_at', 'asc') // oldest first
+            ->orderBy('id', 'asc')        // deterministic tiebreaker
+            ->first();
 
-        if (! $dispatcher->can_dispatch &&
-            $dispatcher->updated_at &&
-            $dispatcher->updated_at->lt(now()->subSeconds(20))
-        ) {
-            $dispatcher->update(["can_dispatch" => true]);
-        }
-
-        return (bool) $dispatcher->can_dispatch;
+        return $row?->group;
     }
 
     /**

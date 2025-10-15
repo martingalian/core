@@ -40,11 +40,18 @@ use Martingalian\Core\Observers\QuoteObserver;
 use Martingalian\Core\Observers\StepObserver;
 use Martingalian\Core\Observers\SymbolObserver;
 use Martingalian\Core\Observers\UserObserver;
+use Martingalian\Core\Commands\DispatchStepsCommand;
 
 class CoreServiceProvider extends ServiceProvider
 {
     public function boot()
     {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                DispatchStepsCommand::class
+            ]);
+        }
+
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
         $this->publishes([

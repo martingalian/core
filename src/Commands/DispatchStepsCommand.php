@@ -21,7 +21,7 @@ class DispatchStepsCommand extends Command
                 $this->info("Dispatched steps for group: {$group}");
             } else {
                 StepDispatcher::dispatch();
-                $this->info('Dispatched steps for all groups.');
+                $this->info('Dispatched steps for NULL group.');
             }
         } catch (\Throwable $e) {
             report($e);
