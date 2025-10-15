@@ -26,17 +26,33 @@ class StepsDispatcher extends BaseModel
     }
 
     /**
-     * Selects the next group to dispatch:
-     * among rows with can_dispatch = true, pick the one with the oldest updated_at.
+     * Selects the next group to dispatch.
+     * Preference order:
+     *  1) Groups with can_dispatch = true AND updated_at IS NULL (never updated) → pick lowest id
+     *  2) Otherwise, among can_dispatch = true → pick the one with oldest updated_at (then lowest id)
      *
      * @return string|null The group name to dispatch (null means the global/NULL group)
      */
     public static function getDispatchGroup(): ?string
     {
+        // 1) Prefer groups never updated
         $row = static::query()
             ->where('can_dispatch', true)
-            ->orderBy('updated_at', 'asc') // oldest first
-            ->orderBy('id', 'asc')        // deterministic tiebreaker
+            ->whereNull('updated_at')
+            ->orderBy('id', 'asc')
+            ->first();
+
+        if ($row) {
+            info('[StepsDispatcher@getDispatchGroup] Selected NEVER-UPDATED group=' . self::label($row->group) . ' (id=' . $row->id . ').');
+
+            return $row->group;
+        }
+
+        // 2) Fall back to oldest updated_at
+        $row = static::query()
+            ->where('can_dispatch', true)
+            ->orderBy('updated_at', 'asc')
+            ->orderBy('id', 'asc')
             ->first();
 
         if (! $row) {
@@ -45,7 +61,7 @@ class StepsDispatcher extends BaseModel
             return null;
         }
 
-        info('[StepsDispatcher@getDispatchGroup] Selected group='.self::label($row->group).' (id='.$row->id.', updated_at='.$row->updated_at?->toDateTimeString().').');
+        info('[StepsDispatcher@getDispatchGroup] Selected group=' . self::label($row->group) . ' (id=' . $row->id . ', updated_at=' . ($row->updated_at?->toDateTimeString()) . ').');
 
         return $row->group;
     }
