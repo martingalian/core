@@ -32,12 +32,11 @@ class BinanceExceptionHandler extends BaseExceptionHandler
      *
      * 400:
      *  -4046: No need to change margin type
-     *  -2013: Order doesn't exist
      *  -5027: No need to modify the order
      *  -2011: Unknown order sent
      */
     public $ignorableHttpCodes = [
-        400 => [-4046, -2013, -5027, -2011],
+        400 => [-4046, -5027, -2011],
     ];
 
     /**
@@ -45,14 +44,15 @@ class BinanceExceptionHandler extends BaseExceptionHandler
      *
      * Notes:
      *  -1021 / -5028 => recvWindow/timestamp mismatch (we will clock-sync + retry).
-     *  -2013 can appear under load (eventual consistency).
+     *  -2013 can appear under load (eventual consistency) -- Order doesn't exist.
      */
     public $retryableHttpCodes = [
         503,
         504,
-        409,                 // occasional conflict races (idempotency)
+        409,
         400 => [-1021, -5028, -2013],
-        408 => [-1007],      // backend timeout, status unknown
+        408 => [-1007],
+        -2013,
     ];
 
     /**
@@ -60,7 +60,6 @@ class BinanceExceptionHandler extends BaseExceptionHandler
      *
      * IMPORTANT:
      * • Do NOT include 418 here (it's a rate-limit/IP ban escalation).
-     * • 403 on Binance is often WAF throttling and should be treated as rate-limit-ish.
      */
     public array $forbiddenHttpCodes = [
         401 => [-2015],  // invalid API key / IP not allowed
@@ -70,10 +69,12 @@ class BinanceExceptionHandler extends BaseExceptionHandler
      * Rate-limited — slow down and back off.
      * • 429 Too Many Requests (may or may not carry Retry-After)
      * • 418 IP ban escalation (always treat as rate-limit, not forbidden)
+     * • 403 on Binance is often WAF throttling and should be treated as rate-limit-ish.
      */
     public array $rateLimitedHttpCodes = [
         429,
         418,
+        403
     ];
 
     /**
