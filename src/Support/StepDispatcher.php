@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support;
 
+use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\StepsDispatcher;
 use Martingalian\Core\States\Cancelled;
@@ -14,7 +17,7 @@ use Martingalian\Core\States\Skipped;
 use Martingalian\Core\States\Stopped;
 use Martingalian\Core\Transitions\PendingToDispatched;
 
-class StepDispatcher
+final class StepDispatcher
 {
     use DispatchesJobs;
 
@@ -36,7 +39,7 @@ class StepDispatcher
             info('-= TICK STARTED =-'.($group ? " [group={$group}]" : ''));
 
             // Marks as skipped all children steps on a skipped step.
-            if (static::skipAllChildStepsOnParentAndChildSingleStep($group)) {
+            if (self::skipAllChildStepsOnParentAndChildSingleStep($group)) {
                 info_if('-= TICK ENDED (skipAllChildStepsOnParentAndChildSingleStep = true) =-');
 
                 return;
@@ -45,7 +48,7 @@ class StepDispatcher
             $progress = 1;
 
             // Perform cascading cancellation for failed steps and return early if needed
-            if (static::cascadeCancelledSteps($group)) {
+            if (self::cascadeCancelledSteps($group)) {
                 info_if('-= TICK ENDED (cascadeCancelledSteps = true) =-');
 
                 return;
@@ -53,7 +56,7 @@ class StepDispatcher
 
             $progress = 2;
 
-            if (static::promoteResolveExceptionSteps($group)) {
+            if (self::promoteResolveExceptionSteps($group)) {
                 info_if('-= TICK ENDED (promoteResolveExceptionSteps = true) =-');
 
                 return;
@@ -62,7 +65,7 @@ class StepDispatcher
             $progress = 3;
 
             // Check if we need to transition parent steps to Failed first, but only if no cancellations occurred
-            if (static::transitionParentsToFailed($group)) {
+            if (self::transitionParentsToFailed($group)) {
                 info_if('-= TICK ENDED (transitionParentsToFailed = true) =-');
 
                 return;
@@ -70,7 +73,7 @@ class StepDispatcher
 
             $progress = 4;
 
-            if (static::cascadeFailureToChildren($group)) {
+            if (self::cascadeFailureToChildren($group)) {
                 info_if('-= TICK ENDED (cascadeFailureToChildren = true) =-');
 
                 return;
@@ -79,7 +82,7 @@ class StepDispatcher
             $progress = 5;
 
             // Check if we need to transition parent steps to Completed
-            if (static::transitionParentsToComplete($group)) {
+            if (self::transitionParentsToComplete($group)) {
                 info_if('-= TICK ENDED (transitionParentsToComplete = true) =-');
 
                 return;
@@ -111,7 +114,7 @@ class StepDispatcher
                 });
 
             // Dispatch all steps that are ready
-            $dispatchedSteps->each(fn ($step) => (new static)->dispatchSingleStep($step));
+            $dispatchedSteps->each(fn ($step) => (new self)->dispatchSingleStep($step));
 
             info_if('Total steps dispatched: '.$dispatchedSteps->count().($group ? " [group={$group}]" : ''));
             info_if('-= TICK ENDED (full cycle) =-');
@@ -138,7 +141,7 @@ class StepDispatcher
             return false;
         }
 
-        $childBlockUuids = static::collectAllNestedChildBlocks($runningParents, $group);
+        $childBlockUuids = self::collectAllNestedChildBlocks($runningParents, $group);
 
         $childStepsByBlock = Step::whereIn('block_uuid', $childBlockUuids)
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
@@ -172,19 +175,20 @@ class StepDispatcher
             return false;
         }
 
-        $allChildBlocks = static::collectAllNestedChildBlocks($skippedParents, $group);
+        $allChildBlocks = self::collectAllNestedChildBlocks($skippedParents, $group);
 
         if (empty($allChildBlocks)) {
             return true;
         }
 
-        $descendants = Step::whereIn('block_uuid', $allChildBlocks)
+        $descendantIds = Step::whereIn('block_uuid', $allChildBlocks)
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
-            ->get();
+            ->pluck('id')
+            ->all();
 
-        foreach ($descendants as $child) {
-            info_if("[StepDispatcher.skipAllChildStepsOnParentAndChildSingleStep] - Transitioning Step ID {$child->id} from {$child->state->value()} to SKIPPED");
-            $child->state->transitionTo(Skipped::class);
+        if (! empty($descendantIds)) {
+            info_if('[StepDispatcher.skipAllChildStepsOnParentAndChildSingleStep] - Batch transitioning '.count($descendantIds).' steps to SKIPPED');
+            self::batchTransitionSteps($descendantIds, Skipped::class);
         }
 
         return true;
@@ -253,7 +257,14 @@ class StepDispatcher
                 ->where('type', 'default')
                 ->get();
 
+            if ($stepsToCancel->isEmpty()) {
+                continue;
+            }
+
             info_if("[StepDispatcher.cascadeCancelledSteps] Total Steps to cancel: {$stepsToCancel->count()}");
+
+            $stepIdsToCancel = [];
+            $parentSteps = [];
 
             foreach ($stepsToCancel as $step) {
                 // Double guard: never attempt to transition terminal states.
@@ -261,13 +272,22 @@ class StepDispatcher
                     continue;
                 }
 
-                info_if("[StepDispatcher.cascadeCancelledSteps] Cancelling Step ID {$step->id} in block {$blockUuid} due to failure of Step ID {$failedStep->id}");
-                $step->state->transitionTo(Cancelled::class);
+                $stepIdsToCancel[] = $step->id;
+
+                // Track parent steps to cancel their children
+                if ($step->isParent()) {
+                    $parentSteps[] = $step;
+                }
+            }
+
+            if (! empty($stepIdsToCancel)) {
+                info_if('[StepDispatcher.cascadeCancelledSteps] Batch cancelling '.count($stepIdsToCancel)." steps in block {$blockUuid}");
+                self::batchTransitionSteps($stepIdsToCancel, Cancelled::class);
                 $cancellationsOccurred = true;
 
-                // If this is a parent step, cancel all steps in its child block.
-                if ($step->isParent()) {
-                    static::cancelChildBlockSteps($step, $group);
+                // Cancel child blocks
+                foreach ($parentSteps as $parentStep) {
+                    self::cancelChildBlockSteps($parentStep, $group);
                 }
             }
         }
@@ -282,15 +302,15 @@ class StepDispatcher
     {
         $childBlockUuid = $parentStep->child_block_uuid;
 
-        $childSteps = Step::where('block_uuid', $childBlockUuid)
+        $childStepIds = Step::where('block_uuid', $childBlockUuid)
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
-            ->get();
+            ->where('state', Pending::class)
+            ->pluck('id')
+            ->all();
 
-        foreach ($childSteps as $childStep) {
-            if ($childStep->state instanceof Pending) {
-                info_if("[StepDispatcher.cancelChildBlockSteps] Cancelling Step ID {$childStep->id} in child block {$childBlockUuid} due to parent failure.");
-                $childStep->state->transitionTo(Cancelled::class);
-            }
+        if (! empty($childStepIds)) {
+            info_if('[StepDispatcher.cancelChildBlockSteps] Batch cancelling '.count($childStepIds)." steps in child block {$childBlockUuid}");
+            self::batchTransitionSteps($childStepIds, Cancelled::class);
         }
     }
 
@@ -325,16 +345,16 @@ class StepDispatcher
 
         $block = $failingBlocks->first();
 
-        $steps = Step::where('block_uuid', $block)
+        $stepIds = Step::where('block_uuid', $block)
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
             ->where('type', 'resolve-exception')
             ->where('state', NotRunnable::class)
-            ->get();
+            ->pluck('id')
+            ->all();
 
-        info_if("[StepDispatcher.promoteResolveExceptionSteps] Promoting {$steps->count()} resolve-exception steps in block {$block}");
-
-        foreach ($steps as $step) {
-            $step->state->transitionTo(Pending::class);
+        if (! empty($stepIds)) {
+            info_if('[StepDispatcher.promoteResolveExceptionSteps] Batch promoting '.count($stepIds)." resolve-exception steps in block {$block}");
+            self::batchTransitionSteps($stepIds, Pending::class);
         }
 
         return true;
@@ -353,21 +373,18 @@ class StepDispatcher
         foreach ($failedParents as $parent) {
             $childBlock = $parent->child_block_uuid;
 
-            $childSteps = Step::where('block_uuid', $childBlock)
+            $nonTerminalChildIds = Step::where('block_uuid', $childBlock)
                 ->when($group !== null, static fn ($q) => $q->where('group', $group))
-                ->get();
+                ->whereNotIn('state', Step::terminalStepStates())
+                ->pluck('id')
+                ->all();
 
-            $nonTerminalChildren = $childSteps->filter(
-                fn ($step) => ! in_array(get_class($step->state), Step::terminalStepStates())
-            );
-
-            if ($nonTerminalChildren->isEmpty()) {
+            if (empty($nonTerminalChildIds)) {
                 continue;
             }
 
-            foreach ($nonTerminalChildren as $childStep) {
-                $childStep->state->transitionTo(Failed::class);
-            }
+            info_if('[StepDispatcher.cascadeFailureToChildren] Batch failing '.count($nonTerminalChildIds)." children in block {$childBlock}");
+            self::batchTransitionSteps($nonTerminalChildIds, Failed::class);
 
             return true; // end tick after failing one block
         }
@@ -377,29 +394,62 @@ class StepDispatcher
 
     /**
      * Collect all nested child block UUIDs reachable from the given parent steps.
+     * Optimized with recursive CTE query for better performance.
      */
     protected static function collectAllNestedChildBlocks($parents, ?string $group = null): array
     {
-        $all = collect();
-        $queue = $parents->pluck('child_block_uuid')->filter()->unique()->values();
+        $rootBlocks = $parents->pluck('child_block_uuid')->filter()->unique()->values();
 
-        while ($queue->isNotEmpty()) {
-            $next = $queue->shift();
-
-            if ($all->contains($next)) {
-                continue;
-            }
-
-            $all->push($next);
-
-            $children = Step::where('block_uuid', $next)
-                ->when($group !== null, static fn ($q) => $q->where('group', $group))
-                ->whereNotNull('child_block_uuid')
-                ->pluck('child_block_uuid');
-
-            $queue = $queue->merge($children->filter()->unique());
+        if ($rootBlocks->isEmpty()) {
+            return [];
         }
 
-        return $all->unique()->values()->all();
+        $placeholders = implode(',', array_fill(0, $rootBlocks->count(), '?'));
+
+        $sql = "
+            WITH RECURSIVE descendants AS (
+                SELECT child_block_uuid AS block_uuid
+                FROM steps
+                WHERE child_block_uuid IN ({$placeholders})
+                  AND child_block_uuid IS NOT NULL
+                  ".($group !== null ? 'AND `group` = ?' : '').'
+
+                UNION ALL
+
+                SELECT s.child_block_uuid
+                FROM steps s
+                INNER JOIN descendants d ON s.block_uuid = d.block_uuid
+                WHERE s.child_block_uuid IS NOT NULL
+                  '.($group !== null ? 'AND s.`group` = ?' : '').'
+            )
+            SELECT DISTINCT block_uuid FROM descendants
+        ';
+
+        $bindings = $rootBlocks->values()->all();
+        if ($group !== null) {
+            $bindings[] = $group;
+            $bindings[] = $group;
+        }
+
+        $results = DB::select($sql, $bindings);
+
+        return collect($results)->pluck('block_uuid')->unique()->values()->all();
+    }
+
+    /**
+     * Batch transition steps to a new state for performance.
+     */
+    protected static function batchTransitionSteps(array $stepIds, string $toState): void
+    {
+        if (empty($stepIds)) {
+            return;
+        }
+
+        DB::table('steps')
+            ->whereIn('id', $stepIds)
+            ->update([
+                'state' => $toState,
+                'updated_at' => now(),
+            ]);
     }
 }

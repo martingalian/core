@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\BaseQueueableJob;
 
 use Martingalian\Core\Exceptions\ExceptionParser;
@@ -12,176 +14,19 @@ use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
 use Throwable;
 
-/*
+/**
  * Trait HandlesStepExceptions
  *
- * Purpose:
- * - Centralizes exception handling logic for Step-based jobs.
- * - Supports retrying, ignoring, or escalating exceptions.
- * - Applies step status transitions depending on exception outcome.
- *
- * Key behaviors:
- * - Recognizes and handles shortcut exceptions (JustEnd, JustResolve, MaxRetries).
- * - Retries job if allowed by job or handler logic (e.g. throttling cases).
- * - Marks step as completed or failed depending on exception type and result.
- * - Delegates resolution logic to job or external handler if available.
+ * Centralizes exception handling for Step-based jobs.
+ * Supports retrying, ignoring, or resolving exceptions based on
+ * custom job logic or delegated exception handlers.
  */
 trait HandlesStepExceptions
 {
-    protected function handleException(Throwable $e): void
-    {
-        if ($this->handleKnownShortcuts($e)) {
-            return;
-        }
-
-        if ($this->shouldRetryException($e)) {
-            /*
-             * Set future dispatch delay and retry the job
-             * using BaseQueueableJob logic.
-             */
-            $this->step->update([
-                'dispatch_after' => now()->addSeconds($this->jobBackoffSeconds),
-            ]);
-
-            $this->retryJob();
-
-            return;
-        }
-
-        if ($this->shouldIgnoreException($e)) {
-            /*
-             * Exception deemed ignorable,
-             * transition step to completed.
-             */
-            $this->finalizeDuration();
-            $this->step->state->transitionTo(Completed::class);
-            $this->stepStatusUpdated = true;
-
-            return;
-        }
-
-        /**
-         * If we have a relatable relationship, lets try to call the applicationLogs
-         * on the child eloquent model and register the error.
-         */
-        if ($this->step->relatable) {
-            if (method_exists($this->step->relatable, 'logApplicationEvent')) {
-                $this->step->relatable->logApplicationEvent(
-                    "[{$this->step->id}] Step failed. Error message: ".ExceptionParser::with($e)->friendlyMessage(),
-                    self::class,
-                    __FUNCTION__
-                );
-            }
-        }
-
-        // Lets record already on the step the error message / stack trace.
-        if (is_null($this->step->error_message)) {
-            $this->step->updateSaving(['error_message' => ExceptionParser::with($e)->friendlyMessage()]);
-        }
-
-        if (is_null($this->step->error_stack_trace)) {
-            $this->step->updateSaving(['error_stack_trace' => ExceptionParser::with($e)->stackTrace()]);
-        }
-
-        /*
-         * Attempt to resolve the exception using
-         * job or handler logic if provided.
-         */
-
-        $this->resolveExceptionIfPossible($e);
-
-        if (! $this->stepStatusUpdated) {
-            $this->reportAndFail($e);
-        }
-    }
-
-    protected function handleKnownShortcuts(Throwable $e): bool
-    {
-        /*
-         * Handles known shortcut exceptions that should skip
-         * standard retry or failure logic, such as:
-         * - MaxRetriesReachedException
-         * - JustResolveException
-         * - JustEndException
-         */
-        if ($e instanceof MaxRetriesReachedException
-            || $e instanceof JustResolveException
-            || $e instanceof JustEndException
-        ) {
-            $this->resolveExceptionIfPossible($e);
-
-            if (! $this->stepStatusUpdated) {
-                $this->reportAndFail($e);
-            }
-
-            return true;
-        }
-
-        return false;
-    }
-
-    protected function shouldRetryException(\Throwable $e): bool
-    {
-        /*
-         * Determines if the current exception qualifies
-         * for a retry via job or handler logic.
-         */
-        $handlerHasMethod = isset($this->exceptionHandler)
-            && method_exists($this->exceptionHandler, 'retryException');
-
-        return (
-            method_exists($this, 'retryException')
-            && $this->retryException($e)
-        ) || (
-            $handlerHasMethod
-            && $this->exceptionHandler->retryException($e)
-        );
-    }
-
-    protected function shouldIgnoreException(\Throwable $e): bool
-    {
-        /*
-         * Determines if the exception should be ignored
-         * and the step transitioned to completed.
-         */
-        $handlerHasMethod = isset($this->exceptionHandler)
-            && method_exists($this->exceptionHandler, 'ignoreException');
-
-        return (
-            method_exists($this, 'ignoreException')
-            && $this->ignoreException($e)
-        ) || (
-            $handlerHasMethod
-            && $this->exceptionHandler->ignoreException($e)
-        );
-    }
-
-    protected function resolveExceptionIfPossible(Throwable $e): void
-    {
-        /*
-         * Attempts to resolve an exception by calling
-         * resolveException() on job and/or handler.
-         */
-        $handlerHasMethod = isset($this->exceptionHandler)
-            && method_exists($this->exceptionHandler, 'resolveException');
-
-        if (method_exists($this, 'resolveException')) {
-            $this->resolveException($e);
-        }
-
-        if ($handlerHasMethod) {
-            $this->exceptionHandler->resolveException($e);
-        }
-    }
-
-    public function reportAndFail(\Throwable $e)
+    public function reportAndFail(Throwable $e): void
     {
         $parser = ExceptionParser::with($e);
 
-        /**
-         * Lets print the error message in the step (if still empty), and also
-         * add a new line on the application logs on the relatable model (if exists).
-         */
         if (is_null($this->step->error_message)) {
             $this->step->update([
                 'error_message' => $parser->friendlyMessage(),
@@ -199,5 +44,164 @@ trait HandlesStepExceptions
 
         $this->finalizeDuration();
         $this->step->state->transitionTo(Failed::class);
+    }
+    // ========================================================================
+    // MAIN EXCEPTION HANDLER
+    // ========================================================================
+
+    protected function handleException(Throwable $e): void
+    {
+        if ($this->isShortcutException($e)) {
+            $this->handleShortcutException($e);
+
+            return;
+        }
+
+        if ($this->shouldRetryException($e)) {
+            $this->retryJobWithBackoff();
+
+            return;
+        }
+
+        if ($this->shouldIgnoreException($e)) {
+            $this->completeAndIgnoreException();
+
+            return;
+        }
+
+        $this->logExceptionToStep($e);
+        $this->logExceptionToRelatable($e);
+        $this->resolveExceptionIfPossible($e);
+
+        if (! $this->stepStatusUpdated) {
+            $this->reportAndFail($e);
+        }
+    }
+
+    // ========================================================================
+    // EXCEPTION CLASSIFICATION
+    // ========================================================================
+
+    protected function isShortcutException(Throwable $e): bool
+    {
+        return $e instanceof MaxRetriesReachedException
+            || $e instanceof JustResolveException
+            || $e instanceof JustEndException;
+    }
+
+    protected function shouldRetryException(Throwable $e): bool
+    {
+        if (method_exists($this, 'retryException') && $this->retryException($e)) {
+            return true;
+        }
+
+        if (isset($this->exceptionHandler)
+            && method_exists($this->exceptionHandler, 'retryException')
+            && $this->exceptionHandler->retryException($e)
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function shouldIgnoreException(Throwable $e): bool
+    {
+        if (method_exists($this, 'ignoreException') && $this->ignoreException($e)) {
+            return true;
+        }
+
+        if (isset($this->exceptionHandler)
+            && method_exists($this->exceptionHandler, 'ignoreException')
+            && $this->exceptionHandler->ignoreException($e)
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    // ========================================================================
+    // EXCEPTION RESOLUTION
+    // ========================================================================
+
+    protected function handleShortcutException(Throwable $e): void
+    {
+        $this->resolveExceptionIfPossible($e);
+
+        if (! $this->stepStatusUpdated) {
+            $this->reportAndFail($e);
+        }
+    }
+
+    protected function resolveExceptionIfPossible(Throwable $e): void
+    {
+        if (method_exists($this, 'resolveException')) {
+            $this->resolveException($e);
+        }
+
+        if (isset($this->exceptionHandler)
+            && method_exists($this->exceptionHandler, 'resolveException')
+        ) {
+            $this->exceptionHandler->resolveException($e);
+        }
+    }
+
+    // ========================================================================
+    // EXCEPTION ACTIONS
+    // ========================================================================
+
+    protected function retryJobWithBackoff(): void
+    {
+        $this->step->update([
+            'dispatch_after' => now()->addSeconds($this->jobBackoffSeconds),
+        ]);
+
+        $this->retryJob();
+    }
+
+    protected function completeAndIgnoreException(): void
+    {
+        $this->finalizeDuration();
+        $this->step->state->transitionTo(Completed::class);
+        $this->stepStatusUpdated = true;
+    }
+
+    // ========================================================================
+    // EXCEPTION LOGGING
+    // ========================================================================
+
+    protected function logExceptionToStep(Throwable $e): void
+    {
+        $parser = ExceptionParser::with($e);
+
+        if (is_null($this->step->error_message)) {
+            $this->step->updateSaving([
+                'error_message' => $parser->friendlyMessage(),
+            ]);
+        }
+
+        if (is_null($this->step->error_stack_trace)) {
+            $this->step->updateSaving([
+                'error_stack_trace' => $parser->stackTrace(),
+            ]);
+        }
+    }
+
+    protected function logExceptionToRelatable(Throwable $e): void
+    {
+        if (! $this->step->relatable) {
+            return;
+        }
+
+        if (! method_exists($this->step->relatable, 'logApplicationEvent')) {
+            return;
+        }
+
+        $this->step->relatable->logApplicationEvent(
+            "[{$this->step->id}] Step failed. Error: ".ExceptionParser::with($e)->friendlyMessage(),
+            self::class,
+            __FUNCTION__
+        );
     }
 }

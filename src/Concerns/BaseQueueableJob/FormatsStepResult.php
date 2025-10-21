@@ -1,40 +1,46 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\BaseQueueableJob;
 
 use Psr\Http\Message\ResponseInterface;
 
-/*
- * FormatsStepResult
+/**
+ * Trait FormatsStepResult
  *
- * • Provides helper methods to normalize and store API response data.
- * • Offers a default implementation for formatting job results before
- *   saving them in the step record.
- * • Safely extracts and decodes JSON from PSR-7 ResponseInterface bodies.
+ * Provides utilities for formatting and extracting job results
+ * before storage in the Step model.
  */
 trait FormatsStepResult
 {
+    /**
+     * Format the compute() result before saving to step->response.
+     *
+     * Override this method in your job to transform results.
+     * Examples: filtering sensitive data, normalizing structure, etc.
+     */
     protected function formatResultForStorage($result): mixed
     {
-        /*
-         * Override this method in your job if result formatting is required
-         * before saving into the step model.
-         */
         return $result;
     }
 
-    protected function extractBodyFromResponse(ResponseInterface $response)
+    /**
+     * Extract and decode JSON from PSR-7 HTTP response.
+     *
+     * Safely handles seekable streams and falls back to raw string
+     * if JSON decoding fails.
+     */
+    protected function extractBodyFromResponse(ResponseInterface $response): mixed
     {
-        /*
-         * Extracts and decodes JSON content from the response body.
-         * Falls back to raw string if JSON decoding fails.
-         */
         $body = $response->getBody();
 
         if ($body->isSeekable()) {
             $body->rewind();
         }
 
-        return json_decode($body, true) ?? (string) $body;
+        $content = (string) $body;
+
+        return json_decode($content, true) ?? $content;
     }
 }

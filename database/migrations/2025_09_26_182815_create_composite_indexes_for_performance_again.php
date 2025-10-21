@@ -19,19 +19,13 @@ return new class extends Migration
     {
         // ---- ORDERS ----
         Schema::table('orders', function (Blueprint $table) {
-            // Fast lookups by position + status ordered by time (very common when tracking a position lifecycle)
+            // Fast lookups by position + status ordered by time
             $table->index(
                 ['position_id', 'status', 'created_at'],
                 'idx_orders_pos_status_created'
             );
 
-            // Fast recent orders per symbol + status
-            $table->index(
-                ['position_id', 'status', 'created_at'],
-                'idx_orders_symbol_status_created'
-            );
-
-            // Cheap “latest orders” when no other predicate is present
+            // Latest orders chronologically
             $table->index(['created_at'], 'idx_orders_created_at');
         });
 

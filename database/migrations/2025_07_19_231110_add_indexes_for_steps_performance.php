@@ -13,15 +13,16 @@ return new class extends Migration
                 $table->string('tick_id')->nullable()->after('id');
             }
 
-            $table->index(['block_uuid', 'type'], 'idx_steps_block_uuid_type');
-            $table->index(['state', 'child_block_uuid'], 'idx_steps_state_child_block');
-            $table->index('block_uuid', 'idx_steps_block_uuid');
+            // Removed redundant indexes (already in main schema or other migrations):
+            // - ['block_uuid', 'type'] -> already in main schema
+            // - 'block_uuid' -> already in main schema
+            // - ['state', 'child_block_uuid'] -> superseded by idx_steps_parent_lookup
+
             $table->index('tick_id', 'idx_steps_tick_id');
         });
 
-        Schema::table('base_asset_mappers', function (Blueprint $table) {
-            $table->index(['api_system_id', 'symbol_token'], 'idx_bam_system_token');
-        });
+        // Removed redundant index (already in 2025_07_23_193242)
+        // Schema::table('base_asset_mappers'...
 
         Schema::table('exchange_symbols', function (Blueprint $table) {
             if (Schema::hasColumn('exchange_symbols', 'symbol_token')) {

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Abstracts;
 
 use Illuminate\Support\Str;
@@ -9,6 +11,7 @@ use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepLifecycle;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\Running;
+use NonNotifiableException;
 use Throwable;
 
 /*
@@ -37,90 +40,37 @@ abstract class BaseQueueableJob extends BaseJob
 
     public ?BaseExceptionHandler $exceptionHandler;
 
-    public function handle()
+    // Must be implemented by subclasses to define the compute logic.
+    abstract protected function compute();
+
+    final public function handle(): void
     {
         try {
-            $this->step->state->transitionTo(Running::class);
+            $this->prepareJobExecution();
 
-            $this->startDuration();
-
-            $this->attachRelatable();
-
-            $this->checkMaxRetries();
-
-            /**
-             * Are we in confirmation mode? The confirmation mode uses the
-             * retries to retry the job again.
-             */
-            if ($this->shouldRunConfirmingCompletionMode()) {
-                $this->confirmCompletionOrRetry();
+            if ($this->isInConfirmationMode()) {
+                $this->handleConfirmationMode();
 
                 return;
             }
 
-            if (! $this->shouldStartOrStop()) {
-                $this->stopJob();
-
+            if ($this->shouldExitEarly()) {
                 return;
             }
 
-            if (! $this->shouldStartOrFail()) {
-                throw new \NonNotifiableException("startOrFail() returned false for Step ID {$this->step->id}");
-            }
+            $this->executeJobLogic();
 
-            if (! $this->shouldStartOrSkip()) {
-                $this->skipJob();
-
+            if ($this->needsVerification()) {
                 return;
             }
 
-            if (! $this->shouldStartOrRetry()) {
-                $this->retryJob();
-
-                return;
-            }
-
-            // Never computed before double check or there is no double check?
-            if ($this->step->double_check == 0) {
-                $this->computeAndStoreResult();
-            }
-
-            if ($this->shouldDoubleCheck()) {
-                // Job will enter confirming mode in the next run.
-                return;
-            }
-
-            if (! $this->shouldConfirmOrRetry()) {
-                /*
-                 * If confirmation failed, reschedule for re-confirmation.
-                 */
-                $this->retryForConfirmation();
-
-                return;
-            }
-
-            /**
-             * Last job method that will run($this->complete()) in case
-             * all the other methods were successfully. It's the last
-             * method and doesn't return antyhing.
-             */
-            if ($this->shouldComplete()) {
-                $this->complete();
-            }
-
-            /*
-             * Final step completion if all previous phases are satisfied.
-             */
-            $this->completeIfNotHandled();
+            $this->finalizeJobExecution();
         } catch (Throwable $e) {
-            /*
-             * Capture and log any unexpected exception.
-             */
             $this->handleException($e);
         }
     }
 
-    public function failed(Throwable $e): void
+    final public function failed(Throwable $e): void
     {
         /*
          * Last-resort handler if the Laravel queue system catches an unhandled error.
@@ -129,31 +79,96 @@ abstract class BaseQueueableJob extends BaseJob
         $this->step->state->transitionTo(Failed::class);
     }
 
-    public function startDuration()
+    final public function startDuration(): void
     {
-        // Record microtime for calculation
         $this->startMicrotime = microtime(true);
     }
 
-    public function finalizeDuration()
+    final public function finalizeDuration(): void
     {
-        // Calculate duration in milliseconds
-        $duration = abs(intval((microtime(true) - $this->startMicrotime) * 1000));
+        $durationMs = abs((int) ((microtime(true) - $this->startMicrotime) * 1000));
 
-        // Update the database with the calculated duration
-        $this->step->update(['duration' => $duration]);
+        $this->step->update(['duration' => $durationMs]);
     }
 
-    /**
-     * Helper method that will generate a new uuid, or, in case this step
-     * has a child_block_uuid, then it will use that one (to generate a
-     * children lifecycle).
-     */
-    public function uuid()
+    final public function uuid(): string
     {
         return $this->step->child_block_uuid ?? Str::uuid()->toString();
     }
 
-    // Must be implemented by subclasses to define the compute logic.
-    abstract protected function compute();
+    protected function prepareJobExecution(): void
+    {
+        $this->step->state->transitionTo(Running::class);
+        $this->startDuration();
+        $this->attachRelatable();
+        $this->checkMaxRetries();
+    }
+
+    protected function isInConfirmationMode(): bool
+    {
+        return $this->shouldRunConfirmingCompletionMode();
+    }
+
+    protected function handleConfirmationMode(): void
+    {
+        $this->confirmCompletionOrRetry();
+    }
+
+    protected function shouldExitEarly(): bool
+    {
+        if (! $this->shouldStartOrStop()) {
+            $this->stopJob();
+
+            return true;
+        }
+
+        if (! $this->shouldStartOrFail()) {
+            throw new NonNotifiableException("startOrFail() returned false for Step ID {$this->step->id}");
+        }
+
+        if (! $this->shouldStartOrSkip()) {
+            $this->skipJob();
+
+            return true;
+        }
+
+        if (! $this->shouldStartOrRetry()) {
+            $this->retryJob();
+
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function executeJobLogic(): void
+    {
+        if ($this->step->double_check === 0) {
+            $this->computeAndStoreResult();
+        }
+    }
+
+    protected function needsVerification(): bool
+    {
+        if ($this->shouldDoubleCheck()) {
+            return true;
+        }
+
+        if (! $this->shouldConfirmOrRetry()) {
+            $this->retryForConfirmation();
+
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function finalizeJobExecution(): void
+    {
+        if ($this->shouldComplete()) {
+            $this->complete();
+        }
+
+        $this->completeIfNotHandled();
+    }
 }
