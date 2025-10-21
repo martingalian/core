@@ -1,11 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support;
 
+use InvalidArgumentException;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\LeverageBracket;
+use Martingalian\Core\Models\Martingalian as MartingalianModel;
 use Martingalian\Core\Models\Position;
+use RuntimeException;
 
 /**
  * Martingalian — Unbounded ladder model (production)
@@ -17,7 +22,7 @@ use Martingalian\Core\Models\Position;
  * - Rungs that round to zero quantity after formatting are dropped.
  * - Rung prices are clamped to symbol min/max and warnings are recorded.
  */
-class Martingalian
+final class Martingalian
 {
     /**
      * Global decimal scale used across money/size math.
@@ -53,9 +58,9 @@ class Martingalian
         ?ExchangeSymbol $exchangeSymbol = null
     ): array {
         $scale = self::SCALE;
-        $dir = strtoupper(trim($direction));
+        $dir = mb_strtoupper(mb_trim($direction));
         if (! in_array($dir, ['LONG', 'SHORT'], true)) {
-            throw new \InvalidArgumentException('Direction must be LONG or SHORT.');
+            throw new InvalidArgumentException('Direction must be LONG or SHORT.');
         }
 
         $Q0 = (string) $originalQuantity;
@@ -91,11 +96,30 @@ class Martingalian
      | ----------------------------------------------------------------- */
 
     /**
+     * Global guard for opening positions.
+     * Checks the allow_opening_positions flag from the martingalian singleton.
+     */
+    public static function canOpenPositions(): bool
+    {
+        $martingalian = MartingalianModel::first();
+
+        if ($martingalian === null) {
+            return false;
+        }
+
+        return $martingalian->allow_opening_positions;
+    }
+
+    /**
      * Directional guard for opening more SHORT positions.
      * Policy: if any OPEN SHORT already has all its limit orders filled, block new SHORTs.
      */
     public static function canOpenShorts(Account $account): bool
     {
+        if (! self::canOpenPositions()) {
+            return false;
+        }
+
         $openShorts = $account->positions()
             ->opened()
             ->onlyShorts()
@@ -116,6 +140,10 @@ class Martingalian
      */
     public static function canOpenLongs(Account $account): bool
     {
+        if (! self::canOpenPositions()) {
+            return false;
+        }
+
         $openLongs = $account->positions()
             ->opened()
             ->onlyLongs()
@@ -170,11 +198,11 @@ class Martingalian
 
         $margin = (string) $marketMargin;
         if (! is_numeric($margin) || Math::lte($margin, '0', $scale)) {
-            throw new \InvalidArgumentException("Market margin must be numeric and > 0 (got: {$marketMargin}).");
+            throw new InvalidArgumentException("Market margin must be numeric and > 0 (got: {$marketMargin}).");
         }
 
         if (! is_numeric((string) $leverage) || Math::lt((string) $leverage, '1', 0)) {
-            throw new \InvalidArgumentException("Leverage must be >= 1 (got: {$leverage}).");
+            throw new InvalidArgumentException("Leverage must be >= 1 (got: {$leverage}).");
         }
         $L = (int) $leverage;
 
@@ -190,19 +218,19 @@ class Martingalian
         } elseif (isset($exchangeSymbol->last_price) && is_numeric((string) $exchangeSymbol->last_price) && Math::gt((string) $exchangeSymbol->last_price, '0', $scale)) {
             $basisRaw = (string) $exchangeSymbol->last_price;
         } else {
-            throw new \RuntimeException('No valid basis price available for market sizing (reference/mark/last are missing or <= 0).');
+            throw new RuntimeException('No valid basis price available for market sizing (reference/mark/last are missing or <= 0).');
         }
 
         // Qty = notional / basis
         $qtyRaw = Math::div($marketNotional, $basisRaw, $scale);
         if ($qtyRaw === null) {
-            throw new \RuntimeException("Division failed computing market qty (notional={$marketNotional}, basis={$basisRaw}).");
+            throw new RuntimeException("Division failed computing market qty (notional={$marketNotional}, basis={$basisRaw}).");
         }
 
         // Apply symbol precision AFTER numeric sizing
         $qtyFormatted = api_format_quantity($qtyRaw, $exchangeSymbol);
         if (Math::lte($qtyFormatted, '0', $scale)) {
-            throw new \RuntimeException('Formatted market quantity rounded to zero at current lot size. Increase margin or leverage.');
+            throw new RuntimeException('Formatted market quantity rounded to zero at current lot size. Increase margin or leverage.');
         }
 
         $amountFormatted = api_format_price($marketNotional, $exchangeSymbol);
@@ -253,9 +281,9 @@ class Martingalian
     ): array {
         $scale = self::SCALE;
 
-        $direction = strtoupper((string) $direction);
+        $direction = mb_strtoupper((string) $direction);
         if (! in_array($direction, ['LONG', 'SHORT'], true)) {
-            throw new \InvalidArgumentException('Invalid position direction. Must be LONG or SHORT.');
+            throw new InvalidArgumentException('Invalid position direction. Must be LONG or SHORT.');
         }
 
         $N = (int) $totalLimitOrders;
@@ -265,19 +293,19 @@ class Martingalian
 
         $ref = (string) $referencePrice;
         if (! is_numeric($ref) || Math::lte($ref, '0', $scale)) {
-            throw new \InvalidArgumentException("referencePrice must be > 0 (got: {$referencePrice}).");
+            throw new InvalidArgumentException("referencePrice must be > 0 (got: {$referencePrice}).");
         }
 
         $marketQ = (string) $marketOrderQty;
         if (! is_numeric($marketQ) || Math::lt($marketQ, '0', $scale)) {
-            throw new \InvalidArgumentException("marketOrderQty must be >= 0 (got: {$marketOrderQty}).");
+            throw new InvalidArgumentException("marketOrderQty must be >= 0 (got: {$marketOrderQty}).");
         }
 
         // Gap% resolution: parameter override takes precedence; else fallback by side.
         $effectiveGapPercent = null;
         if ($gapPercent !== null) {
             if (! is_numeric((string) $gapPercent) || (float) $gapPercent < 0) {
-                throw new \RuntimeException('gapPercent override must be a non-negative number when provided.');
+                throw new RuntimeException('gapPercent override must be a non-negative number when provided.');
             }
             $effectiveGapPercent = (string) $gapPercent; // e.g. "8.5" meaning 8.5%
         } else {
@@ -286,7 +314,7 @@ class Martingalian
             : $exchangeSymbol->percentage_gap_short;
 
             if (! is_numeric((string) $sideGap) || (float) $sideGap < 0) {
-                throw new \RuntimeException('percentage_gap_(long|short) must be a non-negative number on the symbol.');
+                throw new RuntimeException('percentage_gap_(long|short) must be a non-negative number on the symbol.');
             }
             $effectiveGapPercent = (string) $sideGap;
         }
@@ -299,7 +327,7 @@ class Martingalian
         ?? ($exchangeSymbol->limit_quantity_multipliers ?? [2, 2, 2, 2]);
 
         if (! is_array($mArray) || empty($mArray)) {
-            throw new \RuntimeException('limit_quantity_multipliers must be a non-empty array.');
+            throw new RuntimeException('limit_quantity_multipliers must be a non-empty array.');
         }
 
         $warnings = [];
@@ -350,7 +378,7 @@ class Martingalian
         for ($i = 0; $i < $N; $i++) {
             $mi = self::returnLadderedValue($mArray, $i); // clamps to last available ratio
             if (! is_numeric($mi) || (float) $mi <= 0) {
-                throw new \RuntimeException('limit_quantity_multipliers must contain positive numeric values');
+                throw new RuntimeException('limit_quantity_multipliers must contain positive numeric values');
             }
             $usedMultipliers[] = (string) $mi;
 
@@ -424,28 +452,28 @@ class Martingalian
     ): array {
         $scale = self::SCALE;
 
-        $direction = strtoupper(trim($direction));
+        $direction = mb_strtoupper(mb_trim($direction));
         if (! in_array($direction, ['LONG', 'SHORT'], true)) {
-            throw new \InvalidArgumentException('Direction must be LONG or SHORT.');
+            throw new InvalidArgumentException('Direction must be LONG or SHORT.');
         }
 
         $ref = (string) $referencePrice;
         if (! is_numeric($ref) || Math::lte($ref, '0', $scale)) {
-            throw new \InvalidArgumentException("referencePrice must be > 0 (got: {$referencePrice}).");
+            throw new InvalidArgumentException("referencePrice must be > 0 (got: {$referencePrice}).");
         }
 
         $M0 = (string) $marketMargin;
         if (! is_numeric($M0) || Math::lte($M0, '0', $scale)) {
-            throw new \InvalidArgumentException("marketMargin must be > 0 (got: {$marketMargin}).");
+            throw new InvalidArgumentException("marketMargin must be > 0 (got: {$marketMargin}).");
         }
 
         if ($leverageCap < 1) {
-            throw new \InvalidArgumentException('leverageCap must be >= 1.');
+            throw new InvalidArgumentException('leverageCap must be >= 1.');
         }
 
         $N = (int) $totalLimitOrders;
         if ($N < 1) {
-            throw new \InvalidArgumentException('totalLimitOrders must be >= 1.');
+            throw new InvalidArgumentException('totalLimitOrders must be >= 1.');
         }
 
         // Step ratios precedence
@@ -453,7 +481,7 @@ class Martingalian
             ?? ($exchangeSymbol->limit_quantity_multipliers ?? [2, 2, 2, 2]);
 
         if (! is_array($ratios) || empty($ratios)) {
-            throw new \RuntimeException('limit_quantity_multipliers must be a non-empty array.');
+            throw new RuntimeException('limit_quantity_multipliers must be a non-empty array.');
         }
 
         /* -------------------------------
@@ -512,7 +540,7 @@ class Martingalian
         for ($i = 0; $i < $N; $i++) {
             $mi = self::returnLadderedValue($ratios, $i);
             if (! is_numeric($mi) || (float) $mi <= 0) {
-                throw new \RuntimeException('limit_quantity_multipliers must contain positive numeric values');
+                throw new RuntimeException('limit_quantity_multipliers must contain positive numeric values');
             }
             $activeRatios[] = (string) $mi;
             $prev = Math::mul($prev, (string) $mi, $scale);
@@ -664,19 +692,19 @@ class Martingalian
     ): array {
         $scale = self::SCALE;
 
-        $direction = strtoupper(trim($direction));
+        $direction = mb_strtoupper(mb_trim($direction));
         if (! in_array($direction, ['LONG', 'SHORT'], true)) {
-            throw new \InvalidArgumentException('Direction must be LONG or SHORT.');
+            throw new InvalidArgumentException('Direction must be LONG or SHORT.');
         }
 
         $ref = (string) $referencePrice;
         if (! is_numeric($ref) || Math::lte($ref, '0', $scale)) {
-            throw new \InvalidArgumentException("Reference price must be > 0 (got: {$referencePrice}).");
+            throw new InvalidArgumentException("Reference price must be > 0 (got: {$referencePrice}).");
         }
 
         $qty = (string) $currentQty;
         if (! is_numeric($qty) || Math::lt($qty, '0', $scale)) {
-            throw new \InvalidArgumentException("Quantity must be >= 0 (got: {$currentQty}).");
+            throw new InvalidArgumentException("Quantity must be >= 0 (got: {$currentQty}).");
         }
 
         // Percent → decimal (>= 0)
@@ -705,7 +733,7 @@ class Martingalian
         }
 
         if (Math::lte($rawPrice, '0', $scale)) {
-            throw new \RuntimeException("Computed profit price <= 0 (ref={$ref}, pct={$profitPercent}).");
+            throw new RuntimeException("Computed profit price <= 0 (ref={$ref}, pct={$profitPercent}).");
         }
 
         // Clamp to symbol bounds
@@ -749,19 +777,19 @@ class Martingalian
     ): array {
         $scale = self::SCALE;
 
-        $direction = strtoupper(trim($direction));
+        $direction = mb_strtoupper(mb_trim($direction));
         if (! in_array($direction, ['LONG', 'SHORT'], true)) {
-            throw new \InvalidArgumentException('Direction must be LONG or SHORT.');
+            throw new InvalidArgumentException('Direction must be LONG or SHORT.');
         }
 
         $anchor = (string) $anchorPrice;
         if (! is_numeric($anchor) || Math::lte($anchor, '0', $scale)) {
-            throw new \InvalidArgumentException("Anchor price must be > 0 (got: {$anchorPrice}).");
+            throw new InvalidArgumentException("Anchor price must be > 0 (got: {$anchorPrice}).");
         }
 
         $qty = (string) $currentQty;
         if (! is_numeric($qty) || Math::lt($qty, '0', $scale)) {
-            throw new \InvalidArgumentException("Quantity must be >= 0 (got: {$currentQty}).");
+            throw new InvalidArgumentException("Quantity must be >= 0 (got: {$currentQty}).");
         }
 
         // Percent → decimal (>= 0)
@@ -787,7 +815,7 @@ class Martingalian
         }
 
         if (Math::lte($rawPrice, '0', $scale)) {
-            throw new \RuntimeException("Computed stop price <= 0 (anchor={$anchor}, pct={$stopPercent}).");
+            throw new RuntimeException("Computed stop price <= 0 (anchor={$anchor}, pct={$stopPercent}).");
         }
 
         $price = api_format_price($rawPrice, $exchangeSymbol);
@@ -824,9 +852,9 @@ class Martingalian
     {
         $scale = self::SCALE;
 
-        $direction = strtoupper(trim($direction));
+        $direction = mb_strtoupper(mb_trim($direction));
         if (! in_array($direction, ['LONG', 'SHORT'], true)) {
-            throw new \InvalidArgumentException('Direction must be LONG or SHORT.');
+            throw new InvalidArgumentException('Direction must be LONG or SHORT.');
         }
 
         $useProfit = $profitPercent !== null && $profitPercent !== '';
@@ -844,7 +872,7 @@ class Martingalian
             $qty = isset($row['quantity']) ? (string) $row['quantity'] : null;
 
             if ($price === null || $qty === null || ! is_numeric($price) || ! is_numeric($qty)) {
-                throw new \InvalidArgumentException('Each row must have numeric "price" and "quantity".');
+                throw new InvalidArgumentException('Each row must have numeric "price" and "quantity".');
             }
 
             $cumQty = Math::add($cumQty, $qty, $scale);
@@ -986,7 +1014,7 @@ class Martingalian
     private static function returnLadderedValue(array $values, int $index)
     {
         if (empty($values)) {
-            throw new \InvalidArgumentException('Multipliers array must not be empty.');
+            throw new InvalidArgumentException('Multipliers array must not be empty.');
         }
 
         $i = $index < 0 ? 0 : $index;
@@ -1001,11 +1029,11 @@ class Martingalian
     private static function pctToDecimal(string $pct, string $label): string
     {
         if (! is_numeric($pct)) {
-            throw new \InvalidArgumentException("{$label} must be numeric.");
+            throw new InvalidArgumentException("{$label} must be numeric.");
         }
         $p = Math::div($pct, '100', self::SCALE);
         if (Math::lt($p, '0', self::SCALE)) {
-            throw new \InvalidArgumentException("{$label} must be >= 0.");
+            throw new InvalidArgumentException("{$label} must be >= 0.");
         }
 
         return $p;

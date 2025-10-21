@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;
@@ -7,7 +9,7 @@ use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
 use Martingalian\Core\Concerns\Martingalian\HasAccessors;
 
-class Martingalian extends BaseModel
+final class Martingalian extends BaseModel
 {
     use HasAccessors;
     use HasDebuggable;
@@ -17,6 +19,7 @@ class Martingalian extends BaseModel
 
     protected $casts = [
         'should_kill_order_events' => 'boolean',
+        'allow_opening_positions' => 'boolean',
 
         'binance_api_key' => 'encrypted',
         'binance_api_secret' => 'encrypted',
