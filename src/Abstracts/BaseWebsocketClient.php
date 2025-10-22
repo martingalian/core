@@ -37,6 +37,8 @@ abstract class BaseWebsocketClient
 
     protected int $maxReconnectAttempts = 5;
 
+    protected string $exchangeName = 'Exchange';
+
     public function __construct(array $args = [])
     {
         // Initialize core connection data and event loop.
@@ -53,7 +55,7 @@ abstract class BaseWebsocketClient
         } else {
             User::notifyAdminsViaPushover(
                 message: 'Ping attempted but WebSocket is not connected.',
-                title: 'Binance WebSocket Warning',
+                title: "{$this->exchangeName} WebSocket Warning",
                 applicationKey: 'nidavellir_errors'
             );
         }
@@ -117,7 +119,7 @@ abstract class BaseWebsocketClient
                  */
                 User::notifyAdminsViaPushover(
                     message: "Could not connect to {$url}: {$e->getMessage()}",
-                    title: 'Binance WebSocket Error',
+                    title: "{$this->exchangeName} WebSocket Error",
                     applicationKey: 'nidavellir_errors'
                 );
 
@@ -138,7 +140,7 @@ abstract class BaseWebsocketClient
         return ($this->wsConnector)($url);
     }
 
-    private function reconnect(string $url, array $callback): void
+    protected function reconnect(string $url, array $callback): void
     {
         /*
          * Reconnect logic with exponential backoff (2^attempt).
@@ -147,7 +149,7 @@ abstract class BaseWebsocketClient
         if ($this->reconnectAttempt >= $this->maxReconnectAttempts) {
             User::notifyAdminsViaPushover(
                 message: "Max reconnect attempts reached for WebSocket: {$url}",
-                title: 'Binance WebSocket Failure',
+                title: "{$this->exchangeName} WebSocket Failure",
                 applicationKey: 'nidavellir_errors'
             );
 
@@ -163,7 +165,7 @@ abstract class BaseWebsocketClient
         if ($this->reconnectAttempt > 0) {
             User::notifyAdminsViaPushover(
                 message: "WebSocket reconnecting to {$url} in {$delay} seconds (attempt {$this->reconnectAttempt})...",
-                title: 'Binance WebSocket Reconnect',
+                title: "{$this->exchangeName} WebSocket Reconnect",
                 applicationKey: 'nidavellir_errors'
             );
         }

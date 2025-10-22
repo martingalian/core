@@ -66,7 +66,7 @@ trait MapsExchangeInformationQuery
                     // Status and contract information
                     'status' => $symbolData['status'] ?? null,
                     'contractType' => $symbolData['contractType'] ?? null,
-                    'deliveryDate' => 0, // Bybit linear perpetuals don't have delivery dates
+                    'deliveryDate' => isset($symbolData['deliveryTime']) ? (int) $symbolData['deliveryTime'] : 0,
                     'onboardDate' => isset($symbolData['launchTime']) ? (int) $symbolData['launchTime'] : 0,
                     'baseAsset' => $symbolData['baseCoin'] ?? null,
                     'quoteAsset' => $symbolData['quoteCoin'] ?? null,

@@ -137,29 +137,14 @@ final class SyncMarketDataJob extends BaseApiableJob
             }
 
             if ($currentMs !== null && $incomingMs > 0 && $incomingMs !== $currentMs) {
-                // Case 2.2 — Delivery changed: trigger “delisting” workflow.
+                // Case 2.2 — Delivery changed: trigger "delisting" workflow.
                 $exchangeSymbol->forceFill([
                     'delivery_ts_ms' => $incomingMs,
                     'delivery_at' => Carbon::createFromTimestampMs($incomingMs)->utc(),
                     'is_tradeable' => 0, // immediately stop trading this pair
                 ])->save();
 
-                // Prepare human-friendly UTC date (same formatting used elsewhere in your project).
-                $when = Carbon::createFromTimestampMs($incomingMs)->utc()->format('j M Y H:i');
-
-                // Use parsed_trading_pair accessor for display (e.g., BTC/USDT).
-                $pairLabel = method_exists($exchangeSymbol, 'getParsedTradingPairAttribute')
-                    ? $exchangeSymbol->parsed_trading_pair
-                    : ($tokenData['pair'] ?? 'N/A');
-
-                // Notify admins about the delisting schedule update.
-                $msg = sprintf(
-                    'Delisting schedule updated: %s set to %s UTC. Trading disabled for this symbol.',
-                    $pairLabel,
-                    $when
-                );
-                $title = '['.class_basename(self::class).'] Futures delisting detected';
-                User::notifyAdminsViaPushover($msg, $title, 'nidavellir_warnings');
+                // Note: Admin notification is handled by ExchangeSymbolObserver when delivery_ts_ms changes
 
                 // Apply directional policy:
                 // LONG → schedule ClosePositionJob immediately

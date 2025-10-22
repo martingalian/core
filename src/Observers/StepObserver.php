@@ -28,6 +28,18 @@ final class StepObserver
         if ($step->index === 0) {
             $step->index = 1;
         }
+
+        // Intelligent group inheritance: if no group is set, inherit from parent/sibling Steps
+        if (empty($step->group) && ! empty($step->block_uuid)) {
+            $parentStep = Step::query()
+                ->where('block_uuid', $step->block_uuid)
+                ->whereNotNull('group')
+                ->first();
+
+            if ($parentStep) {
+                $step->group = $parentStep->group;
+            }
+        }
     }
 
     public function created(Step $step): void

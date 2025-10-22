@@ -15,8 +15,8 @@ use Throwable;
 /**
  * CheckPriceSpikeAndCooldownJob
  *
- * Batch mode: processes all ExchangeSymbols and applies cooldown when an upside
- * price spike is detected against the latest 1D candle close.
+ * Batch mode: processes ExchangeSymbols for a specific API system and applies cooldown
+ * when an upside price spike is detected against the latest 1D candle close.
  *
  * Rules:
  * - Threshold: per symbol, ExchangeSymbol::disable_on_price_spike_percentage (percent).
@@ -28,11 +28,19 @@ use Throwable;
  * - No user notifications on success. On exceptions, notify admins.
  *
  * Implementation notes:
+ * - Scoped to a specific API system (exchange) for parallel processing.
  * - Uses chunkById to avoid loading the entire table into memory.
  * - ASCII-only punctuation in messages.
  */
 final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
 {
+    protected ?int $apiSystemId;
+
+    public function __construct(?int $apiSystemId = null)
+    {
+        $this->apiSystemId = $apiSystemId;
+    }
+
     public function relatable()
     {
         return null;
@@ -46,46 +54,53 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
             'skipped' => 0,
             'errors' => 0,
             'details' => [],
+            'api_system_id' => $this->apiSystemId,
         ];
 
-        ExchangeSymbol::query()
-            ->chunkById(500, function ($symbols) use (&$summary) {
-                foreach ($symbols as $ex) {
-                    try {
-                        $result = $this->processSymbol($ex);
+        $query = ExchangeSymbol::query();
 
-                        if ($result['status'] === 'cooled') {
-                            $summary['cooled']++;
-                            $summary['details'][] = [
-                                'symbol_id' => $ex->id,
-                                'pair' => (string) $ex->parsed_trading_pair,
-                                'spike_pct' => $result['spike_pct'],
-                                'cooldown_h' => $result['cooldown_h'],
-                                'cooled_until' => $result['cooled_until'],
-                            ];
-                        } else {
-                            $summary['skipped']++;
-                        }
+        // Scope to specific API system if provided
+        if ($this->apiSystemId !== null) {
+            $query->where('api_system_id', $this->apiSystemId);
+        }
 
-                        $summary['processed']++;
-                    } catch (Throwable $e) {
-                        $summary['errors']++;
+        $query->chunkById(500, function ($symbols) use (&$summary) {
+            foreach ($symbols as $ex) {
+                try {
+                    $result = $this->processSymbol($ex);
 
-                        // Per your requirement, notify admins on exceptions:
-                        User::notifyAdminsViaPushover(
-                            "[{$ex->id}] - ExchangeSymbol price spike check error - ".ExceptionParser::with($e)->friendlyMessage(),
-                            '[Batch: '.class_basename(static::class)."] Symbol {$ex->id} error",
-                            'nidavellir_errors'
-                        );
-
+                    if ($result['status'] === 'cooled') {
+                        $summary['cooled']++;
                         $summary['details'][] = [
                             'symbol_id' => $ex->id,
                             'pair' => (string) $ex->parsed_trading_pair,
-                            'error' => $e->getMessage(),
+                            'spike_pct' => $result['spike_pct'],
+                            'cooldown_h' => $result['cooldown_h'],
+                            'cooled_until' => $result['cooled_until'],
                         ];
+                    } else {
+                        $summary['skipped']++;
                     }
+
+                    $summary['processed']++;
+                } catch (Throwable $e) {
+                    $summary['errors']++;
+
+                    // Per your requirement, notify admins on exceptions:
+                    User::notifyAdminsViaPushover(
+                        "[{$ex->id}] - ExchangeSymbol price spike check error - ".ExceptionParser::with($e)->friendlyMessage(),
+                        '[Batch: '.class_basename(static::class)."] Symbol {$ex->id} error",
+                        'nidavellir_errors'
+                    );
+
+                    $summary['details'][] = [
+                        'symbol_id' => $ex->id,
+                        'pair' => (string) $ex->parsed_trading_pair,
+                        'error' => $e->getMessage(),
+                    ];
                 }
-            }, 'id');
+            }
+        }, 'id');
 
         return $summary;
     }
@@ -120,10 +135,17 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
         $latest1d = Candle::query()
             ->where('exchange_symbol_id', $ex->id)
             ->where('timeframe', '1d')
-            ->orderByDesc('timestamp') // assumes monotonically increasing
+            ->latest('timestamp')
             ->first();
 
         if (! $latest1d || $latest1d->close === null || $latest1d->close === '') {
+            return ['status' => 'skipped'];
+        }
+
+        // 2a) Check if candle is fresh (within last 48 hours to avoid stale data).
+        $candleAge = now()->diffInHours($latest1d->candle_time);
+        if ($candleAge > 48) {
+            // Candle too old, skip spike detection to avoid false positives
             return ['status' => 'skipped'];
         }
 

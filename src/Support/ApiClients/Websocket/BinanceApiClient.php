@@ -21,6 +21,8 @@ final class BinanceApiClient extends BaseWebsocketClient
 
         parent::__construct($args);
 
+        $this->exchangeName = 'Binance';
+
         // Reset message count every second to adhere to rate limit
         $this->loop->addPeriodicTimer($this->rateLimitInterval, function () {
             $this->messageCount = 0;

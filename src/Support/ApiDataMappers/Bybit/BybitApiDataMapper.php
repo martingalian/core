@@ -9,10 +9,12 @@ use Martingalian\Core\Abstracts\BaseDataMapper;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsExchangeInformationQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsLeverageBracketsQuery;
 
 final class BybitApiDataMapper extends BaseDataMapper
 {
     use MapsExchangeInformationQuery;
+    use MapsLeverageBracketsQuery;
 
     /**
      * Returns the well formed base symbol with the quote on it.

@@ -28,6 +28,18 @@ final class BybitApi
         ]);
     }
 
+    // https://bybit-exchange.github.io/docs/v5/market/risk-limit
+    public function getLeverageBrackets(ApiProperties $properties)
+    {
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/v5/market/risk-limit',
+            $properties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
     // https://bybit-exchange.github.io/docs/v5/market/instrument
     public function getExchangeInformation(ApiProperties $properties)
     {

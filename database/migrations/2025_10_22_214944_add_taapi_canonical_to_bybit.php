@@ -3,9 +3,8 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
-use Martingalian\Core\Database\Seeders\SchemaSeeder19;
+use Martingalian\Core\Database\Seeders\SchemaSeeder20;
 use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Models\BaseAssetMapper;
 
 return new class extends Migration
 {
@@ -14,8 +13,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Seed initial Bybit base asset mappers
-        (new SchemaSeeder19)->run();
+        // Set taapi_canonical for Bybit API system
+        (new SchemaSeeder20)->run();
     }
 
     /**
@@ -29,6 +28,8 @@ return new class extends Migration
             return;
         }
 
-        BaseAssetMapper::where('api_system_id', $bybitApiSystem->id)->delete();
+        $bybitApiSystem->update([
+            'taapi_canonical' => null,
+        ]);
     }
 };

@@ -33,8 +33,6 @@ final class DispatchStepsCommand extends Command
         // Clean laravel.log at the very start of each run
         // $this->clearLaravelLog();
 
-        info("*");
-
         try {
             $opt = $this->option('group');
 

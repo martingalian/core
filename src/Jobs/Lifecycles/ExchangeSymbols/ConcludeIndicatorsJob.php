@@ -14,20 +14,36 @@ use Martingalian\Core\Models\User;
 use Throwable;
 
 /**
- * Iterates each exchange symbol on the database, and triggers the
+ * Iterates each exchange symbol for a specific API system, and triggers the
  * assess indicator conclusion jobs. This will trigger other child
  * jobs, to conclude the indicator direction for each exchange
  * symbol.
+ *
+ * Scoped to a specific API system (exchange) for parallel processing.
  */
 final class ConcludeIndicatorsJob extends BaseQueueableJob
 {
     public ExchangeSymbol $exchangeSymbol;
 
+    protected ?int $apiSystemId;
+
+    public function __construct(?int $apiSystemId = null)
+    {
+        $this->apiSystemId = $apiSystemId;
+    }
+
     public function compute()
     {
         $uuid = $this->uuid();
 
-        ExchangeSymbol::all()->each(function ($exchangeSymbol) {
+        $query = ExchangeSymbol::query();
+
+        // Scope to specific API system if provided
+        if ($this->apiSystemId !== null) {
+            $query->where('api_system_id', $this->apiSystemId);
+        }
+
+        $query->get()->each(function ($exchangeSymbol) {
 
             $this->exchangeSymbol = $exchangeSymbol;
 

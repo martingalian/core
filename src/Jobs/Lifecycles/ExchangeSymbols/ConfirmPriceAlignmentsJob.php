@@ -15,13 +15,31 @@ use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
 use Throwable;
 
+/**
+ * Confirms price alignments with indicator directions for exchange symbols.
+ * Scoped to a specific API system (exchange) for parallel processing.
+ */
 final class ConfirmPriceAlignmentsJob extends BaseQueueableJob
 {
     public ExchangeSymbol $exchangeSymbolBeingComputed;
 
+    protected ?int $apiSystemId;
+
+    public function __construct(?int $apiSystemId = null)
+    {
+        $this->apiSystemId = $apiSystemId;
+    }
+
     public function compute()
     {
-        ExchangeSymbol::whereNotNull('direction')->each(function (ExchangeSymbol $exchangeSymbol) {
+        $query = ExchangeSymbol::query()->whereNotNull('direction');
+
+        // Scope to specific API system if provided
+        if ($this->apiSystemId !== null) {
+            $query->where('api_system_id', $this->apiSystemId);
+        }
+
+        $query->each(function (ExchangeSymbol $exchangeSymbol) {
             $uuid = Str::uuid()->toString();
 
             $this->exchangeSymbolBeingComputed = $exchangeSymbol;

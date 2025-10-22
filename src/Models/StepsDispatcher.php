@@ -20,45 +20,51 @@ final class StepsDispatcher extends BaseModel
     protected $casts = [
         'can_dispatch' => 'boolean',
         'last_tick_completed' => 'datetime',
+        'last_selected_at' => 'datetime',
     ];
 
     /**
-     * Selects the next group to dispatch.
+     * Selects the next group to dispatch using round-robin distribution.
      * Preference order:
-     *  1) Groups with can_dispatch = true AND updated_at IS NULL (never updated) → pick lowest id
-     *  2) Otherwise, among can_dispatch = true → pick the one with oldest updated_at (then lowest id)
+     *  1) Groups with can_dispatch = true AND last_selected_at IS NULL (never selected) → pick lowest id
+     *  2) Otherwise, among can_dispatch = true → pick the one with oldest last_selected_at (then lowest id)
+     *  3) Update the selected group's last_selected_at to now() for round-robin tracking
      *
      * @return string|null The group name to dispatch (null means the global/NULL group)
      */
     public static function getDispatchGroup(): ?string
     {
-        // 1) Prefer groups never updated
+        // 1) Prefer groups never selected
         $row = self::query()
             ->where('can_dispatch', true)
-            ->whereNull('updated_at')
+            ->whereNull('last_selected_at')
             ->orderBy('id', 'asc')
             ->first();
 
         if ($row) {
-            info('[StepsDispatcher@getDispatchGroup] Selected NEVER-UPDATED group='.self::label($row->group).' (id='.$row->id.').');
+            // Update last_selected_at for round-robin tracking using database NOW(6) for microsecond precision
+            DB::table('steps_dispatcher')
+                ->where('id', $row->id)
+                ->update(['last_selected_at' => DB::raw('NOW(6)')]);
 
             return $row->group;
         }
 
-        // 2) Fall back to oldest updated_at
+        // 2) Fall back to oldest last_selected_at (least recently selected)
         $row = self::query()
             ->where('can_dispatch', true)
-            ->orderBy('updated_at', 'asc')
+            ->orderBy('last_selected_at', 'asc')
             ->orderBy('id', 'asc')
             ->first();
 
         if (! $row) {
-            info('[StepsDispatcher@getDispatchGroup] No eligible group found (none with can_dispatch=true).');
-
             return null;
         }
 
-        info('[StepsDispatcher@getDispatchGroup] Selected group='.self::label($row->group).' (id='.$row->id.', updated_at='.($row->updated_at?->toDateTimeString()).').');
+        // Update last_selected_at for round-robin tracking using database NOW(6) for microsecond precision
+        DB::table('steps_dispatcher')
+            ->where('id', $row->id)
+            ->update(['last_selected_at' => DB::raw('NOW(6)')]);
 
         return $row->group;
     }
@@ -69,8 +75,6 @@ final class StepsDispatcher extends BaseModel
      */
     public static function startDispatch(?string $group = null): bool
     {
-        info('[StepsDispatcher@startDispatch] Requested start for group='.self::label($group).'.');
-
         // Create-or-fetch with uniqueness protection (handles concurrent creators)
         try {
             $dispatcher = self::query()
@@ -83,13 +87,9 @@ final class StepsDispatcher extends BaseModel
                 $dispatcher->group = $group;
                 $dispatcher->can_dispatch = true; // initial state
                 $dispatcher->save();
-                info('[StepsDispatcher@startDispatch] Created dispatcher row id='.$dispatcher->id.' for group='.self::label($group).'; can_dispatch=TRUE (initialized).');
-            } else {
-                info('[StepsDispatcher@startDispatch] Found dispatcher row id='.$dispatcher->id.' for group='.self::label($group).'.');
             }
         } catch (QueryException $e) {
             // If a race caused a duplicate-key error, just fetch the existing row
-            info('[StepsDispatcher@startDispatch] QueryException on create (likely race). Falling back to fetch. err='.$e->getCode());
             $dispatcher = self::query()
                 ->when($group !== null, fn ($q) => $q->where('group', $group), fn ($q) => $q->whereNull('group'))
                 ->orderBy('id')
@@ -97,8 +97,6 @@ final class StepsDispatcher extends BaseModel
         }
 
         if (! isset($dispatcher)) {
-            info('[StepsDispatcher@startDispatch] Failed to obtain dispatcher row for group='.self::label($group).'.');
-
             return false;
         }
 
@@ -108,7 +106,6 @@ final class StepsDispatcher extends BaseModel
             $dispatcher->updated_at->lt(now()->subSeconds(20))
         ) {
             $dispatcher->update(['can_dispatch' => true]);
-            info('[StepsDispatcher@startDispatch] Failsafe set can_dispatch=TRUE on row id='.$dispatcher->id.' (group='.self::label($group).').');
         }
 
         // Atomic lock acquire on THIS row -> can_dispatch FALSE
@@ -121,12 +118,8 @@ final class StepsDispatcher extends BaseModel
             ]) === 1;
 
         if (! $acquired) {
-            info('[StepsDispatcher@startDispatch] Lock NOT acquired (already running) for group='.self::label($group).', row id='.$dispatcher->id.'.');
-
             return false;
         }
-
-        info('[StepsDispatcher@startDispatch] Set can_dispatch=FALSE (lock acquired) for group='.self::label($group).', row id='.$dispatcher->id.'.');
 
         // Per-group tick bookkeeping
         $cacheSuffix = $group ?? 'global';
@@ -147,8 +140,6 @@ final class StepsDispatcher extends BaseModel
                 'updated_at' => now(),
             ]);
 
-        info('[StepsDispatcher@startDispatch] Tick opened id='.$tick->id.' for group='.self::label($group).', linked to dispatcher id='.$dispatcher->id.'.');
-
         return true;
     }
 
@@ -158,16 +149,12 @@ final class StepsDispatcher extends BaseModel
      */
     public static function endDispatch(int $progress = 0, ?string $group = null): void
     {
-        info('[StepsDispatcher@endDispatch] Finalizing tick for group='.self::label($group).' (progress='.$progress.').');
-
         $dispatcher = self::query()
             ->when($group !== null, fn ($q) => $q->where('group', $group), fn ($q) => $q->whereNull('group'))
             ->orderBy('id')
             ->first();
 
         if (! $dispatcher) {
-            info('[StepsDispatcher@endDispatch] No dispatcher row found for group='.self::label($group).'; nothing to finalize.');
-
             return;
         }
 
@@ -190,10 +177,7 @@ final class StepsDispatcher extends BaseModel
                         'duration' => $durationMs,
                     ]);
 
-                    info('[StepsDispatcher@endDispatch] Tick id='.$tick->id.' completed for group='.self::label($group).', duration='.$durationMs.'ms.');
-
                     if ($durationMs > 40000) {
-                        info('[StepsDispatcher@endDispatch] WARNING: long dispatch duration='.$durationMs.'ms for group='.self::label($group).'.');
                         User::notifyAdminsViaPushover(
                             message: "Dispatch took too long: {$durationMs}ms.",
                             title: 'Step Dispatcher Tick Warning',
@@ -205,14 +189,8 @@ final class StepsDispatcher extends BaseModel
                         'progress' => $progress,
                         'completed_at' => $completedAt,
                     ]);
-
-                    info('[StepsDispatcher@endDispatch] Tick id='.$tick->id.' completed for group='.self::label($group).' (no start timestamp; duration unknown).');
                 }
-            } else {
-                info('[StepsDispatcher@endDispatch] Tick id='.$tickId.' not found for group='.self::label($group).'.');
             }
-        } else {
-            info('[StepsDispatcher@endDispatch] No current_tick_id on dispatcher for group='.self::label($group).'.');
         }
 
         // Release lock -> can_dispatch TRUE (and clear linkage + stamp completion)
@@ -224,8 +202,6 @@ final class StepsDispatcher extends BaseModel
                 'last_tick_completed' => $completedAt,
                 'updated_at' => now(),
             ]);
-
-        info('[StepsDispatcher@endDispatch] Set can_dispatch=TRUE (lock released) and reset dispatcher id='.$dispatcher->id.' for group='.self::label($group).'.');
 
         $cacheSuffix = $group ?? 'global';
         Cache::forget("current_tick_id:{$cacheSuffix}");
