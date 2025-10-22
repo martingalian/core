@@ -11,7 +11,6 @@ use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols\ConfirmPriceAlignmentsJob;
 use Martingalian\Core\Jobs\Models\ExchangeSymbol\CheckPriceSpikeAndCooldownJob;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Models\StepsDispatcher;
 
 /**
  * WaitSyncSymbolsAndTriggerExchangeSyncsJob
@@ -34,8 +33,11 @@ final class WaitSyncSymbolsAndTriggerExchangeSyncsJob extends BaseQueueableJob
     {
         $exchangesTriggered = 0;
 
+        // Get the parent step's group to propagate to child exchange chains
+        $parentGroup = $this->step->group;
+
         // Create parallel execution blocks for each exchange
-        ApiSystem::exchange()->each(function ($exchange) use (&$exchangesTriggered): void {
+        ApiSystem::exchange()->each(function ($exchange) use (&$exchangesTriggered, $parentGroup): void {
             // Create a unique UUID for this exchange's job chain
             $exchangeUuid = Str::uuid()->toString();
 
@@ -45,62 +47,58 @@ final class WaitSyncSymbolsAndTriggerExchangeSyncsJob extends BaseQueueableJob
             // Each exchange starts at index 1 (index 0 doesn't work with StepDispatcher)
             $index = 1;
 
-            // Step 1: Sync market data (exchange symbols, tick sizes, etc.)
+            // Step 1: Sync market data - set group explicitly as first step in new block_uuid chain
             Step::query()->create([
                 'class' => SyncMarketDataJob::class,
                 'queue' => 'cronjobs',
                 'block_uuid' => $exchangeUuid,
                 'index' => $index++,
-                'group' => $group,
+                'group' => $parentGroup,
                 'arguments' => [
                     'apiSystemId' => $exchange->id,
                 ],
             ]);
 
-            // Step 2: Sync leverage brackets
+            // Step 2: Sync leverage brackets - inherits group via StepObserver
             Step::query()->create([
                 'class' => SyncLeverageBracketsJob::class,
                 'queue' => 'cronjobs',
                 'block_uuid' => $exchangeUuid,
                 'index' => $index++,
-                'group' => $group,
                 'arguments' => [
                     'apiSystemId' => $exchange->id,
                 ],
             ]);
 
-            // Step 3: Check price spikes and apply cooldowns (scoped to this exchange)
+            // Step 3: Check price spikes and apply cooldowns - inherits group via StepObserver
             Step::query()->create([
                 'class' => CheckPriceSpikeAndCooldownJob::class,
                 'queue' => 'indicators',
                 'block_uuid' => $exchangeUuid,
                 'index' => $index++,
-                'group' => $group,
                 'arguments' => [
                     'apiSystemId' => $exchange->id,
                 ],
             ]);
 
-            // Step 4: Conclude indicators for exchange symbols (scoped to this exchange)
+            // Step 4: Conclude indicators for exchange symbols - inherits group via StepObserver
             Step::query()->create([
                 'class' => ConcludeIndicatorsJob::class,
                 'queue' => 'indicators',
                 'block_uuid' => $exchangeUuid,
                 'child_block_uuid' => $childUuid,
                 'index' => $index++,
-                'group' => $group,
                 'arguments' => [
                     'apiSystemId' => $exchange->id,
                 ],
             ]);
 
-            // Step 5: Confirm price alignments with directions (scoped to this exchange)
+            // Step 5: Confirm price alignments with directions - inherits group via StepObserver
             Step::query()->create([
                 'class' => ConfirmPriceAlignmentsJob::class,
                 'queue' => 'indicators',
                 'block_uuid' => $exchangeUuid,
                 'index' => $index++,
-                'group' => $group,
                 'arguments' => [
                     'apiSystemId' => $exchange->id,
                 ],
