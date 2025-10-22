@@ -36,6 +36,10 @@ trait MapsExchangeInformationQuery
             ->filter(function ($symbolData) {
                 return mb_strpos($symbolData['symbol'], '_') === false;
             })
+            // Only include perpetual contracts (exclude dated futures like BTCUSDT-31OCT25)
+            ->filter(function ($symbolData) {
+                return ($symbolData['contractType'] ?? null) === 'LinearPerpetual';
+            })
             ->map(function ($symbolData) {
                 // Extract price filter
                 $priceFilter = $symbolData['priceFilter'] ?? [];
