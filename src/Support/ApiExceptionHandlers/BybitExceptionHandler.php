@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Support\ApiExceptionHandlers;
 
-use Carbon\Carbon;
 use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
 use Throwable;
 
-class BybitExceptionHandler extends BaseExceptionHandler
+final class BybitExceptionHandler extends BaseExceptionHandler
 {
     use ApiExceptionHelpers {
         extractHttpErrorCodes as protected baseExtractHttpErrorCodes;
+        rateLimitUntil as baseRateLimitUntil;
     }
 
     /**
@@ -115,45 +116,41 @@ class BybitExceptionHandler extends BaseExceptionHandler
 
     /**
      * Calculate when to retry after rate limit.
+     * Override: compute a safe retry time using Bybit headers when Retry-After is absent.
+     *
+     * Rules:
+     * • If Retry-After is present, honor it (handled by base trait).
+     * • Check for Bybit-specific X-Bapi-Limit-Reset-Timestamp header.
+     * • Otherwise fall back to base backoff.
      */
-    public function rateLimitUntil(Throwable $exception): Carbon
+    public function rateLimitUntil(RequestException $exception): Carbon
     {
-        if (! $exception instanceof RequestException) {
-            return Carbon::now()->addSeconds($this->backoffSeconds);
+        $now = Carbon::now();
+
+        // 1) Use base logic first (honors Retry-After or falls back)
+        $baseUntil = $this->baseRateLimitUntil($exception);
+
+        // If base already derived a future time (e.g., via Retry-After), keep it.
+        if ($baseUntil->greaterThan($now)) {
+            return $baseUntil;
         }
 
-        if (! $exception->hasResponse()) {
-            return Carbon::now()->addSeconds($this->backoffSeconds);
-        }
-
-        $meta = $this->extractHttpMeta($exception);
-
-        // Respect Retry-After header if present
-        if (isset($meta['retry_after'])) {
-            $retryAfter = $meta['retry_after'];
-
-            // RFC date format
-            if (! is_numeric($retryAfter)) {
-                return Carbon::parse($retryAfter)->utc();
-            }
-
-            // Seconds
-            return Carbon::now()->addSeconds((int) $retryAfter);
-        }
-
-        // Check for Bybit rate limit headers (X-Bapi-Limit-*)
+        // 2) No usable Retry-After: check Bybit-specific rate limit headers
         $headers = $this->normalizeHeaders($exception->getResponse());
 
-        // X-Bapi-Limit-Reset-Timestamp (if available)
+        // X-Bapi-Limit-Reset-Timestamp (millisecond timestamp when rate limit resets)
         if (isset($headers['x-bapi-limit-reset-timestamp'])) {
             $resetTimestamp = (int) $headers['x-bapi-limit-reset-timestamp'];
             if ($resetTimestamp > 0) {
-                return Carbon::createFromTimestampMs($resetTimestamp)->utc();
+                $resetAt = Carbon::createFromTimestampMs($resetTimestamp)->utc();
+
+                // Add tiny jitter to avoid stampede at exact boundary
+                return $resetAt->copy()->addMilliseconds(random_int(20, 80));
             }
         }
 
-        // Default backoff with jitter
-        return Carbon::now()->addSeconds($this->backoffSeconds);
+        // 3) Last resort: use the base backoff result
+        return $baseUntil;
     }
 
     /**

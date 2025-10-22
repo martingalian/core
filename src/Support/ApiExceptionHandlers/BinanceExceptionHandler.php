@@ -22,7 +22,9 @@ use Throwable;
  */
 final class BinanceExceptionHandler extends BaseExceptionHandler
 {
-    use ApiExceptionHelpers;
+    use ApiExceptionHelpers {
+        rateLimitUntil as baseRateLimitUntil;
+    }
 
     /**
      * Ignorable — no-ops / idempotent.
@@ -156,7 +158,7 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
         $now = Carbon::now();
 
         // 1) Use base logic first (honors Retry-After or falls back)
-        $baseUntil = parent::rateLimitUntil($exception);
+        $baseUntil = $this->baseRateLimitUntil($exception);
 
         // If parent already derived a future time (e.g., via Retry-After), keep it.
         if ($baseUntil->greaterThan($now)) {

@@ -23,7 +23,9 @@ use Throwable;
  */
 final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
 {
-    use ApiExceptionHelpers;
+    use ApiExceptionHelpers {
+        rateLimitUntil as baseRateLimitUntil;
+    }
 
     /**
      * Ignorable: none defined by CMC docs.
@@ -35,7 +37,7 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
      */
     public array $retryableHttpCodes = [
         500, 502, 503, 504,
-        408, // request timeout
+        408,
     ];
 
     /**
@@ -90,7 +92,7 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
         $now = Carbon::now();
 
         // 1) Generic logic first (honors Retry-After if present)
-        $base = parent::rateLimitUntil($exception);
+        $base = $this->baseRateLimitUntil($exception);
         if ($base->greaterThan($now)) {
             return $base;
         }

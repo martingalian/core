@@ -74,7 +74,15 @@ final class SyncMarketDataJob extends BaseApiableJob
             }
 
             // Identify base and quote assets for the symbol.
-            $pair = $this->apiSystem->apiMapper()->identifyBaseAndQuote($tokenData['pair']);
+            // Some exchanges (like Bybit) provide these directly in the API response.
+            if (isset($tokenData['baseAsset'], $tokenData['quoteAsset'])) {
+                $pair = [
+                    'base' => $tokenData['baseAsset'],
+                    'quote' => $tokenData['quoteAsset'],
+                ];
+            } else {
+                $pair = $this->apiSystem->apiMapper()->identifyBaseAndQuote($tokenData['pair']);
+            }
 
             // Ensure we have a Symbol for the base asset; otherwise collect it for CSV.
             $symbol = Symbol::getByExchangeBaseAsset($pair['base'], $this->apiSystem);

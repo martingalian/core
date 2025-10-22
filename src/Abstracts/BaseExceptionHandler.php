@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Martingalian\Core\Abstracts;
 
 use Exception;
+use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Support\ApiExceptionHandlers\AlternativeMeExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\BinanceExceptionHandler;
@@ -31,7 +33,19 @@ abstract class BaseExceptionHandler
     // Just to confirm it's being used by a child class. Should return true.
     abstract public function ping(): bool;
 
-    public static function make(string $apiCanonical)
+    // Check if exception is a recv window mismatch. Provided via ApiExceptionHelpers trait.
+    abstract public function isRecvWindowMismatch(Throwable $exception): bool;
+
+    // Check if exception is rate limited. Provided via ApiExceptionHelpers trait.
+    abstract public function isRateLimited(Throwable $exception): bool;
+
+    // Check if exception is forbidden (auth/permission). Provided via ApiExceptionHelpers trait.
+    abstract public function isForbidden(Throwable $exception): bool;
+
+    // Calculate when to retry after rate limit. Provided via ApiExceptionHelpers trait or overridden by child classes.
+    abstract public function rateLimitUntil(RequestException $exception): Carbon;
+
+    final public static function make(string $apiCanonical)
     {
         return match ($apiCanonical) {
             'binance' => new BinanceExceptionHandler,
@@ -43,26 +57,8 @@ abstract class BaseExceptionHandler
         };
     }
 
-    // Exception can be retried without causing major issues.
-    public function retryException(Throwable $exception): bool
-    {
-        return false;
-    }
-
-    // Exception should be ignored, no further actions taken.
-    public function ignoreException(Throwable $exception): bool
-    {
-        return false;
-    }
-
-    // Exception is valid and needs to be resolved to avoid major issues.
-    public function resolveException(Throwable $e)
-    {
-        return null;
-    }
-
     // Eager loads an account for later use.
-    public function withAccount(Account $account)
+    final public function withAccount(Account $account)
     {
         $this->account = $account;
 

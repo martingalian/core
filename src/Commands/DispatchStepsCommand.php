@@ -30,13 +30,12 @@ final class DispatchStepsCommand extends Command
 
     public function handle(): int
     {
+        // Clean laravel.log at the very start of each run
+        // $this->clearLaravelLog();
+
         info("*");
 
-        // Clean laravel.log at the very start of each run
-        $this->clearLaravelLog();
-
         try {
-            info('## starting dispatch ##');
             $opt = $this->option('group');
 
             if (is_string($opt) && mb_trim($opt) !== '') {

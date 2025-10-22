@@ -22,6 +22,6 @@ trait MapsSyncMarketData
 
     public function resolveSyncMarketDataResponse(Response $response): array
     {
-        return json_decode($response->getBody(), true);
+        return json_decode((string) $response->getBody(), true);
     }
 }
