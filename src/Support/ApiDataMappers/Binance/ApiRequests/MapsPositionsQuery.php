@@ -20,7 +20,7 @@ trait MapsPositionsQuery
 
     public function resolveQueryPositionsResponse(Response $response): array
     {
-        $positions = collect(json_decode($response->getBody(), true))->keyBy('symbol')->toArray();
+        $positions = collect(json_decode((string) $response->getBody(), true))->keyBy('symbol')->toArray();
 
         // Remove false positive positions (positionAmt = 0.0)
         $positions = array_filter($positions, function ($position) {

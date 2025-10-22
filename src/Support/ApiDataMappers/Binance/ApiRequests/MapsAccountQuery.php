@@ -20,7 +20,7 @@ trait MapsAccountQuery
 
     public function resolveQueryAccountResponse(Response $response): array
     {
-        $response = json_decode($response->getBody(), true);
+        $response = json_decode((string) $response->getBody(), true);
 
         if (array_key_exists('assets', $response)) {
             unset($response['assets']);

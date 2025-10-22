@@ -36,7 +36,7 @@ abstract class BaseQueueableJob extends BaseJob
 
     public bool $stepStatusUpdated = false;
 
-    public int $startMicrotime = 0;
+    public float $startMicrotime = 0.0;
 
     public ?BaseExceptionHandler $exceptionHandler;
 

@@ -20,7 +20,7 @@ trait MapsExchangeInformationQuery
 
     public function resolveQueryMarketDataResponse(Response $response): array
     {
-        $data = json_decode($response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), true);
 
         return collect($data['symbols'] ?? [])
             // Remove symbols with underscores in the name.

@@ -50,21 +50,31 @@ abstract class BaseApiClient
 
     protected function processRequest(ApiRequest $apiRequest, bool $sendAsJson = false)
     {
+        $properties = $apiRequest->properties->toArray();
+
+        $headers = array_merge(
+            $this->getHeaders(),
+            (array) ($apiRequest->properties->getOr('headers', []))
+        );
+
         $logData = [
             'path' => $apiRequest->path,
-            'payload' => $apiRequest->properties->toArray(),
+            'payload' => $properties,
             'http_method' => $apiRequest->method,
-            'http_headers_sent' => $this->getHeaders(),
+            'http_headers_sent' => $headers,
             'hostname' => gethostname(),
         ];
 
         try {
             $options = [
-                'headers' => $this->getHeaders(),
+                'headers' => $headers,
             ];
 
             if ($sendAsJson && mb_strtoupper($apiRequest->method) !== 'GET') {
-                $options['json'] = $apiRequest->properties->toArray();
+                $bodyPayload = $properties;
+                unset($bodyPayload['headers']);
+
+                $options['json'] = $bodyPayload;
             } else {
                 $options['query'] = $apiRequest->properties->getOr('options', []);
             }
@@ -93,7 +103,7 @@ abstract class BaseApiClient
             $logData['completed_at'] = now();
             $logData['duration'] = abs((int) (($endTime - $startTime) * 1000));
             $logData['http_response_code'] = $response->getStatusCode();
-            $logData['response'] = json_decode($response->getBody(), true);
+            $logData['response'] = json_decode((string) $response->getBody(), true);
             $logData['http_headers_returned'] = $response->getHeaders();
 
             $this->updateRequestLogData($logData);
@@ -125,7 +135,7 @@ abstract class BaseApiClient
                     $logData['completed_at'] = now();
                     $logData['duration'] = abs((int) (($endTime - $startTime) * 1000));
                     $logData['http_response_code'] = $response->getStatusCode();
-                    $logData['response'] = json_decode($response->getBody(), true);
+                    $logData['response'] = json_decode((string) $response->getBody(), true);
                     $logData['http_headers_returned'] = $response->getHeaders();
 
                     $this->updateRequestLogData($logData);

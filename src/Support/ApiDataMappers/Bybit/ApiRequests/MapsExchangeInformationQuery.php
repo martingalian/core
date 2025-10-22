@@ -26,7 +26,7 @@ trait MapsExchangeInformationQuery
 
     public function resolveQueryMarketDataResponse(Response $response): array
     {
-        $data = json_decode($response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), true);
 
         // Bybit V5 API structure: {retCode, retMsg, result: {list: [...], nextPageCursor: ...}}
         $symbols = $data['result']['list'] ?? [];
@@ -46,7 +46,8 @@ trait MapsExchangeInformationQuery
 
                 // Calculate quantity precision from qtyStep
                 $qtyStep = $lotSizeFilter['qtyStep'] ?? '0.001';
-                $quantityPrecision = mb_strlen(mb_substr(mb_strrchr($qtyStep, '.'), 1)) ?: 0;
+                $decimalPart = mb_strrchr($qtyStep, '.');
+                $quantityPrecision = $decimalPart !== false ? mb_strlen(mb_substr($decimalPart, 1)) : 0;
 
                 return [
                     // Map to canonical format matching Binance structure

@@ -31,7 +31,7 @@ abstract class BaseExceptionHandler
     // Just to confirm it's being used by a child class. Should return true.
     abstract public function ping(): bool;
 
-    final public static function make(string $apiCanonical)
+    public static function make(string $apiCanonical)
     {
         return match ($apiCanonical) {
             'binance' => new BinanceExceptionHandler,
@@ -44,25 +44,25 @@ abstract class BaseExceptionHandler
     }
 
     // Exception can be retried without causing major issues.
-    final public function retryException(Throwable $exception): bool
+    public function retryException(Throwable $exception): bool
     {
         return false;
     }
 
     // Exception should be ignored, no further actions taken.
-    final public function ignoreException(Throwable $exception): bool
+    public function ignoreException(Throwable $exception): bool
     {
         return false;
     }
 
     // Exception is valid and needs to be resolved to avoid major issues.
-    final public function resolveException(Throwable $e)
+    public function resolveException(Throwable $e)
     {
         return null;
     }
 
     // Eager loads an account for later use.
-    final public function withAccount(Account $account)
+    public function withAccount(Account $account)
     {
         $this->account = $account;
 

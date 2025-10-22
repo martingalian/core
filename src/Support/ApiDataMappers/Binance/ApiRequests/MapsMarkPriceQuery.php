@@ -21,7 +21,7 @@ trait MapsMarkPriceQuery
 
     public function resolveQueryMarkPriceResponse(Response $response): ?string
     {
-        $data = json_decode($response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), true);
 
         if (array_key_exists('markPrice', $data)) {
             return $data['markPrice'];

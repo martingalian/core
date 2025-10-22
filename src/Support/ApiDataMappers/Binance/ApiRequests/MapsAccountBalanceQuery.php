@@ -29,7 +29,7 @@ trait MapsAccountBalanceQuery
      */
     public function resolveGetBalanceResponse(Response $response): array
     {
-        return collect(json_decode($response->getBody(), true))
+        return collect(json_decode((string) $response->getBody(), true))
             ->filter(fn ($item) => (float) $item['balance'] !== 0.0)
             ->mapWithKeys(fn ($item) => [$item['asset'] => $item['balance']])
             ->toArray();

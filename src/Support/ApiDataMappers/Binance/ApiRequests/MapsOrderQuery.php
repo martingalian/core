@@ -22,7 +22,7 @@ trait MapsOrderQuery
 
     public function resolveOrderQueryResponse(Response $response): array
     {
-        $result = json_decode($response->getBody(), true);
+        $result = json_decode((string) $response->getBody(), true);
 
         $raw = $result;
 

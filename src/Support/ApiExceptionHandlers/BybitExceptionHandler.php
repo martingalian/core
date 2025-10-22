@@ -10,7 +10,7 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
 use Throwable;
 
-final class BybitExceptionHandler extends BaseExceptionHandler
+class BybitExceptionHandler extends BaseExceptionHandler
 {
     use ApiExceptionHelpers {
         extractHttpErrorCodes as protected baseExtractHttpErrorCodes;

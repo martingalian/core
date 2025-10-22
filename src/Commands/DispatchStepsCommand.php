@@ -30,10 +30,13 @@ final class DispatchStepsCommand extends Command
 
     public function handle(): int
     {
+        info("*");
+
         // Clean laravel.log at the very start of each run
         $this->clearLaravelLog();
 
         try {
+            info('## starting dispatch ##');
             $opt = $this->option('group');
 
             if (is_string($opt) && mb_trim($opt) !== '') {
@@ -51,7 +54,7 @@ final class DispatchStepsCommand extends Command
 
                 foreach ($groups as $group) {
                     StepDispatcher::dispatch($group);
-                    $this->info('Dispatched steps for group: '.($group === null ? 'NULL' : $group));
+                    info('Dispatched steps for group: '.($group === null ? 'NULL' : $group));
                 }
 
                 return self::SUCCESS;
