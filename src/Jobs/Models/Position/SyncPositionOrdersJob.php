@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Position;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -13,7 +15,7 @@ use Martingalian\Core\Models\Position;
  * attaches a rate limiter and exception handler based on the account's
  * API system. The result of the sync is returned from the API call.
  */
-class SyncPositionOrdersJob extends BaseApiableJob
+final class SyncPositionOrdersJob extends BaseApiableJob
 {
     public Position $position;
 

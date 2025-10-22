@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -14,7 +16,7 @@ use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Models\TradeConfiguration;
 use Martingalian\Core\Models\User;
 
-class SchemaSeeder1 extends Seeder
+final class SchemaSeeder1 extends Seeder
 {
     /**
      * Seed the application's database.

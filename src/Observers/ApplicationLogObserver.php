@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\ApplicationLog;
 
-class ApplicationLogObserver
+final class ApplicationLogObserver
 {
     public function creating(ApplicationLog $model): void
     {

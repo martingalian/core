@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Indicators\Reports;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
@@ -18,7 +20,7 @@ use Martingalian\Core\Abstracts\BaseIndicator;
  *  - overall price volatility percentage average (across all samples)
  *  - last N ticks price volatility average (N = last_window param or 30 by default)
  */
-class PriceVolatilityIndicator extends BaseIndicator
+final class PriceVolatilityIndicator extends BaseIndicator
 {
     /** @var string TAAPI endpoint */
     public string $endpoint = 'candle';

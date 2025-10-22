@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Support\Surveillance;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
@@ -7,6 +9,7 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\User;
+use Throwable;
 
 /**
  * AssessExchangeUnknownOrdersJob checks exchange open orders that do not map.
@@ -28,7 +31,7 @@ use Martingalian\Core\Models\User;
  *       than the grace window (default 5m): eligible to notify.
  *     - Otherwise: skip (still within grace period or still open/closing).
  */
-class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
+final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
 {
     /**
      * Target account to be analyzed.
@@ -85,7 +88,7 @@ class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
             $positionSnapshots = $positionsSnapshot[$symbol] ?? [];
 
             $validDirections = collect(is_array($positionSnapshots) ? $positionSnapshots : [$positionSnapshots])
-                ->filter(fn ($p) => isset($p['positionAmt']) && (float) $p['positionAmt'] != 0.0)
+                ->filter(fn ($p) => isset($p['positionAmt']) && (float) $p['positionAmt'] !== 0.0)
                 ->map(fn ($p) => ($p['positionAmt'] > 0 ? 'LONG' : 'SHORT'))
                 ->values();
 
@@ -174,7 +177,7 @@ class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
     /**
      * Handle exceptions by notifying admins with a friendly message.
      */
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             '['.$this->account->id.'] Account '
@@ -182,7 +185,7 @@ class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
             .$this->account->tradingQuote->canonical
             .' surveillance error - '
             .ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(static::class).'] - Error.',
+            '['.class_basename(self::class).'] - Error.',
             'nidavellir_errors'
         );
     }

@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
-class StepsDispatcherSeeder extends Seeder
+final class StepsDispatcherSeeder extends Seeder
 {
     public function run(): void
     {

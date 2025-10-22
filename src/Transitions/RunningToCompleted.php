@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Transitions;
 
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Completed;
 use Spatie\ModelStates\Transition;
 
-class RunningToCompleted extends Transition
+final class RunningToCompleted extends Transition
 {
     private Step $step;
 

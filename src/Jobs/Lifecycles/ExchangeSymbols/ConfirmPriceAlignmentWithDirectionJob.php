@@ -1,13 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
+final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
 {
     public ?ExchangeSymbol $exchangeSymbol = null;
 
@@ -62,11 +65,11 @@ class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
         return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair}-{$direction} CONFIRMED (Last: {$data['close'][1]} Previous: {$data['close'][0]}, timeframe: {$timeframe})"];
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->exchangeSymbol->id}] - ExchangeSymbol price alignment error - ".ExceptionParser::with($e)->friendlyMessage(),
-            "[S:{$this->step->id} ES:{$this->exchangeSymbol->id}] ".class_basename(static::class).' - Error',
+            "[S:{$this->step->id} ES:{$this->exchangeSymbol->id}] ".class_basename(self::class).' - Error',
             'nidavellir_errors'
         );
     }

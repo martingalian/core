@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Illuminate\Database\QueryException;
@@ -9,7 +11,7 @@ use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
 
-class StepsDispatcher extends BaseModel
+final class StepsDispatcher extends BaseModel
 {
     use HasDebuggable, HasLoggable;
 
@@ -19,11 +21,6 @@ class StepsDispatcher extends BaseModel
         'can_dispatch' => 'boolean',
         'last_tick_completed' => 'datetime',
     ];
-
-    protected static function label(?string $group): string
-    {
-        return $group === null ? 'NULL' : $group;
-    }
 
     /**
      * Selects the next group to dispatch.
@@ -36,20 +33,20 @@ class StepsDispatcher extends BaseModel
     public static function getDispatchGroup(): ?string
     {
         // 1) Prefer groups never updated
-        $row = static::query()
+        $row = self::query()
             ->where('can_dispatch', true)
             ->whereNull('updated_at')
             ->orderBy('id', 'asc')
             ->first();
 
         if ($row) {
-            info('[StepsDispatcher@getDispatchGroup] Selected NEVER-UPDATED group=' . self::label($row->group) . ' (id=' . $row->id . ').');
+            info('[StepsDispatcher@getDispatchGroup] Selected NEVER-UPDATED group='.self::label($row->group).' (id='.$row->id.').');
 
             return $row->group;
         }
 
         // 2) Fall back to oldest updated_at
-        $row = static::query()
+        $row = self::query()
             ->where('can_dispatch', true)
             ->orderBy('updated_at', 'asc')
             ->orderBy('id', 'asc')
@@ -61,7 +58,7 @@ class StepsDispatcher extends BaseModel
             return null;
         }
 
-        info('[StepsDispatcher@getDispatchGroup] Selected group=' . self::label($row->group) . ' (id=' . $row->id . ', updated_at=' . ($row->updated_at?->toDateTimeString()) . ').');
+        info('[StepsDispatcher@getDispatchGroup] Selected group='.self::label($row->group).' (id='.$row->id.', updated_at='.($row->updated_at?->toDateTimeString()).').');
 
         return $row->group;
     }
@@ -76,13 +73,13 @@ class StepsDispatcher extends BaseModel
 
         // Create-or-fetch with uniqueness protection (handles concurrent creators)
         try {
-            $dispatcher = static::query()
+            $dispatcher = self::query()
                 ->when($group !== null, fn ($q) => $q->where('group', $group), fn ($q) => $q->whereNull('group'))
                 ->orderBy('id')
                 ->first();
 
             if (! $dispatcher) {
-                $dispatcher = new static;
+                $dispatcher = new self;
                 $dispatcher->group = $group;
                 $dispatcher->can_dispatch = true; // initial state
                 $dispatcher->save();
@@ -93,7 +90,7 @@ class StepsDispatcher extends BaseModel
         } catch (QueryException $e) {
             // If a race caused a duplicate-key error, just fetch the existing row
             info('[StepsDispatcher@startDispatch] QueryException on create (likely race). Falling back to fetch. err='.$e->getCode());
-            $dispatcher = static::query()
+            $dispatcher = self::query()
                 ->when($group !== null, fn ($q) => $q->where('group', $group), fn ($q) => $q->whereNull('group'))
                 ->orderBy('id')
                 ->first();
@@ -163,7 +160,7 @@ class StepsDispatcher extends BaseModel
     {
         info('[StepsDispatcher@endDispatch] Finalizing tick for group='.self::label($group).' (progress='.$progress.').');
 
-        $dispatcher = static::query()
+        $dispatcher = self::query()
             ->when($group !== null, fn ($q) => $q->where('group', $group), fn ($q) => $q->whereNull('group'))
             ->orderBy('id')
             ->first();
@@ -233,5 +230,10 @@ class StepsDispatcher extends BaseModel
         $cacheSuffix = $group ?? 'global';
         Cache::forget("current_tick_id:{$cacheSuffix}");
         Cache::forget("steps_dispatcher_tick_start:{$cacheSuffix}");
+    }
+
+    protected static function label(?string $group): string
+    {
+        return $group === null ? 'NULL' : $group;
     }
 }

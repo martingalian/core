@@ -1,15 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Order;
 
+use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\Martingalian;
+use Throwable;
 
-class PlaceProfitOrderJob extends BaseApiableJob
+final class PlaceProfitOrderJob extends BaseApiableJob
 {
     public Position $position;
 
@@ -33,8 +37,8 @@ class PlaceProfitOrderJob extends BaseApiableJob
 
     public function startOrFail()
     {
-        $result = $this->position->marketOrder()->exchange_order_id != null &&
-                   $this->position->status == 'opening';
+        $result = $this->position->marketOrder()->exchange_order_id !== null &&
+                   $this->position->status === 'opening';
 
         if ($result === false) {
             $reason = '';
@@ -43,7 +47,7 @@ class PlaceProfitOrderJob extends BaseApiableJob
                 $reason = 'Market order exchange order id is null.';
             }
 
-            if ($this->position->status != 'opening') {
+            if ($this->position->status !== 'opening') {
                 $reason .= 'Position status not in opening';
             }
 
@@ -55,7 +59,7 @@ class PlaceProfitOrderJob extends BaseApiableJob
 
             User::notifyAdminsViaPushover(
                 "{$this->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
-                '['.class_basename(static::class).'] - startOrFail() returned false',
+                '['.class_basename(self::class).'] - startOrFail() returned false',
                 'nidavellir_warnings'
             );
 
@@ -82,7 +86,7 @@ class PlaceProfitOrderJob extends BaseApiableJob
         $side = match ($this->position->direction) {
             'LONG' => 'SELL',
             'SHORT' => 'BUY',
-            default => throw new \InvalidArgumentException('Invalid position direction. Must be LONG or SHORT.'),
+            default => throw new InvalidArgumentException('Invalid position direction. Must be LONG or SHORT.'),
         };
 
         $this->profitOrder = $this->position->orders()->create([
@@ -152,20 +156,20 @@ class PlaceProfitOrderJob extends BaseApiableJob
         );
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->profitOrder) {
             User::notifyAdminsViaPushover(
                 "[O:{$this->profitOrder->id}] Order {$this->profitOrder->type} {$this->profitOrder->side} PROFIT-LIMIT place error - {$e->getMessage()}",
-                '['.class_basename(static::class).'] - Error',
+                '['.class_basename(self::class).'] - Error',
                 'nidavellir_errors'
             );
         } else {
             User::notifyAdminsViaPushover(
                 "[P:{$this->position->id}] PROFIT-LIMIT place error before order instance - {$e->getMessage()}",
-                '['.class_basename(static::class).'] - Error',
+                '['.class_basename(self::class).'] - Error',
                 'nidavellir_errors'
             );
         }

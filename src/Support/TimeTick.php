@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support;
 
 use Carbon\Carbon;
 use DateTimeZone;
+use InvalidArgumentException;
 
 final class TimeTick
 {
@@ -47,7 +50,7 @@ final class TimeTickBuilder
     public function withDuration(int $minutes): self
     {
         if ($minutes <= 0) {
-            throw new \InvalidArgumentException('Minutes must be > 0.');
+            throw new InvalidArgumentException('Minutes must be > 0.');
         }
         $this->minutes = $minutes;
 

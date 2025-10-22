@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;
 
-class IndicatorHistory extends BaseModel
+final class IndicatorHistory extends BaseModel
 {
     protected $fillable = [
         'exchange_symbol_id',

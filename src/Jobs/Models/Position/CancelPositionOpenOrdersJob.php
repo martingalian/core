@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Position;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Position;
 
-class CancelPositionOpenOrdersJob extends BaseApiableJob
+final class CancelPositionOpenOrdersJob extends BaseApiableJob
 {
     public Position $position;
 

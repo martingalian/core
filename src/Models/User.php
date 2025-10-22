@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -10,7 +12,7 @@ use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
 use Martingalian\Core\Concerns\User\NotifiesViaPushover;
 
-class User extends Authenticatable
+final class User extends Authenticatable
 {
     use HasDebuggable;
     use HasLoggable;

@@ -1,16 +1,20 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Indicator;
 
 use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Sleep;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
+use Throwable;
 
-class FetchAndStoreOnHistoryJob extends BaseApiableJob
+final class FetchAndStoreOnHistoryJob extends BaseApiableJob
 {
     public ExchangeSymbol $exchangeSymbol;
 
@@ -73,7 +77,7 @@ class FetchAndStoreOnHistoryJob extends BaseApiableJob
         $indicator = new $class($this->exchangeSymbol, $mergedParams);
 
         // Randomized short delay to avoid hammering providers
-        usleep(random_int(1_000_000, 2_000_000));
+        Sleep::for(random_int(1_000, 2_000))->milliseconds();
 
         $data = $indicator->compute();     // will call addTimestampForHumans() internally
         $conclusion = $indicator->conclusion();  // array with volatility summary
@@ -114,7 +118,7 @@ class FetchAndStoreOnHistoryJob extends BaseApiableJob
         return ['stored' => true, 'id' => $history->id];
     }
 
-    public function ignoreException(\Throwable $e)
+    public function ignoreException(Throwable $e)
     {
         // List of error message substrings we want to ignore
         $ignoredMessages = [

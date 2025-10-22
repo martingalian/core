@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Accounts;
 
 use Illuminate\Support\Str;
@@ -12,8 +14,9 @@ use Martingalian\Core\Jobs\Models\Account\QueryPositionsJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class LaunchCreatedPositionsJob extends BaseQueueableJob
+final class LaunchCreatedPositionsJob extends BaseQueueableJob
 {
     public Account $account;
 
@@ -94,11 +97,11 @@ class LaunchCreatedPositionsJob extends BaseQueueableJob
         return ['response' => "Launching new positions for Account ID {$this->account->id} / {$this->account->user->name}"];
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(static::class).'] - Error',
+            "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
     }

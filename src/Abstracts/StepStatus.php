@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Abstracts;
 
 use Martingalian\Core\States\Cancelled;
@@ -30,7 +32,7 @@ use Spatie\ModelStates\StateConfig;
 
 abstract class StepStatus extends State
 {
-    public static function config(): StateConfig
+    final public static function config(): StateConfig
     {
         return parent::config()
             ->default(Pending::class)

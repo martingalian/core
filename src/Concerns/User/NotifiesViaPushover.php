@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\User;
 
 use Martingalian\Core\Models\User;
@@ -7,6 +9,30 @@ use Martingalian\Core\Notifications\PushoverNotification;
 
 trait NotifiesViaPushover
 {
+    /**
+     * Send a Pushover notification to all admin users.
+     */
+    public static function notifyAdminsViaPushover(
+        string $message,
+        string $title = 'Admin Alert',
+        ?string $applicationKey = 'nidavellir',
+        array $additionalParameters = []
+    ): void {
+
+        if (config('martingalian.send_pushover_notifications') === false) {
+            return;
+        }
+
+        static::admin()->get()->each(function ($admin) use ($message, $title, $applicationKey, $additionalParameters) {
+            $admin->pushover(
+                message: $message,
+                title: '['.gethostname().'] '.$title,
+                applicationKey: $applicationKey,
+                additionalParameters: $additionalParameters
+            );
+        });
+    }
+
     /**
      * Send a Pushover notification to this user.
      */
@@ -35,7 +61,7 @@ trait NotifiesViaPushover
         ?string $applicationKey = 'nidavellir',
         array $additionalParameters = []
     ): void {
-        if (config('martingalian.send_pushover_notifications') == false) {
+        if (config('martingalian.send_pushover_notifications') === false) {
             return;
         }
 
@@ -45,29 +71,5 @@ trait NotifiesViaPushover
             applicationKey: $applicationKey,
             additionalParameters: $additionalParameters
         );
-    }
-
-    /**
-     * Send a Pushover notification to all admin users.
-     */
-    public static function notifyAdminsViaPushover(
-        string $message,
-        string $title = 'Admin Alert',
-        ?string $applicationKey = 'nidavellir',
-        array $additionalParameters = []
-    ): void {
-
-        if (config('martingalian.send_pushover_notifications') == false) {
-            return;
-        }
-
-        static::admin()->get()->each(function ($admin) use ($message, $title, $applicationKey, $additionalParameters) {
-            $admin->pushover(
-                message: $message,
-                title: '['.gethostname().'] '.$title,
-                applicationKey: $applicationKey,
-                additionalParameters: $additionalParameters
-            );
-        });
     }
 }

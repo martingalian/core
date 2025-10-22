@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiClients\Websocket;
 
 use Martingalian\Core\Abstracts\BaseWebsocketClient;
 
-class BinanceApiClient extends BaseWebsocketClient
+final class BinanceApiClient extends BaseWebsocketClient
 {
     protected int $messageCount = 0;
 

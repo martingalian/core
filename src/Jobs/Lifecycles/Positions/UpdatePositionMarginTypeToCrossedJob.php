@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Position;
 
-class UpdatePositionMarginTypeToCrossedJob extends BaseApiableJob
+final class UpdatePositionMarginTypeToCrossedJob extends BaseApiableJob
 {
     public Position $position;
 

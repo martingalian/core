@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\Account;
 
+use ArrayAccess;
 use Illuminate\Support\Arr;
 
 trait HasAccessors
@@ -31,7 +34,7 @@ trait HasAccessors
      * - This uses setAttribute() so your 'encrypted' casts run automatically.
      * - Absent keys are ignored (no overwrites); pass only the keys you intend to set.
      *
-     * @param  array|\ArrayAccess  $value
+     * @param  array|ArrayAccess  $value
      */
     public function setAllCredentialsAttribute($value): void
     {

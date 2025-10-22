@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\States;
 
 use Martingalian\Core\Abstracts\StepStatus;
 
-class NotRunnable extends StepStatus
+final class NotRunnable extends StepStatus
 {
     public const VALUE = 'not-runnable';
 

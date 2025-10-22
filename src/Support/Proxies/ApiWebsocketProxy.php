@@ -1,16 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\Proxies;
 
+use Exception;
 use Martingalian\Core\Support\Apis\Websocket\BinanceApi;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 
 /**
  * @method void markPrices(array $callbacks)
  */
-class ApiWebsocketProxy
+final class ApiWebsocketProxy
 {
-    protected $api;
+    private $api;
 
     public function __construct(string $apiType, ApiCredentials $credentials)
     {
@@ -20,7 +23,7 @@ class ApiWebsocketProxy
                 $this->api = new BinanceApi($credentials);
                 break;
             default:
-                throw new \Exception("Unsupported WebSocket API: {$apiType}");
+                throw new Exception("Unsupported WebSocket API: {$apiType}");
         }
     }
 
@@ -34,7 +37,7 @@ class ApiWebsocketProxy
             return call_user_func_array([$this->api, $method], $arguments);
         }
 
-        throw new \Exception("Method {$method} does not exist for this WebSocket API.");
+        throw new Exception("Method {$method} does not exist for this WebSocket API.");
     }
 
     public function getLoop(): \React\EventLoop\LoopInterface

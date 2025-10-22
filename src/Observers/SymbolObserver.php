@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\Symbol;
 
-class SymbolObserver
+final class SymbolObserver
 {
     use LogsAttributeChanges;
 

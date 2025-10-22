@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
 
-class MFIIndicator extends BaseIndicator
+final class MFIIndicator extends BaseIndicator
 {
     public string $endpoint = 'mfi';
 

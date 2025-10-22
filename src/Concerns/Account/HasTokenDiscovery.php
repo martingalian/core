@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\Account;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Position;
@@ -183,9 +186,7 @@ trait HasTokenDiscovery
             $ids = data_get($this->sortedExchangeSymbols, $index.'.'.$direction, []);
 
             if (! empty($ids)) {
-                shuffle($ids);
-
-                $exchangeSymbolId = $ids[0];
+                $exchangeSymbolId = Arr::random($ids);
                 $exchangeSymbol = ExchangeSymbol::find($exchangeSymbolId);
 
                 if ($exchangeSymbol) {

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Accounts;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
@@ -8,8 +10,9 @@ use Martingalian\Core\Jobs\Lifecycles\Positions\DispatchPositionJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob
+final class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob
 {
     public int $accountId;
 
@@ -41,11 +44,11 @@ class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob
         return ['result' => "Dispatching {$count} new Positions"];
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(static::class).'] - Error',
+            "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
     }

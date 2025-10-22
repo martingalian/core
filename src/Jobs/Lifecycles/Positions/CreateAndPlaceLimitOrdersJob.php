@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
@@ -11,8 +14,9 @@ use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\Martingalian;
+use Throwable;
 
-class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
+final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
 {
     public Position $position;
 
@@ -115,7 +119,7 @@ class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
         $side = match ($direction) {
             'LONG' => 'BUY',
             'SHORT' => 'SELL',
-            default => throw new \InvalidArgumentException('Invalid position direction. Must be LONG or SHORT.'),
+            default => throw new InvalidArgumentException('Invalid position direction. Must be LONG or SHORT.'),
         };
 
         // --- Create LIMIT orders locally (status NEW) ---
@@ -168,11 +172,11 @@ class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
     /**
      * Centralized exception reporting for this job.
      */
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->position->id}] Placing limit orders for {$this->position->parsed_trading_pair} failed - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
 

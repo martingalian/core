@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiClients\REST;
 
 use Binance\Util\Url;
@@ -9,7 +11,7 @@ use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 use Martingalian\Core\Support\ValueObjects\ApiRequest;
 
-class BinanceApiClient extends BaseApiClient
+final class BinanceApiClient extends BaseApiClient
 {
     public function __construct(array $config)
     {
@@ -23,14 +25,6 @@ class BinanceApiClient extends BaseApiClient
         ]);
 
         parent::__construct($config['url'], $credentials);
-    }
-
-    protected function getHeaders(): array
-    {
-        return [
-            'X-MBX-APIKEY' => $this->credentials->get('api_key'),
-            'Content-Type' => 'application/json',
-        ];
     }
 
     public function publicRequest(ApiRequest $apiRequest)
@@ -65,5 +59,13 @@ class BinanceApiClient extends BaseApiClient
         );
 
         return $this->processRequest($apiRequest);
+    }
+
+    protected function getHeaders(): array
+    {
+        return [
+            'X-MBX-APIKEY' => $this->credentials->get('api_key'),
+            'Content-Type' => 'application/json',
+        ];
     }
 }

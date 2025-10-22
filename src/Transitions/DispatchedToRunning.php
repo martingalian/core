@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Transitions;
 
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Running;
 use Spatie\ModelStates\Transition;
 
-class DispatchedToRunning extends Transition
+final class DispatchedToRunning extends Transition
 {
     private Step $step;
 

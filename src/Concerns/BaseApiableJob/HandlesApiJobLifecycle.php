@@ -1,6 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\BaseApiableJob;
+
+use Exception;
 
 /*
  * HandlesApiJobLifecycle
@@ -19,14 +23,14 @@ trait HandlesApiJobLifecycle
          * Ensure the job has a RateLimiter instance defined.
          */
         if (! isset($this->rateLimiter)) {
-            throw new \Exception('Rate Limiter class not instanciated on '.static::class);
+            throw new Exception('Rate Limiter class not instanciated on '.static::class);
         }
 
         /*
          * Ensure the job has an ExceptionHandler instance defined.
          */
         if (! isset($this->exceptionHandler)) {
-            throw new \Exception('Exception Handler class not instanciated on '.static::class);
+            throw new Exception('Exception Handler class not instanciated on '.static::class);
         }
     }
 

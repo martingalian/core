@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Orders;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
@@ -9,8 +11,9 @@ use Martingalian\Core\Jobs\Models\Order\SyncReferenceDataJob;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class ResettleOrderJob extends BaseQueueableJob
+final class ResettleOrderJob extends BaseQueueableJob
 {
     public Order $order;
 
@@ -67,11 +70,11 @@ class ResettleOrderJob extends BaseQueueableJob
         ]);
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->order->id}] Resettle Order lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            "[S:{$this->step->id} P:{$this->order->position->id}] O:{$this->order->id}".class_basename(static::class).'] - Error',
+            "[S:{$this->step->id} P:{$this->order->position->id}] O:{$this->order->id}".class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
     }

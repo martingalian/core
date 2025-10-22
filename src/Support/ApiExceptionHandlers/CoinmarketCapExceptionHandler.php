@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiExceptionHandlers;
 
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
+use Throwable;
 
 /**
  * CoinmarketCapExceptionHandler
@@ -18,15 +21,9 @@ use Martingalian\Core\Concerns\ApiExceptionHelpers;
  * • 401/402/403 are true forbidden states (plan/authorization).
  * • 500/502/503/504/408 treated as retryable (transient).
  */
-class CoinmarketCapExceptionHandler extends BaseExceptionHandler
+final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
 {
     use ApiExceptionHelpers;
-
-    public function __construct()
-    {
-        // Base fallback when no Retry-After is present.
-        $this->backoffSeconds = 30;
-    }
 
     /**
      * Ignorable: none defined by CMC docs.
@@ -70,6 +67,12 @@ class CoinmarketCapExceptionHandler extends BaseExceptionHandler
     protected array $cmcDailyCodes = [1009];       // daily cap
 
     protected array $cmcMonthlyCodes = [1010];       // monthly cap
+
+    public function __construct()
+    {
+        // Base fallback when no Retry-After is present.
+        $this->backoffSeconds = 30;
+    }
 
     public function ping(): bool
     {
@@ -125,7 +128,7 @@ class CoinmarketCapExceptionHandler extends BaseExceptionHandler
      * Legacy seconds-based backoff for callers that expect an int.
      * Escalate for daily/monthly exhaustion.
      */
-    public function backoffSeconds(\Throwable $e): int
+    public function backoffSeconds(Throwable $e): int
     {
         if ($e instanceof RequestException && $e->hasResponse() && $this->isRateLimited($e)) {
             $until = $this->rateLimitUntil($e);

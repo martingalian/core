@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\Apis\REST;
 
 use Illuminate\Validation\Rule;
@@ -9,8 +11,9 @@ use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Martingalian\Core\Support\ValueObjects\ApiRequest;
 use Psr\Http\Message\ResponseInterface;
+use RuntimeException;
 
-class BinanceApi
+final class BinanceApi
 {
     use HasPropertiesValidation;
 
@@ -315,11 +318,11 @@ class BinanceApi
         $apiRequest = ApiRequest::make('POST', '/fapi/v1/listenKey');
         $response = $this->client->publicRequest($apiRequest);   // ← unsigned
 
-        $body = $response instanceof \Psr\Http\Message\ResponseInterface
+        $body = $response instanceof ResponseInterface
           ? json_decode((string) $response->getBody(), true)
           : $response;                                         // array in tests
 
-        return $body['listenKey'] ?? throw new \RuntimeException('No listenKey returned');
+        return $body['listenKey'] ?? throw new RuntimeException('No listenKey returned');
     }
 
     public function refreshListenKey(?string $currentKey = null): string
@@ -332,26 +335,26 @@ class BinanceApi
             $body = (string) $response->getBody();              // raw JSON (or empty)
         } elseif (is_array($response)) {                        // unit-test stub
             return $response['listenKey']
-            ?? throw new \RuntimeException('Stub missing listenKey.');
+            ?? throw new RuntimeException('Stub missing listenKey.');
         } else {
-            throw new \RuntimeException('Unexpected response type: '.get_debug_type($response));
+            throw new RuntimeException('Unexpected response type: '.get_debug_type($response));
         }
 
         // empty body  ⇒ Binance kept the same key alive
         if ($body === '') {
             return $currentKey
-            ?? throw new \RuntimeException('Empty listenKey body and no current key supplied.');
+            ?? throw new RuntimeException('Empty listenKey body and no current key supplied.');
         }
 
         $data = json_decode($body, true);
 
         // Binance error payload?
         if (isset($data['code'], $data['msg'])) {
-            throw new \RuntimeException("Binance error {$data['code']}: {$data['msg']}");
+            throw new RuntimeException("Binance error {$data['code']}: {$data['msg']}");
         }
 
         if (! isset($data['listenKey'])) {
-            throw new \RuntimeException("No listenKey in Binance response: {$body}");
+            throw new RuntimeException("No listenKey in Binance response: {$body}");
         }
 
         return $data['listenKey'];

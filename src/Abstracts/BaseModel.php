@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Abstracts;
 
 use Illuminate\Database\Eloquent\Model;
@@ -14,23 +16,14 @@ abstract class BaseModel extends Model
     // Internal only; not persisted
     protected array $attributeChangesCache = [];
 
-    public function updateSaving(array $attributes, array $options = []): bool
+    final public function updateSaving(array $attributes, array $options = []): bool
     {
         $this->fill($attributes);
 
         return $this->save($options);
     }
 
-    protected static function booted(): void
-    {
-        static::creating(fn (self $model) => $model->cacheChangesForCreate());
-        static::updating(fn (self $model) => $model->cacheChangesForUpdate());
-
-        static::saving(fn (self $model) => $model->cacheAttributeChanges());
-        static::saved(fn (self $model) => $model->clearCachedAttributeChanges());
-    }
-
-    public function cacheChangesForCreate(): void
+    final public function cacheChangesForCreate(): void
     {
         $this->attributeChangesCache = [];
 
@@ -42,7 +35,7 @@ abstract class BaseModel extends Model
         }
     }
 
-    public function cacheChangesForUpdate(): void
+    final public function cacheChangesForUpdate(): void
     {
         $this->attributeChangesCache = [];
 
@@ -54,17 +47,17 @@ abstract class BaseModel extends Model
         }
     }
 
-    public function getCachedAttributeChanges(): array
+    final public function getCachedAttributeChanges(): array
     {
         return $this->attributeChangesCache;
     }
 
-    public function clearCachedChanges(): void
+    final public function clearCachedChanges(): void
     {
         $this->attributeChangesCache = [];
     }
 
-    public function cacheAttributeChanges(): void
+    final public function cacheAttributeChanges(): void
     {
         if (! $this->exists) {
             $this->cacheChangesForCreate();
@@ -73,12 +66,12 @@ abstract class BaseModel extends Model
         }
     }
 
-    public function clearCachedAttributeChanges(): void
+    final public function clearCachedAttributeChanges(): void
     {
         $this->attributeChangesCache = [];
     }
 
-    public function updateIfNotSet(string $attribute, mixed $value, ?callable $callable = null): bool
+    final public function updateIfNotSet(string $attribute, mixed $value, ?callable $callable = null): bool
     {
         if (! $this->exists || $this->getKey() === null) {
             return false;
@@ -98,5 +91,14 @@ abstract class BaseModel extends Model
         }
 
         return false;
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(fn (self $model) => $model->cacheChangesForCreate());
+        static::updating(fn (self $model) => $model->cacheChangesForUpdate());
+
+        static::saving(fn (self $model) => $model->cacheAttributeChanges());
+        static::saved(fn (self $model) => $model->clearCachedAttributeChanges());
     }
 }

@@ -1,16 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\Apis\Websocket;
 
 use Martingalian\Core\Support\ApiClients\REST\BinanceRestApi;
 use Martingalian\Core\Support\ApiClients\Websocket\BinanceApiClient;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 
-class BinanceApi
+final class BinanceApi
 {
-    protected BinanceApiClient $client;
+    private BinanceApiClient $client;
 
-    protected ApiCredentials $credentials;
+    private ApiCredentials $credentials;
 
     public function __construct(ApiCredentials $credentials)
     {

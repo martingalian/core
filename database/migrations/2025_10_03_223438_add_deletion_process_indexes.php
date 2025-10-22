@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -68,11 +70,11 @@ return new class extends Migration
                 'idx_p_arl_created_id'
             );
 
-            // For queries tying logs back to a model (Position/Order) within a time window
-            $table->index(
-                ['relatable_type', 'relatable_id', 'created_at'],
-                'idx_p_arl_rel_created'
-            );
+            // REMOVED: Duplicate of api_req_logs_rel_idx from 2025_09_11_224819
+            // $table->index(
+            //     ['relatable_type', 'relatable_id', 'created_at'],
+            //     'idx_p_arl_rel_created'
+            // );
         });
 
         // ---------------------------------------------------------------------

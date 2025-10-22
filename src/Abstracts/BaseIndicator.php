@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Abstracts;
 
+use Exception;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
@@ -30,11 +33,11 @@ abstract class BaseIndicator
     // Full payload to send in the request.
     public array $parameters = [];
 
-    // Holds the result from the indicator API.
-    protected array $data = [];
-
     // Optional: defines which exchange symbol is being queried.
     public ?ExchangeSymbol $exchangeSymbol = null;
+
+    // Holds the result from the indicator API.
+    protected array $data = [];
 
     public function __construct(ExchangeSymbol $exchangeSymbol, array $parameters = [])
     {
@@ -52,7 +55,7 @@ abstract class BaseIndicator
 
         // Enforce the presence of the "interval" parameter.
         if (! array_key_exists('interval', $mergedParams)) {
-            throw new \Exception('Indicator misses key -- interval --');
+            throw new Exception('Indicator misses key -- interval --');
         }
 
         // Inject standard flag to return timestamps in TAAPI responses.
@@ -64,8 +67,17 @@ abstract class BaseIndicator
         }
     }
 
+    /**
+     * Abstract method that should return a simplified decision:
+     * - Numeric value (e.g. 70)
+     * - Boolean true/false
+     * - String: LONG / SHORT
+     * - null
+     */
+    abstract public function conclusion();
+
     // Retrieve previously fetched data.
-    public function data($addTimestampForHumans = false)
+    final public function data($addTimestampForHumans = false)
     {
         if ($addTimestampForHumans) {
             $this->addTimestampForHumans();
@@ -87,24 +99,24 @@ abstract class BaseIndicator
         return $this->data;
     }
 
-    public function parameters()
+    final public function parameters()
     {
         return $this->parameters;
     }
 
     // Add/override a specific parameter.
-    public function addParameter(string $key, $value)
+    final public function addParameter(string $key, $value)
     {
         $this->parameters[$key] = $value;
     }
 
     // Perform the API call using the taapi proxy and process response.
-    public function apiQuery()
+    final public function apiQuery()
     {
         $apiAccount = Account::admin('taapi');
 
         if (! $this->exchangeSymbol) {
-            throw new \Exception('No exchange symbol defined for the indicator query');
+            throw new Exception('No exchange symbol defined for the indicator query');
         }
 
         $apiDataMapper = new ApiDataMapperProxy('taapi');
@@ -119,19 +131,10 @@ abstract class BaseIndicator
     }
 
     // Load previously stored API response data (e.g., for caching).
-    public function load(array $data)
+    final public function load(array $data)
     {
         $this->data = $data;
     }
-
-    /**
-     * Abstract method that should return a simplified decision:
-     * - Numeric value (e.g. 70)
-     * - Boolean true/false
-     * - String: LONG / SHORT
-     * - null
-     */
-    abstract public function conclusion();
 
     /**
      * Make $this->data include human-readable timestamps — safely, for

@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Transitions;
 
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Cancelled;
 use Spatie\ModelStates\Transition;
 
-class DispatchedToCancelled extends Transition
+final class DispatchedToCancelled extends Transition
 {
     private Step $step;
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns;
 
 use GuzzleHttp\Exception\RequestException;
@@ -9,6 +11,7 @@ use Martingalian\Core\Models\ForbiddenHostname;
 use Martingalian\Core\Models\User;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\ResponseInterface;
+use Throwable;
 
 /**
  * ApiExceptionHelpers (generic)
@@ -23,17 +26,17 @@ trait ApiExceptionHelpers
      * Core classifiers
      * ----------------
      */
-    public function isRecvWindowMismatch(\Throwable $exception): bool
+    public function isRecvWindowMismatch(Throwable $exception): bool
     {
         return $this->containsHttpExceptionIn($exception, $this->recvWindowMismatchedHttpCodes);
     }
 
-    public function isRateLimited(\Throwable $exception): bool
+    public function isRateLimited(Throwable $exception): bool
     {
         return $this->containsHttpExceptionIn($exception, $this->rateLimitedHttpCodes);
     }
 
-    public function isForbidden(\Throwable $exception): bool
+    public function isForbidden(Throwable $exception): bool
     {
         return $this->containsHttpExceptionIn($exception, $this->forbiddenHttpCodes);
     }
@@ -63,14 +66,74 @@ trait ApiExceptionHelpers
         );
     }
 
-    public function retryException(\Throwable $exception): bool
+    public function retryException(Throwable $exception): bool
     {
         return $this->containsHttpExceptionIn($exception, $this->retryableHttpCodes);
     }
 
-    public function ignoreException(\Throwable $exception): bool
+    public function ignoreException(Throwable $exception): bool
     {
         return $this->containsHttpExceptionIn($exception, $this->ignorableHttpCodes);
+    }
+
+    /**
+     * --------------
+     * Backoff helpers
+     * --------------
+     */
+
+    /**
+     * Generic "retry-at" computation:
+     * • Prefer Retry-After (seconds or RFC-date).
+     * • Otherwise fall back to a fixed base backoff with a tiny jitter.
+     * Handlers may override to use window boundaries (e.g., minute/day/month).
+     */
+    public function rateLimitUntil(RequestException $exception): Carbon
+    {
+        $now = Carbon::now();
+
+        if (! $exception->hasResponse()) {
+            return $now->copy()->addSeconds($this->backoffSeconds);
+        }
+
+        $meta = $this->extractHttpMeta($exception);
+        $retryAfter = mb_trim((string) ($meta['retry_after'] ?? ''));
+
+        if ($retryAfter !== '') {
+            if (is_numeric($retryAfter)) {
+                return $now->copy()->addSeconds((int) $retryAfter + random_int(2, 6));
+            }
+
+            try {
+                $parsed = Carbon::parse($retryAfter);
+
+                return $parsed->isPast()
+                    ? $now->copy()->addSeconds($this->backoffSeconds)
+                    : $parsed;
+            } catch (Throwable) {
+                // fall through to base backoff
+            }
+        }
+
+        // Base fallback + light jitter
+        return $now->copy()->addSeconds($this->backoffSeconds + random_int(1, 5));
+    }
+
+    /**
+     * Legacy wrapper returning seconds until retry for callers that expect an int.
+     * Uses rateLimitUntil() when the exception is classified as rate-limited.
+     */
+    public function backoffSeconds(Throwable $e): int
+    {
+        if ($e instanceof RequestException && $e->hasResponse()) {
+            if ($this->isRateLimited($e)) {
+                $until = $this->rateLimitUntil($e);
+
+                return max(0, now()->diffInSeconds($until, false));
+            }
+        }
+
+        return $this->backoffSeconds;
     }
 
     /**
@@ -85,7 +148,7 @@ trait ApiExceptionHelpers
      *  • flat list: [429, 418]
      *  • map: [400 => [-1021, -5028], 401 => [-2015]]
      */
-    protected function containsHttpExceptionIn(\Throwable $exception, array $statusCodes): bool
+    protected function containsHttpExceptionIn(Throwable $exception, array $statusCodes): bool
     {
         if (! $exception instanceof RequestException) {
             return false;
@@ -111,7 +174,7 @@ trait ApiExceptionHelpers
      * NOTE: Also supports CoinMarketCap style payloads:
      *   { "status": { "error_code": 1008, "error_message": "...", ... }, "data": ... }
      */
-    protected function extractHttpErrorCodes(RequestException|ResponseInterface $input): array
+    protected function extractHttpErrorCodes(Throwable|ResponseInterface $input): array
     {
         $httpCode = null;
         $statusCode = null;
@@ -155,7 +218,7 @@ trait ApiExceptionHelpers
     {
         $headers = [];
         foreach ($msg->getHeaders() as $k => $vals) {
-            $headers[strtolower($k)] = implode(', ', $vals);
+            $headers[mb_strtolower($k)] = implode(', ', $vals);
         }
 
         return $headers;
@@ -189,7 +252,7 @@ trait ApiExceptionHelpers
      */
     protected function nextWindowResetAt(Carbon $serverNow, int $intervalNum, string $intervalLetter): Carbon
     {
-        $letter = strtolower($intervalLetter);
+        $letter = mb_strtolower($intervalLetter);
         $t = $serverNow->copy();
 
         switch ($letter) {
@@ -217,65 +280,5 @@ trait ApiExceptionHelpers
             default:
                 return $t->copy()->startOfMinute()->addMinute();
         }
-    }
-
-    /**
-     * --------------
-     * Backoff helpers
-     * --------------
-     */
-
-    /**
-     * Generic "retry-at" computation:
-     * • Prefer Retry-After (seconds or RFC-date).
-     * • Otherwise fall back to a fixed base backoff with a tiny jitter.
-     * Handlers may override to use window boundaries (e.g., minute/day/month).
-     */
-    public function rateLimitUntil(RequestException $exception): Carbon
-    {
-        $now = Carbon::now();
-
-        if (! $exception->hasResponse()) {
-            return $now->copy()->addSeconds($this->backoffSeconds);
-        }
-
-        $meta = $this->extractHttpMeta($exception);
-        $retryAfter = trim((string) ($meta['retry_after'] ?? ''));
-
-        if ($retryAfter !== '') {
-            if (is_numeric($retryAfter)) {
-                return $now->copy()->addSeconds((int) $retryAfter + random_int(2, 6));
-            }
-
-            try {
-                $parsed = Carbon::parse($retryAfter);
-
-                return $parsed->isPast()
-                    ? $now->copy()->addSeconds($this->backoffSeconds)
-                    : $parsed;
-            } catch (\Throwable) {
-                // fall through to base backoff
-            }
-        }
-
-        // Base fallback + light jitter
-        return $now->copy()->addSeconds($this->backoffSeconds + random_int(1, 5));
-    }
-
-    /**
-     * Legacy wrapper returning seconds until retry for callers that expect an int.
-     * Uses rateLimitUntil() when the exception is classified as rate-limited.
-     */
-    public function backoffSeconds(\Throwable $e): int
-    {
-        if ($e instanceof RequestException && $e->hasResponse()) {
-            if ($this->isRateLimited($e)) {
-                $until = $this->rateLimitUntil($e);
-
-                return max(0, now()->diffInSeconds($until, false));
-            }
-        }
-
-        return $this->backoffSeconds;
     }
 }

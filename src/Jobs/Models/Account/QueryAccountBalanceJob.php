@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Account;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -17,7 +19,7 @@ use Martingalian\Core\Models\ApiSystem;
  * • Logs a message if there are no significant balances (> 0.01).
  * • Designed to run under throttling and exception-handling conditions.
  */
-class QueryAccountBalanceJob extends BaseApiableJob
+final class QueryAccountBalanceJob extends BaseApiableJob
 {
     public Account $account;
 
@@ -75,13 +77,12 @@ class QueryAccountBalanceJob extends BaseApiableJob
             );
 
             return ['response' => "No non-zero balances found for account ID {$this->account->id} / {$this->account->user->name}"];
-        } else {
-            $this->account->logApplicationEvent(
-                "Synced non-zero balances: {$nonZeroBalances}",
-                self::class,
-                __FUNCTION__
-            );
         }
+        $this->account->logApplicationEvent(
+            "Synced non-zero balances: {$nonZeroBalances}",
+            self::class,
+            __FUNCTION__
+        );
 
         return $apiResponse->result;
     }

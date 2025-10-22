@@ -1,13 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Order;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class SyncOrderJob extends BaseApiableJob
+final class SyncOrderJob extends BaseApiableJob
 {
     public Order $order;
 
@@ -37,11 +40,11 @@ class SyncOrderJob extends BaseApiableJob
         $this->order->apiSync();
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->order->id}] Order {$this->order->type} {$this->order->side} synchronization error - {$e->getMessage()}",
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
     }

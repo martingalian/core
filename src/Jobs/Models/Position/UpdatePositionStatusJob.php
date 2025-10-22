@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Position;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
@@ -8,7 +10,7 @@ use Martingalian\Core\Models\Position;
 /**
  * Updates the status of a Position model based on a given status string.
  */
-class UpdatePositionStatusJob extends BaseQueueableJob
+final class UpdatePositionStatusJob extends BaseQueueableJob
 {
     public string $status;
 

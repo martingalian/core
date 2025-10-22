@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Str;
@@ -7,7 +9,7 @@ use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\NotRunnable;
 use Martingalian\Core\States\Pending;
 
-class StepObserver
+final class StepObserver
 {
     public function creating(Step $step): void
     {
@@ -15,16 +17,16 @@ class StepObserver
             $step->block_uuid = Str::uuid()->toString();
         }
 
-        if (empty($step->state) && $step->type == 'default') {
+        if (empty($step->state) && $step->type === 'default') {
             $step->state = new Pending($step);
         }
 
-        if ($step->type == 'resolve-exception') {
+        if ($step->type === 'resolve-exception') {
             $step->state = new NotRunnable($step);
         }
 
-        if ($step->index == 0) {
-            $step->index == 1;
+        if ($step->index === 0) {
+            $step->index = 1;
         }
     }
 

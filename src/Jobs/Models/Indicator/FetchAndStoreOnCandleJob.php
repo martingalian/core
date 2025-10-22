@@ -1,17 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Indicator;
 
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Sleep;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
+use Throwable;
 
-class FetchAndStoreOnCandleJob extends BaseApiableJob
+use function count;
+
+final class FetchAndStoreOnCandleJob extends BaseApiableJob
 {
     public ExchangeSymbol $exchangeSymbol;
 
@@ -71,7 +77,7 @@ class FetchAndStoreOnCandleJob extends BaseApiableJob
         $indicator = new $class($this->exchangeSymbol, $mergedParams);
 
         // Gentle jitter to smooth bursts across many workers
-        usleep(random_int(500_000, 1_500_000));
+        Sleep::for(random_int(500, 1_500))->milliseconds();
 
         // Fetch raw candles from provider (Taapi)
         $data = $indicator->compute();
@@ -115,7 +121,7 @@ class FetchAndStoreOnCandleJob extends BaseApiableJob
             ];
 
             // Flush in chunks for memory/perf
-            if (\count($buffer) >= $chunkSize) {
+            if (count($buffer) >= $chunkSize) {
                 Candle::query()->upsert(
                     $buffer,
                     // Unique key: avoid duplicates per (symbol, timeframe, timestamp)
@@ -123,7 +129,7 @@ class FetchAndStoreOnCandleJob extends BaseApiableJob
                     // On conflict, update latest values including candle_time
                     ['open', 'high', 'low', 'close', 'volume', 'candle_time', 'updated_at']
                 );
-                $count += \count($buffer);
+                $count += count($buffer);
                 $buffer = [];
             }
         }
@@ -135,10 +141,35 @@ class FetchAndStoreOnCandleJob extends BaseApiableJob
                 ['exchange_symbol_id', 'timeframe', 'timestamp'],
                 ['open', 'high', 'low', 'close', 'volume', 'candle_time', 'updated_at']
             );
-            $count += \count($buffer);
+            $count += count($buffer);
         }
 
         return ['stored' => true, 'upserts' => $count];
+    }
+
+    public function ignoreException(Throwable $e)
+    {
+        $ignoredMessages = [
+            'An unknown error occurred. Please check your parameters',
+            'Connection reset by peer',
+        ];
+
+        if ($e instanceof RequestException && $e->hasResponse()) {
+            $body = (string) $e->getResponse()->getBody();
+            foreach ($ignoredMessages as $msg) {
+                if (str_contains($body, $msg)) {
+                    return true;
+                }
+            }
+        }
+
+        foreach ($ignoredMessages as $msg) {
+            if (str_contains($e->getMessage(), $msg)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -170,12 +201,12 @@ class FetchAndStoreOnCandleJob extends BaseApiableJob
             $volume = isset($data['volume']) && is_array($data['volume']) ? $data['volume'] : null;
 
             $len = min(
-                \count($ts),
-                \count($open),
-                \count($high),
-                \count($low),
-                \count($close),
-                $volume ? \count($volume) : PHP_INT_MAX
+                count($ts),
+                count($open),
+                count($high),
+                count($low),
+                count($close),
+                $volume ? count($volume) : PHP_INT_MAX
             );
 
             $rows = [];
@@ -218,30 +249,5 @@ class FetchAndStoreOnCandleJob extends BaseApiableJob
         }
 
         return $val;
-    }
-
-    public function ignoreException(\Throwable $e)
-    {
-        $ignoredMessages = [
-            'An unknown error occurred. Please check your parameters',
-            'Connection reset by peer',
-        ];
-
-        if ($e instanceof RequestException && $e->hasResponse()) {
-            $body = (string) $e->getResponse()->getBody();
-            foreach ($ignoredMessages as $msg) {
-                if (str_contains($body, $msg)) {
-                    return true;
-                }
-            }
-        }
-
-        foreach ($ignoredMessages as $msg) {
-            if (str_contains($e->getMessage(), $msg)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

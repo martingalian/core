@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;
 
-class LeverageBracket extends BaseModel
+final class LeverageBracket extends BaseModel
 {
     protected $casts = [
         'source_payload' => 'array',

@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\ApiSnapshot;
 
-class ApiSnapshotObserver
+final class ApiSnapshotObserver
 {
     use LogsAttributeChanges;
 

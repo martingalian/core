@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Indicator;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -8,8 +10,9 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class QueryIndicatorJob extends BaseApiableJob
+final class QueryIndicatorJob extends BaseApiableJob
 {
     public Indicator $indicator;
 
@@ -41,11 +44,11 @@ class QueryIndicatorJob extends BaseApiableJob
         return $indicator->compute();
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->indicator->id}] Indicator query error - {$e->getMessage()}",
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
     }

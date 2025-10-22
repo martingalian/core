@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\Proxies;
 
+use Exception;
 use Martingalian\Core\Support\ApiDataMappers\Binance\BinanceApiDataMapper;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\BybitApiDataMapper;
 use Martingalian\Core\Support\ApiDataMappers\CoinmarketCap\CoinmarketCapDataMapper;
@@ -12,9 +15,9 @@ use Martingalian\Core\Support\ApiDataMappers\Taapi\TaapiApiDataMapper;
  * @method \Martingalian\Core\Support\ValueObjects\ApiProperties prepareGroupedQueryIndicatorsProperties(\Martingalian\Core\Models\ExchangeSymbol $exchangeSymbol, \Illuminate\Support\Collection $indicators, string $timeframe)
  * @method array resolveGroupedQueryIndicatorsResponse(\GuzzleHttp\Psr7\Response $response)
  */
-class ApiDataMapperProxy
+final class ApiDataMapperProxy
 {
-    protected $api;
+    private $api;
 
     public function __construct(string $apiCanonical)
     {
@@ -33,7 +36,7 @@ class ApiDataMapperProxy
                 $this->api = new BybitApiDataMapper;
                 break;
             default:
-                throw new \Exception('Unsupported API Mapper: '.$apiCanonical);
+                throw new Exception('Unsupported API Mapper: '.$apiCanonical);
         }
     }
 
@@ -47,6 +50,6 @@ class ApiDataMapperProxy
             return call_user_func_array([$this->api, $method], $arguments);
         }
 
-        throw new \Exception("Method {$method} does not exist for this API.");
+        throw new Exception("Method {$method} does not exist for this API.");
     }
 }

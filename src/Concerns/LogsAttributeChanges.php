@@ -1,10 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns;
 
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 trait LogsAttributeChanges
 {
@@ -40,7 +44,7 @@ trait LogsAttributeChanges
 
             $transitionType = match (true) {
                 is_null($old) && $new !== null => 'added',
-                ! is_null($old) && $new !== null && $old != $new => 'changed',
+                ! is_null($old) && $new !== null && $old !== $new => 'changed',
                 ! is_null($old) && $new === null => 'unassigned',
                 default => null,
             };
@@ -54,13 +58,13 @@ trait LogsAttributeChanges
             if ($mutator && is_callable($mutator)) {
                 try {
                     $computed = $mutator($model, $old, $new, $transitionType);
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     $computed = "(Exception: {$e->getMessage()})";
                 }
             }
 
             $format = fn ($value) => match (true) {
-                $value instanceof \DateTimeInterface => $value->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s'),
+                $value instanceof DateTimeInterface => $value->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s'),
                 is_array($value) => json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
                 is_string($value) && $this->isJsonString($value) => $value,
                 default => json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),

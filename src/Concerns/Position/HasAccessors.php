@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\Position;
 
 use Martingalian\Core\Models\Indicator;
@@ -102,7 +104,7 @@ trait HasAccessors
             $open = (float) $row->data['open'][0];
         }
 
-        if ($open === null || $open == 0.0) {
+        if ($open === null || $open === 0.0) {
             return '0.00';
         }
 

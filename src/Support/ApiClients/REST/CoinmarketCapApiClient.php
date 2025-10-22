@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiClients\REST;
 
 use Martingalian\Core\Abstracts\BaseApiClient;
@@ -7,7 +9,7 @@ use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 use Martingalian\Core\Support\ValueObjects\ApiRequest;
 
-class CoinmarketCapApiClient extends BaseApiClient
+final class CoinmarketCapApiClient extends BaseApiClient
 {
     public function __construct(array $config)
     {
@@ -20,16 +22,16 @@ class CoinmarketCapApiClient extends BaseApiClient
         parent::__construct($config['url'], $this->credentials);
     }
 
+    public function publicRequest(ApiRequest $apiRequest)
+    {
+        return $this->processRequest($apiRequest);
+    }
+
     protected function getHeaders(): array
     {
         return [
             'X-CMC_PRO_API_KEY' => $this->credentials->get('api_key'),
             'Content-Type' => 'application/json',
         ];
-    }
-
-    public function publicRequest(ApiRequest $apiRequest)
-    {
-        return $this->processRequest($apiRequest);
     }
 }

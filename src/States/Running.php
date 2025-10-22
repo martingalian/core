@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\States;
 
 use Martingalian\Core\Abstracts\StepStatus;
 
-class Running extends StepStatus
+final class Running extends StepStatus
 {
     public function value(): string
     {

@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;
 
-class Candle extends BaseModel
+final class Candle extends BaseModel
 {
     protected $casts = [
         'created_at' => 'datetime',

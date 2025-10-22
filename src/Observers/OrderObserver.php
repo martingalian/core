@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Str;
@@ -8,7 +10,7 @@ use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\User;
 
-class OrderObserver
+final class OrderObserver
 {
     use LogsAttributeChanges;
 
@@ -26,7 +28,7 @@ class OrderObserver
 
         $direction = $model->position->direction;
 
-        if ($model->position_side == $direction) {
+        if ($model->position_side === $direction) {
             $existingStop = $model->position->stopMarketOrder();
             $existingMarket = $model->position->marketOrder();
             $existingProfit = $model->position->profitOrder();

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Order;
 
 use Illuminate\Support\Str;
@@ -9,8 +11,10 @@ use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\Martingalian;
+use RuntimeException;
+use Throwable;
 
-class PlaceStopLossOrderJob extends BaseApiableJob
+final class PlaceStopLossOrderJob extends BaseApiableJob
 {
     public Position $position;
 
@@ -61,7 +65,7 @@ class PlaceStopLossOrderJob extends BaseApiableJob
 
         User::notifyAdminsViaPushover(
             "{$this->position->parsed_trading_pair} trading deactivated due to an issue on a StartOrFail()",
-            '['.class_basename(static::class).'] - startOrFail() returned false',
+            '['.class_basename(self::class).'] - startOrFail() returned false',
             'nidavellir_warnings'
         );
 
@@ -80,7 +84,7 @@ class PlaceStopLossOrderJob extends BaseApiableJob
                 self::class,
                 __FUNCTION__
             );
-            throw new \RuntimeException('Missing profit order context for stop loss.');
+            throw new RuntimeException('Missing profit order context for stop loss.');
         }
 
         $stopPct = $this->position->account->stop_market_initial_percentage;
@@ -126,7 +130,7 @@ class PlaceStopLossOrderJob extends BaseApiableJob
 
         User::notifyAdminsViaPushover(
             "{$this->position->parsed_trading_pair} Stop Loss Order successfully placed. ID [{$this->stopLossOrder->id}] Qty: {$calc['quantity']}, Price: {$calc['price']}",
-            '['.class_basename(static::class).'] - Stop Loss placed',
+            '['.class_basename(self::class).'] - Stop Loss placed',
             'nidavellir_positions'
         );
 
@@ -169,13 +173,13 @@ class PlaceStopLossOrderJob extends BaseApiableJob
         );
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         $id = $this->stopLossOrder?->id ?? 'unknown';
 
         User::notifyAdminsViaPushover(
             "[{$id}] STOP-MARKET order place error - {$e->getMessage()}",
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
     }

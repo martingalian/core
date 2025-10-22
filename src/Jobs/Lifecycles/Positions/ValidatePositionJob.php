@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
@@ -7,8 +9,9 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class ValidatePositionJob extends BaseQueueableJob
+final class ValidatePositionJob extends BaseQueueableJob
 {
     public Position $position;
 
@@ -26,7 +29,7 @@ class ValidatePositionJob extends BaseQueueableJob
             'first_profit_price' => $this->position->profitOrder()->price,
         ]);
 
-        if (! in_array($this->position->status, $this->position->activeStatuses())) {
+        if (! in_array($this->position->status, $this->position->activeStatuses(), true)) {
             $this->position->logApplicationEvent(
                 "Position {$this->position->parsed_trading_pair} not in an active-related status. Canceling position...",
                 self::class,
@@ -35,7 +38,7 @@ class ValidatePositionJob extends BaseQueueableJob
 
             User::notifyAdminsViaPushover(
                 "[{$this->position->id}] Position {$this->position->parsed_trading_pair} not in an active-related status. Canceling position...",
-                '['.class_basename(static::class).'] - Warning',
+                '['.class_basename(self::class).'] - Warning',
                 'nidavellir_warnings'
             );
 
@@ -54,7 +57,7 @@ class ValidatePositionJob extends BaseQueueableJob
 
             User::notifyAdminsViaPushover(
                 "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have invalid sync'ed orders. Canceling position...",
-                '['.class_basename(static::class).'] - Warning',
+                '['.class_basename(self::class).'] - Warning',
                 'nidavellir_warnings'
             );
 
@@ -65,7 +68,7 @@ class ValidatePositionJob extends BaseQueueableJob
             ->where('orders.position_side', $this->position->direction)
             ->where('orders.type', 'LIMIT')
             ->active()
-            ->count() != $this->position->total_limit_orders) {
+            ->count() !== $this->position->total_limit_orders) {
             $this->position->logApplicationEvent(
                 "Position {$this->position->parsed_trading_pair} have a different number of total active limit orders. Canceling position...",
                 self::class,
@@ -74,7 +77,7 @@ class ValidatePositionJob extends BaseQueueableJob
 
             User::notifyAdminsViaPushover(
                 "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have a different number of total active limit orders. Canceling position...",
-                '['.class_basename(static::class).'] - Warning',
+                '['.class_basename(self::class).'] - Warning',
                 'nidavellir_warnings'
             );
 
@@ -92,11 +95,11 @@ class ValidatePositionJob extends BaseQueueableJob
         }
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;
@@ -11,7 +13,7 @@ use Martingalian\Core\Concerns\ExchangeSymbol\InteractsWithApis;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
 
-class ExchangeSymbol extends BaseModel
+final class ExchangeSymbol extends BaseModel
 {
     use HasAccessors;
     use HasDebuggable;

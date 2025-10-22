@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;
 
-class ApiRequestLog extends BaseModel
+final class ApiRequestLog extends BaseModel
 {
     protected $table = 'api_request_logs';
 

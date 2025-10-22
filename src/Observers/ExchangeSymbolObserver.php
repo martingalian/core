@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\ExchangeSymbol;
 
-class ExchangeSymbolObserver
+final class ExchangeSymbolObserver
 {
     use LogsAttributeChanges;
 

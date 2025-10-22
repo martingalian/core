@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
@@ -28,7 +30,7 @@ trait MapsAccountBalanceQuery
     public function resolveGetBalanceResponse(Response $response): array
     {
         return collect(json_decode($response->getBody(), true))
-            ->filter(fn ($item) => (float) $item['balance'] != 0.0)
+            ->filter(fn ($item) => (float) $item['balance'] !== 0.0)
             ->mapWithKeys(fn ($item) => [$item['asset'] => $item['balance']])
             ->toArray();
     }

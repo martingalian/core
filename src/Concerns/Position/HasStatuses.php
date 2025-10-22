@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\Position;
 
 trait HasStatuses
@@ -11,12 +13,12 @@ trait HasStatuses
 
     public function isClosing()
     {
-        return $this->status == 'closing';
+        return $this->status === 'closing';
     }
 
     public function isCancelled()
     {
-        return $this->status == 'cancelled';
+        return $this->status === 'cancelled';
     }
 
     public function updateToWatching()

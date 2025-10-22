@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support;
 
 use InvalidArgumentException;
@@ -13,7 +15,7 @@ use InvalidArgumentException;
  * - Levels are returned HIGH -> LOW.
  * - Hits array is aligned with levels (same order).
  */
-class LevelCrossingScanner
+final class LevelCrossingScanner
 {
     /**
      * Small epsilon to stabilize boundary touches in float math.

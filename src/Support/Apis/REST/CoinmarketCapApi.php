@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\Apis\REST;
 
 use Martingalian\Core\Support\ApiClients\REST\CoinmarketCapApiClient;
@@ -7,9 +9,9 @@ use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Martingalian\Core\Support\ValueObjects\ApiRequest;
 
-class CoinmarketCapApi
+final class CoinmarketCapApi
 {
-    protected $client;
+    private $client;
 
     // Initializes CoinMarketCap API client with credentials.
     public function __construct(ApiCredentials $credentials)

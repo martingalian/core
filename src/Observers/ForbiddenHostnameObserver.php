@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\ForbiddenHostname;
 use Martingalian\Core\Models\User;
 
-class ForbiddenHostnameObserver
+final class ForbiddenHostnameObserver
 {
     use LogsAttributeChanges;
 

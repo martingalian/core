@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Symbol;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -12,7 +14,7 @@ use Martingalian\Core\Models\Symbol;
  * This job syncs an unique symbol. Normally it's just called once on its
  * lifetime. After that, there are no more changes.
  */
-class SyncSymbolJob extends BaseApiableJob
+final class SyncSymbolJob extends BaseApiableJob
 {
     public Symbol $symbol;
 

@@ -1,13 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\Apis\REST;
 
 use Martingalian\Core\Support\ApiClients\REST\AlternativeMeApiClient;
 use Martingalian\Core\Support\ValueObjects\ApiRequest;
 
-class AlternativeMeApi
+final class AlternativeMeApi
 {
-    protected $client;
+    private $client;
 
     public function __construct()
     {

@@ -1,6 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\ExchangeSymbol;
+
+use InvalidArgumentException;
 
 trait HasTradingComputations
 {
@@ -10,7 +14,7 @@ trait HasTradingComputations
 
         $price = api_format_price((string) $this->mark_price, $this);
         if (bccomp($price, '0', $scale) <= 0) {
-            throw new \InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
+            throw new InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
         }
 
         $rawQty = bcdiv((string) $amount, $price, $scale);
@@ -32,7 +36,7 @@ trait HasTradingComputations
 
         $price = api_format_price((string) $this->mark_price, $this);
         if (bccomp($price, '0', $scale) <= 0) {
-            throw new \InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
+            throw new InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
         }
 
         $qty = api_format_quantity((string) $quantity, $this);
@@ -47,7 +51,7 @@ trait HasTradingComputations
 
         $price = api_format_price((string) $this->mark_price, $this);
         if (bccomp($price, '0', $scale) <= 0) {
-            throw new \InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
+            throw new InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
         }
 
         $qty = api_format_quantity((string) $quantity, $this);

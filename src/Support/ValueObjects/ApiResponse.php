@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ValueObjects;
 
 use GuzzleHttp\Psr7\Response;
 
-class ApiResponse
+final class ApiResponse
 {
     public Response $response;
 

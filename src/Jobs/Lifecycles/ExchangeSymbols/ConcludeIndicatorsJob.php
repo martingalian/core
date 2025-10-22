@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
 use Illuminate\Support\Str;
@@ -9,6 +11,7 @@ use Martingalian\Core\Jobs\Models\ExchangeSymbol\AssessIndicatorConclusionJob;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
+use Throwable;
 
 /**
  * Iterates each exchange symbol on the database, and triggers the
@@ -16,7 +19,7 @@ use Martingalian\Core\Models\User;
  * jobs, to conclude the indicator direction for each exchange
  * symbol.
  */
-class ConcludeIndicatorsJob extends BaseQueueableJob
+final class ConcludeIndicatorsJob extends BaseQueueableJob
 {
     public ExchangeSymbol $exchangeSymbol;
 
@@ -40,11 +43,11 @@ class ConcludeIndicatorsJob extends BaseQueueableJob
         });
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             '(no related ids on the ConcludeIndicatorsJob) - lifecycle error - '.ExceptionParser::with($e)->friendlyMessage(),
-            "[S:{$this->step->id} ES:{$this->exchangeSymbol->id}] ".class_basename(static::class).' - Error',
+            "[S:{$this->step->id} ES:{$this->exchangeSymbol->id}] ".class_basename(self::class).' - Error',
             'nidavellir_errors'
         );
     }

@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Account;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\User;
+use Throwable;
 
 /*
  * AssignTokensToNewPositionsJob
@@ -16,7 +19,7 @@ use Martingalian\Core\Models\User;
  * • Cancels positions that could not be matched with an exchange symbol.
  * • On exception, sends a pushover alert to admins with error details.
  */
-class AssignTokensToNewPositionsJob extends BaseQueueableJob
+final class AssignTokensToNewPositionsJob extends BaseQueueableJob
 {
     public Account $account;
 
@@ -70,7 +73,7 @@ class AssignTokensToNewPositionsJob extends BaseQueueableJob
         return ['response' => 'Tokens: '.$tokens];
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         /*
          * Notify admins via Pushover if any exception occurs during job.
@@ -78,7 +81,7 @@ class AssignTokensToNewPositionsJob extends BaseQueueableJob
          */
         User::notifyAdminsViaPushover(
             "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
     }

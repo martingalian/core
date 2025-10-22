@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\Symbol;
 
 use GuzzleHttp\Psr7\Response;

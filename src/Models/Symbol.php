@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,7 +12,7 @@ use Martingalian\Core\Concerns\Symbol\HasBaseAssetParsing;
 use Martingalian\Core\Concerns\Symbol\HasScopes;
 use Martingalian\Core\Concerns\Symbol\InteractsWithApis;
 
-class Symbol extends BaseModel
+final class Symbol extends BaseModel
 {
     use HasBaseAssetParsing;
     use HasDebuggable;

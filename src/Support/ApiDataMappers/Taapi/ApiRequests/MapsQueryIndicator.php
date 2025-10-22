@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiDataMappers\Taapi\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;

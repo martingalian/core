@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 // database/migrations/2025_09_23_010000_add_candle_time_to_candles_table.php
 
 use Illuminate\Database\Migrations\Migration;

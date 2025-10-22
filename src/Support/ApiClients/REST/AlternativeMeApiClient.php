@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiClients\REST;
 
 use Martingalian\Core\Abstracts\BaseApiClient;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Support\ValueObjects\ApiRequest;
 
-class AlternativeMeApiClient extends BaseApiClient
+final class AlternativeMeApiClient extends BaseApiClient
 {
     public function __construct(array $config)
     {
@@ -15,16 +17,16 @@ class AlternativeMeApiClient extends BaseApiClient
         parent::__construct($config['url'], null);
     }
 
+    public function publicRequest(ApiRequest $apiRequest)
+    {
+        return $this->processRequest($apiRequest);
+    }
+
     protected function getHeaders(): array
     {
         return [
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ];
-    }
-
-    public function publicRequest(ApiRequest $apiRequest)
-    {
-        return $this->processRequest($apiRequest);
     }
 }

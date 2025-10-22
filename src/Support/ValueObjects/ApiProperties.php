@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ValueObjects;
 
-class ApiProperties
+final class ApiProperties
 {
     public array $properties;
 

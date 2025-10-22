@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\BaseApiableJob;
 
 use GuzzleHttp\Exception\ConnectException;
@@ -60,7 +62,7 @@ trait HandlesApiJobExceptions
         $this->retryPerApiThrottlingDelay($e);
     }
 
-    protected function retryPerApiThrottlingDelay(\Throwable $e): void
+    protected function retryPerApiThrottlingDelay(Throwable $e): void
     {
         /*
          * Set a future dispatch_after time and mark the step as pending.

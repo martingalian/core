@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ValueObjects;
 
-class ApiCredentials
+final class ApiCredentials
 {
     public ?array $credentials;
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Builder;
@@ -17,7 +19,7 @@ use Martingalian\Core\States\Skipped;
 use Martingalian\Core\States\Stopped;
 use Spatie\ModelStates\HasStates;
 
-class Step extends BaseModel
+final class Step extends BaseModel
 {
     use HasActions, HasFactory, HasLoggable, HasStates;
 
@@ -33,6 +35,27 @@ class Step extends BaseModel
 
         'state' => StepStatus::class,
     ];
+
+    public static function concludedStepStates()
+    {
+        return [Completed::class, Skipped::class];
+    }
+
+    public static function failedStepStates()
+    {
+        return [Failed::class, Stopped::class];
+    }
+
+    public static function terminalStepStates(): array
+    {
+        return [
+            Completed::class,
+            Skipped::class,
+            Cancelled::class,
+            Failed::class,
+            Stopped::class,
+        ];
+    }
 
     public function stepTick()
     {
@@ -61,17 +84,17 @@ class Step extends BaseModel
             return false;
         }
 
-        return Step::where('block_uuid', $this->child_block_uuid)->exists();
+        return self::where('block_uuid', $this->child_block_uuid)->exists();
     }
 
     public function parentStep()
     {
-        return static::where('child_block_uuid', $this->block_uuid)->first();
+        return self::where('child_block_uuid', $this->block_uuid)->first();
     }
 
     public function isChild(): bool
     {
-        return static::where('child_block_uuid', $this->block_uuid)->exists();
+        return self::where('child_block_uuid', $this->block_uuid)->exists();
     }
 
     public function isParent(): bool
@@ -97,7 +120,7 @@ class Step extends BaseModel
         info_if("[previousIndexIsConcluded] Evaluating previous index for Step ID {$this->id} with index {$this->index} in block {$this->block_uuid}");
 
         // If the current step is the first step (index 1), it is always concluded
-        if ($this->index == 1) {
+        if ($this->index === 1) {
             info_if("[previousIndexIsConcluded] Step ID {$this->id} is the first step (index 1), returning true.");
 
             /*
@@ -113,7 +136,7 @@ class Step extends BaseModel
 
         // Added: TODO: Make a pest test.
         // I don't have an index, I am a child and my parent is already running.
-        if ($this->index == null && $this->isChild() && $this->parentIsRunning()) {
+        if ($this->index === null && $this->isChild() && $this->parentIsRunning()) {
             info_if("[previousIndexIsConcluded] Step ID {$this->id} is a child, its parent is already running, and I dont have an index. Returning true");
 
             /*
@@ -128,13 +151,13 @@ class Step extends BaseModel
         }
 
         // Check if there are any pending resolve-exception steps
-        $hasPendingResolveException = Step::where('block_uuid', $this->block_uuid)
+        $hasPendingResolveException = self::where('block_uuid', $this->block_uuid)
             ->where('type', 'resolve-exception')
             ->where('state', Pending::class)
             ->exists();
 
         // Build the query dynamically based on the condition
-        $query = Step::where('block_uuid', $this->block_uuid)
+        $query = self::where('block_uuid', $this->block_uuid)
             ->where('index', $this->index - 1);
 
         // If there are pending resolve-exception steps, change the type condition
@@ -206,30 +229,9 @@ class Step extends BaseModel
         return $result;
     }
 
-    public static function concludedStepStates()
-    {
-        return [Completed::class, Skipped::class];
-    }
-
-    public static function failedStepStates()
-    {
-        return [Failed::class, Stopped::class];
-    }
-
-    public static function terminalStepStates(): array
-    {
-        return [
-            Completed::class,
-            Skipped::class,
-            Cancelled::class,
-            Failed::class,
-            Stopped::class,
-        ];
-    }
-
     public function childSteps()
     {
-        return $this->hasMany(static::class, 'block_uuid', 'child_block_uuid');
+        return $this->hasMany(self::class, 'block_uuid', 'child_block_uuid');
     }
 
     public function childStepsAreConcludedFromMap($childStepsByBlock): bool
@@ -303,7 +305,7 @@ class Step extends BaseModel
 
     public function getPrevious()
     {
-        return Step::where('block_uuid', $this->block_uuid)
+        return self::where('block_uuid', $this->block_uuid)
             ->where('index', $this->index - 1)
             ->get();
     }

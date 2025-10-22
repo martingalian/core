@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Account;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -17,7 +19,7 @@ use Martingalian\Core\Models\ApiSystem;
  * • Logs a message if no open orders are returned.
  * • Helps track and debug trading activity and open positions per account.
  */
-class QueryOpenOrdersJob extends BaseApiableJob
+final class QueryOpenOrdersJob extends BaseApiableJob
 {
     public Account $account;
 

@@ -1,16 +1,20 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\Proxies;
 
+use Exception;
 use Martingalian\Core\Support\Apis\REST\AlternativeMeApi;
 use Martingalian\Core\Support\Apis\REST\BinanceApi;
+use Martingalian\Core\Support\Apis\REST\BybitApi;
 use Martingalian\Core\Support\Apis\REST\CoinmarketCapApi;
 use Martingalian\Core\Support\Apis\REST\TaapiApi;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 
-class ApiRESTProxy
+final class ApiRESTProxy
 {
-    protected $api;
+    private $api;
 
     public function __construct(string $apiType, ?ApiCredentials $credentials = null)
     {
@@ -18,6 +22,9 @@ class ApiRESTProxy
         switch ($apiType) {
             case 'binance':
                 $this->api = new BinanceApi($credentials);
+                break;
+            case 'bybit':
+                $this->api = new BybitApi($credentials);
                 break;
             case 'taapi':
                 $this->api = new TaapiApi($credentials);
@@ -29,7 +36,7 @@ class ApiRESTProxy
                 $this->api = new AlternativeMeApi;
                 break;
             default:
-                throw new \Exception('Unsupported API: '.$apiType);
+                throw new Exception('Unsupported API: '.$apiType);
         }
     }
 
@@ -43,6 +50,6 @@ class ApiRESTProxy
             return call_user_func_array([$this->api, $method], $arguments);
         }
 
-        throw new \Exception("Method {$method} does not exist for this API.");
+        throw new Exception("Method {$method} does not exist for this API.");
     }
 }

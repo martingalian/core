@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 // database/migrations/2025_09_23_000000_create_candles_table.php
 
 use Illuminate\Database\Migrations\Migration;
@@ -35,13 +37,13 @@ return new class extends Migration
                 ->on('exchange_symbols');
 
             // Unique constraint — prevents duplicates per (symbol, timeframe, timestamp)
+            // NOTE: Unique constraints automatically create an index, so no separate index needed
             $table->unique(
                 ['exchange_symbol_id', 'timeframe', 'timestamp'],
                 'candles_symbol_timeframe_timestamp_unique'
             );
 
-            // Helpful indexes for queries
-            $table->index(['exchange_symbol_id', 'timeframe', 'timestamp'], 'candles_lookup_idx');
+            // Single-column index for timestamp-only queries
             $table->index('timestamp');
         });
     }

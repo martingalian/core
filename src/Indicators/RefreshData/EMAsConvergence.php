@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
 
-class EMAsConvergence extends BaseIndicator
+final class EMAsConvergence extends BaseIndicator
 {
     public string $endpoint = 'emas-convergence';
 
@@ -53,17 +55,17 @@ class EMAsConvergence extends BaseIndicator
 
             if (is_null($trend)) {
                 $trend = $currentTrend; // Initialize the trend
-            } elseif ($trend != $currentTrend) {
+            } elseif ($trend !== $currentTrend) {
                 // If trends are inconsistent, no convergence
                 return null;
             }
 
             // Validate EMA order (higher periods should have lower values for LONG, higher for SHORT)
-            if ($previousValue != null) {
-                if ($trend == 'LONG' && $values[1] > $previousValue) {
+            if ($previousValue !== null) {
+                if ($trend === 'LONG' && $values[1] > $previousValue) {
                     return null; // LONG convergence broken
                 }
-                if ($trend == 'SHORT' && $values[1] < $previousValue) {
+                if ($trend === 'SHORT' && $values[1] < $previousValue) {
                     return null; // SHORT convergence broken
                 }
             }

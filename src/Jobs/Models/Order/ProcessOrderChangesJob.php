@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Order;
 
 use Illuminate\Support\Str;
@@ -11,11 +13,11 @@ use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
 
-class ProcessOrderChangesJob extends BaseQueueableJob
+final class ProcessOrderChangesJob extends BaseQueueableJob
 {
-    public Order $order;
-
     private const OPEN_REFERENCE_STATUSES = ['NEW', 'PARTIALLY_FILLED'];
+
+    public Order $order;
 
     public function __construct(int $orderId)
     {

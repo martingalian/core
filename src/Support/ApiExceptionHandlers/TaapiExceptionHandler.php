@@ -1,18 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiExceptionHandlers;
 
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
 
-class TaapiExceptionHandler extends BaseExceptionHandler
+final class TaapiExceptionHandler extends BaseExceptionHandler
 {
     use ApiExceptionHelpers;
-
-    public function __construct()
-    {
-        $this->backoffSeconds = 3;
-    }
 
     public $retryableHttpCodes = [
         504,
@@ -26,6 +23,11 @@ class TaapiExceptionHandler extends BaseExceptionHandler
     public array $rateLimitedHttpCodes = [429, 502];
 
     public array $recvWindowMismatchedHttpCodes = [];
+
+    public function __construct()
+    {
+        $this->backoffSeconds = 3;
+    }
 
     public function ping(): bool
     {

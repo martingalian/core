@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Order;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
@@ -12,7 +14,7 @@ use Martingalian\Core\Models\Order;
  * As example: $attributesToSync['quantity'] then it will copy the quantity
  * to the reference_quantity.
  */
-class SyncReferenceDataJob extends BaseQueueableJob
+final class SyncReferenceDataJob extends BaseQueueableJob
 {
     public Order $order;
 

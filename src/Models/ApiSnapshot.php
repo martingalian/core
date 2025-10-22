@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -8,7 +10,7 @@ use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
 
-class ApiSnapshot extends BaseModel
+final class ApiSnapshot extends BaseModel
 {
     use HasDebuggable;
     use HasLoggable;
@@ -17,20 +19,10 @@ class ApiSnapshot extends BaseModel
         'api_response' => 'array',
     ];
 
-    public function responsable(): MorphTo
-    {
-        return $this->morphTo();
-    }
-
-    public function scopeWithCanonical($query, string $canonical)
-    {
-        return $query->where('canonical', $canonical);
-    }
-
     /**
      * Store or update the API snapshot for a given model and canonical key.
      *
-     * @param  \Martingalian\Core\Models\Position|\Martingalian\Core\Models\Order|\Martingalian\Core\Models\Account  $model
+     * @param  Position|Order|Account  $model
      */
     public static function storeFor(Model $model, string $canonical, array $payload): self
     {
@@ -46,7 +38,7 @@ class ApiSnapshot extends BaseModel
     /**
      * Retrieve the API snapshot response for a given model and canonical key.
      *
-     * @param  \Martingalian\Core\Models\Position|\Martingalian\Core\Models\Order|\Martingalian\Core\Models\Account  $model
+     * @param  Position|Order|Account  $model
      */
     public static function getFrom(Model $model, string $canonical): ?array
     {
@@ -57,5 +49,15 @@ class ApiSnapshot extends BaseModel
             ->first();
 
         return $snapshot?->api_response;
+    }
+
+    public function responsable(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function scopeWithCanonical($query, string $canonical)
+    {
+        return $query->where('canonical', $canonical);
     }
 }

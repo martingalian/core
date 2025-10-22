@@ -1,18 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Martingalian\Core\Abstracts\BaseModel;
+use Str;
 
-class ApplicationLog extends BaseModel
+final class ApplicationLog extends BaseModel
 {
-    public function loggable(): MorphTo
-    {
-        return $this->morphTo();
-    }
-
     public static function record(string $event, Model $loggable, ?string $sourceClass = null, ?string $sourceMethod = null, ?string $blockUuid = null): self
     {
         // If sourceClass is provided, we get the real class name without the namespace
@@ -23,7 +21,7 @@ class ApplicationLog extends BaseModel
         // Ensure sourceMethod is only the method name, or just 'closure' if it's a closure
         if ($sourceMethod) {
             // Check if it's a closure and simplify the method name if necessary
-            if (strpos($sourceMethod, '{closure}') !== false) {
+            if (mb_strpos($sourceMethod, '{closure}') !== false) {
                 $sourceMethod = '{closure}';
             } else {
                 $sourceMethod = class_basename($sourceMethod);
@@ -44,7 +42,12 @@ class ApplicationLog extends BaseModel
             'event' => mb_substr($event, 0, 5000),
             'loggable_id' => $loggable->getKey(),
             'loggable_type' => $loggable->getMorphClass(),
-            'block_uuid' => $blockUuid ?? (string) \Str::uuid(),
+            'block_uuid' => $blockUuid ?? (string) Str::uuid(),
         ]);
+    }
+
+    public function loggable(): MorphTo
+    {
+        return $this->morphTo();
     }
 }

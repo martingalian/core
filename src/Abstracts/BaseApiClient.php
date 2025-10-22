@@ -1,13 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Abstracts;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Sleep;
 use Martingalian\Core\Models\ApiRequestLog;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 use Martingalian\Core\Support\ValueObjects\ApiRequest;
+use Throwable;
 
 /*
  * BaseApiClient
@@ -59,7 +63,7 @@ abstract class BaseApiClient
                 'headers' => $this->getHeaders(),
             ];
 
-            if ($sendAsJson && strtoupper($apiRequest->method) != 'GET') {
+            if ($sendAsJson && mb_strtoupper($apiRequest->method) !== 'GET') {
                 $options['json'] = $apiRequest->properties->toArray();
             } else {
                 $options['query'] = $apiRequest->properties->getOr('options', []);
@@ -87,7 +91,7 @@ abstract class BaseApiClient
 
             $endTime = microtime(true);
             $logData['completed_at'] = now();
-            $logData['duration'] = abs(intval(($endTime - $startTime) * 1000));
+            $logData['duration'] = abs((int) (($endTime - $startTime) * 1000));
             $logData['http_response_code'] = $response->getStatusCode();
             $logData['response'] = json_decode($response->getBody(), true);
             $logData['http_headers_returned'] = $response->getHeaders();
@@ -106,20 +110,20 @@ abstract class BaseApiClient
                     ? $this->exceptionHandler->backoffSeconds
                     : 5;
 
-                sleep($delay);
+                Sleep::for($delay)->seconds();
 
                 try {
                     $response = $this->httpRequest->request(
                         $apiRequest->method,
                         $apiRequest->path,
-                        $sendAsJson && strtoupper($apiRequest->method) !== 'GET'
+                        $sendAsJson && mb_strtoupper($apiRequest->method) !== 'GET'
                             ? ['headers' => $this->getHeaders(), 'json' => $apiRequest->properties->toArray()]
                             : ['headers' => $this->getHeaders(), 'query' => $apiRequest->properties->getOr('options', [])]
                     );
 
                     $endTime = microtime(true);
                     $logData['completed_at'] = now();
-                    $logData['duration'] = abs(intval(($endTime - $startTime) * 1000));
+                    $logData['duration'] = abs((int) (($endTime - $startTime) * 1000));
                     $logData['http_response_code'] = $response->getStatusCode();
                     $logData['response'] = json_decode($response->getBody(), true);
                     $logData['http_headers_returned'] = $response->getHeaders();
@@ -127,7 +131,7 @@ abstract class BaseApiClient
                     $this->updateRequestLogData($logData);
 
                     return $response;
-                } catch (\Throwable $retryException) {
+                } catch (Throwable $retryException) {
                     $this->updateRequestLogData($logData);
                     throw $retryException;
                 }
@@ -135,7 +139,7 @@ abstract class BaseApiClient
 
             $this->updateRequestLogData($logData);
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->updateRequestLogData([
                 'error_message' => $e->getMessage().' (line '.$e->getLine().')',
             ]);

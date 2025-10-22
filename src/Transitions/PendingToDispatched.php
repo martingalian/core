@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Transitions;
 
 use Martingalian\Core\Models\Step;
@@ -8,7 +10,7 @@ use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Running;
 use Spatie\ModelStates\Transition;
 
-class PendingToDispatched extends Transition
+final class PendingToDispatched extends Transition
 {
     private Step $step;
 
@@ -37,14 +39,14 @@ class PendingToDispatched extends Transition
          * The logic to put this resolve-exception into pending state is made
          * as a passive decision, no worries.
          */
-        if ($this->step->type == 'resolve-exception' && is_null($this->step->index)) {
+        if ($this->step->type === 'resolve-exception' && is_null($this->step->index)) {
             return true;
         }
 
         // Check if the step is a 'resolve-exception' with an index.
-        if ($this->step->type == 'resolve-exception' && ! is_null($this->step->index)) {
+        if ($this->step->type === 'resolve-exception' && ! is_null($this->step->index)) {
             // If the index is 1, there's no previous step to check, so allow the transition
-            if ($this->step->index == 1) {
+            if ($this->step->index === 1) {
                 return true;
             }
 

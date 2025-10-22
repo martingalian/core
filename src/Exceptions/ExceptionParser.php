@@ -1,34 +1,34 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Exceptions;
 
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Str;
+use ReflectionException;
+use ReflectionMethod;
+use Throwable;
 
-class ExceptionParser
+final class ExceptionParser
 {
-    protected string $filename;
+    private string $filename;
 
-    protected int $line;
+    private int $line;
 
-    protected string $classname;
+    private string $classname;
 
-    protected string $originalMessage;
+    private string $originalMessage;
 
-    protected string $stackTrace;
+    private string $stackTrace;
 
-    protected ?int $httpStatusCode = null;
+    private ?int $httpStatusCode = null;
 
-    protected ?int $errorCode = null;
+    private ?int $errorCode = null;
 
-    protected ?string $errorMsg = null;
+    private ?string $errorMsg = null;
 
-    public static function with(\Throwable $e): self
-    {
-        return new self($e);
-    }
-
-    public function __construct(\Throwable $e)
+    public function __construct(Throwable $e)
     {
         $basePath = base_path();
 
@@ -44,7 +44,7 @@ class ExceptionParser
 
             if ($class && $function && method_exists($class, $function)) {
                 try {
-                    $method = new \ReflectionMethod($class, $function);
+                    $method = new ReflectionMethod($class, $function);
                     $file = $method->getFileName();
 
                     if ($file &&
@@ -54,7 +54,7 @@ class ExceptionParser
                         $this->filename = str_replace($basePath.DIRECTORY_SEPARATOR, '', $file);
                         break;
                     }
-                } catch (\ReflectionException) {
+                } catch (ReflectionException) {
                     continue;
                 }
             }
@@ -71,6 +71,11 @@ class ExceptionParser
                 $this->errorMsg = $json['msg'] ?? null;
             }
         }
+    }
+
+    public static function with(Throwable $e): self
+    {
+        return new self($e);
     }
 
     public function friendlyMessage(): string

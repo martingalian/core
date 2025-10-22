@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class DebuggableLog extends Model
+final class DebuggableLog extends Model
 {
     public function debuggable()
     {

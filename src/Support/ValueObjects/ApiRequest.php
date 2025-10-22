@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ValueObjects;
 
-class ApiRequest
+final class ApiRequest
 {
     public string $method;
 

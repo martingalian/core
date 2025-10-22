@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiDataMappers\Binance;
 
+use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseDataMapper;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
@@ -21,7 +24,7 @@ use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsPositionsQu
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsSymbolMarginType;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsTokenLeverageRatios;
 
-class BinanceApiDataMapper extends BaseDataMapper
+final class BinanceApiDataMapper extends BaseDataMapper
 {
     use MapsAccountBalanceQuery;
     use MapsAccountQuery;
@@ -51,28 +54,28 @@ class BinanceApiDataMapper extends BaseDataMapper
 
     public function directionType(string $canonical)
     {
-        if ($canonical == 'LONG') {
+        if ($canonical === 'LONG') {
             return 'LONG';
         }
 
-        if ($canonical == 'SHORT') {
+        if ($canonical === 'SHORT') {
             return 'SHORT';
         }
 
-        throw new \InvalidArgumentException("Invalid Binance direction type: {$canonical}");
+        throw new InvalidArgumentException("Invalid Binance direction type: {$canonical}");
     }
 
     public function sideType(string $canonical)
     {
-        if ($canonical == 'BUY') {
+        if ($canonical === 'BUY') {
             return 'BUY';
         }
 
-        if ($canonical == 'SELL') {
+        if ($canonical === 'SELL') {
             return 'SELL';
         }
 
-        throw new \InvalidArgumentException("Invalid Binance side type: {$canonical}");
+        throw new InvalidArgumentException("Invalid Binance side type: {$canonical}");
     }
 
     /**
@@ -117,6 +120,6 @@ class BinanceApiDataMapper extends BaseDataMapper
             }
         }
 
-        throw new \InvalidArgumentException("Invalid token format: {$token}");
+        throw new InvalidArgumentException("Invalid token format: {$token}");
     }
 }

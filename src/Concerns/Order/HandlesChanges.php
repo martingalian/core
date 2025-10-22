@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\Order;
 
 use Illuminate\Support\Str;
@@ -12,7 +14,7 @@ trait HandlesChanges
     public function processWAPChanges(): void
     {
         // In case the position is still watching, just skip it.
-        if ($this->status == 'watching') {
+        if ($this->status === 'watching') {
             return;
         }
 

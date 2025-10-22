@@ -1,16 +1,20 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Order;
 
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\Martingalian;
+use Throwable;
 
-class PlaceMarketOrderJob extends BaseApiableJob
+final class PlaceMarketOrderJob extends BaseApiableJob
 {
     public Position $position;
 
@@ -77,7 +81,7 @@ class PlaceMarketOrderJob extends BaseApiableJob
 
         User::notifyAdminsViaPushover(
             "{$this->position->parsed_trading_pair} trading deactivated due to an issue on startOrFail()",
-            '['.class_basename(static::class).'] - startOrFail() returned false',
+            '['.class_basename(self::class).'] - startOrFail() returned false',
             'nidavellir_warnings'
         );
 
@@ -105,7 +109,7 @@ class PlaceMarketOrderJob extends BaseApiableJob
         $side = match ($this->position->direction) {
             'LONG' => 'BUY',
             'SHORT' => 'SELL',
-            default => throw new \InvalidArgumentException('Invalid position direction. Must be LONG or SHORT.'),
+            default => throw new InvalidArgumentException('Invalid position direction. Must be LONG or SHORT.'),
         };
 
         // Create local order record (capture intent for reconciliation even if API fails).
@@ -207,20 +211,20 @@ class PlaceMarketOrderJob extends BaseApiableJob
      * - Propagates error to Step
      * - Notifies admins with enough context to act
      */
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->marketOrder) {
             User::notifyAdminsViaPushover(
                 "[{$this->marketOrder->id}] Order {$this->marketOrder->type} {$this->marketOrder->side} MARKET place error - {$e->getMessage()}",
-                '['.class_basename(static::class).'] - Error',
+                '['.class_basename(self::class).'] - Error',
                 'nidavellir_errors'
             );
         } else {
             User::notifyAdminsViaPushover(
                 "[{$this->position->id}] MARKET place error before order instance - {$e->getMessage()}",
-                '['.class_basename(static::class).'] - Error',
+                '['.class_basename(self::class).'] - Error',
                 'nidavellir_errors'
             );
         }

@@ -1,13 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Order;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class PlaceLimitOrderJob extends BaseApiableJob
+final class PlaceLimitOrderJob extends BaseApiableJob
 {
     public Order $order;
 
@@ -29,8 +32,8 @@ class PlaceLimitOrderJob extends BaseApiableJob
 
     public function startOrFail()
     {
-        $result = $this->order->position->marketOrder()->exchange_order_id != null &&
-                   $this->order->position->status == 'opening';
+        $result = $this->order->position->marketOrder()->exchange_order_id !== null &&
+                   $this->order->position->status === 'opening';
 
         if ($result === false) {
             $reason = '';
@@ -39,7 +42,7 @@ class PlaceLimitOrderJob extends BaseApiableJob
                 $reason = 'Market order exchange order id is null.';
             }
 
-            if ($this->order->position->status != 'opening') {
+            if ($this->order->position->status !== 'opening') {
                 $reason .= 'Position status not in opening';
             }
 
@@ -51,7 +54,7 @@ class PlaceLimitOrderJob extends BaseApiableJob
 
             User::notifyAdminsViaPushover(
                 "{$this->order->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
-                '['.class_basename(static::class).'] - startOrFail() returned false',
+                '['.class_basename(self::class).'] - startOrFail() returned false',
                 'nidavellir_warnings'
             );
 
@@ -80,7 +83,7 @@ class PlaceLimitOrderJob extends BaseApiableJob
 
         $this->order->apiSync();
 
-        if ($this->order->status != 'NEW') {
+        if ($this->order->status !== 'NEW') {
             return false;
         }
 
@@ -108,11 +111,11 @@ class PlaceLimitOrderJob extends BaseApiableJob
         );
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[S:{$this->step->id} P:{$this->order->position->id} O:{$this->order->id}] Order {$this->order->type} {$this->order->side} LIMIT place error - {$e->getMessage()}",
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
     }

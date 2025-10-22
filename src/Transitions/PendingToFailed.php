@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Transitions;
 
 use Martingalian\Core\Models\Step;
@@ -7,7 +9,7 @@ use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\Pending;
 use Spatie\ModelStates\Transition;
 
-class PendingToFailed extends Transition
+final class PendingToFailed extends Transition
 {
     private Step $step;
 

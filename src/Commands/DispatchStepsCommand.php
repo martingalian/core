@@ -1,12 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Support\StepDispatcher;
+use Throwable;
 
-class DispatchStepsCommand extends Command
+final class DispatchStepsCommand extends Command
 {
     /**
      * Usage:
@@ -33,13 +36,13 @@ class DispatchStepsCommand extends Command
         try {
             $opt = $this->option('group');
 
-            if (is_string($opt) && trim($opt) !== '') {
+            if (is_string($opt) && mb_trim($opt) !== '') {
                 // Support multiple separators: , : ; | and whitespace
                 $groups = preg_split('/[,\s;|:]+/', $opt, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
                 // Normalize "null"/"NULL" to actual null (to target the global group if desired)
                 $groups = array_map(function ($g) {
-                    $g = trim($g);
+                    $g = mb_trim($g);
 
                     return ($g === '' || strcasecmp($g, 'null') === 0) ? null : $g;
                 }, $groups);
@@ -71,7 +74,7 @@ class DispatchStepsCommand extends Command
                 StepDispatcher::dispatch($group);
                 $this->info('Dispatched steps for group: '.($group === null ? 'NULL' : $group));
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
             $this->error($e->getMessage());
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -9,7 +11,7 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\TradeConfiguration;
 
-class AssessIndicatorConclusionJob extends BaseApiableJob
+final class AssessIndicatorConclusionJob extends BaseApiableJob
 {
     public ExchangeSymbol $exchangeSymbol;
 

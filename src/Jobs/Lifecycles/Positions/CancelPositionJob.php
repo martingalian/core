@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
 use Illuminate\Support\Str;
@@ -13,7 +15,7 @@ use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 
-class CancelPositionJob extends BaseApiableJob
+final class CancelPositionJob extends BaseApiableJob
 {
     public Position $position;
 

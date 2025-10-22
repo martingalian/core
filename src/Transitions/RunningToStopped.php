@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Transitions;
 
 use Martingalian\Core\Models\Step;
@@ -7,7 +9,7 @@ use Martingalian\Core\States\Running;
 use Martingalian\Core\States\Stopped;
 use Spatie\ModelStates\Transition;
 
-class RunningToStopped extends Transition
+final class RunningToStopped extends Transition
 {
     private Step $step;
 

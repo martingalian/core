@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Support\Sleep;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
@@ -12,7 +15,7 @@ use Martingalian\Core\Models\TradeConfiguration;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
-class ValidatePriceIndicatorJob extends BaseApiableJob
+final class ValidatePriceIndicatorJob extends BaseApiableJob
 {
     public ExchangeSymbol $exchangeSymbol;
 
@@ -53,7 +56,7 @@ class ValidatePriceIndicatorJob extends BaseApiableJob
         $this->apiAccount = Account::admin('taapi');
 
         // Just to avoid hitting a lot the rate limit threshold.
-        usleep(random_int(750000, 1250000)); // 0.75–1.25 seconds
+        Sleep::for(random_int(750, 1250))->milliseconds();
 
         $indicators = Indicator::active()
             ->apiable()

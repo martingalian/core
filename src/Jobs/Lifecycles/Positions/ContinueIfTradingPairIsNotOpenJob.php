@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
@@ -7,7 +9,7 @@ use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 
-class ContinueIfTradingPairIsNotOpenJob extends BaseQueueableJob
+final class ContinueIfTradingPairIsNotOpenJob extends BaseQueueableJob
 {
     public Position $position;
 
@@ -25,7 +27,7 @@ class ContinueIfTradingPairIsNotOpenJob extends BaseQueueableJob
     {
         $previousJobQueue = $this->step->getPrevious()->first();
 
-        if ($previousJobQueue && ($previousJobQueue->response['opened'] ?? false) == true) {
+        if ($previousJobQueue !== null && ($previousJobQueue->response['opened'] ?? false) === true) {
             Step::create([
                 'class' => UpdatePositionStatusJob::class,
                 'queue' => 'positions',

@@ -1,12 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Position;
 
+use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\Martingalian;
 
-class UpdatePositionLeverageJob extends BaseQueueableJob
+final class UpdatePositionLeverageJob extends BaseQueueableJob
 {
     public Position $position;
 
@@ -40,18 +43,18 @@ class UpdatePositionLeverageJob extends BaseQueueableJob
         }
 
         if (empty($this->position->exchange_symbol_id)) {
-            throw new \InvalidArgumentException('exchange_symbol_id is required to compute leverage.');
+            throw new InvalidArgumentException('exchange_symbol_id is required to compute leverage.');
         }
 
         // 1) Resolve the account-level cap that we will *target* (LONG/SHORT specific).
         $accountMaxLeverage = match ($this->position->direction) {
             'LONG' => (int) $this->position->account->position_leverage_long,
             'SHORT' => (int) $this->position->account->position_leverage_short,
-            default => throw new \InvalidArgumentException("Unknown position direction: {$this->position->direction}"),
+            default => throw new InvalidArgumentException("Unknown position direction: {$this->position->direction}"),
         };
 
         if ($accountMaxLeverage < 1) {
-            throw new \InvalidArgumentException("Account max leverage must be >= 1 (got: {$accountMaxLeverage}).");
+            throw new InvalidArgumentException("Account max leverage must be >= 1 (got: {$accountMaxLeverage}).");
         }
 
         // 2) Ask the bracket-only calculator for the largest feasible leverage

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
@@ -8,7 +10,7 @@ use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsOrderModify
 {
-    public function prepareOrderModifyProperties(Order $order, $quantity, $price): ApiProperties
+    public function prepareOrderModifyProperties(order $order, $quantity, $price): ApiProperties
     {
         $properties = new ApiProperties;
         $properties->set('relatable', $order);

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\Account;
 
 use GuzzleHttp\Psr7\Response;
@@ -29,7 +31,7 @@ trait InteractsWithApis
         // Mask values (keep last 6 chars) instead of logging raw secrets
         $masked = collect($this->all_credentials)->map(function ($v) {
             return is_string($v) && $v !== ''
-                ? str_repeat('*', max(0, strlen($v) - 6)).substr($v, -6)
+                ? str_repeat('*', max(0, mb_strlen($v) - 6)).mb_substr($v, -6)
                 : $v;
         })->all();
 

@@ -1,15 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Position;
 
+use Exception;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
+final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 {
     /** @var Position The local Position model we will work with. */
     public Position $position;
@@ -43,7 +47,7 @@ class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
         $symbolKey = $this->position->parsed_trading_pair;
 
         if (! is_array($positions) || ! array_key_exists($symbolKey, $positions)) {
-            throw new \Exception('The position used for WAPing no longer exists. Please check!');
+            throw new Exception('The position used for WAPing no longer exists. Please check!');
         }
 
         $positionFromExchange = $positions[$symbolKey];
@@ -83,7 +87,7 @@ class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
         $profitPct = (string) ($this->position->profit_percentage ?? '0'); // e.g. "0.350"
         $fraction = bcdiv($profitPct, '100', $scale);                     // -> "0.0035"
 
-        $isLong = strtoupper((string) $this->position->direction) === 'LONG';
+        $isLong = mb_strtoupper((string) $this->position->direction) === 'LONG';
         $one = '1';
         $multiplier = $isLong ? bcadd($one, $fraction, $scale) : bcsub($one, $fraction, $scale);
 
@@ -157,11 +161,11 @@ class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
         }
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
 

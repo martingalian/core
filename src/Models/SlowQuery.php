@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;
 
-class SlowQuery extends BaseModel
+final class SlowQuery extends BaseModel
 {
     protected $casts = [
         'bindings' => 'array',

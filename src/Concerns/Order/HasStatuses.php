@@ -1,6 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\Order;
+
+use Throwable;
 
 trait HasStatuses
 {
@@ -15,7 +19,7 @@ trait HasStatuses
         $this->updateSaving($data);
     }
 
-    public function updateToFailed(string|\Throwable $e)
+    public function updateToFailed(string|Throwable $e)
     {
         if (is_string($e)) {
             $errorMessage = $e;

@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
 
-class EMAsSameDirection extends BaseIndicator
+final class EMAsSameDirection extends BaseIndicator
 {
     public string $endpoint = 'emas-same-direction';
 
@@ -50,7 +52,7 @@ class EMAsSameDirection extends BaseIndicator
 
             if (is_null($trend)) {
                 $trend = $currentTrend; // Initialize the trend
-            } elseif ($trend != $currentTrend) {
+            } elseif ($trend !== $currentTrend) {
                 // If trends are inconsistent, return null
                 return null;
             }

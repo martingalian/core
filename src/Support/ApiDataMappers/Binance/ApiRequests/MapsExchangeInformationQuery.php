@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
@@ -23,7 +25,7 @@ trait MapsExchangeInformationQuery
         return collect($data['symbols'] ?? [])
             // Remove symbols with underscores in the name.
             ->filter(function ($symbolData) {
-                return strpos($symbolData['symbol'], '_') === false;
+                return mb_strpos($symbolData['symbol'], '_') === false;
             })
             ->map(function ($symbolData) {
                 $filters = collect($symbolData['filters'] ?? []);

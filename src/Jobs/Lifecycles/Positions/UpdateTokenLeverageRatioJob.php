@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Position;
 
-class UpdateTokenLeverageRatioJob extends BaseApiableJob
+final class UpdateTokenLeverageRatioJob extends BaseApiableJob
 {
     public Position $position;
 

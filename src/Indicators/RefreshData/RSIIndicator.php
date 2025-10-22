@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
 
-class RSIIndicator extends BaseIndicator
+final class RSIIndicator extends BaseIndicator
 {
     public string $endpoint = 'rsi';
 

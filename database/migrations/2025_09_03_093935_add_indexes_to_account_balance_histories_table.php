@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -42,33 +44,35 @@ return new class extends Migration
         // Make sure your table/columns below match these names/types in your schema.
 
         // (position_id, position_side(8), type(16), id)  → nextPendingLimitOrderPrice(), profitOrder(), marketOrder(), etc.
-        DB::statement('
-            ALTER TABLE `orders`
-            ADD INDEX `ord_pos_side_type_id_idx`
-            (`position_id`, `position_side`(8), `type`(16), `id`)
-        ');
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            DB::statement('
+                ALTER TABLE `orders`
+                ADD INDEX `ord_pos_side_type_id_idx`
+                (`position_id`, `position_side`(8), `type`(16), `id`)
+            ');
 
-        // (position_id, position_side(8), status(16), id) → totalLimitOrdersFilled(), last FILLED lookups
-        DB::statement('
-            ALTER TABLE `orders`
-            ADD INDEX `ord_pos_side_status_id_idx`
-            (`position_id`, `position_side`(8), `status`(16), `id`)
-        ');
+            // (position_id, position_side(8), status(16), id) → totalLimitOrdersFilled(), last FILLED lookups
+            DB::statement('
+                ALTER TABLE `orders`
+                ADD INDEX `ord_pos_side_status_id_idx`
+                (`position_id`, `position_side`(8), `status`(16), `id`)
+            ');
 
-        // (position_id, position_side(8), type(16), status(16), quantity) → lastLimitOrder() sorting by quantity
-        // (we omit exchange_order_id here to keep the key lean; see separate index below)
-        DB::statement('
-            ALTER TABLE `orders`
-            ADD INDEX `ord_limit_qty_idx`
-            (`position_id`, `position_side`(8), `type`(16), `status`(16), `quantity`)
-        ');
+            // (position_id, position_side(8), type(16), status(16), quantity) → lastLimitOrder() sorting by quantity
+            // (we omit exchange_order_id here to keep the key lean; see separate index below)
+            DB::statement('
+                ALTER TABLE `orders`
+                ADD INDEX `ord_limit_qty_idx`
+                (`position_id`, `position_side`(8), `type`(16), `status`(16), `quantity`)
+            ');
 
-        // Single-column for fast exact lookups / joins on exchange_order_id (prefix 64 is plenty)
-        DB::statement('
-            ALTER TABLE `orders`
-            ADD INDEX `ord_exchange_order_id_idx`
-            (`exchange_order_id`(64))
-        ');
+            // Single-column for fast exact lookups / joins on exchange_order_id (prefix 64 is plenty)
+            DB::statement('
+                ALTER TABLE `orders`
+                ADD INDEX `ord_exchange_order_id_idx`
+                (`exchange_order_id`(64))
+            ');
+        }
 
         // IMPORTANT: We intentionally DO NOT create the previously-failing wide index
         // `ord_pos_side_type_status_id_idx` (5-part, 3×VARCHAR(255)) because it exceeds key length on utf8mb4.
@@ -80,21 +84,23 @@ return new class extends Migration
         // Rollback in reverse order
 
         // orders
-        try {
-            DB::statement('ALTER TABLE `orders` DROP INDEX `ord_pos_side_type_id_idx`');
-        } catch (\Throwable $e) {
-        }
-        try {
-            DB::statement('ALTER TABLE `orders` DROP INDEX `ord_pos_side_status_id_idx`');
-        } catch (\Throwable $e) {
-        }
-        try {
-            DB::statement('ALTER TABLE `orders` DROP INDEX `ord_limit_qty_idx`');
-        } catch (\Throwable $e) {
-        }
-        try {
-            DB::statement('ALTER TABLE `orders` DROP INDEX `ord_exchange_order_id_idx`');
-        } catch (\Throwable $e) {
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            try {
+                DB::statement('ALTER TABLE `orders` DROP INDEX `ord_pos_side_type_id_idx`');
+            } catch (Throwable $e) {
+            }
+            try {
+                DB::statement('ALTER TABLE `orders` DROP INDEX `ord_pos_side_status_id_idx`');
+            } catch (Throwable $e) {
+            }
+            try {
+                DB::statement('ALTER TABLE `orders` DROP INDEX `ord_limit_qty_idx`');
+            } catch (Throwable $e) {
+            }
+            try {
+                DB::statement('ALTER TABLE `orders` DROP INDEX `ord_exchange_order_id_idx`');
+            } catch (Throwable $e) {
+            }
         }
 
         // positions

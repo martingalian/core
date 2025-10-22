@@ -1,12 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Position;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class DeletePositionHistoryDataJob extends BaseQueueableJob
+final class DeletePositionHistoryDataJob extends BaseQueueableJob
 {
     public Position $position;
 
@@ -22,7 +25,7 @@ class DeletePositionHistoryDataJob extends BaseQueueableJob
 
     public function startOrFail()
     {
-        return $this->position->status == 'closed';
+        return $this->position->status === 'closed';
     }
 
     public function compute()
@@ -35,11 +38,11 @@ class DeletePositionHistoryDataJob extends BaseQueueableJob
         return ['response' => 'All position historical data deleted'];
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->position->id}] Position {$this->position->parsed_trading_pair} historical data delete error - {$e->getMessage()}",
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
     }

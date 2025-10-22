@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiExceptionHandlers;
 
 use GuzzleHttp\Exception\RequestException;
@@ -7,6 +9,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
+use Throwable;
 
 /**
  * BinanceExceptionHandler
@@ -17,15 +20,9 @@ use Martingalian\Core\Concerns\ApiExceptionHelpers;
  * • Treat 418 as a rate-limit (temporary IP ban), not a “forbidden” credential error.
  * • Avoid introducing any Redis/local throttling here (handled elsewhere in your app).
  */
-class BinanceExceptionHandler extends BaseExceptionHandler
+final class BinanceExceptionHandler extends BaseExceptionHandler
 {
     use ApiExceptionHelpers;
-
-    public function __construct()
-    {
-        // Base fallback when no Retry-After is available.
-        $this->backoffSeconds = 10;
-    }
 
     /**
      * Ignorable — no-ops / idempotent.
@@ -74,7 +71,7 @@ class BinanceExceptionHandler extends BaseExceptionHandler
     public array $rateLimitedHttpCodes = [
         429,
         418,
-        403
+        403,
     ];
 
     /**
@@ -90,6 +87,12 @@ class BinanceExceptionHandler extends BaseExceptionHandler
      */
     protected array $binanceRateLimitCodes = [-1003, -1015];
 
+    public function __construct()
+    {
+        // Base fallback when no Retry-After is available.
+        $this->backoffSeconds = 10;
+    }
+
     /**
      * Health check, kept simple.
      */
@@ -101,7 +104,7 @@ class BinanceExceptionHandler extends BaseExceptionHandler
     /**
      * Treat 418 as an IP ban escalation (temporary).
      */
-    public function isIpBanned(\Throwable $exception): bool
+    public function isIpBanned(Throwable $exception): bool
     {
         return $exception instanceof RequestException
             && $exception->hasResponse()
@@ -111,7 +114,7 @@ class BinanceExceptionHandler extends BaseExceptionHandler
     /**
      * Override: in addition to base maps, consider Binance vendor codes and some 403/WAF messages.
      */
-    public function isRateLimited(\Throwable $exception): bool
+    public function isRateLimited(Throwable $exception): bool
     {
         if (parent::isRateLimited($exception)) {
             return true;
@@ -131,7 +134,7 @@ class BinanceExceptionHandler extends BaseExceptionHandler
 
         // Some throttles are surfaced as 403 with WAF-ish text; treat them as rate-limit.
         $http = (int) ($meta['http_code'] ?? 0);
-        $msg = strtolower((string) ($meta['message'] ?? ''));
+        $msg = mb_strtolower((string) ($meta['message'] ?? ''));
         if ($http === 403 && (Str::contains($msg, 'waf') || Str::contains($msg, 'forbidden'))) {
             return true;
         }
@@ -211,7 +214,7 @@ class BinanceExceptionHandler extends BaseExceptionHandler
     /**
      * Override: slightly escalate default when 418 (ban) and Retry-After absent.
      */
-    public function backoffSeconds(\Throwable $e): int
+    public function backoffSeconds(Throwable $e): int
     {
         if ($e instanceof RequestException && $e->hasResponse()) {
             if ($this->isRateLimited($e) || in_array($e->getResponse()->getStatusCode(), [429, 418], true)) {

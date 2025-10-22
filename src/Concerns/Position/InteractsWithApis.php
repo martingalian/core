@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\Position;
 
 use GuzzleHttp\Psr7\Response;
@@ -77,13 +79,13 @@ trait InteractsWithApis
     {
         $apiResponse = $this->account->apiQueryPositions();
         $positions = $apiResponse->result;
-        $want = strtoupper(trim($this->parsed_trading_pair));
+        $want = mb_strtoupper(mb_trim($this->parsed_trading_pair));
 
         $matching = collect($positions)->filter(function ($p) use ($want) {
             if (! isset($p['symbol'], $p['positionSide'], $p['positionAmt'])) {
                 return false;
             }
-            if (strtoupper(trim($p['symbol'])) !== $want) {
+            if (mb_strtoupper(mb_trim($p['symbol'])) !== $want) {
                 return false;
             }
 

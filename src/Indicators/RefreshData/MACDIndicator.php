@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
 
-class MACDIndicator extends BaseIndicator
+final class MACDIndicator extends BaseIndicator
 {
     public string $endpoint = 'macd';
 

@@ -1,6 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support;
+
+use InvalidArgumentException;
+use RuntimeException;
+
+use function extension_loaded;
 
 /**
  * Precise decimal comparison helpers built on BCMath.
@@ -15,7 +22,7 @@ namespace Martingalian\Core\Support;
  * - All methods accept string|int|float, including strings with commas or scientific notation (e.g., "1e-8").
  * - Scale defaults to DEFAULT_SCALE but can be overridden per call.
  */
-class Math
+final class Math
 {
     /**
      * Default number of decimal digits to consider in comparisons.
@@ -165,7 +172,7 @@ class Math
      */
     public static function equal(string|int|float $a, string|int|float $b, ?int $scale = null): bool
     {
-        return self::cmp($a, $b, $scale) == 0;
+        return self::cmp($a, $b, $scale) === 0;
     }
 
     /**
@@ -181,7 +188,7 @@ class Math
      */
     public static function gt(string|int|float $a, string|int|float $b, ?int $scale = null): bool
     {
-        return self::cmp($a, $b, $scale) == 1;
+        return self::cmp($a, $b, $scale) === 1;
     }
 
     /**
@@ -199,7 +206,7 @@ class Math
     {
         $c = self::cmp($a, $b, $scale);
 
-        return $c == 1 || $c == 0;
+        return $c === 1 || $c === 0;
     }
 
     /**
@@ -215,7 +222,7 @@ class Math
      */
     public static function lt(string|int|float $a, string|int|float $b, ?int $scale = null): bool
     {
-        return self::cmp($a, $b, $scale) == -1;
+        return self::cmp($a, $b, $scale) === -1;
     }
 
     /**
@@ -233,7 +240,7 @@ class Math
     {
         $c = self::cmp($a, $b, $scale);
 
-        return $c == -1 || $c == 0;
+        return $c === -1 || $c === 0;
     }
 
     /**
@@ -266,7 +273,7 @@ class Math
 
         $diff = bcsub($as, $bs, $s);
         if (str_starts_with($diff, '-')) {
-            $diff = substr($diff, 1);
+            $diff = mb_substr($diff, 1);
         }
 
         return bccomp($diff, $eps, $s) <= 0;
@@ -294,7 +301,7 @@ class Math
     {
         // Strings: sanitize and handle scientific notation.
         if (is_string($value)) {
-            $v = trim($value);
+            $v = mb_trim($value);
             if ($v === '' || $v === '+' || $v === '-') {
                 return '0';
             }
@@ -308,7 +315,7 @@ class Math
 
             // Validate basic decimal format.
             if (preg_match('/^[\+\-]?\d*(\.\d*)?$/', $v) !== 1) {
-                throw new \InvalidArgumentException("Invalid decimal string: {$value}.");
+                throw new InvalidArgumentException("Invalid decimal string: {$value}.");
             }
 
             return self::normalizeZero(self::trimZeros($v));
@@ -321,7 +328,7 @@ class Math
 
         // Floats: validate and format to fixed scale.
         if (! is_finite($value)) {
-            throw new \InvalidArgumentException('Float value must be finite.');
+            throw new InvalidArgumentException('Float value must be finite.');
         }
 
         $formatted = number_format($value, $scale, '.', '');
@@ -346,32 +353,32 @@ class Math
         $sign = '';
         if ($s[0] === '+' || $s[0] === '-') {
             $sign = $s[0] === '-' ? '-' : '';
-            $s = substr($s, 1);
+            $s = mb_substr($s, 1);
         }
 
         [$mantissa, $expPart] = preg_split('/[eE]/', $s);
         $exp = (int) $expPart;
 
         // Split mantissa around dot.
-        $pos = strpos($mantissa, '.');
+        $pos = mb_strpos($mantissa, '.');
         if ($pos === false) {
             $intPart = $mantissa;
             $fracPart = '';
         } else {
-            $intPart = substr($mantissa, 0, $pos);
-            $fracPart = substr($mantissa, $pos + 1);
+            $intPart = mb_substr($mantissa, 0, $pos);
+            $fracPart = mb_substr($mantissa, $pos + 1);
         }
 
         // Remove leading zeros from int part and trailing zeros from frac to stabilize.
-        $intPart = ltrim($intPart, '0');
-        $fracPart = rtrim($fracPart, '0');
+        $intPart = mb_ltrim($intPart, '0');
+        $fracPart = mb_rtrim($fracPart, '0');
 
         $digits = $intPart.$fracPart;
         if ($digits === '') {
             return '0';
         }
 
-        $decimals = strlen($fracPart);
+        $decimals = mb_strlen($fracPart);
         $shift = $exp - $decimals;
 
         if ($shift >= 0) {
@@ -380,11 +387,11 @@ class Math
             $out = $digits;
         } else {
             // Move decimal left.
-            $left = strlen($digits) + $shift; // shift is negative here.
+            $left = mb_strlen($digits) + $shift; // shift is negative here.
             if ($left <= 0) {
                 $out = '0.'.str_repeat('0', -$left).$digits;
             } else {
-                $out = substr($digits, 0, $left).'.'.substr($digits, $left);
+                $out = mb_substr($digits, 0, $left).'.'.mb_substr($digits, $left);
             }
         }
 
@@ -399,8 +406,8 @@ class Math
             if ($scale <= 0) {
                 $out = $i;
             } else {
-                $f = substr(str_pad($f, $scale, '0'), 0, $scale);
-                $out = rtrim($i.'.'.$f, '.');
+                $f = mb_substr(mb_str_pad($f, $scale, '0'), 0, $scale);
+                $out = mb_rtrim($i.'.'.$f, '.');
                 $out = self::trimZeros($out);
             }
         }
@@ -417,7 +424,7 @@ class Math
     {
         // Remove explicit plus sign for consistency.
         if ($s !== '' && $s[0] === '+') {
-            $s = substr($s, 1);
+            $s = mb_substr($s, 1);
         }
 
         // If numeric value is zero after trimming, return "0".
@@ -427,7 +434,7 @@ class Math
 
         // "-0.000" → "0".
         if ($s[0] === '-') {
-            $abs = substr($s, 1);
+            $abs = mb_substr($s, 1);
             if ($abs === '0' || $abs === '' || $abs === '.' || preg_match('/^0(\.0+)?$/', $abs) === 1) {
                 return '0';
             }
@@ -435,7 +442,7 @@ class Math
 
         // "+0.000" → "0".
         if ($s[0] === '+') {
-            $abs = substr($s, 1);
+            $abs = mb_substr($s, 1);
             if ($abs === '0' || $abs === '' || $abs === '.' || preg_match('/^0(\.0+)?$/', $abs) === 1) {
                 return '0';
             }
@@ -460,12 +467,12 @@ class Math
             $negative = false;
             if ($s[0] === '-') {
                 $negative = true;
-                $s = substr($s, 1);
+                $s = mb_substr($s, 1);
             } elseif ($s[0] === '+') {
-                $s = substr($s, 1);
+                $s = mb_substr($s, 1);
             }
 
-            $s = rtrim(rtrim($s, '0'), '.');
+            $s = mb_rtrim(mb_rtrim($s, '0'), '.');
 
             if ($s === '') {
                 return '0';
@@ -482,8 +489,8 @@ class Math
      */
     private static function ensureBcmath(): void
     {
-        if (! \extension_loaded('bcmath')) {
-            throw new \RuntimeException('The BCMath extension is required.');
+        if (! extension_loaded('bcmath')) {
+            throw new RuntimeException('The BCMath extension is required.');
         }
     }
 
@@ -499,7 +506,7 @@ class Math
         }
 
         if ($scale < 0) {
-            throw new \InvalidArgumentException('Scale must be non-negative.');
+            throw new InvalidArgumentException('Scale must be non-negative.');
         }
 
         return $scale;

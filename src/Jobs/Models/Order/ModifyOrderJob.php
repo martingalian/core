@@ -1,13 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Order;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class ModifyOrderJob extends BaseApiableJob
+final class ModifyOrderJob extends BaseApiableJob
 {
     public Order $order;
 
@@ -45,11 +48,11 @@ class ModifyOrderJob extends BaseApiableJob
         return ['response' => "Order modified to quantity: {$this->quantity}, price: {$this->price}"];
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->order->id}] Order {$this->order->type} {$this->order->side} modify error - {$e->getMessage()}",
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
     }

@@ -1,10 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Abstracts;
 
+use Exception;
 use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobExceptions;
 use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobLifecycle;
 use Martingalian\Core\Models\ForbiddenHostname;
+use Throwable;
 
 abstract class BaseApiableJob extends BaseQueueableJob
 {
@@ -13,10 +17,12 @@ abstract class BaseApiableJob extends BaseQueueableJob
 
     public ?BaseExceptionHandler $exceptionHandler;
 
+    abstract public function computeApiable();
+
     protected function compute()
     {
         if (! method_exists($this, 'assignExceptionHandler')) {
-            throw new \Exception('Exception handler not instanciated!');
+            throw new Exception('Exception handler not instanciated!');
         }
 
         $this->assignExceptionHandler();
@@ -41,11 +47,9 @@ abstract class BaseApiableJob extends BaseQueueableJob
 
         try {
             return $this->computeApiable();
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Let the API-specific exception handler deal with the error.
             $this->handleApiException($e);
         }
     }
-
-    abstract public function computeApiable();
 }

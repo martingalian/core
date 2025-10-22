@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
 use Illuminate\Support\Str;
@@ -11,8 +13,9 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class ConfirmPriceAlignmentsJob extends BaseQueueableJob
+final class ConfirmPriceAlignmentsJob extends BaseQueueableJob
 {
     public ExchangeSymbol $exchangeSymbolBeingComputed;
 
@@ -65,11 +68,11 @@ class ConfirmPriceAlignmentsJob extends BaseQueueableJob
         });
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->exchangeSymbolBeingComputed->id}] - ExchangeSymbol price confirmation lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            "[S:{$this->step->id}] - ".class_basename(static::class).' - Error',
+            "[S:{$this->step->id}] - ".class_basename(self::class).' - Error',
             'nidavellir_errors'
         );
     }

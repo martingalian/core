@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;
@@ -8,7 +10,7 @@ use Martingalian\Core\Concerns\HasLoggable;
 use Martingalian\Core\Concerns\TradeConfiguration\HasGetters;
 use Martingalian\Core\Concerns\TradeConfiguration\HasScopes;
 
-class TradeConfiguration extends BaseModel
+final class TradeConfiguration extends BaseModel
 {
     use HasDebuggable;
     use HasGetters;

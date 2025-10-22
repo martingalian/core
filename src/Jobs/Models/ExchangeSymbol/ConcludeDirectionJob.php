@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -11,7 +13,7 @@ use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\TradeConfiguration;
 
-class ConcludeDirectionJob extends BaseApiableJob
+final class ConcludeDirectionJob extends BaseApiableJob
 {
     public ExchangeSymbol $exchangeSymbol;
 
@@ -225,7 +227,7 @@ class ConcludeDirectionJob extends BaseApiableJob
             ]);
 
             Step::create([
-                'class' => ConcludeDirectionJob::class,
+                'class' => self::class,
                 'queue' => 'indicators',
                 'arguments' => [
                     'exchangeSymbolId' => $this->exchangeSymbol->id,

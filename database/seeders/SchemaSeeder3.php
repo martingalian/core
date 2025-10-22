@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Martingalian\Core\Models\StepsDispatcher;
 
-class SchemaSeeder3 extends Seeder
+final class SchemaSeeder3 extends Seeder
 {
     public function run(): void
     {

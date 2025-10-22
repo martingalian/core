@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support;
 
 use Illuminate\Support\Facades\Log;
@@ -11,6 +13,7 @@ use Martingalian\Core\States\Failed;
 use ReflectionClass;
 use ReflectionException;
 use RuntimeException;
+use Throwable;
 
 trait DispatchesJobs
 {
@@ -37,7 +40,7 @@ trait DispatchesJobs
                 info_if("Calling Queue::pushOn() for Step ID {$step->id}, class {$step->class} on queue {$step->queue}{$groupLabel}");
                 Queue::pushOn($step->queue, $job);
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $step->update(['error_message' => ExceptionParser::with($e)->friendlyMessage()]);
             $step->update(['error_stack_trace' => ExceptionParser::with($e)->stackTrace()]);
             $step->state->transitionTo(Failed::class);

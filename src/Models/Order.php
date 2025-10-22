@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -14,11 +16,11 @@ use Martingalian\Core\Concerns\Order\HasTradingActions;
 use Martingalian\Core\Concerns\Order\InteractsWithApis;
 
 /**
- * @property \Martingalian\Core\Models\Position $position
+ * @property Position $position
  *
  * @method \Martingalian\Core\Models\ExchangeSymbol exchangeSymbol()
  */
-class Order extends BaseModel
+final class Order extends BaseModel
 {
     use HandlesChanges;
     use HasDebuggable;
@@ -56,7 +58,7 @@ class Order extends BaseModel
 
     public function ordersHistory()
     {
-        return $this->hasMany(Order::class, 'order_id');
+        return $this->hasMany(self::class, 'order_id');
     }
 
     public function apiSnapshots(): MorphMany
@@ -79,6 +81,6 @@ class Order extends BaseModel
         // Ensure the number is normalized as a string, no scientific notation.
         $normalized = number_format($number, 10, '.', '');  // Force a fixed decimal string
 
-        return rtrim(rtrim($normalized, '0'), '.');  // Remove trailing zeros and the dot
+        return mb_rtrim(mb_rtrim($normalized, '0'), '.');  // Remove trailing zeros and the dot
     }
 }

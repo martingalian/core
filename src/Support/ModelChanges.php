@@ -1,20 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 
-class ModelChanges
+final class ModelChanges
 {
-    protected array $changes = [];
+    private array $changes = [];
 
-    public static function with(Model $model): self
-    {
-        return new self($model);
-    }
-
-    public function __construct(protected Model $model)
+    public function __construct(private Model $model)
     {
         // 1. use the snapshot taken during `saving`
         if (method_exists($model, 'getCachedAttributeChanges')) {
@@ -33,6 +30,11 @@ class ModelChanges
                 ];
             }
         }
+    }
+
+    public static function with(Model $model): self
+    {
+        return new self($model);
     }
 
     /* ------------------- public API ---------------------------------- */

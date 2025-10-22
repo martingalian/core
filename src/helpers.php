@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Models\ExchangeSymbol;
 use Illuminate\Database\Eloquent\Model;
 
@@ -12,7 +14,7 @@ use Illuminate\Database\Eloquent\Model;
  * @param  callable|null  $onFailure  Callback to run on final failure (receives Throwable).
  * @return mixed
  *
- * @throws \Throwable The last exception after all retries fail.
+ * @throws Throwable The last exception after all retries fail.
  */
 function try_times(callable $callback, int $maxRetries = 3, int|array $delays = [2, 4, 8], ?callable $onFailure = null)
 {
@@ -21,7 +23,7 @@ function try_times(callable $callback, int $maxRetries = 3, int|array $delays = 
     do {
         try {
             return $callback();
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $attempt++;
             if ($attempt >= $maxRetries) {
                 if ($onFailure) {
@@ -46,7 +48,7 @@ function returnLadderedValue(array $values, int $index)
 
 function info_if(string $message, ?callable $condition = null)
 {
-    if (config('martingalian.info_if') == true) {
+    if (config('martingalian.info_if') === true) {
         info($message);
     }
 
@@ -128,7 +130,7 @@ function remove_trailing_zeros($number): string
     $stringNumber = number_format($number, 15, '.', '');
 
     // Remove trailing zeros and possible ending dot
-    $stringNumber = rtrim(rtrim($stringNumber, '0'), '.');
+    $stringNumber = mb_rtrim(mb_rtrim($stringNumber, '0'), '.');
 
     // Normalize -0 to 0
     if ($stringNumber === '-0') {
@@ -142,12 +144,12 @@ function api_format_quantity($quantity, ExchangeSymbol $exchangeSymbol): string
 {
     $precision = (int) $exchangeSymbol->quantity_precision;
     $s = number_format((float) $quantity, $precision + 8, '.', '');
-    $dot = strpos($s, '.');
+    $dot = mb_strpos($s, '.');
     if ($dot !== false) {
-        $s = substr($s, 0, $dot + 1 + $precision);
+        $s = mb_substr($s, 0, $dot + 1 + $precision);
     }
-    $s = rtrim($s, '0');
-    $s = rtrim($s, '.');
+    $s = mb_rtrim($s, '0');
+    $s = mb_rtrim($s, '.');
 
     return $s === '-0' ? '0' : $s;
 }
@@ -166,14 +168,14 @@ function api_format_price($price, ExchangeSymbol $exchangeSymbol): string
     $floored = bcmul((string) $ratio, $t, $precision + 8);
 
     // Truncate to price precision
-    $dot = strpos($floored, '.');
+    $dot = mb_strpos($floored, '.');
     if ($dot !== false) {
-        $floored = substr($floored, 0, $dot + 1 + $precision);
+        $floored = mb_substr($floored, 0, $dot + 1 + $precision);
     }
 
     // Clean trailing zeros
-    $floored = rtrim($floored, '0');
-    $floored = rtrim($floored, '.');
+    $floored = mb_rtrim($floored, '0');
+    $floored = mb_rtrim($floored, '.');
 
     return $floored === '-0' ? '0' : $floored;
 }

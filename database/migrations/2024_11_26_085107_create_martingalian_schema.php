@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
@@ -411,7 +413,13 @@ return new class extends Migration
             $table->unique(['symbol_id', 'api_system_id', 'quote_id']);
         });
 
-        Schema::table('users', function (Blueprint $table) {
+        if (Schema::hasColumn('users', 'email')) {
+            Schema::table('users', function (Blueprint $table): void {
+                $table->dropUnique('users_email_unique');
+            });
+        }
+
+        Schema::table('users', function (Blueprint $table): void {
             $table->dropColumn([
                 'email_verified_at',
                 'email',
@@ -425,9 +433,10 @@ return new class extends Migration
             $table->timestamp('last_logged_in_at')->nullable()->after('previous_logged_in_at');
         });
 
-        Schema::table('users', function (Blueprint $table) {
+        Schema::table('users', function (Blueprint $table): void {
             $table->string('email')->unique()->after('name');
-            $table->string('password')->nullable()->after('email');
+            $table->timestamp('email_verified_at')->nullable()->after('email');
+            $table->string('password')->nullable()->after('email_verified_at');
 
             $table->boolean('is_active')
                 ->default(false);

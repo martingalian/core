@@ -1,13 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
+use Exception;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 
-class UpdateMarkPriceJob extends BaseApiableJob
+final class UpdateMarkPriceJob extends BaseApiableJob
 {
     public ExchangeSymbol $exchangeSymbol;
 
@@ -32,7 +35,7 @@ class UpdateMarkPriceJob extends BaseApiableJob
         $markPrice = (float) $markPriceResponse->result['mark_price'];
 
         if (! $markPrice || $markPrice <= 0) {
-            throw new \Exception('Invalid mark price received from exchange.');
+            throw new Exception('Invalid mark price received from exchange.');
         }
 
         $this->exchangeSymbol->mark_price = $markPrice;

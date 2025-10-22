@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
 
-class VerifyIfTradingPairIsOpenedJob extends BaseQueueableJob
+final class VerifyIfTradingPairIsOpenedJob extends BaseQueueableJob
 {
     public Position $position;
 

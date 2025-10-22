@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Position;
 
+use Exception;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\Martingalian;
@@ -22,7 +25,7 @@ use Martingalian\Core\Support\Math;
  * - Uses Martingalian::SCALE for BCMath precision.
  * - Assumes relationships return results.
  */
-class UpdatePositionMarginJob extends BaseQueueableJob
+final class UpdatePositionMarginJob extends BaseQueueableJob
 {
     public Position $position;
 
@@ -51,7 +54,7 @@ class UpdatePositionMarginJob extends BaseQueueableJob
         // Load latest balance snapshot for the account's portfolio quote.
         $balance = $account->apiSnapshots()
             ->where('canonical', 'account-balance')
-            ->firstOr(fn () => throw new \Exception('No account balance snapshot to calculate margin'));
+            ->firstOr(fn () => throw new Exception('No account balance snapshot to calculate margin'));
 
         $quote = $account->portfolioQuote->canonical;
 
@@ -59,14 +62,14 @@ class UpdatePositionMarginJob extends BaseQueueableJob
         if (! array_key_exists($quote, $balance->api_response)) {
             $account->updateSaving(['can_trade' => false]);
 
-            throw new \Exception("Account exception: Portfolio quote ({$quote}) doesn't exist on exchange portfolio.");
+            throw new Exception("Account exception: Portfolio quote ({$quote}) doesn't exist on exchange portfolio.");
         }
 
         // Obtain side-specific percentage (already in percent units).
         $percentagePct = match ($this->position->direction) {
             'LONG' => $account->market_order_margin_percentage_long,
             'SHORT' => $account->market_order_margin_percentage_short,
-            default => throw new \Exception("Invalid direction: {$this->position->direction}"),
+            default => throw new Exception("Invalid direction: {$this->position->direction}"),
         };
 
         // Convert percent → decimal (e.g. 0.43 → 0.0043) and compute margin with BCMath scale.

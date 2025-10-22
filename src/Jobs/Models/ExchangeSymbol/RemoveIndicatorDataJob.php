@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\ExchangeSymbol;
 
-class RemoveIndicatorDataJob extends BaseQueueableJob
+final class RemoveIndicatorDataJob extends BaseQueueableJob
 {
     public ExchangeSymbol $exchangeSymbol;
 

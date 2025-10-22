@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -14,11 +16,11 @@ use Martingalian\Core\Concerns\Position\HasTradingActions;
 use Martingalian\Core\Concerns\Position\InteractsWithApis;
 
 /**
- * @property \Martingalian\Core\Models\Account $account
+ * @property Account $account
  *
  * @method \Martingalian\Core\Models\ExchangeSymbol exchangeSymbol()
  */
-class Position extends BaseModel
+final class Position extends BaseModel
 {
     use HasAccessors;
     use HasDebuggable;

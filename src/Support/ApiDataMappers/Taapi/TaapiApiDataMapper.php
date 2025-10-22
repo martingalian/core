@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiDataMappers\Taapi;
 
 use Martingalian\Core\Support\ApiDataMappers\Taapi\ApiRequests\MapsGroupedQueryIndicators;
 use Martingalian\Core\Support\ApiDataMappers\Taapi\ApiRequests\MapsQueryIndicator;
 
-class TaapiApiDataMapper
+final class TaapiApiDataMapper
 {
     use MapsGroupedQueryIndicators;
     use MapsQueryIndicator;

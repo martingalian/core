@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 // database/migrations/2025_10_06_000001_add_delivery_columns_to_exchange_symbols_table.php
 
 use Illuminate\Database\Migrations\Migration;

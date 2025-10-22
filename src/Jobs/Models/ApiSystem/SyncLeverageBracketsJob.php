@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
 use Illuminate\Support\Facades\DB;
@@ -12,6 +14,8 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\LeverageBracket;
 use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Symbol;
+use RuntimeException;
+use Throwable;
 
 /*
  * SyncLeverageBracketsJob
@@ -22,7 +26,7 @@ use Martingalian\Core\Models\Symbol;
  * • Skips unknown symbols/quotes exactly like before.
  * • Wraps per-symbol normalization in a transaction for consistency.
  */
-class SyncLeverageBracketsJob extends BaseApiableJob
+final class SyncLeverageBracketsJob extends BaseApiableJob
 {
     public ApiSystem $apiSystem;
 
@@ -58,7 +62,7 @@ class SyncLeverageBracketsJob extends BaseApiableJob
 
         if (! is_array($brackets)) {
             // Fail fast on malformed payloads (keeps production safe/observable).
-            throw new \RuntimeException('Invalid leverage brackets response.');
+            throw new RuntimeException('Invalid leverage brackets response.');
         }
 
         // Filter out test and irrelevant symbols.
@@ -73,7 +77,7 @@ class SyncLeverageBracketsJob extends BaseApiableJob
             try {
                 // Identify base/quote using the API's canonical mapper.
                 $pair = $this->apiSystem->apiMapper()->identifyBaseAndQuote($symbolCode);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 continue;
             }
 

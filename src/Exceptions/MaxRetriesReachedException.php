@@ -1,5 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Exceptions;
 
-class MaxRetriesReachedException extends \Exception {}
+use Exception;
+
+final class MaxRetriesReachedException extends Exception {}

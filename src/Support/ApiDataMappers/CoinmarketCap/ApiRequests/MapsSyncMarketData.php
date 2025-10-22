@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiDataMappers\CoinmarketCap\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;

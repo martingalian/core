@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -13,7 +15,7 @@ use Martingalian\Core\Jobs\Models\Position\UpdateRemainingClosingDataJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 
-class ClosePositionJob extends BaseApiableJob
+final class ClosePositionJob extends BaseApiableJob
 {
     public Position $position;
 

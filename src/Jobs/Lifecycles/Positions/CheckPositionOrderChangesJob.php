@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
 use Illuminate\Support\Str;
@@ -9,8 +11,9 @@ use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class CheckPositionOrderChangesJob extends BaseQueueableJob
+final class CheckPositionOrderChangesJob extends BaseQueueableJob
 {
     public Position $position;
 
@@ -43,13 +46,26 @@ class CheckPositionOrderChangesJob extends BaseQueueableJob
         }
     }
 
+    public function resolveException(Throwable $e)
+    {
+        User::notifyAdminsViaPushover(
+            "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+            '['.class_basename(self::class).'] - Error',
+            'nidavellir_errors'
+        );
+
+        $this->position->updateSaving([
+            'error_message' => ExceptionParser::with($e)->friendlyMessage(),
+        ]);
+    }
+
     protected function checkIfALimitOrderWasFilled(): void
     {
         $this->position->limitOrders()
             ->each(function ($limitOrder) {
-                if ($limitOrder->status == 'FILLED' &&
-                    $limitOrder->reference_status != 'FILLED' &&
-                    $limitOrder->position_side == $limitOrder->position->direction) {
+                if ($limitOrder->status === 'FILLED' &&
+                    $limitOrder->reference_status !== 'FILLED' &&
+                    $limitOrder->position_side === $limitOrder->position->direction) {
                     Step::create([
                         'class' => ApplyWAPJob::class,
                         'queue' => 'positions',
@@ -87,7 +103,7 @@ class CheckPositionOrderChangesJob extends BaseQueueableJob
     {
         $profit = $this->position->profitOrder();
 
-        if ($profit && $profit->status == 'FILLED' && $profit->reference_status != 'FILLED') {
+        if ($profit && $profit->status === 'FILLED' && $profit->reference_status !== 'FILLED') {
             $this->position->updateSaving(['closed_by' => 'watcher']);
 
             Step::create([
@@ -105,7 +121,7 @@ class CheckPositionOrderChangesJob extends BaseQueueableJob
          * In case there is a partially filled profit order, we just need to
          * update the profit order quantity, and also the position quantity.
          */
-        elseif ($profit && $profit->status == 'PARTIALLY_FILLED' && $profit->reference_status != 'PARTIALLY_FILLED') {
+        elseif ($profit && $profit->status === 'PARTIALLY_FILLED' && $profit->reference_status !== 'PARTIALLY_FILLED') {
             $profit->updateSaving([
                 'reference_quantity' => $profit->quantity,
                 'reference_status' => 'PARTIALLY_FILLED',
@@ -128,19 +144,6 @@ class CheckPositionOrderChangesJob extends BaseQueueableJob
                 'positionId' => $this->position->id,
                 'status' => 'active',
             ],
-        ]);
-    }
-
-    public function resolveException(\Throwable $e)
-    {
-        User::notifyAdminsViaPushover(
-            "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(static::class).'] - Error',
-            'nidavellir_errors'
-        );
-
-        $this->position->updateSaving([
-            'error_message' => ExceptionParser::with($e)->friendlyMessage(),
         ]);
     }
 }

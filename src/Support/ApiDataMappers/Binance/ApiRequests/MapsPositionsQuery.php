@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
@@ -22,7 +24,7 @@ trait MapsPositionsQuery
 
         // Remove false positive positions (positionAmt = 0.0)
         $positions = array_filter($positions, function ($position) {
-            return (float) $position['positionAmt'] != 0.0;
+            return (float) $position['positionAmt'] !== 0.0;
         });
 
         return $positions;

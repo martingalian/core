@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
@@ -25,15 +27,15 @@ trait MapsOrderQuery
         $raw = $result;
 
         // Special cases.
-        if ($result['type'] == 'STOP_MARKET') {
+        if ($result['type'] === 'STOP_MARKET') {
             $price = $result['stopPrice'];
             $quantity = 0;
         } else {
-            $price = $result['avgPrice'] != 0 ? $result['avgPrice'] : $result['price'];
-            $quantity = $result['executedQty'] != 0 ? $result['executedQty'] : $result['origQty'];
+            $price = $result['avgPrice'] !== 0 ? $result['avgPrice'] : $result['price'];
+            $quantity = $result['executedQty'] !== 0 ? $result['executedQty'] : $result['origQty'];
         }
 
-        if ($result['status'] == 'CANCELED') {
+        if ($result['status'] === 'CANCELED') {
             $result['status'] = 'CANCELLED';
         }
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
 use Illuminate\Support\Carbon;
@@ -8,6 +10,7 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\User;
+use Throwable;
 
 /**
  * CheckPriceSpikeAndCooldownJob
@@ -28,7 +31,7 @@ use Martingalian\Core\Models\User;
  * - Uses chunkById to avoid loading the entire table into memory.
  * - ASCII-only punctuation in messages.
  */
-class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
+final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
 {
     public function relatable()
     {
@@ -65,7 +68,7 @@ class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
                         }
 
                         $summary['processed']++;
-                    } catch (\Throwable $e) {
+                    } catch (Throwable $e) {
                         $summary['errors']++;
 
                         // Per your requirement, notify admins on exceptions:
@@ -85,6 +88,19 @@ class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
             }, 'id');
 
         return $summary;
+    }
+
+    /**
+     * Error handler — top-level batch failure.
+     * Notify admins once if the batch itself fails.
+     */
+    public function resolveException(Throwable $e): void
+    {
+        User::notifyAdminsViaPushover(
+            'Batch price spike check error - '.ExceptionParser::with($e)->friendlyMessage(),
+            '['.class_basename(self::class).'] Batch error',
+            'nidavellir_errors'
+        );
     }
 
     /**
@@ -180,18 +196,5 @@ class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
 
         // No spike strong enough; do not log to keep logs clean.
         return ['status' => 'skipped'];
-    }
-
-    /**
-     * Error handler — top-level batch failure.
-     * Notify admins once if the batch itself fails.
-     */
-    public function resolveException(\Throwable $e): void
-    {
-        User::notifyAdminsViaPushover(
-            'Batch price spike check error - '.ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(static::class).'] Batch error',
-            'nidavellir_errors'
-        );
     }
 }

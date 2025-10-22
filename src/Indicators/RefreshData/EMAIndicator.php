@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
 
-class EMAIndicator extends BaseIndicator
+final class EMAIndicator extends BaseIndicator
 {
     public string $endpoint = 'ema';
 

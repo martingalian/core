@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
 use Illuminate\Support\Str;
@@ -14,6 +16,7 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
+use Throwable;
 
 /**
  * Lifecycle that will dispatch pending positions that was previously created.
@@ -21,7 +24,7 @@ use Martingalian\Core\Models\User;
  * validation on all trading configuration aspects.
  * Accepts positions from different accounts.
  */
-class DispatchPositionJob extends BaseQueueableJob
+final class DispatchPositionJob extends BaseQueueableJob
 {
     public Position $position;
 
@@ -276,11 +279,11 @@ class DispatchPositionJob extends BaseQueueableJob
         ];
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
 

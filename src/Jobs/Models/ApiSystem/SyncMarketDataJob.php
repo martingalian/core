@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
 use Illuminate\Support\Carbon;
@@ -28,7 +30,7 @@ use Martingalian\Core\Models\User;
  *     - LONG positions → immediately schedule ClosePositionJob (as a Step)
  *     - SHORT positions → DO NOT close; notify admins to verify price action
  */
-class SyncMarketDataJob extends BaseApiableJob
+final class SyncMarketDataJob extends BaseApiableJob
 {
     public ApiSystem $apiSystem;
 
@@ -90,7 +92,7 @@ class SyncMarketDataJob extends BaseApiableJob
             }
 
             // Create or update the ExchangeSymbol record with market precision & trading data.
-            /** @var \Martingalian\Core\Models\ExchangeSymbol $exchangeSymbol */
+            /** @var ExchangeSymbol $exchangeSymbol */
             $exchangeSymbol = ExchangeSymbol::updateOrCreate(
                 [
                     'symbol_id' => $symbol->id,
@@ -148,7 +150,7 @@ class SyncMarketDataJob extends BaseApiableJob
                     $pairLabel,
                     $when
                 );
-                $title = '['.class_basename(static::class).'] Futures delisting detected';
+                $title = '['.class_basename(self::class).'] Futures delisting detected';
                 User::notifyAdminsViaPushover($msg, $title, 'nidavellir_warnings');
 
                 // Apply directional policy:
@@ -180,7 +182,7 @@ class SyncMarketDataJob extends BaseApiableJob
             })
             ->each(function (Position $position) use ($closingNote, $shortNote) {
 
-                $direction = strtoupper((string) $position->direction);
+                $direction = mb_strtoupper((string) $position->direction);
                 $pairText = $position->parsed_trading_pair ?? 'N/A';
 
                 if ($direction === 'LONG') {

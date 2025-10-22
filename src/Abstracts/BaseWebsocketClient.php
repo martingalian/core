@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Abstracts;
 
 use Exception;
@@ -43,7 +45,7 @@ abstract class BaseWebsocketClient
         $this->wsConnector = new Connector($this->loop);
     }
 
-    public function ping(): void
+    final public function ping(): void
     {
         // Manual ping trigger for external monitoring.
         if ($this->wsConnection) {

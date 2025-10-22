@@ -1,14 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Position;
 
+use Exception;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\User;
+use Throwable;
 
-class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
+final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
 {
     public Position $position;
 
@@ -47,7 +51,7 @@ class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
     public function computeApiable()
     {
         if (! $this->position->margin || ! $this->position->leverage) {
-            throw new \Exception('Position must have both margin and leverage filled, aborting.');
+            throw new Exception('Position must have both margin and leverage filled, aborting.');
         }
 
         $exchangeSymbol = $this->position->exchangeSymbol;
@@ -56,7 +60,7 @@ class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
         $markPrice = (float) $markPriceResponse->result['mark_price'];
 
         if (! $markPrice || $markPrice <= 0) {
-            throw new \Exception('Invalid mark price received from exchange.');
+            throw new Exception('Invalid mark price received from exchange.');
         }
 
         $scale = 16;
@@ -70,7 +74,7 @@ class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
         $side = match ($this->position->direction) {
             'LONG' => 'BUY',
             'SHORT' => 'SELL',
-            default => throw new \Exception('Invalid position direction. Must be LONG or SHORT.'),
+            default => throw new Exception('Invalid position direction. Must be LONG or SHORT.'),
         };
 
         $marketOrder = $this->position->orders()->create([
@@ -98,8 +102,8 @@ class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
             'reference_status' => $marketOrder->status,
         ]);
 
-        if ($marketOrder->status != 'FILLED') {
-            throw new \Exception('Market order was not on status FILLED after being placed. Aborting position dispatch.');
+        if ($marketOrder->status !== 'FILLED') {
+            throw new Exception('Market order was not on status FILLED after being placed. Aborting position dispatch.');
         }
 
         $this->position->logApplicationEvent(
@@ -123,7 +127,7 @@ class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
         $gapPercent = match ($this->position->direction) {
             'LONG' => $this->position->exchangeSymbol->percentage_gap_long,
             'SHORT' => $this->position->exchangeSymbol->percentage_gap_short,
-            default => throw new \Exception('Invalid position direction. Must be LONG or SHORT.'),
+            default => throw new Exception('Invalid position direction. Must be LONG or SHORT.'),
         };
         $gapDecimal = $gapPercent / 100;
 
@@ -318,7 +322,7 @@ class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
         $scale = 16;
         $pct = bcdiv((string) $percent, '100', $scale);
 
-        if (strtoupper($direction) === 'SHORT') {
+        if (mb_strtoupper($direction) === 'SHORT') {
             $mult = bcadd('1', $pct, $scale);
         } else {
             $mult = bcsub('1', $pct, $scale);
@@ -327,11 +331,11 @@ class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
         return bcmul((string) $referencePrice, $mult, $scale);
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->position->id}] Position {$this->position->parsed_trading_pair} creation/dispatch error - {$e->getMessage()}",
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
     }

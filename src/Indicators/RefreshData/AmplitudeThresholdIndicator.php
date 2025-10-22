@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
@@ -9,7 +11,7 @@ use Martingalian\Core\Abstracts\BaseIndicator;
  * candle timeframe length. This is an indicator that will cancel tokens that in
  * case of an extreme fluctuation on a token price (e.g: > 30% in 24h for instance).
  */
-class AmplitudeThresholdIndicator extends BaseIndicator
+final class AmplitudeThresholdIndicator extends BaseIndicator
 {
     public string $endpoint = 'candle';
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Account;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -17,7 +19,7 @@ use Martingalian\Core\Models\ApiSystem;
  * • Logs a message when no positions are returned or lists the active pairs.
  * • Helps track real-time exposure and open trades per user account.
  */
-class QueryPositionsJob extends BaseApiableJob
+final class QueryPositionsJob extends BaseApiableJob
 {
     public Account $account;
 

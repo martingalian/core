@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns\Symbol;
 
 use Martingalian\Core\Models\ApiSystem;
@@ -22,8 +24,9 @@ trait HasBaseAssetParsing
 
         if ($tradingPair) {
             return Symbol::firstWhere('token', $tradingPair->symbol_token);
-        } else {
-            return Symbol::firstWhere('token', $baseAsset);
         }
+
+        return Symbol::firstWhere('token', $baseAsset);
+
     }
 }

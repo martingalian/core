@@ -1,13 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
+use Exception;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Position;
+use Throwable;
 
-class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
+final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
 {
     public Position $position;
 
@@ -41,15 +45,15 @@ class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
 
         $minimumNotional = remove_trailing_zeros($exchangeSymbol->min_notional);
 
-        if ($marketOrderQuantity == 0) {
-            throw new \Exception("Order size ({$notional}) results in unusable quantity (fails minimum notional of {$minimumNotional})");
+        if ((float) $marketOrderQuantity === 0.0) {
+            throw new Exception("Order size ({$notional}) results in unusable quantity (fails minimum notional of {$minimumNotional})");
         }
 
         $marketOrderNotional = $exchangeSymbol->getAmountForQuantity($marketOrderQuantity);
 
-        if ($marketOrderNotional == 0) {
+        if ((float) $marketOrderNotional === 0.0) {
             $marketOrderNotional = remove_trailing_zeros($marketOrderNotional);
-            throw new \Exception("Market order notional ({$marketOrderNotional}) results in unusable quantity (fails minimum notional of {$minimumNotional})");
+            throw new Exception("Market order notional ({$marketOrderNotional}) results in unusable quantity (fails minimum notional of {$minimumNotional})");
         }
 
         return [
@@ -58,11 +62,11 @@ class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
         ];
     }
 
-    public function resolveException(\Throwable $e)
+    public function resolveException(Throwable $e)
     {
         User::notifyAdminsViaPushover(
             "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(static::class).'] - Error',
+            '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
 

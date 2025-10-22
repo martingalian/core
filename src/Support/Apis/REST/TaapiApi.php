@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Support\Apis\REST;
 
 use Martingalian\Core\Concerns\HasPropertiesValidation;
@@ -12,7 +14,7 @@ use Martingalian\Core\Support\ValueObjects\ApiRequest;
  * TaapiApi handles the communication with the Taapi.io API,
  * allowing retrieval of indicator values for specific symbols.
  */
-class TaapiApi
+final class TaapiApi
 {
     use HasPropertiesValidation;
 

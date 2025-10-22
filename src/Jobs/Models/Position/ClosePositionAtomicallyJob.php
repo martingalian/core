@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Jobs\Models\Position;
 
 use Illuminate\Support\Carbon;
@@ -11,8 +13,14 @@ use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
 
-class ClosePositionAtomicallyJob extends BaseApiableJob
+final class ClosePositionAtomicallyJob extends BaseApiableJob
 {
+    /**
+     * Cool-down threshold in percent on the 1D candle (current vs latest 1D close).
+     * If current >= close * (1 + THRESHOLD), set tradeable_at 72h in the future.
+     */
+    protected const PUMP_THRESHOLD_PCT_1D = 15.0;
+
     /**
      * Target position to be closed.
      */
@@ -22,12 +30,6 @@ class ClosePositionAtomicallyJob extends BaseApiableJob
      * Whether to verify price against expected.
      */
     public bool $verifyPrice;
-
-    /**
-     * Cool-down threshold in percent on the 1D candle (current vs latest 1D close).
-     * If current >= close * (1 + THRESHOLD), set tradeable_at 72h in the future.
-     */
-    protected const PUMP_THRESHOLD_PCT_1D = 15.0;
 
     public function __construct(int $positionId, bool $verifyPrice = false)
     {
@@ -142,7 +144,7 @@ class ClosePositionAtomicallyJob extends BaseApiableJob
         ) {
             $this->position->account->user->notifyViaPushover(
                 "Position {$this->position->parsed_trading_pair} was closed with higher profit [Limit orders: {$totalFilledLimitOrders}]",
-                '['.class_basename(static::class).'] - High profit position closed',
+                '['.class_basename(self::class).'] - High profit position closed',
                 'nidavellir_positions'
             );
         }

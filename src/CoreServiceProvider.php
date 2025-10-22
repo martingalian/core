@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core;
 
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +45,7 @@ use Martingalian\Core\Observers\StepObserver;
 use Martingalian\Core\Observers\SymbolObserver;
 use Martingalian\Core\Observers\UserObserver;
 
-class CoreServiceProvider extends ServiceProvider
+final class CoreServiceProvider extends ServiceProvider
 {
     public function boot()
     {
@@ -101,7 +104,7 @@ class CoreServiceProvider extends ServiceProvider
 
             $bindings = $query->bindings;
             foreach ($bindings as $k => $v) {
-                if ($v instanceof \DateTimeInterface) {
+                if ($v instanceof DateTimeInterface) {
                     $bindings[$k] = $v->format('Y-m-d H:i:s');
                 }
             }

@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Concerns;
 
 use Illuminate\Support\Facades\Validator;
+use InvalidArgumentException;
 
 trait ValidatesAttributes
 {
@@ -23,7 +26,7 @@ trait ValidatesAttributes
                 }
             }
 
-            throw new \InvalidArgumentException($message);
+            throw new InvalidArgumentException($message);
         }
     }
 }

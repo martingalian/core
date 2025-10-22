@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Martingalian\Core\Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Martingalian\Core\Models\Symbol;
 
-class SchemaSeeder14 extends Seeder
+final class SchemaSeeder14 extends Seeder
 {
     public function run(): void
     {
