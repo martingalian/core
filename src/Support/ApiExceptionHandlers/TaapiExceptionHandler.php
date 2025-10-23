@@ -109,10 +109,10 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
             return $baseUntil;
         }
 
-        // 2) No Retry-After: wait a full 15 seconds from now
+        // 2) No Retry-After: wait a full 3 seconds from now
         // Since Taapi doesn't document window boundaries or reset timing,
         // conservatively wait the full window duration
-        $resetAt = $now->copy()->addSeconds(15);
+        $resetAt = $now->copy()->addSeconds(3);
 
         // Add small jitter to avoid stampede
         return $resetAt->copy()->addMilliseconds(random_int(100, 300));
