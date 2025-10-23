@@ -38,8 +38,10 @@ abstract class BaseApiThrottler
      * Check if we can dispatch a request to the API right now.
      * Returns 0 if we can dispatch immediately.
      * Returns number of seconds to wait if we need to throttle.
+     *
+     * @param  int  $retryCount  Number of retries already attempted (for exponential backoff)
      */
-    public static function canDispatch(): int
+    public static function canDispatch(int $retryCount = 0): int
     {
         $config = static::getRateLimitConfig();
         $prefix = static::getCacheKeyPrefix();
@@ -69,7 +71,29 @@ abstract class BaseApiThrottler
             \Log::channel('jobs')->info("[THROTTLER] {$prefix} | OK to dispatch");
         }
 
+        // Apply exponential backoff if this is a retry
+        if ($retryCount > 0 && $secondsToWait > 0) {
+            $exponentialDelay = static::calculateExponentialBackoff($retryCount);
+            $secondsToWait += $exponentialDelay;
+            \Log::channel('jobs')->info("[THROTTLER] {$prefix} | Retry #{$retryCount} | Added exponential backoff: +{$exponentialDelay}s | Total: {$secondsToWait}s");
+        }
+
         return $secondsToWait;
+    }
+
+    /**
+     * Calculate exponential backoff delay based on retry count.
+     * Formula: retryCount^1.5 + random jitter (0-2 seconds)
+     */
+    protected static function calculateExponentialBackoff(int $retryCount): int
+    {
+        // Exponential growth: retryCount^1.5 for smoother curve
+        $exponential = (int) ceil(pow($retryCount, 1.5));
+
+        // Add random jitter (0-2 seconds) to spread out retries
+        $jitter = rand(0, 2);
+
+        return $exponential + $jitter;
     }
 
     /**

@@ -43,7 +43,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
         $this->exchangeSymbolId = $exchangeSymbolId;
         $this->timeframe = $timeframe;
         $this->previousConclusions = $previousConclusions;
-        $this->retries = 20;
+        $this->retries = 100;
     }
 
     public function relatable()
@@ -64,10 +64,12 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
      */
     protected function startOrRetry(): bool
     {
-        $secondsToWait = TaapiThrottler::canDispatch();
+        // Pass current retry count to throttler for exponential backoff
+        $retryCount = $this->step->retries ?? 0;
+        $secondsToWait = TaapiThrottler::canDispatch($retryCount);
 
         if ($secondsToWait > 0) {
-            // Set custom backoff delay based on throttler
+            // Set custom backoff delay based on throttler (includes exponential backoff)
             $this->jobBackoffSeconds = $secondsToWait;
 
             // Return false to trigger retry with the backoff delay

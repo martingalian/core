@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
+use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Jobs\Models\Indicator\QuerySymbolIndicatorsJob;
@@ -298,7 +299,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseApiableJob
             'direction' => $direction,
             'indicators_timeframe' => $this->timeframe,
             'indicators_values' => $indicatorData,
-            'indicators_synced_at' => now(),
+            'indicators_synced_at' => Carbon::now(),
             'is_active' => true,
         ]);
 
@@ -316,7 +317,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseApiableJob
     {
         $childBlockUuid = Str::uuid()->toString();
         $group = StepsDispatcher::getDispatchGroup();
-        $now = now();
+        $now = Carbon::now();
 
         // Create child workflow: Query + Conclude for next timeframe
         Step::insert([
