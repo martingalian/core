@@ -60,6 +60,29 @@ final class TaapiApi
         return $this->client->publicRequest($apiRequest);
     }
 
+    /**
+     * Fetches indicator values for multiple constructs (symbols) in a single bulk request.
+     * Each construct can have multiple indicators.
+     */
+    public function getBulkIndicatorsValues(ApiProperties $properties)
+    {
+        $payload = [
+            'secret' => $this->secret,
+            'construct' => $properties->get('constructs'),
+            'debug' => $properties->getOr('debug', []),
+        ];
+
+        $mergedProperties = $properties->mergeIntoNew($payload);
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/bulk',
+            $mergedProperties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
     // Fetches indicator values for the given API properties.
     public function getIndicatorValues(ApiProperties $properties)
     {

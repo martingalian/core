@@ -6,6 +6,7 @@ namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\Models\StepsDispatcher;
 use Martingalian\Core\States\NotRunnable;
 use Martingalian\Core\States\Pending;
 
@@ -29,15 +30,24 @@ final class StepObserver
             $step->index = 1;
         }
 
-        // Intelligent group inheritance: if no group is set, inherit from parent/sibling Steps
-        if (empty($step->group) && ! empty($step->block_uuid)) {
-            $parentStep = Step::query()
-                ->where('block_uuid', $step->block_uuid)
-                ->whereNotNull('group')
-                ->first();
+        // Intelligent group assignment:
+        // 1) If no group is set, try to inherit from parent/sibling Steps with same block_uuid
+        // 2) If no parent found, assign a group via round-robin from StepsDispatcher
+        if (empty($step->group)) {
+            if (! empty($step->block_uuid)) {
+                $parentStep = Step::query()
+                    ->where('block_uuid', $step->block_uuid)
+                    ->whereNotNull('group')
+                    ->first();
 
-            if ($parentStep) {
-                $step->group = $parentStep->group;
+                if ($parentStep) {
+                    $step->group = $parentStep->group;
+                }
+            }
+
+            // If still no group (no parent found or first step in chain), assign via round-robin
+            if (empty($step->group)) {
+                $step->group = StepsDispatcher::getDispatchGroup();
             }
         }
     }

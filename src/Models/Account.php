@@ -38,6 +38,8 @@ final class Account extends BaseModel
         'binance_api_secret' => 'encrypted',
         'bybit_api_key' => 'encrypted',
         'bybit_api_secret' => 'encrypted',
+        // Note: The following casts support Account::admin() in-memory instances
+        // These columns don't exist in the accounts table (admin-only, stored in martingalian table)
         'coinmarketcap_api_key' => 'encrypted',
         'taapi_secret' => 'encrypted',
     ];

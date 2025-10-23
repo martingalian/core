@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Concerns\BaseQueueableJob;
 
 use Illuminate\Support\Carbon;
+use Log;
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Pending;
@@ -184,14 +185,28 @@ trait HandlesStepLifecycle
 
     protected function computeAndStoreResult(): void
     {
+        $stepId = $this->step->id ?? 'unknown';
+        $jobClass = class_basename($this);
+
+        $computeStart = microtime(true);
+        Log::channel('jobs')->info("[COMPUTE-START] Step #{$stepId} | {$jobClass} | Starting compute()...");
+
         $result = $this->compute();
 
+        $computeTime = round((microtime(true) - $computeStart) * 1000, 2);
+        Log::channel('jobs')->info("[COMPUTE-END] Step #{$stepId} | {$jobClass} | compute() completed: {$computeTime}ms");
+
         if (! $result || ! is_null($this->step->response)) {
+            Log::channel('jobs')->info("[COMPUTE-SKIP] Step #{$stepId} | {$jobClass} | Skipping result storage (no result or response already set)");
+
             return;
         }
 
+        $storeStart = microtime(true);
         $this->step->update([
             'response' => $this->formatResultForStorage($result),
         ]);
+        $storeTime = round((microtime(true) - $storeStart) * 1000, 2);
+        Log::channel('jobs')->info("[COMPUTE-STORE] Step #{$stepId} | {$jobClass} | Result stored: {$storeTime}ms");
     }
 }

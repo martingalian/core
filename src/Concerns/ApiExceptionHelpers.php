@@ -56,6 +56,8 @@ trait ApiExceptionHelpers
             ]
         );
 
+        info("----- HOSTNAME WAS FORBIDDEN: {$record->ip_address}");
+
         User::notifyAdminsViaPushover(
             "Forbidden hostname detected.\n".
             "Account ID: {$this->account->id}\n".

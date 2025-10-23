@@ -19,31 +19,45 @@ trait DispatchesJobs
 {
     public function dispatchSingleStep(Step $step): void
     {
+        $dispatchStart = microtime(true);
+        \Log::channel('dispatcher')->debug('[DispatchSingleStep] Step ID: '.$step->id.' | Class: '.class_basename($step->class).' | Queue: '.$step->queue.' | Index: '.$step->index);
+
         if (empty($step->class)) {
             $step->state->transitionTo(Failed::class);
             Log::error("[DispatchesJobs] Step {$step->id} has no class defined.");
+            \Log::channel('dispatcher')->error('[DispatchSingleStep] FAILED: No class defined for Step '.$step->id);
 
             return;
         }
 
         try {
+            $instantiateStart = microtime(true);
             $job = self::instantiateJobWithArguments($step->class, $step->arguments);
             $job->step = $step;
+            $instantiateTime = round((microtime(true) - $instantiateStart) * 1000, 2);
 
             // Non-functional: improves observability
             $groupLabel = isset($step->group) ? " group={$step->group}" : '';
 
             if ($step->queue === 'sync') {
                 info_if("Calling handle() for Step ID {$step->id}, class {$step->class} on queue {$step->queue}{$groupLabel}");
+                \Log::channel('dispatcher')->debug('[DispatchSingleStep] Calling handle() synchronously | Instantiate: '.$instantiateTime.'ms');
                 $job->handle();
             } else {
                 info_if("Calling Queue::pushOn() for Step ID {$step->id}, class {$step->class} on queue {$step->queue}{$groupLabel}");
+                $pushStart = microtime(true);
                 Queue::pushOn($step->queue, $job);
+                $pushTime = round((microtime(true) - $pushStart) * 1000, 2);
+                \Log::channel('dispatcher')->debug('[DispatchSingleStep] Pushed to queue | Instantiate: '.$instantiateTime.'ms | Push: '.$pushTime.'ms');
             }
+
+            $totalTime = round((microtime(true) - $dispatchStart) * 1000, 2);
+            \Log::channel('dispatcher')->debug('[DispatchSingleStep] COMPLETE | Total: '.$totalTime.'ms');
         } catch (Throwable $e) {
             $step->update(['error_message' => ExceptionParser::with($e)->friendlyMessage()]);
             $step->update(['error_stack_trace' => ExceptionParser::with($e)->stackTrace()]);
             $step->state->transitionTo(Failed::class);
+            \Log::channel('dispatcher')->error('[DispatchSingleStep] EXCEPTION: '.$e->getMessage());
         }
     }
 

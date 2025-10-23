@@ -24,49 +24,26 @@ final class StepsDispatcher extends BaseModel
     ];
 
     /**
-     * Selects the next group to dispatch using round-robin distribution.
-     * Preference order:
-     *  1) Groups with can_dispatch = true AND last_selected_at IS NULL (never selected) → pick lowest id
-     *  2) Otherwise, among can_dispatch = true → pick the one with oldest last_selected_at (then lowest id)
-     *  3) Update the selected group's last_selected_at to now() for round-robin tracking
+     * Selects a random dispatch group.
+     * Skips the NULL group and only returns named groups (alpha, beta, gamma, etc.).
      *
-     * @return string|null The group name to dispatch (null means the global/NULL group)
+     * @return string|null A random group name to dispatch (never returns NULL group, only named groups)
      */
     public static function getDispatchGroup(): ?string
     {
-        // 1) Prefer groups never selected
-        $row = self::query()
+        // Get all available named groups (exclude NULL group)
+        $groups = self::query()
             ->where('can_dispatch', true)
-            ->whereNull('last_selected_at')
-            ->orderBy('id', 'asc')
-            ->first();
+            ->whereNotNull('group')
+            ->pluck('group')
+            ->all();
 
-        if ($row) {
-            // Update last_selected_at for round-robin tracking using database NOW(6) for microsecond precision
-            DB::table('steps_dispatcher')
-                ->where('id', $row->id)
-                ->update(['last_selected_at' => DB::raw('NOW(6)')]);
-
-            return $row->group;
-        }
-
-        // 2) Fall back to oldest last_selected_at (least recently selected)
-        $row = self::query()
-            ->where('can_dispatch', true)
-            ->orderBy('last_selected_at', 'asc')
-            ->orderBy('id', 'asc')
-            ->first();
-
-        if (! $row) {
+        if (empty($groups)) {
             return null;
         }
 
-        // Update last_selected_at for round-robin tracking using database NOW(6) for microsecond precision
-        DB::table('steps_dispatcher')
-            ->where('id', $row->id)
-            ->update(['last_selected_at' => DB::raw('NOW(6)')]);
-
-        return $row->group;
+        // Use PHP's random selection for true randomness
+        return $groups[array_rand($groups)];
     }
 
     /**

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
+use Exception;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\ExchangeSymbol;
+use Martingalian\Core\Models\Indicator;
+use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\User;
 use Throwable;
 
@@ -26,7 +29,31 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
 
     public function compute()
     {
-        $data = $this->step->getPrevious()->first()->response;
+        // Get the candle-comparison indicator
+        $indicator = Indicator::firstWhere('canonical', 'candle-comparison');
+
+        if (! $indicator) {
+            throw new Exception('Indicator "candle-comparison" not found');
+        }
+
+        // Fetch the most recent indicator history for this symbol
+        $history = IndicatorHistory::query()
+            ->where('exchange_symbol_id', $this->exchangeSymbol->id)
+            ->where('indicator_id', $indicator->id)
+            ->where('timeframe', $this->exchangeSymbol->indicators_timeframe)
+            ->latest('timestamp')
+            ->first();
+
+        if (! $history) {
+            throw new Exception("No indicator history found for exchange symbol {$this->exchangeSymbol->id}");
+        }
+
+        // Extract data from stored JSON
+        $data = $history->data;
+
+        if (! isset($data['close']) || count($data['close']) < 2) {
+            throw new Exception("Invalid indicator data format for exchange symbol {$this->exchangeSymbol->id}");
+        }
 
         $first = $data['close'][0];
         $last = $data['close'][1];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Transitions;
 
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Dispatched;
 use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Running;
@@ -14,23 +15,17 @@ final class PendingToDispatched extends Transition
 {
     private Step $step;
 
-    public function __construct(Step $step)
+    private ?array $stepsCache;
+
+    public function __construct(Step $step, ?array $stepsCache = null)
     {
         $this->step = $step;
+        $this->stepsCache = $stepsCache;
     }
 
     public function canTransition(): bool
     {
         if (! $this->step->state instanceof Pending) {
-            info_if("[PendingToDispatched.canTransition] Step ID {$this->step->id} is not in Pending state, transition denied");
-            /*
-            $this->step->logApplicationEvent(
-                "Step ID {$this->step->id} is not in Pending state, transition denied",
-                self::class,
-                __FUNCTION__
-            );
-            */
-
             return false;
         }
 
@@ -61,17 +56,6 @@ final class PendingToDispatched extends Transition
                 return true;
             }
 
-            // If previous step is not completed or doesn't exist, deny transition
-            info_if("[PendingToDispatched.canTransition] Previous 'resolve-exception' step for Step ID {$this->step->id} is not completed, transition denied");
-
-            /*
-            $this->step->logApplicationEvent(
-                "Previous 'resolve-exception' step for Step ID {$this->step->id} is not completed, transition denied",
-                self::class,
-                __FUNCTION__
-            );
-            */
-
             return false;
         }
 
@@ -82,33 +66,12 @@ final class PendingToDispatched extends Transition
          * If index is null → dispatch immediately.
          * Else → dispatch only if previous index is concluded.
          */
-        if ($this->step->isOrphan()) {
+        if ($this->isOrphan()) {
             if (is_null($this->step->index)) {
-                info_if("[PendingToDispatched.canTransition] Orphan step with null index, dispatching immediately for Step ID {$this->step->id}");
-
-                /*
-                $this->step->logApplicationEvent(
-                    "Orphan step with null index, dispatching immediately for Step ID {$this->step->id}",
-                    self::class,
-                    __FUNCTION__
-                );
-                */
-
                 return true;
             }
 
-            $canDispatch = $this->step->previousIndexIsConcluded();
-            info_if('[PendingToDispatched.canTransition] Orphan step, previous index concluded: '.($canDispatch ? 'Yes' : 'No')." for Step ID {$this->step->id}");
-
-            /*
-            $this->step->logApplicationEvent(
-                'Orphan step, previous index concluded: '.($canDispatch ? 'Yes' : 'No')." for Step ID {$this->step->id}",
-                self::class,
-                __FUNCTION__
-            );
-            */
-
-            return $canDispatch;
+            return $this->previousIndexIsConcluded();
         }
 
         /**
@@ -118,50 +81,19 @@ final class PendingToDispatched extends Transition
          * Dispatch if parent has started (Running or Completed)
          * and previous index in same block is concluded.
          */
-        if ($this->step->isChild()) {
-            $parent = $this->step->parentStep();
+        if ($this->isChild()) {
+            $parent = $this->getParentStep();
 
             if (! $parent) {
-                info_if("[PendingToDispatched.canTransition] No parent found for Step ID {$this->step->id}, transition denied");
-
-                /*
-                $this->step->logApplicationEvent(
-                    "No parent found for Step ID {$this->step->id}, transition denied",
-                    self::class,
-                    __FUNCTION__
-                );
-                */
-
                 return false;
             }
 
             $parentState = get_class($parent->state);
             if (! in_array($parentState, [Running::class, Completed::class], true)) {
-                info_if("[PendingToDispatched.canTransition] Parent Step ID {$parent->id} is not Running or Completed, transition denied for Step ID {$this->step->id}");
-
-                /*
-                $this->step->logApplicationEvent(
-                    "Parent Step ID {$parent->id} is not Running or Completed, transition denied for Step ID {$this->step->id}",
-                    self::class,
-                    __FUNCTION__
-                );
-                */
-
                 return false;
             }
 
-            $canDispatch = $this->step->previousIndexIsConcluded();
-            info_if('[PendingToDispatched.canTransition] Child step, previous index concluded: '.($canDispatch ? 'Yes' : 'No')." for Step ID {$this->step->id}");
-
-            /*
-            $this->step->logApplicationEvent(
-                'Child step, previous index concluded: '.($canDispatch ? 'Yes' : 'No')." for Step ID {$this->step->id}",
-                self::class,
-                __FUNCTION__
-            );
-            */
-
-            return $canDispatch;
+            return $this->previousIndexIsConcluded();
         }
 
         /**
@@ -171,19 +103,8 @@ final class PendingToDispatched extends Transition
          * Dispatch if previous index is concluded.
          * Children may not exist yet at this point.
          */
-        if ($this->step->isParent()) {
-            $canDispatch = $this->step->previousIndexIsConcluded();
-            info_if('[PendingToDispatched.canTransition] Parent step, previous index concluded: '.($canDispatch ? 'Yes' : 'No')." for Step ID {$this->step->id}");
-
-            /*
-            $this->step->logApplicationEvent(
-                '[PendingToDispatched.canTransition] Parent step, previous index concluded: '.($canDispatch ? 'Yes' : 'No')." for Step ID {$this->step->id}",
-                self::class,
-                __FUNCTION__
-            );
-            */
-
-            return $canDispatch;
+        if ($this->isParent()) {
+            return $this->previousIndexIsConcluded();
         }
 
         /**
@@ -192,8 +113,6 @@ final class PendingToDispatched extends Transition
          * Not orphan, not child, not parent.
          * Should never happen, deny dispatch.
          */
-        // info_if("[PendingToDispatched.canTransition] Step ID {$this->step->id} is not orphan, child, or parent, transition denied");
-
         return false;
     }
 
@@ -208,17 +127,136 @@ final class PendingToDispatched extends Transition
 
         $this->step->save();
 
-        // Log after the state is saved
-        info_if("[PendingToDispatched.apply] Step ID {$this->step->id} successfully transitioned to Dispatched");
-
-        /*
-        $this->step->logApplicationEvent(
-            'Step successfully transitioned to Dispatched',
-            self::class,
-            __FUNCTION__
-        );
-        */
-
         return $this->step;
+    }
+
+    /**
+     * Get parent step from cache or database.
+     * Replicates Step::parentStep() logic but uses cache when available.
+     */
+    private function getParentStep(): ?Step
+    {
+        if ($this->stepsCache !== null) {
+            return $this->stepsCache['parents_by_child_block'][$this->step->block_uuid] ?? null;
+        }
+
+        return Step::where('child_block_uuid', $this->step->block_uuid)->first();
+    }
+
+    /**
+     * Check if previous index is concluded from cache or database.
+     * Replicates Step::previousIndexIsConcluded() logic but uses cache when available.
+     */
+    private function previousIndexIsConcluded(): bool
+    {
+        if ($this->step->index === 1) {
+            return true;
+        }
+
+        if ($this->step->index === null && $this->isChild() && $this->parentIsRunning()) {
+            return true;
+        }
+
+        if ($this->stepsCache !== null) {
+            return $this->previousIndexIsConcludedFromCache();
+        }
+
+        return $this->previousIndexIsConcludedFromDatabase();
+    }
+
+    /**
+     * Check if previous index is concluded using the cache.
+     */
+    private function previousIndexIsConcludedFromCache(): bool
+    {
+        $hasPendingResolveException = isset($this->stepsCache['pending_resolve_exceptions'][$this->step->block_uuid]);
+
+        $key = $this->step->block_uuid.'_'.($this->step->index - 1);
+        $previousSteps = $this->stepsCache['steps_by_block_and_index'][$key] ?? collect([]);
+
+        if ($hasPendingResolveException) {
+            $previousSteps = $previousSteps->where('type', 'resolve-exception');
+        } else {
+            $previousSteps = $previousSteps->where('type', 'default');
+        }
+
+        if ($previousSteps->isEmpty()) {
+            return false;
+        }
+
+        return $previousSteps->every(
+            fn ($step) => in_array(get_class($step->state), Step::concludedStepStates(), true)
+        );
+    }
+
+    /**
+     * Check if previous index is concluded using database queries (fallback).
+     */
+    private function previousIndexIsConcludedFromDatabase(): bool
+    {
+        $hasPendingResolveException = Step::where('block_uuid', $this->step->block_uuid)
+            ->where('type', 'resolve-exception')
+            ->where('state', Pending::class)
+            ->exists();
+
+        $query = Step::where('block_uuid', $this->step->block_uuid)
+            ->where('index', $this->step->index - 1);
+
+        if ($hasPendingResolveException) {
+            $query->where('type', 'resolve-exception');
+        } else {
+            $query->where('type', 'default');
+        }
+
+        $previousSteps = $query->get();
+
+        if ($previousSteps->isEmpty()) {
+            return false;
+        }
+
+        return $previousSteps->every(
+            fn ($step) => in_array(get_class($step->state), Step::concludedStepStates(), true)
+        );
+    }
+
+    /**
+     * Check if parent is running (helper for previousIndexIsConcluded).
+     */
+    private function parentIsRunning(): bool
+    {
+        $parent = $this->getParentStep();
+
+        return $parent && $parent->state->equals(Running::class);
+    }
+
+    /**
+     * Check if step is a child (has a parent) using cache when available.
+     * Replicates Step::isChild() logic.
+     */
+    private function isChild(): bool
+    {
+        if ($this->stepsCache !== null) {
+            return isset($this->stepsCache['parents_by_child_block'][$this->step->block_uuid]);
+        }
+
+        return Step::where('child_block_uuid', $this->step->block_uuid)->exists();
+    }
+
+    /**
+     * Check if step is a parent (has children) using cache when available.
+     * Replicates Step::isParent() logic.
+     */
+    private function isParent(): bool
+    {
+        return ! is_null($this->step->child_block_uuid);
+    }
+
+    /**
+     * Check if step is an orphan (no parent, no children) using cache when available.
+     * Replicates Step::isOrphan() logic.
+     */
+    private function isOrphan(): bool
+    {
+        return is_null($this->step->child_block_uuid) && is_null($this->getParentStep());
     }
 }

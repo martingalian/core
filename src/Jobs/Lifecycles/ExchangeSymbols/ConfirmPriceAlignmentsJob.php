@@ -4,20 +4,26 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
+use Exception;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
-use Martingalian\Core\Jobs\Models\ExchangeSymbol\RemoveIndicatorDataJob;
-use Martingalian\Core\Jobs\Models\Indicator\QueryIndicatorJob;
+use Martingalian\Core\Jobs\Models\Indicator\QueryIndicatorsByChunkJob;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler;
 use Throwable;
 
 /**
  * Confirms price alignments with indicator directions for exchange symbols.
  * Scoped to a specific API system (exchange) for parallel processing.
+ *
+ * Optimization:
+ * - Batches symbols into chunks for efficient bulk API queries
+ * - Creates separate verification jobs for each symbol after bulk query completes
+ * - Reduces API calls from N (one per symbol) to ceil(N / chunk_size)
  */
 final class ConfirmPriceAlignmentsJob extends BaseQueueableJob
 {
@@ -39,57 +45,89 @@ final class ConfirmPriceAlignmentsJob extends BaseQueueableJob
             $query->where('api_system_id', $this->apiSystemId);
         }
 
-        $query->each(function (ExchangeSymbol $exchangeSymbol) {
-            $uuid = Str::uuid()->toString();
+        $exchangeSymbols = $query->get();
 
-            $this->exchangeSymbolBeingComputed = $exchangeSymbol;
+        if ($exchangeSymbols->isEmpty()) {
+            return ['message' => 'No exchange symbols with direction found'];
+        }
 
-            /**
-             * First obtain the query indicator data for this exchange symbol
-             * on the exact same timeframe as the indicator conclusion.
-             */
-            Step::create([
-                'class' => QueryIndicatorJob::class,
-                'queue' => 'indicators',
-                'block_uuid' => $uuid,
-                'index' => 1,
-                'arguments' => [
-                    'exchangeSymbolId' => $exchangeSymbol->id,
-                    'indicatorId' => Indicator::firstWhere('canonical', 'candle-comparison')->id,
-                    'parameters' => ['backtrack' => 0, 'interval' => $exchangeSymbol->indicators_timeframe],
-                ],
-            ]);
+        // Get indicator once
+        $indicator = Indicator::firstWhere('canonical', 'candle-comparison');
 
-            /**
-             * Now, verify if the indicator candle data is aligned with the
-             * price fluctuation.
-             */
+        if (! $indicator) {
+            throw new Exception('Indicator "candle-comparison" not found');
+        }
+
+        // Calculate chunk size based on Taapi rate limits
+        // Each symbol = 1 calculation, max 20 calculations per request
+        $exceptionHandler = new TaapiExceptionHandler;
+        $maxCalculations = $exceptionHandler->getMaxCalculationsPerRequest();
+        $chunkSize = $maxCalculations; // 20 symbols per chunk
+
+        // Create batched query jobs followed by verification jobs
+        // All in the same block_uuid chain to ensure sequential execution:
+        // 1. Batch queries run first (populate indicator_histories)
+        // 2. Verifications run after (read from indicator_histories)
+        $chunks = $exchangeSymbols->chunk($chunkSize);
+        $batchUuid = Str::uuid()->toString();
+        $index = 1;
+        $batchJobsCount = 0;
+
+        foreach ($chunks as $chunk) {
+            // Group symbols by timeframe to batch efficiently
+            $byTimeframe = $chunk->groupBy('indicators_timeframe');
+
+            foreach ($byTimeframe as $timeframe => $symbolsInTimeframe) {
+                $exchangeSymbolIds = $symbolsInTimeframe->pluck('id')->toArray();
+
+                // Create bulk query job for this chunk
+                Step::create([
+                    'class' => QueryIndicatorsByChunkJob::class,
+                    'queue' => 'indicators',
+                    'block_uuid' => $batchUuid,
+                    'index' => $index++,
+                    'arguments' => [
+                        'exchangeSymbolIds' => $exchangeSymbolIds,
+                        'indicatorId' => $indicator->id,
+                        'parameters' => [
+                            'backtrack' => 0,
+                            'interval' => $timeframe,
+                            'results' => 2, // Need 2 candles for comparison
+                        ],
+                    ],
+                ]);
+                $batchJobsCount++;
+            }
+        }
+
+        // Now create individual verification jobs for each symbol
+        // Same block_uuid but higher index values - they'll run after all batch jobs complete
+        // These will read from indicator_histories table
+        foreach ($exchangeSymbols as $exchangeSymbol) {
             Step::create([
                 'class' => ConfirmPriceAlignmentWithDirectionJob::class,
                 'queue' => 'indicators',
-                'block_uuid' => $uuid,
-                'index' => 2,
+                'block_uuid' => $batchUuid,
+                'index' => $index++,
                 'arguments' => [
                     'exchangeSymbolId' => $exchangeSymbol->id,
                 ],
             ]);
+        }
 
-            Step::create([
-                'class' => RemoveIndicatorDataJob::class,
-                'queue' => 'indicators',
-                'block_uuid' => $uuid,
-                'type' => 'resolve-exception',
-                'arguments' => [
-                    'exchangeSymbolId' => $exchangeSymbol->id,
-                ],
-            ]);
-        });
+        return [
+            'total_symbols' => $exchangeSymbols->count(),
+            'batch_jobs_created' => $batchJobsCount,
+            'verification_jobs_created' => $exchangeSymbols->count(),
+        ];
     }
 
     public function resolveException(Throwable $e)
     {
+        $symbolId = isset($this->exchangeSymbolBeingComputed) ? $this->exchangeSymbolBeingComputed->id : 'unknown';
+
         User::notifyAdminsViaPushover(
-            "[{$this->exchangeSymbolBeingComputed->id}] - ExchangeSymbol price confirmation lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+            "[{$symbolId}] - ExchangeSymbol price confirmation lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
             "[S:{$this->step->id}] - ".class_basename(self::class).' - Error',
             'nidavellir_errors'
         );

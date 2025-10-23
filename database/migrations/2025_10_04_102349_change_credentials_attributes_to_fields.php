@@ -18,6 +18,8 @@ return new class extends Migration
             /**
              * Add real specific fields for each of the api system credentials,
              * on this case just for exchanges.
+             * Note: CoinMarketCap and Taapi credentials are admin-only and stored
+             * in the martingalian table (see 2025_10_04_144509 migration).
              */
             $table->longText('binance_api_key')
                 ->nullable()
@@ -34,14 +36,6 @@ return new class extends Migration
             $table->longText('bybit_api_secret')
                 ->nullable()
                 ->after('bybit_api_key');
-
-            $table->longText('coinmarketcap_api_key')
-                ->nullable()
-                ->after('bybit_api_secret');
-
-            $table->longText('taapi_secret')
-                ->nullable()
-                ->after('coinmarketcap_api_key');
 
             $table->dropColumn([
                 'credentials_testing',
