@@ -6,8 +6,6 @@ namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
-use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols\ConcludeIndicatorsJob;
-use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols\ConfirmPriceAlignmentsJob;
 use Martingalian\Core\Jobs\Models\ExchangeSymbol\CheckPriceSpikeAndCooldownJob;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\Step;
@@ -41,9 +39,6 @@ final class WaitSyncSymbolsAndTriggerExchangeSyncsJob extends BaseQueueableJob
             // Create a unique UUID for this exchange's job chain
             $exchangeUuid = Str::uuid()->toString();
 
-            // Create a unique child UUID to be used later.
-            $childUuid = Str::uuid()->toString();
-
             // Each exchange starts at index 1 (index 0 doesn't work with StepDispatcher)
             $index = 1;
 
@@ -73,29 +68,6 @@ final class WaitSyncSymbolsAndTriggerExchangeSyncsJob extends BaseQueueableJob
             // Step 3: Check price spikes and apply cooldowns - inherits group via StepObserver
             Step::query()->create([
                 'class' => CheckPriceSpikeAndCooldownJob::class,
-                'queue' => 'indicators',
-                'block_uuid' => $exchangeUuid,
-                'index' => $index++,
-                'arguments' => [
-                    'apiSystemId' => $exchange->id,
-                ],
-            ]);
-
-            // Step 4: Conclude indicators for exchange symbols - inherits group via StepObserver
-            Step::query()->create([
-                'class' => ConcludeIndicatorsJob::class,
-                'queue' => 'indicators',
-                'block_uuid' => $exchangeUuid,
-                'child_block_uuid' => $childUuid,
-                'index' => $index++,
-                'arguments' => [
-                    'apiSystemId' => $exchange->id,
-                ],
-            ]);
-
-            // Step 5: Confirm price alignments with directions - inherits group via StepObserver
-            Step::query()->create([
-                'class' => ConfirmPriceAlignmentsJob::class,
                 'queue' => 'indicators',
                 'block_uuid' => $exchangeUuid,
                 'index' => $index++,
