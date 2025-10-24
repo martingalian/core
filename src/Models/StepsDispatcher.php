@@ -43,7 +43,7 @@ final class StepsDispatcher extends BaseModel
         }
 
         // Use PHP's random selection for true randomness
-        return $groups[array_rand($groups)];
+        return collect($groups)->random();
     }
 
     /**
@@ -185,7 +185,7 @@ final class StepsDispatcher extends BaseModel
         Cache::forget("steps_dispatcher_tick_start:{$cacheSuffix}");
     }
 
-    protected static function label(?string $group): string
+    public static function label(?string $group): string
     {
         return $group === null ? 'NULL' : $group;
     }

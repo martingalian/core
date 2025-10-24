@@ -56,7 +56,7 @@ final class BybitApiClient extends BaseApiClient
         return $this->processRequest($apiRequest);
     }
 
-    protected function getHeaders(): array
+    public function getHeaders(): array
     {
         return [
             'X-BAPI-API-KEY' => $this->credentials->get('api_key'),

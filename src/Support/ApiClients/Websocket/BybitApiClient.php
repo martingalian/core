@@ -63,7 +63,12 @@ final class BybitApiClient extends BaseWebsocketClient
         $this->handleCallback($url, $callbacks);
     }
 
-    protected function handleCallbackWithSubscription(string $url, array $callback): void
+    public function getLoop(): \React\EventLoop\LoopInterface
+    {
+        return $this->loop;
+    }
+
+    public function handleCallbackWithSubscription(string $url, array $callback): void
     {
         $subscriptionArgs = $this->subscriptionArgs;
         $loop = $this->loop;
@@ -147,10 +152,5 @@ final class BybitApiClient extends BaseWebsocketClient
 
         // Run the ReactPHP loop
         $loop->run();
-    }
-
-    public function getLoop(): \React\EventLoop\LoopInterface
-    {
-        return $this->loop;
     }
 }

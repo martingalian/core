@@ -233,7 +233,7 @@ final class BybitExceptionHandler extends BaseExceptionHandler
      * Bybit uses {retCode, retMsg} structure.
      * Overrides parent to map Bybit's retCode to status_code.
      */
-    protected function extractHttpErrorCodes(Throwable|\Psr\Http\Message\ResponseInterface $input): array
+    public function extractHttpErrorCodes(Throwable|\Psr\Http\Message\ResponseInterface $input): array
     {
         $data = $this->baseExtractHttpErrorCodes($input);
 

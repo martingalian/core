@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Abstracts;
 
 use Exception;
+use Log;
 use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobExceptions;
 use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobLifecycle;
 use Martingalian\Core\Models\ForbiddenHostname;
@@ -31,7 +32,7 @@ abstract class BaseApiableJob extends BaseQueueableJob
         $handlerStart = microtime(true);
         $this->assignExceptionHandler();
         $handlerTime = round((microtime(true) - $handlerStart) * 1000, 2);
-        \Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | assignExceptionHandler: {$handlerTime}ms");
+        Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | assignExceptionHandler: {$handlerTime}ms");
 
         // Is this hostname forbidden on this account?
         $forbiddenStart = microtime(true);
@@ -40,7 +41,7 @@ abstract class BaseApiableJob extends BaseQueueableJob
             ->where('ip_address', gethostbyname(gethostname()))
             ->exists();
         $forbiddenTime = round((microtime(true) - $forbiddenStart) * 1000, 2);
-        \Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | Forbidden check: {$forbiddenTime}ms | Result: ".($isForbidden ? 'YES' : 'NO'));
+        Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | Forbidden check: {$forbiddenTime}ms | Result: ".($isForbidden ? 'YES' : 'NO'));
 
         if ($isForbidden) {
             $this->step->logApplicationEvent(
@@ -57,10 +58,11 @@ abstract class BaseApiableJob extends BaseQueueableJob
 
         try {
             $apiableStart = microtime(true);
-            \Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | Starting computeApiable()...");
+            Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | Starting computeApiable()...");
             $result = $this->computeApiable();
             $apiableTime = round((microtime(true) - $apiableStart) * 1000, 2);
-            \Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | computeApiable() completed: {$apiableTime}ms");
+            Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | computeApiable() completed: {$apiableTime}ms");
+
             return $result;
         } catch (Throwable $e) {
             // Let the API-specific exception handler deal with the error.

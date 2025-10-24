@@ -170,7 +170,7 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
      * - data['close'] = scalar number
      * - data['close'] = [ ..., lastClose ]
      */
-    protected function readLatestClose(?IndicatorHistory $row): ?float
+    public function readLatestClose(?IndicatorHistory $row): ?float
     {
         if (! $row || ! is_array($row->data) || ! array_key_exists('close', $row->data)) {
             return null;

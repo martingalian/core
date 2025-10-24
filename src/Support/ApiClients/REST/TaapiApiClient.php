@@ -27,7 +27,7 @@ final class TaapiApiClient extends BaseApiClient
         return $this->processRequest($apiRequest, true);
     }
 
-    protected function getHeaders(): array
+    public function getHeaders(): array
     {
         return [
             'Content-Type' => 'application/json',

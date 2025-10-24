@@ -123,7 +123,7 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
      *
      * @return array{status:string, spike_pct?:float, cooldown_h?:int, cooled_until?:string}
      */
-    protected function processSymbol(ExchangeSymbol $ex): array
+    public function processSymbol(ExchangeSymbol $ex): array
     {
         // 1) Read per-symbol spike threshold (percent). If not set or <= 0, skip.
         $thresholdPct = (float) ($ex->disable_on_price_spike_percentage ?? 0.0);

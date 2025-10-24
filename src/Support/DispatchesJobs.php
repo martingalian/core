@@ -56,7 +56,18 @@ trait DispatchesJobs
         } catch (Throwable $e) {
             $step->update(['error_message' => ExceptionParser::with($e)->friendlyMessage()]);
             $step->update(['error_stack_trace' => ExceptionParser::with($e)->stackTrace()]);
-            $step->state->transitionTo(Failed::class);
+
+            // Only transition to Failed if not already in a terminal state
+            $step->refresh();
+            $terminalStates = Step::terminalStepStates();
+            $isTerminal = collect($terminalStates)->contains(function ($state) use ($step) {
+                return $step->state->equals($state);
+            });
+
+            if (! $isTerminal) {
+                $step->state->transitionTo(Failed::class);
+            }
+
             \Log::channel('dispatcher')->error('[DispatchSingleStep] EXCEPTION: '.$e->getMessage());
         }
     }

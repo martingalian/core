@@ -34,7 +34,7 @@ final class Math
      *
      * Returns:
      * - 1 if $a > $b.
-     * - 0 if $a == $b at the given scale.
+     * - 0 if $a equals $b at the given scale.
      * - -1 if $a < $b.
      *
      * @param  string|int|float  $a  Left operand to compare.

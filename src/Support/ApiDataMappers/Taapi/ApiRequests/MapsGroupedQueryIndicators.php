@@ -41,7 +41,7 @@ trait MapsGroupedQueryIndicators
     /**
      * @param  Collection<int, Indicator>  $indicators
      */
-    protected function getIndicatorsListForApi(ExchangeSymbol $exchangeSymbol, Collection $indicators, string $timeframe): array
+    public function getIndicatorsListForApi(ExchangeSymbol $exchangeSymbol, Collection $indicators, string $timeframe): array
     {
         $enrichedIndicators = [];
 

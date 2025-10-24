@@ -135,7 +135,7 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
         if ($e instanceof RequestException && $e->hasResponse() && $this->isRateLimited($e)) {
             $until = $this->rateLimitUntil($e);
 
-            return max(0, now()->diffInSeconds($until, false));
+            return (int) max(0, now()->diffInSeconds($until, false));
         }
 
         return $this->backoffSeconds;

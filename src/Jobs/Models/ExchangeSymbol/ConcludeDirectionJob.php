@@ -88,6 +88,7 @@ final class ConcludeDirectionJob extends BaseApiableJob
 
             if ($latestPerIndicator->isEmpty()) {
                 info_if('[ConcludeDirectionJob] No indicator data for timeframe '.$timeframe.', trying next timeframe');
+
                 continue;
             }
 
@@ -177,14 +178,15 @@ final class ConcludeDirectionJob extends BaseApiableJob
                 }
             }
 
-        info_if('[ConcludeDirectionJob] Finished processing indicators for timeframe '.$timeframe);
+            info_if('[ConcludeDirectionJob] Finished processing indicators for timeframe '.$timeframe);
 
-        // If not all indicators processed successfully, mark as INCONCLUSIVE
-        if (! $allIndicatorsProcessed) {
-            info_if('[ConcludeDirectionJob] Not all indicators processed for timeframe '.$timeframe.' - marked as INCONCLUSIVE');
-            $timeframeConclusions[$timeframe] = 'INCONCLUSIVE';
-            continue;  // Try next timeframe
-        }
+            // If not all indicators processed successfully, mark as INCONCLUSIVE
+            if (! $allIndicatorsProcessed) {
+                info_if('[ConcludeDirectionJob] Not all indicators processed for timeframe '.$timeframe.' - marked as INCONCLUSIVE');
+                $timeframeConclusions[$timeframe] = 'INCONCLUSIVE';
+
+                continue;  // Try next timeframe
+            }
 
             info_if('[ConcludeDirectionJob] All indicators processed for timeframe '.$timeframe);
             info_if('[ConcludeDirectionJob] Validations passed: '.($validationsPassed ? 'YES' : 'NO'));
@@ -239,6 +241,7 @@ final class ConcludeDirectionJob extends BaseApiableJob
                         );
 
                         info_if('[ConcludeDirectionJob] Current index '.$currentTimeFrameIndex.' < minimum index '.$leastTimeFrameIndex.', trying next timeframe');
+
                         continue;  // Try next timeframe
                     }
 
@@ -290,13 +293,14 @@ final class ConcludeDirectionJob extends BaseApiableJob
                         ]);
 
                         info_if('[ConcludeDirectionJob] Exchange symbol INVALIDATED due to path inconsistency');
+
                         return;
                     }
 
                     // Path is valid - proceed with direction change
 
-                $previousDirection = $this->exchangeSymbol->direction ?? 'N/A';
-                $previousTimeframe = $this->exchangeSymbol->indicators_timeframe ?? 'N/A';
+                    $previousDirection = $this->exchangeSymbol->direction ?? 'N/A';
+                    $previousTimeframe = $this->exchangeSymbol->indicators_timeframe ?? 'N/A';
 
                     $message = "{$this->exchangeSymbol->parsed_trading_pair} indicator CONCLUDED as {$newSide} on timeframe {$timeframe} (previously was {$previousDirection} on timeframe {$previousTimeframe})";
 
@@ -323,6 +327,7 @@ final class ConcludeDirectionJob extends BaseApiableJob
                     ]);
 
                     info_if('[ConcludeDirectionJob] Direction changed successfully, is_active set to 1');
+
                     return;
                 }
 
@@ -344,6 +349,7 @@ final class ConcludeDirectionJob extends BaseApiableJob
                     ]);
 
                     info_if('[ConcludeDirectionJob] Direction set for first time, is_active set to 1');
+
                     return;
                 }
 
@@ -357,13 +363,14 @@ final class ConcludeDirectionJob extends BaseApiableJob
                 ]);
 
                 info_if('[ConcludeDirectionJob] Direction same as before, updated indicators data, is_active remains 1');
+
                 return;
-            } else {
-                // Indicators did not agree - mark as INCONCLUSIVE
-                info_if('[ConcludeDirectionJob] Indicators did NOT agree for timeframe '.$timeframe.'. Directions: '.json_encode($directions).'. Marked as INCONCLUSIVE.');
-                $timeframeConclusions[$timeframe] = 'INCONCLUSIVE';
-                // Continue to next timeframe
             }
+            // Indicators did not agree - mark as INCONCLUSIVE
+            info_if('[ConcludeDirectionJob] Indicators did NOT agree for timeframe '.$timeframe.'. Directions: '.json_encode($directions).'. Marked as INCONCLUSIVE.');
+            $timeframeConclusions[$timeframe] = 'INCONCLUSIVE';
+            // Continue to next timeframe
+
         }  // End of timeframe foreach loop
 
         // If we reach here, no conclusion was reached on any timeframe
@@ -416,7 +423,7 @@ final class ConcludeDirectionJob extends BaseApiableJob
         info_if('[ConcludeDirectionJob] computeApiable() completed');
     }
 
-    protected function updateIndicatorDataAndConclude($parameters)
+    public function updateIndicatorDataAndConclude($parameters)
     {
         $this->exchangeSymbol->updateSaving($parameters);
 

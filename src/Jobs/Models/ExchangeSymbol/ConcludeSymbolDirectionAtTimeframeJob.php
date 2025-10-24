@@ -13,7 +13,6 @@ use Martingalian\Core\Models\Debuggable;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Models\StepsDispatcher;
 use Martingalian\Core\Models\TradeConfiguration;
 use Str;
 
@@ -82,6 +81,17 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseApiableJob
                 'result' => 'error',
                 'message' => "No indicator data found for timeframe {$this->timeframe}",
             ];
+        }
+
+        // Check if we have data for all expected indicators
+        $expectedIndicatorCount = \Martingalian\Core\Models\Indicator::query()
+            ->where('is_active', true)
+            ->where('type', 'refresh-data')
+            ->count();
+
+        if ($latestPerIndicator->count() < $expectedIndicatorCount) {
+            // Missing some indicator data - treat as inconclusive
+            return $this->handleInconclusiveTimeframe($exchangeSymbol, $allTimeframes);
         }
 
         // Now get the actual records at those timestamps
@@ -316,40 +326,33 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseApiableJob
     private function spawnNextTimeframeWorkflow(int $symbolId, string $nextTimeframe, array $conclusions): void
     {
         $childBlockUuid = Str::uuid()->toString();
-        $group = StepsDispatcher::getDispatchGroup();
+        $group = $this->step->group;
         $now = Carbon::now();
 
         // Create child workflow: Query + Conclude for next timeframe
-        Step::insert([
-            [
-                'class' => QuerySymbolIndicatorsJob::class,
-                'queue' => 'indicators',
-                'block_uuid' => $childBlockUuid,
-                'group' => $group,
-                'state' => \Martingalian\Core\States\Pending::class,
-                'index' => 1,
-                'arguments' => json_encode([
-                    'exchangeSymbolId' => $symbolId,
-                    'timeframe' => $nextTimeframe,
-                    'previousConclusions' => $conclusions,
-                ]),
-                'created_at' => $now,
-                'updated_at' => $now,
+        Step::create([
+            'class' => QuerySymbolIndicatorsJob::class,
+            'queue' => 'indicators',
+            'block_uuid' => $childBlockUuid,
+            'group' => $group,
+            'index' => 1,
+            'arguments' => [
+                'exchangeSymbolId' => $symbolId,
+                'timeframe' => $nextTimeframe,
+                'previousConclusions' => $conclusions,
             ],
-            [
-                'class' => self::class,
-                'queue' => 'indicators',
-                'block_uuid' => $childBlockUuid,
-                'group' => $group,
-                'state' => \Martingalian\Core\States\Pending::class,
-                'index' => 2,
-                'arguments' => json_encode([
-                    'exchangeSymbolId' => $symbolId,
-                    'timeframe' => $nextTimeframe,
-                    'previousConclusions' => $conclusions,
-                ]),
-                'created_at' => $now,
-                'updated_at' => $now,
+        ]);
+
+        Step::create([
+            'class' => self::class,
+            'queue' => 'indicators',
+            'block_uuid' => $childBlockUuid,
+            'group' => $group,
+            'index' => 2,
+            'arguments' => [
+                'exchangeSymbolId' => $symbolId,
+                'timeframe' => $nextTimeframe,
+                'previousConclusions' => $conclusions,
             ],
         ]);
 

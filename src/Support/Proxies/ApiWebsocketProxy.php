@@ -10,7 +10,7 @@ use Martingalian\Core\Support\Apis\Websocket\BybitApi;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 
 /**
- * @method void markPrices(array $callbacks)
+ * @method void markPrices(array $callbacksOrSymbols, array|bool $callbacksOrPrefersSlowerUpdate = false)
  */
 final class ApiWebsocketProxy
 {

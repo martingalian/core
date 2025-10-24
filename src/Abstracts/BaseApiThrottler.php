@@ -6,6 +6,7 @@ namespace Martingalian\Core\Abstracts;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Log;
 
 /**
  * BaseApiThrottler
@@ -41,18 +42,18 @@ abstract class BaseApiThrottler
      *
      * @param  int  $retryCount  Number of retries already attempted (for exponential backoff)
      */
-    public static function canDispatch(int $retryCount = 0): int
+    final public static function canDispatch(int $retryCount = 0): int
     {
         $config = static::getRateLimitConfig();
         $prefix = static::getCacheKeyPrefix();
 
-        \Log::channel('jobs')->info("[THROTTLER] {$prefix} | canDispatch() called");
+        Log::channel('jobs')->info("[THROTTLER] {$prefix} | canDispatch() called");
 
         // Check minimum delay between requests (if configured)
         if (isset($config['min_delay_between_requests_ms'])) {
             $secondsToWait = static::checkMinimumDelay($prefix, $config['min_delay_between_requests_ms']);
             if ($secondsToWait > 0) {
-                \Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by min delay: {$secondsToWait}s");
+                Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by min delay: {$secondsToWait}s");
 
                 return $secondsToWait;
             }
@@ -61,45 +62,30 @@ abstract class BaseApiThrottler
         // Check requests per window limit
         $windowKey = static::getCurrentWindowKey($prefix, $config['window_seconds']);
         $currentCount = Cache::get($windowKey, 0);
-        \Log::channel('jobs')->info("[THROTTLER] {$prefix} | Window: {$windowKey} | Count: {$currentCount}/{$config['requests_per_window']}");
+        Log::channel('jobs')->info("[THROTTLER] {$prefix} | Window: {$windowKey} | Count: {$currentCount}/{$config['requests_per_window']}");
 
         $secondsToWait = static::checkWindowLimit($prefix, $config['requests_per_window'], $config['window_seconds']);
 
         if ($secondsToWait > 0) {
-            \Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by window limit: {$secondsToWait}s");
+            Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by window limit: {$secondsToWait}s");
         } else {
-            \Log::channel('jobs')->info("[THROTTLER] {$prefix} | OK to dispatch");
+            Log::channel('jobs')->info("[THROTTLER] {$prefix} | OK to dispatch");
         }
 
         // Apply exponential backoff if this is a retry
         if ($retryCount > 0 && $secondsToWait > 0) {
             $exponentialDelay = static::calculateExponentialBackoff($retryCount);
             $secondsToWait += $exponentialDelay;
-            \Log::channel('jobs')->info("[THROTTLER] {$prefix} | Retry #{$retryCount} | Added exponential backoff: +{$exponentialDelay}s | Total: {$secondsToWait}s");
+            Log::channel('jobs')->info("[THROTTLER] {$prefix} | Retry #{$retryCount} | Added exponential backoff: +{$exponentialDelay}s | Total: {$secondsToWait}s");
         }
 
         return $secondsToWait;
     }
 
     /**
-     * Calculate exponential backoff delay based on retry count.
-     * Formula: retryCount^1.5 + random jitter (0-2 seconds)
-     */
-    protected static function calculateExponentialBackoff(int $retryCount): int
-    {
-        // Exponential growth: retryCount^1.5 for smoother curve
-        $exponential = (int) ceil(pow($retryCount, 1.5));
-
-        // Add random jitter (0-2 seconds) to spread out retries
-        $jitter = rand(0, 2);
-
-        return $exponential + $jitter;
-    }
-
-    /**
      * Record that a dispatch happened right now
      */
-    public static function recordDispatch(): void
+    final public static function recordDispatch(): void
     {
         $prefix = static::getCacheKeyPrefix();
         $config = static::getRateLimitConfig();
@@ -113,7 +99,39 @@ abstract class BaseApiThrottler
         $newCount = $currentCount + 1;
         Cache::put($windowKey, $newCount, $config['window_seconds'] * 2);
 
-        \Log::channel('jobs')->info("[THROTTLER] {$prefix} | recordDispatch() | Window: {$windowKey} | New count: {$newCount}/{$config['requests_per_window']}");
+        Log::channel('jobs')->info("[THROTTLER] {$prefix} | recordDispatch() | Window: {$windowKey} | New count: {$newCount}/{$config['requests_per_window']}");
+    }
+
+    /**
+     * Clear all throttling data for this API (useful for testing)
+     */
+    final public static function reset(): void
+    {
+        $prefix = static::getCacheKeyPrefix();
+        Cache::forget($prefix.':last_dispatch');
+
+        // Clear current and previous windows
+        $config = static::getRateLimitConfig();
+        $currentWindow = floor(Carbon::now()->timestamp / $config['window_seconds']);
+
+        for ($i = -2; $i <= 2; $i++) {
+            Cache::forget("{$prefix}:window:".($currentWindow + $i));
+        }
+    }
+
+    /**
+     * Calculate exponential backoff delay based on retry count.
+     * Formula: retryCount^1.5 + random jitter (0-2 seconds)
+     */
+    protected static function calculateExponentialBackoff(int $retryCount): int
+    {
+        // Exponential growth: retryCount^1.5 for smoother curve
+        $exponential = (int) ceil(pow($retryCount, 1.5));
+
+        // Add random jitter (0-2 seconds) to spread out retries
+        $jitter = random_int(0, 2);
+
+        return $exponential + $jitter;
     }
 
     /**
@@ -168,22 +186,5 @@ abstract class BaseApiThrottler
         $currentWindow = floor(Carbon::now()->timestamp / $windowSeconds);
 
         return "{$prefix}:window:{$currentWindow}";
-    }
-
-    /**
-     * Clear all throttling data for this API (useful for testing)
-     */
-    public static function reset(): void
-    {
-        $prefix = static::getCacheKeyPrefix();
-        Cache::forget($prefix.':last_dispatch');
-
-        // Clear current and previous windows
-        $config = static::getRateLimitConfig();
-        $currentWindow = floor(Carbon::now()->timestamp / $config['window_seconds']);
-
-        for ($i = -2; $i <= 2; $i++) {
-            Cache::forget("{$prefix}:window:".($currentWindow + $i));
-        }
     }
 }

@@ -441,7 +441,7 @@ final class StepDispatcher
      * Collect all nested child block UUIDs reachable from the given parent steps.
      * Optimized with recursive CTE query for better performance.
      */
-    protected static function collectAllNestedChildBlocks($parents, ?string $group = null): array
+    public static function collectAllNestedChildBlocks($parents, ?string $group = null): array
     {
         $rootBlocks = $parents->pluck('child_block_uuid')->filter()->unique()->values();
 
@@ -484,7 +484,7 @@ final class StepDispatcher
     /**
      * Batch transition steps to a new state for performance.
      */
-    protected static function batchTransitionSteps(array $stepIds, string $toState): void
+    public static function batchTransitionSteps(array $stepIds, string $toState): void
     {
         if (empty($stepIds)) {
             return;
@@ -497,5 +497,4 @@ final class StepDispatcher
                 'updated_at' => now(),
             ]);
     }
-
 }

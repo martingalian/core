@@ -59,7 +59,7 @@ final class CheckPositionOrderChangesJob extends BaseQueueableJob
         ]);
     }
 
-    protected function checkIfALimitOrderWasFilled(): void
+    public function checkIfALimitOrderWasFilled(): void
     {
         $this->position->limitOrders()
             ->each(function ($limitOrder) {
@@ -81,7 +81,7 @@ final class CheckPositionOrderChangesJob extends BaseQueueableJob
             });
     }
 
-    protected function checkIfPositionWasClosedOnExchange(): void
+    public function checkIfPositionWasClosedOnExchange(): void
     {
         if (! $this->position->isOpenedOnExchange()) {
             $this->position->updateSaving(['closed_by' => 'watcher']);
@@ -99,7 +99,7 @@ final class CheckPositionOrderChangesJob extends BaseQueueableJob
         }
     }
 
-    protected function checkIfProfitOrderWasSomehowFilled(): void
+    public function checkIfProfitOrderWasSomehowFilled(): void
     {
         $profit = $this->position->profitOrder();
 
@@ -134,7 +134,7 @@ final class CheckPositionOrderChangesJob extends BaseQueueableJob
         }
     }
 
-    protected function dispatchFinalPositionStatusUpdate(): void
+    public function dispatchFinalPositionStatusUpdate(): void
     {
         Step::create([
             'class' => UpdatePositionStatusJob::class,

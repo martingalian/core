@@ -128,7 +128,7 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
                 $until = $this->rateLimitUntil($e);
                 $delta = max(0, now()->diffInSeconds($until, false));
 
-                return max($delta, $this->backoffSeconds);
+                return (int) max($delta, $this->backoffSeconds);
             }
         }
 

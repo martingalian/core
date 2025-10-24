@@ -61,7 +61,7 @@ final class BinanceApiClient extends BaseApiClient
         return $this->processRequest($apiRequest);
     }
 
-    protected function getHeaders(): array
+    public function getHeaders(): array
     {
         return [
             'X-MBX-APIKEY' => $this->credentials->get('api_key'),

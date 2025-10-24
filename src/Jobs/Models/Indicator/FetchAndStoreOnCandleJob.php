@@ -180,7 +180,7 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
      *  - columnar arrays: ['timestamp'=>[], 'open'=>[], 'high'=>[], 'low'=>[], 'close'=>[], 'volume'?=>[]]
      *  - single associative array candle
      */
-    protected function normalizeToRows($data): array
+    public function normalizeToRows($data): array
     {
         // Array of candle objects
         if (is_array($data) && array_is_list($data) && isset($data[0]) && is_array($data[0])) {
@@ -238,7 +238,7 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
      * - If >= 10^12, assume milliseconds.
      * - Otherwise, assume seconds.
      */
-    protected function normalizeEpochToSeconds($epoch): int
+    public function normalizeEpochToSeconds($epoch): int
     {
         // Ensure numeric
         $val = (int) $epoch;

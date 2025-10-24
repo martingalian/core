@@ -135,11 +135,6 @@ abstract class BaseWebsocketClient
         $this->loop->run();
     }
 
-    private function createWSConnection(string $url)
-    {
-        return ($this->wsConnector)($url);
-    }
-
     protected function reconnect(string $url, array $callback): void
     {
         /*
@@ -173,5 +168,10 @@ abstract class BaseWebsocketClient
             $this->reconnectAttempt++;
             $this->handleCallback($url, $callback);
         });
+    }
+
+    private function createWSConnection(string $url)
+    {
+        return ($this->wsConnector)($url);
     }
 }

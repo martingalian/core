@@ -36,6 +36,11 @@ final class Step extends BaseModel
         'state' => StepStatus::class,
     ];
 
+    protected static function newFactory()
+    {
+        return \Martingalian\Core\Database\Factories\StepFactory::new();
+    }
+
     public static function concludedStepStates()
     {
         return [Completed::class, Skipped::class];
@@ -99,7 +104,7 @@ final class Step extends BaseModel
 
     public function isParent(): bool
     {
-        return ! is_null($this->child_block_uuid);
+        return ! empty($this->child_block_uuid);
     }
 
     public function parentIsRunning(): bool
@@ -308,5 +313,14 @@ final class Step extends BaseModel
         return self::where('block_uuid', $this->block_uuid)
             ->where('index', $this->index - 1)
             ->get();
+    }
+
+    /**
+     * Get a random dispatch group from available groups.
+     * Delegates to StepsDispatcher::getDispatchGroup().
+     */
+    public static function getDispatchGroup(): ?string
+    {
+        return StepsDispatcher::getDispatchGroup();
     }
 }

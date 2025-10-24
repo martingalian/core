@@ -104,7 +104,7 @@ final class PriceVolatilityIndicator extends BaseIndicator
      * @param  mixed  $raw
      * @return array<int,array<string,mixed>>
      */
-    protected function normalizeCandles($raw): array
+    public function normalizeCandles($raw): array
     {
         // If it's already a list of candles (0-indexed), return as-is.
         if (is_array($raw) && array_key_exists(0, $raw) && is_array($raw[0])) {
@@ -131,7 +131,7 @@ final class PriceVolatilityIndicator extends BaseIndicator
      *
      * @param  array<string,mixed>  $candle
      */
-    protected function volatilityPercent(array $candle): ?float
+    public function volatilityPercent(array $candle): ?float
     {
         if (! isset($candle['high'], $candle['low'], $candle['close']) ||
             ! is_numeric($candle['high']) ||

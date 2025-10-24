@@ -162,7 +162,7 @@ final class SyncMarketDataJob extends BaseApiableJob
      *  - LONG  → schedule ClosePositionJob immediately.
      *  - SHORT → do NOT close; notify admins for manual verification of price action.
      */
-    protected function handleOpenPositionsPerDirection(ExchangeSymbol $exchangeSymbol): void
+    public function handleOpenPositionsPerDirection(ExchangeSymbol $exchangeSymbol): void
     {
         $closingNote = "Forcing LONG position closing due to a token delisting from {$this->apiSystem->name}.";
         $shortNote = "Position NOT closed because it's a short, please verify price action!";

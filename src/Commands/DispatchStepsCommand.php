@@ -87,7 +87,7 @@ final class DispatchStepsCommand extends Command
     /**
      * Truncates storage/logs/laravel.log so each run starts with a clean log.
      */
-    protected function clearLaravelLog(): void
+    public function clearLaravelLog(): void
     {
         $path = storage_path('logs/laravel.log');
 

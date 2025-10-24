@@ -55,7 +55,7 @@ final class VerifyIfTradingPairIsOpenedJob extends BaseQueueableJob
     }
 
     // Helper method to check if the trading pair is already opened
-    protected function isTradingPairAlreadyOpened(): bool
+    public function isTradingPairAlreadyOpened(): bool
     {
         $account = $this->position->account;
 

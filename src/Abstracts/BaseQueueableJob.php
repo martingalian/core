@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Abstracts;
 
 use Illuminate\Support\Str;
+use Log;
 use Martingalian\Core\Concerns\BaseQueueableJob\FormatsStepResult;
 use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepExceptions;
 use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepLifecycle;
@@ -49,46 +50,49 @@ abstract class BaseQueueableJob extends BaseJob
         $stepId = $this->step->id ?? 'unknown';
         $jobClass = class_basename($this);
 
-        \Log::channel('jobs')->info("[JOB START] Step #{$stepId} | {$jobClass} | Starting...");
+        Log::channel('jobs')->info("[JOB START] Step #{$stepId} | {$jobClass} | Starting...");
 
         try {
             $prepareStart = microtime(true);
             $this->prepareJobExecution();
             $prepareTime = round((microtime(true) - $prepareStart) * 1000, 2);
-            \Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | prepareJobExecution: {$prepareTime}ms");
+            Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | prepareJobExecution: {$prepareTime}ms");
 
             if ($this->isInConfirmationMode()) {
-                \Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | In confirmation mode, handling...");
+                Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | In confirmation mode, handling...");
                 $this->handleConfirmationMode();
-                \Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | Completed (confirmation mode)");
+                Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | Completed (confirmation mode)");
+
                 return;
             }
 
             if ($this->shouldExitEarly()) {
-                \Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | Exited early");
+                Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | Exited early");
+
                 return;
             }
 
             $executeStart = microtime(true);
             $this->executeJobLogic();
             $executeTime = round((microtime(true) - $executeStart) * 1000, 2);
-            \Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | executeJobLogic: {$executeTime}ms");
+            Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | executeJobLogic: {$executeTime}ms");
 
             if ($this->needsVerification()) {
-                \Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | Needs verification, returning");
+                Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | Needs verification, returning");
+
                 return;
             }
 
             $finalizeStart = microtime(true);
             $this->finalizeJobExecution();
             $finalizeTime = round((microtime(true) - $finalizeStart) * 1000, 2);
-            \Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | finalizeJobExecution: {$finalizeTime}ms");
+            Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | finalizeJobExecution: {$finalizeTime}ms");
 
             $totalTime = round((microtime(true) - $startTime) * 1000, 2);
-            \Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | TOTAL: {$totalTime}ms");
+            Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | TOTAL: {$totalTime}ms");
         } catch (Throwable $e) {
             $errorTime = round((microtime(true) - $startTime) * 1000, 2);
-            \Log::channel('jobs')->error("[JOB ERROR] Step #{$stepId} | {$jobClass} | After {$errorTime}ms | Error: ".$e->getMessage());
+            Log::channel('jobs')->error("[JOB ERROR] Step #{$stepId} | {$jobClass} | After {$errorTime}ms | Error: ".$e->getMessage());
             $this->handleException($e);
         }
     }

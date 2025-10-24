@@ -23,6 +23,7 @@ use Throwable;
 final class BinanceExceptionHandler extends BaseExceptionHandler
 {
     use ApiExceptionHelpers {
+        isRateLimited as baseIsRateLimited;
         rateLimitUntil as baseRateLimitUntil;
     }
 
@@ -118,7 +119,7 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
      */
     public function isRateLimited(Throwable $exception): bool
     {
-        if (parent::isRateLimited($exception)) {
+        if ($this->baseIsRateLimited($exception)) {
             return true;
         }
 
@@ -225,10 +226,10 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
 
                 if ($this->isIpBanned($e)) {
                     // Be extra conservative on bans if no Retry-After was provided.
-                    return max($delta, $this->backoffSeconds * 3);
+                    return (int) max($delta, $this->backoffSeconds * 3);
                 }
 
-                return max($delta, $this->backoffSeconds);
+                return (int) max($delta, $this->backoffSeconds);
             }
         }
 

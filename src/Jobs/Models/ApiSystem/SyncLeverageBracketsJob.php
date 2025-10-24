@@ -174,7 +174,7 @@ final class SyncLeverageBracketsJob extends BaseApiableJob
         return $response->result;
     }
 
-    protected function removeUnnecessarySymbols(array $entries): array
+    public function removeUnnecessarySymbols(array $entries): array
     {
         // Filter out symbols that contain underscores or end with "SETTLED".
         return array_filter($entries, function ($entry) {

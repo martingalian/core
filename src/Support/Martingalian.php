@@ -34,7 +34,7 @@ final class Martingalian
      * Extra headroom applied to the unit-leverage worst-case constant K when deriving feasible leverage.
      * You can override via config('martingalian.bracket_headroom_pct', ...).
      *
-     * Example: '0.003' == 0.3%
+     * Example: '0.003' represents 0.3%
      */
     public const BRACKET_HEADROOM_PCT = '0.003';
 
