@@ -7,6 +7,7 @@ namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols\ConfirmPriceAlignmentWithDirectionJob;
 use Martingalian\Core\Jobs\Models\Indicator\QuerySymbolIndicatorsJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Debuggable;
@@ -329,7 +330,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseApiableJob
         $group = $this->step->group;
         $now = Carbon::now();
 
-        // Create child workflow: Query + Conclude for next timeframe
+        // Create child workflow: Query + Conclude + ConfirmPriceAlignment for next timeframe
         Step::create([
             'class' => QuerySymbolIndicatorsJob::class,
             'queue' => 'indicators',
@@ -353,6 +354,17 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseApiableJob
                 'exchangeSymbolId' => $symbolId,
                 'timeframe' => $nextTimeframe,
                 'previousConclusions' => $conclusions,
+            ],
+        ]);
+
+        Step::create([
+            'class' => ConfirmPriceAlignmentWithDirectionJob::class,
+            'queue' => 'indicators',
+            'block_uuid' => $childBlockUuid,
+            'group' => $group,
+            'index' => 3,
+            'arguments' => [
+                'exchangeSymbolId' => $symbolId,
             ],
         ]);
 
