@@ -68,7 +68,23 @@ trait HandlesApiJobExceptions
          * Set a future dispatch_after time and mark the step as pending.
          * This defers job execution based on rateLimiter's exchange policy.
          */
-        $this->retryJob($this->exceptionHandler->rateLimitUntil($e));
+        $retryAt = $this->exceptionHandler->rateLimitUntil($e);
+
+        // Record IP ban for coordination across workers when applicable
+        if ($e instanceof RequestException && $e->hasResponse()) {
+            $statusCode = $e->getResponse()->getStatusCode();
+
+            // Check if this is an IP ban scenario (429 or 418 for Binance)
+            if (in_array($statusCode, [418, 429], true)) {
+                $retryAfterSeconds = max(0, now()->diffInSeconds($retryAt, false));
+
+                if ($retryAfterSeconds > 0) {
+                    $this->exceptionHandler->recordIpBan($retryAfterSeconds);
+                }
+            }
+        }
+
+        $this->retryJob($retryAt);
     }
 
     protected function retryDueToNetworkGlitch(): void

@@ -165,7 +165,23 @@ abstract class BaseQueueableJob extends BaseJob
             return true;
         }
 
+        if (! $this->shouldStartOrThrottle()) {
+            $this->retryJob();
+
+            return true;
+        }
+
         return false;
+    }
+
+    /**
+     * Hook for automatic API throttling.
+     * Override in BaseApiableJob for automatic rate limiting.
+     * Default: no throttling (non-API jobs).
+     */
+    protected function shouldStartOrThrottle(): bool
+    {
+        return true;
     }
 
     protected function executeJobLogic(): void

@@ -9,6 +9,7 @@ use Log;
 use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobExceptions;
 use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobLifecycle;
 use Martingalian\Core\Models\ForbiddenHostname;
+use Martingalian\Core\Support\Proxies\ApiThrottlerProxy;
 use Throwable;
 
 abstract class BaseApiableJob extends BaseQueueableJob
@@ -67,6 +68,77 @@ abstract class BaseApiableJob extends BaseQueueableJob
         } catch (Throwable $e) {
             // Let the API-specific exception handler deal with the error.
             $this->handleApiException($e);
+        }
+    }
+
+    /**
+     * Automatic API throttling.
+     * Checks if the API system has a throttler and enforces rate limits.
+     * Also performs pre-flight safety checks (IP bans, rate limit proximity).
+     */
+    protected function shouldStartOrThrottle(): bool
+    {
+        // First, check IP-based safety (bans, rate limit proximity)
+        if (! isset($this->exceptionHandler)) {
+            $this->assignExceptionHandler();
+        }
+
+        if (! $this->exceptionHandler->isSafeToMakeRequest()) {
+            // Not safe to proceed - wait and retry
+            $this->jobBackoffSeconds = 5; // Conservative backoff
+
+            return false;
+        }
+
+        // Then check standard throttler
+        $throttler = $this->getThrottlerForApiSystem();
+
+        if (! $throttler) {
+            return true; // No throttler = proceed
+        }
+
+        $retryCount = $this->step->retries ?? 0;
+        $secondsToWait = $throttler::canDispatch($retryCount);
+
+        if ($secondsToWait > 0) {
+            $this->jobBackoffSeconds = $secondsToWait;
+
+            return false; // Throttled - retry
+        }
+
+        return true; // OK to proceed
+    }
+
+    /**
+     * Get the throttler class for the current API system.
+     * Returns null if no throttler exists (graceful degradation).
+     */
+    protected function getThrottlerForApiSystem(): ?string
+    {
+        if (! isset($this->exceptionHandler)) {
+            $this->assignExceptionHandler();
+        }
+
+        $apiSystem = $this->exceptionHandler->getApiSystem();
+
+        return ApiThrottlerProxy::getThrottler($apiSystem);
+    }
+
+    /**
+     * Override to automatically record API dispatch before executing.
+     */
+    protected function executeJobLogic(): void
+    {
+        if ($this->step->double_check === 0) {
+            // Automatically record API dispatch BEFORE calling computeApiable()
+            $throttler = $this->getThrottlerForApiSystem();
+
+            if ($throttler) {
+                $throttler::recordDispatch();
+            }
+
+            // Now call the parent implementation
+            parent::executeJobLogic();
         }
     }
 }

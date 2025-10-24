@@ -13,6 +13,7 @@ use Martingalian\Core\Support\ApiExceptionHandlers\BinanceExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\BybitExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\CoinmarketCapExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler;
+use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
 /*
@@ -33,6 +34,9 @@ abstract class BaseExceptionHandler
     // Just to confirm it's being used by a child class. Should return true.
     abstract public function ping(): bool;
 
+    // Returns the API system canonical name (e.g., 'taapi', 'coinmarketcap', 'binance')
+    abstract public function getApiSystem(): string;
+
     // Check if exception is a recv window mismatch. Provided via ApiExceptionHelpers trait.
     abstract public function isRecvWindowMismatch(Throwable $exception): bool;
 
@@ -44,6 +48,39 @@ abstract class BaseExceptionHandler
 
     // Calculate when to retry after rate limit. Provided via ApiExceptionHelpers trait or overridden by child classes.
     abstract public function rateLimitUntil(RequestException $exception): Carbon;
+
+    /**
+     * Record response headers for IP-based rate limiting coordination.
+     * Called after every successful API response.
+     * Complex APIs (Binance, Bybit) use this to track rate limits in Redis.
+     * Simple APIs (TAAPI, CoinMarketCap) implement as no-op.
+     */
+    abstract public function recordResponseHeaders(ResponseInterface $response): void;
+
+    /**
+     * Check if the current server IP is currently banned by the API.
+     * Returns true if IP ban is active, false otherwise.
+     * Used by shouldStartOrThrottle() to prevent jobs from running during bans.
+     */
+    abstract public function isCurrentlyBanned(): bool;
+
+    /**
+     * Record an IP ban in shared state (Redis) when 418/429 errors occur.
+     * Allows all workers on the same IP to coordinate and stop making requests.
+     *
+     * @param  int  $retryAfterSeconds  Seconds until ban expires
+     */
+    abstract public function recordIpBan(int $retryAfterSeconds): void;
+
+    /**
+     * Pre-flight check before making an API request.
+     * Returns false if:
+     * - IP is currently banned
+     * - Too soon since last request (min delay)
+     * - Approaching rate limits (>80%)
+     * Returns true if safe to proceed.
+     */
+    abstract public function isSafeToMakeRequest(): bool;
 
     final public static function make(string $apiCanonical)
     {
@@ -63,5 +100,14 @@ abstract class BaseExceptionHandler
         $this->account = $account;
 
         return $this;
+    }
+
+    /**
+     * Get the current server's IP address.
+     * Used for IP-based rate limiting and ban coordination.
+     */
+    protected function getCurrentIp(): string
+    {
+        return gethostbyname(gethostname());
     }
 }

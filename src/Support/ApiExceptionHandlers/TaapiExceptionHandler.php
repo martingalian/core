@@ -8,6 +8,7 @@ use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
+use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
 /**
@@ -76,6 +77,11 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
         return true;
     }
 
+    public function getApiSystem(): string
+    {
+        return 'taapi';
+    }
+
     /**
      * Get the maximum number of calculations allowed per bulk request.
      * Based on Taapi Expert plan limits.
@@ -133,5 +139,38 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
         }
 
         return $this->backoffSeconds;
+    }
+
+    /**
+     * No-op: TAAPI doesn't require response header tracking.
+     */
+    public function recordResponseHeaders(ResponseInterface $response): void
+    {
+        // No-op - TAAPI uses simple throttling handled by TaapiThrottler
+    }
+
+    /**
+     * No-op: TAAPI doesn't implement IP bans.
+     */
+    public function isCurrentlyBanned(): bool
+    {
+        return false;
+    }
+
+    /**
+     * No-op: TAAPI doesn't require IP ban recording.
+     */
+    public function recordIpBan(int $retryAfterSeconds): void
+    {
+        // No-op - TAAPI doesn't implement IP bans
+    }
+
+    /**
+     * No-op: TAAPI safety checks are handled by TaapiThrottler.
+     * Always return true to allow normal throttling to proceed.
+     */
+    public function isSafeToMakeRequest(): bool
+    {
+        return true;
     }
 }

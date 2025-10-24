@@ -6,9 +6,11 @@ namespace Martingalian\Core\Support\ApiExceptionHandlers;
 
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
+use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
 /**
@@ -102,6 +104,11 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     public function ping(): bool
     {
         return true;
+    }
+
+    public function getApiSystem(): string
+    {
+        return 'binance';
     }
 
     /**
@@ -234,5 +241,205 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
         }
 
         return $this->backoffSeconds;
+    }
+
+    /**
+     * Parse Binance interval headers (e.g., X-MBX-USED-WEIGHT-1M, X-MBX-ORDER-COUNT-10S).
+     * Returns array keyed by interval string (e.g., '1M', '10S') with parsed data.
+     *
+     * @param  array  $headers  Normalized headers (lowercase keys)
+     * @param  string  $prefix  Header prefix to match (e.g., 'x-mbx-used-weight-')
+     * @return array Array of ['intervalNum' => int, 'intervalLetter' => string, 'value' => int, 'interval' => string]
+     */
+    protected function parseIntervalHeaders(array $headers, string $prefix): array
+    {
+        $result = [];
+
+        foreach ($headers as $key => $value) {
+            // Match headers like: x-mbx-used-weight-1m => 50
+            if (! Str::startsWith($key, $prefix)) {
+                continue;
+            }
+
+            // Extract interval part (e.g., "1m" from "x-mbx-used-weight-1m")
+            $interval = Str::after($key, $prefix);
+
+            // Parse intervalNum and intervalLetter (e.g., "1m" => num=1, letter=m)
+            if (preg_match('/^(\d+)([smhd])$/i', $interval, $matches)) {
+                $result[$interval] = [
+                    'intervalNum' => (int) $matches[1],
+                    'intervalLetter' => mb_strtolower($matches[2]),
+                    'value' => (int) $value,
+                    'interval' => $interval,
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Record Binance response headers in Redis for IP-based rate limit coordination.
+     * Parses X-MBX-USED-WEIGHT-* and X-MBX-ORDER-COUNT-* headers and stores them
+     * so all workers on the same IP can coordinate.
+     */
+    public function recordResponseHeaders(ResponseInterface $response): void
+    {
+        try {
+            $ip = $this->getCurrentIp();
+            $headers = $this->normalizeHeaders($response);
+
+            // Parse and store weight headers
+            $weights = $this->parseIntervalHeaders($headers, 'x-mbx-used-weight-');
+            foreach ($weights as $data) {
+                $interval = $data['interval'];
+                $ttl = $this->getIntervalTTL($data['intervalNum'], $data['intervalLetter']);
+
+                Cache::put(
+                    "binance:{$ip}:weight:{$interval}",
+                    $data['value'],
+                    $ttl
+                );
+            }
+
+            // Parse and store order count headers
+            $orders = $this->parseIntervalHeaders($headers, 'x-mbx-order-count-');
+            foreach ($orders as $data) {
+                $interval = $data['interval'];
+                $ttl = $this->getIntervalTTL($data['intervalNum'], $data['intervalLetter']);
+
+                Cache::put(
+                    "binance:{$ip}:orders:{$interval}",
+                    $data['value'],
+                    $ttl
+                );
+            }
+
+            // Record timestamp of last request
+            Cache::put("binance:{$ip}:last_request", now()->timestamp, 60);
+        } catch (\Throwable $e) {
+            // Fail silently - don't break the application if Cache fails
+            \Log::warning("Failed to record Binance response headers: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Check if the current server IP is currently banned by Binance.
+     */
+    public function isCurrentlyBanned(): bool
+    {
+        try {
+            $ip = $this->getCurrentIp();
+            $bannedUntil = Cache::get("binance:{$ip}:banned_until");
+
+            return $bannedUntil && now()->timestamp < (int) $bannedUntil;
+        } catch (\Throwable $e) {
+            // Fail safe - if Cache fails, allow the request
+            \Log::warning("Failed to check Binance ban status: {$e->getMessage()}");
+
+            return false;
+        }
+    }
+
+    /**
+     * Record an IP ban in Cache when 418/429 errors with Retry-After occur.
+     * This allows all workers on the same IP to coordinate and stop making requests.
+     */
+    public function recordIpBan(int $retryAfterSeconds): void
+    {
+        try {
+            $ip = $this->getCurrentIp();
+            $expiresAt = now()->addSeconds($retryAfterSeconds);
+
+            Cache::put(
+                "binance:{$ip}:banned_until",
+                $expiresAt->timestamp,
+                $retryAfterSeconds
+            );
+
+            \Log::warning("Binance IP ban recorded for {$ip} until {$expiresAt->toDateTimeString()}");
+        } catch (\Throwable $e) {
+            // Log but don't throw - failing to record ban shouldn't break the app
+            \Log::error("Failed to record Binance IP ban: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Pre-flight safety check before making a Binance API request.
+     * Returns false if:
+     * - IP is currently banned
+     * - Too soon since last request (min delay)
+     * - Approaching any rate limit (>80% threshold)
+     */
+    public function isSafeToMakeRequest(): bool
+    {
+        try {
+            $ip = $this->getCurrentIp();
+
+            // Check if IP is currently banned
+            if ($this->isCurrentlyBanned()) {
+                return false;
+            }
+
+            // Check minimum delay since last request
+            $minDelayMs = config('martingalian.throttlers.binance.min_delay_ms', 200);
+            $lastRequest = Cache::get("binance:{$ip}:last_request");
+
+            if ($lastRequest) {
+                $timeSinceLastRequest = (now()->timestamp - (int) $lastRequest) * 1000; // Convert to ms
+                if ($timeSinceLastRequest < $minDelayMs) {
+                    return false;
+                }
+            }
+
+            // Check if approaching any rate limit (>80% threshold)
+            $safetyThreshold = config('martingalian.throttlers.binance.safety_threshold', 0.8);
+
+            // Get rate limits from config or use conservative defaults
+            $rateLimits = config('martingalian.throttlers.binance.rate_limits', [
+                ['type' => 'REQUEST_WEIGHT', 'interval' => '1m', 'limit' => 1200],
+                ['type' => 'REQUEST_WEIGHT', 'interval' => '10s', 'limit' => 100],
+                ['type' => 'ORDERS', 'interval' => '10s', 'limit' => 50],
+            ]);
+
+            foreach ($rateLimits as $rateLimit) {
+                $interval = $rateLimit['interval'];
+                $limit = $rateLimit['limit'];
+                $type = $rateLimit['type'];
+
+                $key = $type === 'ORDERS'
+                    ? "binance:{$ip}:orders:{$interval}"
+                    : "binance:{$ip}:weight:{$interval}";
+
+                $current = Cache::get($key) ?? 0;
+
+                if ($current / $limit > $safetyThreshold) {
+                    \Log::info("Binance rate limit safety threshold exceeded for {$interval}: {$current}/{$limit}");
+
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            // Fail safe - if Cache fails, allow the request
+            \Log::warning("Failed to check Binance safety: {$e->getMessage()}");
+
+            return true;
+        }
+    }
+
+    /**
+     * Calculate TTL in seconds for a given interval.
+     */
+    protected function getIntervalTTL(int $intervalNum, string $intervalLetter): int
+    {
+        return match (mb_strtolower($intervalLetter)) {
+            's' => $intervalNum,
+            'm' => $intervalNum * 60,
+            'h' => $intervalNum * 3600,
+            'd' => $intervalNum * 86400,
+            default => 60, // Default to 1 minute
+        };
     }
 }

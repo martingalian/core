@@ -6,8 +6,10 @@ namespace Martingalian\Core\Support\ApiExceptionHandlers;
 
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
+use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
 final class BybitExceptionHandler extends BaseExceptionHandler
@@ -228,6 +230,11 @@ final class BybitExceptionHandler extends BaseExceptionHandler
         return true;
     }
 
+    public function getApiSystem(): string
+    {
+        return 'bybit';
+    }
+
     /**
      * Extract Bybit error codes from response body.
      * Bybit uses {retCode, retMsg} structure.
@@ -249,5 +256,129 @@ final class BybitExceptionHandler extends BaseExceptionHandler
         }
 
         return $data;
+    }
+
+    /**
+     * Record Bybit response headers in Cache for IP-based rate limit coordination.
+     * Parses X-Bapi-Limit-Status, X-Bapi-Limit, and X-Bapi-Limit-Reset-Timestamp headers
+     * so all workers on the same IP can coordinate.
+     */
+    public function recordResponseHeaders(ResponseInterface $response): void
+    {
+        try {
+            $ip = $this->getCurrentIp();
+            $headers = $this->normalizeHeaders($response);
+
+            // X-Bapi-Limit-Status: Remaining requests for current endpoint
+            if (isset($headers['x-bapi-limit-status'])) {
+                $remaining = (int) $headers['x-bapi-limit-status'];
+                Cache::put("bybit:{$ip}:limit:status", $remaining, 60);
+            }
+
+            // X-Bapi-Limit: Current limit for the endpoint
+            if (isset($headers['x-bapi-limit'])) {
+                $limit = (int) $headers['x-bapi-limit'];
+                Cache::put("bybit:{$ip}:limit:max", $limit, 60);
+            }
+
+            // Record timestamp of last request
+            Cache::put("bybit:{$ip}:last_request", now()->timestamp, 60);
+        } catch (\Throwable $e) {
+            // Fail silently - don't break the application if Cache fails
+            \Log::warning("Failed to record Bybit response headers: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Check if the current server IP is currently banned by Bybit.
+     */
+    public function isCurrentlyBanned(): bool
+    {
+        try {
+            $ip = $this->getCurrentIp();
+            $bannedUntil = Cache::get("bybit:{$ip}:banned_until");
+
+            return $bannedUntil && now()->timestamp < (int) $bannedUntil;
+        } catch (\Throwable $e) {
+            // Fail safe - if Cache fails, allow the request
+            \Log::warning("Failed to check Bybit ban status: {$e->getMessage()}");
+
+            return false;
+        }
+    }
+
+    /**
+     * Record an IP ban in Cache when 429/403 errors with Retry-After occur.
+     * This allows all workers on the same IP to coordinate and stop making requests.
+     */
+    public function recordIpBan(int $retryAfterSeconds): void
+    {
+        try {
+            $ip = $this->getCurrentIp();
+            $expiresAt = now()->addSeconds($retryAfterSeconds);
+
+            Cache::put(
+                "bybit:{$ip}:banned_until",
+                $expiresAt->timestamp,
+                $retryAfterSeconds
+            );
+
+            \Log::warning("Bybit IP ban recorded for {$ip} until {$expiresAt->toDateTimeString()}");
+        } catch (\Throwable $e) {
+            // Log but don't throw - failing to record ban shouldn't break the app
+            \Log::error("Failed to record Bybit IP ban: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Pre-flight safety check before making a Bybit API request.
+     * Returns false if:
+     * - IP is currently banned
+     * - Too soon since last request (min delay)
+     * - Approaching rate limit (low remaining requests)
+     */
+    public function isSafeToMakeRequest(): bool
+    {
+        try {
+            $ip = $this->getCurrentIp();
+
+            // Check if IP is currently banned
+            if ($this->isCurrentlyBanned()) {
+                return false;
+            }
+
+            // Check minimum delay since last request
+            $minDelayMs = config('martingalian.throttlers.bybit.min_delay_ms', 200);
+            $lastRequest = Cache::get("bybit:{$ip}:last_request");
+
+            if ($lastRequest) {
+                $timeSinceLastRequest = (now()->timestamp - (int) $lastRequest) * 1000; // Convert to ms
+                if ($timeSinceLastRequest < $minDelayMs) {
+                    return false;
+                }
+            }
+
+            // Check if approaching rate limit
+            $remaining = Cache::get("bybit:{$ip}:limit:status");
+            $limit = Cache::get("bybit:{$ip}:limit:max");
+
+            if ($remaining !== null && $limit !== null && $limit > 0) {
+                $safetyThreshold = config('martingalian.throttlers.bybit.safety_threshold', 0.1);
+                $remainingPercentage = $remaining / $limit;
+
+                if ($remainingPercentage < $safetyThreshold) {
+                    \Log::info("Bybit rate limit safety threshold exceeded: {$remaining}/{$limit} remaining");
+
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            // Fail safe - if Cache fails, allow the request
+            \Log::warning("Failed to check Bybit safety: {$e->getMessage()}");
+
+            return true;
+        }
     }
 }

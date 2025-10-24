@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
 use Illuminate\Support\Carbon;
-use Martingalian\Core\Abstracts\BaseApiableJob;
-use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols\ConfirmPriceAlignmentWithDirectionJob;
 use Martingalian\Core\Jobs\Models\Indicator\QuerySymbolIndicatorsJob;
-use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Debuggable;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\IndicatorHistory;
@@ -27,7 +25,7 @@ use Str;
  * If inconclusive: Spawns child workflow for next timeframe.
  * If last timeframe inconclusive: Invalidates symbol.
  */
-final class ConcludeSymbolDirectionAtTimeframeJob extends BaseApiableJob
+final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
 {
     public int $exchangeSymbolId;
 
@@ -48,17 +46,12 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseApiableJob
         $this->retries = 20;
     }
 
-    public function assignExceptionHandler()
-    {
-        $this->exceptionHandler = BaseExceptionHandler::make('taapi')->withAccount(Account::admin('taapi'));
-    }
-
     public function relatable()
     {
         return ExchangeSymbol::find($this->exchangeSymbolId);
     }
 
-    public function computeApiable()
+    public function compute()
     {
         $exchangeSymbol = ExchangeSymbol::findOrFail($this->exchangeSymbolId);
         $tradeConfig = TradeConfiguration::getDefault();

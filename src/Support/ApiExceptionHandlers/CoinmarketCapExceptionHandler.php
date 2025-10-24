@@ -8,6 +8,7 @@ use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
+use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
 /**
@@ -81,6 +82,11 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
         return true;
     }
 
+    public function getApiSystem(): string
+    {
+        return 'coinmarketcap';
+    }
+
     /**
      * Compute a safe retry time:
      *  • If Retry-After exists, honor it.
@@ -139,5 +145,38 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
         }
 
         return $this->backoffSeconds;
+    }
+
+    /**
+     * No-op: CoinMarketCap doesn't require response header tracking.
+     */
+    public function recordResponseHeaders(ResponseInterface $response): void
+    {
+        // No-op - CoinMarketCap uses simple throttling handled by CoinmarketCapThrottler
+    }
+
+    /**
+     * No-op: CoinMarketCap doesn't implement IP bans.
+     */
+    public function isCurrentlyBanned(): bool
+    {
+        return false;
+    }
+
+    /**
+     * No-op: CoinMarketCap doesn't require IP ban recording.
+     */
+    public function recordIpBan(int $retryAfterSeconds): void
+    {
+        // No-op - CoinMarketCap doesn't implement IP bans
+    }
+
+    /**
+     * No-op: CoinMarketCap safety checks are handled by CoinmarketCapThrottler.
+     * Always return true to allow normal throttling to proceed.
+     */
+    public function isSafeToMakeRequest(): bool
+    {
+        return true;
     }
 }

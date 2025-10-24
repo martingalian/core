@@ -108,6 +108,11 @@ abstract class BaseApiClient
 
             $this->updateRequestLogData($logData);
 
+            // Record response headers for IP-based rate limiting coordination
+            if ($this->exceptionHandler) {
+                $this->exceptionHandler->recordResponseHeaders($response);
+            }
+
             return $response;
         } catch (RequestException $e) {
             $logData['http_response_code'] = $e->getResponse() ? $e->getResponse()->getStatusCode() : null;
@@ -139,6 +144,11 @@ abstract class BaseApiClient
                     $logData['http_headers_returned'] = $response->getHeaders();
 
                     $this->updateRequestLogData($logData);
+
+                    // Record response headers for IP-based rate limiting coordination
+                    if ($this->exceptionHandler) {
+                        $this->exceptionHandler->recordResponseHeaders($response);
+                    }
 
                     return $response;
                 } catch (Throwable $retryException) {

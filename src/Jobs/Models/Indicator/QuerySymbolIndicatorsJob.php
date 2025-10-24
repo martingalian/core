@@ -13,7 +13,6 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\User;
-use Martingalian\Core\Support\Throttlers\TaapiThrottler;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Throwable;
 
@@ -58,9 +57,6 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
 
     public function computeApiable()
     {
-        // Record that we're making a request
-        TaapiThrottler::recordDispatch();
-
         // Load the exchange symbol
         $exchangeSymbol = ExchangeSymbol::findOrFail($this->exchangeSymbolId);
 
@@ -106,29 +102,6 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
             '['.class_basename(self::class).'] - Error',
             'nidavellir_errors'
         );
-    }
-
-    /**
-     * Check throttling before job execution starts.
-     * Called by BaseQueueableJob->shouldExitEarly() BEFORE transitioning to Running state.
-     * This prevents the Pending->Running transition error.
-     */
-    public function startOrRetry(): bool
-    {
-        // Pass current retry count to throttler for exponential backoff
-        $retryCount = $this->step->retries ?? 0;
-        $secondsToWait = TaapiThrottler::canDispatch($retryCount);
-
-        if ($secondsToWait > 0) {
-            // Set custom backoff delay based on throttler (includes exponential backoff)
-            $this->jobBackoffSeconds = $secondsToWait;
-
-            // Return false to trigger retry with the backoff delay
-            return false;
-        }
-
-        // OK to proceed with job execution
-        return true;
     }
 
     /**
