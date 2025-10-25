@@ -45,14 +45,42 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
             ->first();
 
         if (! $history) {
-            throw new Exception("No indicator history found for exchange symbol {$this->exchangeSymbol->id}");
+            $this->exchangeSymbol->logApplicationEvent(
+                "{$this->exchangeSymbol->parsed_trading_pair} indicator data CLEANED due to missing indicator history",
+                self::class,
+                __FUNCTION__
+            );
+
+            $this->exchangeSymbol->updateSaving([
+                'direction' => null,
+                'indicators_values' => null,
+                'indicators_timeframe' => null,
+                'indicators_synced_at' => null,
+                'is_active' => false,
+            ]);
+
+            return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair} REMOVED due to missing indicator history"];
         }
 
         // Extract data from stored JSON
         $data = $history->data;
 
         if (! isset($data['close']) || count($data['close']) < 2) {
-            throw new Exception("Invalid indicator data format for exchange symbol {$this->exchangeSymbol->id}");
+            $this->exchangeSymbol->logApplicationEvent(
+                "{$this->exchangeSymbol->parsed_trading_pair} indicator data CLEANED due to invalid indicator data format",
+                self::class,
+                __FUNCTION__
+            );
+
+            $this->exchangeSymbol->updateSaving([
+                'direction' => null,
+                'indicators_values' => null,
+                'indicators_timeframe' => null,
+                'indicators_synced_at' => null,
+                'is_active' => false,
+            ]);
+
+            return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair} REMOVED due to invalid indicator data format"];
         }
 
         $first = $data['close'][0];
