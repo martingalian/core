@@ -130,20 +130,24 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
                 continue;
             }
 
+            $indicatorClass = $history->indicator->class;
             $conclusion = $history->conclusion;
 
-            // Determine indicator type by checking conclusion value:
-            // - "LONG" or "SHORT" = direction indicator
-            // - "0" or "1" = validation indicator
-            if (is_string($conclusion) && ($conclusion === 'LONG' || $conclusion === 'SHORT')) {
+            // Determine indicator type by checking if the class implements the appropriate interface
+            if (is_subclass_of($indicatorClass, \Martingalian\Core\Contracts\Indicators\DirectionIndicator::class)) {
                 // Direction indicator
-                $directions[] = $conclusion;
-            } elseif ($conclusion === '0' || $conclusion === 0 || $conclusion === false) {
-                // Validation indicator returned 0 - immediately invalidate this timeframe
-                $validationsPassed = false;
-                break;
+                if ($conclusion === 'LONG' || $conclusion === 'SHORT') {
+                    $directions[] = $conclusion;
+                }
+            } elseif (is_subclass_of($indicatorClass, \Martingalian\Core\Contracts\Indicators\ValidationIndicator::class)) {
+                // Validation indicator
+                if ($conclusion === '0' || $conclusion === 0 || $conclusion === false) {
+                    // Validation failed - immediately invalidate this timeframe
+                    $validationsPassed = false;
+                    break;
+                }
+                // Validation passed (1/true) - continue
             }
-            // Validation passed (1/true) - continue
         }
 
         // Check if we have a valid conclusion at this timeframe

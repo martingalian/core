@@ -68,13 +68,15 @@ abstract class BaseIndicator
     }
 
     /**
-     * Abstract method that should return a simplified decision:
-     * - Numeric value (e.g. 70)
-     * - Boolean true/false
-     * - String: LONG / SHORT
-     * - null
+     * Returns the indicator's conclusion/signal.
+     *
+     * Direction indicators return: 'LONG' | 'SHORT' | null
+     * Validation indicators return: true | false (stored as '1' | '0')
+     * Non-conclusive indicators return: null
+     *
+     * @return string|bool|null
      */
-    abstract public function conclusion();
+    abstract public function conclusion(): string|bool|null;
 
     // Retrieve previously fetched data.
     final public function data($addTimestampForHumans = false)
@@ -185,5 +187,23 @@ abstract class BaseIndicator
         if (is_array($this->data) && isset($this->data['timestamp'])) {
             $this->data['timestamp_for_humans'] = date('Y-m-d H:i:s', (int) $this->data['timestamp']);
         }
+    }
+
+    /**
+     * Helper method to determine trend direction by comparing two values.
+     * Returns 'LONG' if value increased, 'SHORT' if decreased, null if insufficient data.
+     *
+     * @param  string  $dataKey  The key in $this->data containing the value array
+     * @return string|null 'LONG' | 'SHORT' | null
+     */
+    protected function compareTrendFromValues(string $dataKey = 'value'): ?string
+    {
+        $values = $this->data[$dataKey] ?? null;
+
+        if (! $values || ! is_array($values) || count($values) < 2) {
+            return null;
+        }
+
+        return $values[1] > $values[0] ? 'LONG' : 'SHORT';
     }
 }

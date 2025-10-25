@@ -5,21 +5,20 @@ declare(strict_types=1);
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
+use Martingalian\Core\Contracts\Indicators\ValidationIndicator;
 
 /**
  * Verifies if there was a specific growth/drop price percentage in the respective
  * candle timeframe length. This is an indicator that will cancel tokens that in
  * case of an extreme fluctuation on a token price (e.g: > 30% in 24h for instance).
  */
-final class AmplitudeThresholdIndicator extends BaseIndicator
+final class AmplitudeThresholdIndicator extends BaseIndicator implements ValidationIndicator
 {
     public string $endpoint = 'candle';
 
-    public string $type = 'validation';
-
     protected float $amplitude = 20; // 20% default threshold
 
-    public function conclusion()
+    public function conclusion(): bool
     {
         return $this->isValid();
     }

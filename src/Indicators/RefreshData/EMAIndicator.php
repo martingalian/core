@@ -5,26 +5,19 @@ declare(strict_types=1);
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
+use Martingalian\Core\Contracts\Indicators\DirectionIndicator;
 
-final class EMAIndicator extends BaseIndicator
+final class EMAIndicator extends BaseIndicator implements DirectionIndicator
 {
     public string $endpoint = 'ema';
 
-    public string $type = 'direction';
-
-    public function conclusion()
+    public function conclusion(): ?string
     {
         return $this->direction();
     }
 
     public function direction(): ?string
     {
-        $emaValues = $this->data['value'] ?? null;
-
-        if ($emaValues && count($emaValues) > 1) {
-            return $emaValues[1] > $emaValues[0] ? 'LONG' : 'SHORT';
-        }
-
-        return null;
+        return $this->compareTrendFromValues();
     }
 }

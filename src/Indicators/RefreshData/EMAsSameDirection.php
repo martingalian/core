@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
+use Martingalian\Core\Contracts\Indicators\DirectionIndicator;
 
-final class EMAsSameDirection extends BaseIndicator
+final class EMAsSameDirection extends BaseIndicator implements DirectionIndicator
 {
     public string $endpoint = 'emas-same-direction';
 
-    public string $type = 'direction';
-
-    public function conclusion()
+    public function conclusion(): ?string
     {
         return $this->direction();
     }

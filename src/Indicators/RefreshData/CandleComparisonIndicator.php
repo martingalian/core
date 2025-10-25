@@ -10,10 +10,9 @@ final class CandleComparisonIndicator extends BaseIndicator
 {
     public string $endpoint = 'candle';
 
-    public string $type = 'value';
-
-    public function conclusion()
+    public function conclusion(): ?string
     {
-        //
+        // This indicator does not provide a conclusion yet
+        return null;
     }
 }

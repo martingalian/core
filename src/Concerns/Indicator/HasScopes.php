@@ -13,8 +13,13 @@ trait HasScopes
         return $query->where('indicators.is_active', true);
     }
 
-    public function scopeApiable(Builder $query)
+    public function scopeFromApi(Builder $query)
     {
-        return $query->where('indicators.is_apiable', true);
+        return $query->where('indicators.is_computed', false);
+    }
+
+    public function scopeComputed(Builder $query)
+    {
+        return $query->where('indicators.is_computed', true);
     }
 }

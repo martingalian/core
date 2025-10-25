@@ -16,7 +16,7 @@ final class Indicator extends BaseModel
     use HasScopes;
 
     protected $casts = [
-        'is_apiable' => 'boolean',
+        'is_computed' => 'boolean',
         'is_active' => 'boolean',
         'parameters' => 'array',
     ];

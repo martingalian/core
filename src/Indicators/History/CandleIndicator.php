@@ -10,10 +10,9 @@ final class CandleIndicator extends BaseIndicator
 {
     public string $endpoint = 'candle';
 
-    public string $type = 'value';
-
-    public function conclusion()
+    public function conclusion(): ?string
     {
-        return $this->data;
+        // History indicators store raw data, not conclusions
+        return null;
     }
 }

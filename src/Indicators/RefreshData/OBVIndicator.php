@@ -5,26 +5,19 @@ declare(strict_types=1);
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
+use Martingalian\Core\Contracts\Indicators\DirectionIndicator;
 
-final class OBVIndicator extends BaseIndicator
+final class OBVIndicator extends BaseIndicator implements DirectionIndicator
 {
     public string $endpoint = 'obv';
 
-    public string $type = 'direction';
-
-    public function conclusion()
+    public function conclusion(): ?string
     {
         return $this->direction();
     }
 
     public function direction(): ?string
     {
-        $obvValues = $this->data['value'] ?? null;
-
-        if ($obvValues && count($obvValues) > 1) {
-            return $obvValues[1] > $obvValues[0] ? 'LONG' : 'SHORT';
-        }
-
-        return null;
+        return $this->compareTrendFromValues();
     }
 }

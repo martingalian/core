@@ -63,7 +63,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
         // Load active refresh-data indicators
         $indicators = Indicator::query()
             ->where('is_active', true)
-            ->where('is_apiable', true)
+            ->where('is_computed', false)
             ->where('type', 'refresh-data')
             ->get();
 
@@ -255,7 +255,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
         // Process computed (non-apiable) indicators
         $computedIndicators = Indicator::query()
             ->where('is_active', true)
-            ->where('is_apiable', false)
+            ->where('is_computed', true)
             ->where('type', 'refresh-data')
             ->get();
 

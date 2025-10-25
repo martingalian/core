@@ -137,6 +137,7 @@ final class ConcludeDirectionJob extends BaseApiableJob
                 }
 
                 $indicatorCanonical = $history->indicator->canonical;
+                $indicatorClass = $history->indicator->class;
                 $conclusion = $history->conclusion;
 
                 info_if('[ConcludeDirectionJob] Indicator '.$indicatorCanonical.' conclusion from DB: '.json_encode($conclusion));
@@ -152,27 +153,40 @@ final class ConcludeDirectionJob extends BaseApiableJob
                     'taapi_construct_id' => $history->taapi_construct_id,
                 ];
 
-                // Determine indicator type by checking conclusion value:
-                // - "LONG" or "SHORT" = direction indicator
-                // - "0" or "1" (or 0/1 as int/bool) = validation indicator
-
-                if (is_string($conclusion) && ($conclusion === 'LONG' || $conclusion === 'SHORT')) {
+                // Determine indicator type by checking if it implements the appropriate interface
+                if (is_subclass_of($indicatorClass, \Martingalian\Core\Contracts\Indicators\DirectionIndicator::class)) {
                     // Direction indicator
-                    $directions[] = $conclusion;
-                    info_if('[ConcludeDirectionJob] Direction indicator '.$indicatorCanonical.' returned: '.$conclusion);
-                } elseif ($conclusion === '0' || $conclusion === 0 || $conclusion === false) {
-                    // Validation indicator returned 0 - immediately invalidate
-                    info_if('[ConcludeDirectionJob] Validation indicator '.$indicatorCanonical.' returned 0 - INVALIDATED');
-                    $validationsPassed = false;
-                    $allIndicatorsProcessed = false;
-                    break;
-                } elseif ($conclusion === '1' || $conclusion === 1 || $conclusion === true) {
-                    // Validation indicator returned 1 - passed
-                    info_if('[ConcludeDirectionJob] Validation indicator '.$indicatorCanonical.' returned 1 - VALIDATED');
-                    // Continue processing other indicators
+                    if ($conclusion === 'LONG' || $conclusion === 'SHORT') {
+                        $directions[] = $conclusion;
+                        info_if('[ConcludeDirectionJob] Direction indicator '.$indicatorCanonical.' returned: '.$conclusion);
+                    } else {
+                        // Direction indicator returned unexpected value
+                        info_if('[ConcludeDirectionJob] Direction indicator '.$indicatorCanonical.' returned unexpected conclusion: '.json_encode($conclusion));
+                        $allIndicatorsProcessed = false;
+                        break;
+                    }
+                } elseif (is_subclass_of($indicatorClass, \Martingalian\Core\Contracts\Indicators\ValidationIndicator::class)) {
+                    // Validation indicator
+                    if ($conclusion === '0' || $conclusion === 0 || $conclusion === false) {
+                        // Validation failed - immediately invalidate this timeframe
+                        info_if('[ConcludeDirectionJob] Validation indicator '.$indicatorCanonical.' returned 0 - INVALIDATED');
+                        $validationsPassed = false;
+                        $allIndicatorsProcessed = false;
+                        break;
+                    }
+                    if ($conclusion === '1' || $conclusion === 1 || $conclusion === true) {
+                        // Validation passed
+                        info_if('[ConcludeDirectionJob] Validation indicator '.$indicatorCanonical.' returned 1 - VALIDATED');
+                        // Continue processing other indicators
+                    } else {
+                        // Validation indicator returned unexpected value
+                        info_if('[ConcludeDirectionJob] Validation indicator '.$indicatorCanonical.' returned unexpected conclusion: '.json_encode($conclusion));
+                        $allIndicatorsProcessed = false;
+                        break;
+                    }
                 } else {
-                    // Unexpected conclusion value
-                    info_if('[ConcludeDirectionJob] Indicator '.$indicatorCanonical.' returned unexpected conclusion: '.json_encode($conclusion));
+                    // Indicator doesn't implement either interface
+                    info_if('[ConcludeDirectionJob] Indicator '.$indicatorCanonical.' does not implement DirectionIndicator or ValidationIndicator interface');
                     $allIndicatorsProcessed = false;
                     break;
                 }

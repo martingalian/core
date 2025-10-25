@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Martingalian\Core\Indicators\RefreshData;
 
 use Martingalian\Core\Abstracts\BaseIndicator;
+use Martingalian\Core\Contracts\Indicators\ValidationIndicator;
 
-final class ADXIndicator extends BaseIndicator
+final class ADXIndicator extends BaseIndicator implements ValidationIndicator
 {
     public string $endpoint = 'adx';
 
-    public string $type = 'validation';
-
-    public function conclusion()
+    public function conclusion(): bool
     {
         return $this->isValid();
     }
@@ -23,7 +22,7 @@ final class ADXIndicator extends BaseIndicator
             return false;
         }
 
-        // Major number to keep the trend solid (e.g. >= 20).
+        // Major number to keep the trend solid (e.g. >= 15).
         return $this->data['value'][0] >= 15;
     }
 }
