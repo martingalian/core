@@ -72,11 +72,10 @@ abstract class BaseIndicator
      *
      * Direction indicators return: 'LONG' | 'SHORT' | null
      * Validation indicators return: true | false (stored as '1' | '0')
+     * Reporting indicators return: array (statistical data)
      * Non-conclusive indicators return: null
-     *
-     * @return string|bool|null
      */
-    abstract public function conclusion(): string|bool|null;
+    abstract public function conclusion(): string|bool|array|null;
 
     // Retrieve previously fetched data.
     final public function data($addTimestampForHumans = false)

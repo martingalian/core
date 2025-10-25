@@ -154,6 +154,7 @@ final class SchemaSeeder1 extends Seeder
             'password' => bcrypt('password'),
             'is_admin' => true,
             'pushover_key' => env('TRADER_PUSHOVER_KEY'),
+            'notification_channels' => ['pushover', 'mail'],
         ]);
 
         $account = Account::create([

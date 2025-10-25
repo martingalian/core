@@ -31,10 +31,8 @@ final class PriceVolatilityIndicator extends BaseIndicator
      * - lastN_average: float|null
      * - last_window: int
      * - samples: int
-     *
-     * @return array
      */
-    public function conclusion()
+    public function conclusion(): array
     {
         // Raw can be a single candle, a list of candles, or a mapped array
         $raw = $this->data;

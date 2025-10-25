@@ -4,72 +4,72 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\User;
 
-use Martingalian\Core\Models\User;
-use Martingalian\Core\Notifications\PushoverNotification;
+use Martingalian\Core\Notifications\AdminAlertNotification;
 
 trait NotifiesViaPushover
 {
     /**
-     * Send a Pushover notification to all admin users.
+     * Send a notification to all admin users using Laravel's notification system.
+     *
+     * Uses admin delivery groups instead of individual user notifications.
+     * Sends once to the appropriate delivery group (critical or default).
      */
     public static function notifyAdminsViaPushover(
         string $message,
         string $title = 'Admin Alert',
-        ?string $applicationKey = 'nidavellir',
+        ?string $applicationKey = 'default',
         array $additionalParameters = []
     ): void {
+        // Get any active admin to use as the notifiable
+        // (just for routing to the delivery group, not sending to individual user)
+        $admin = static::admin()->where('is_active', true)->first();
 
-        if (config('martingalian.send_pushover_notifications') === false) {
+        if (! $admin) {
             return;
         }
 
-        static::admin()->get()->each(function ($admin) use ($message, $title, $applicationKey, $additionalParameters) {
-            $admin->pushover(
-                message: $message,
-                title: '['.gethostname().'] '.$title,
-                applicationKey: $applicationKey,
-                additionalParameters: $additionalParameters
-            );
-        });
-    }
+        // Store application key on the user instance for routing
+        $admin->_pushover_application_key = $applicationKey;
 
-    /**
-     * Send a Pushover notification to this user.
-     */
-    public function pushover(
-        string $message,
-        string $title = 'Nidavellir message',
-        ?string $applicationKey = 'nidavellir',
-        array $additionalParameters = []
-    ): bool|string {
-        if (! $this->pushover_key) {
-            return 'User does not have a Pushover key.';
-        }
-
-        $notification = new PushoverNotification($message, $applicationKey, $title, $additionalParameters);
-        $notification->send($this);
-
-        return true;
-    }
-
-    /**
-     * Send a Pushover notification to all admin users.
-     */
-    public function notifyViaPushover(
-        string $message,
-        string $title = '',
-        ?string $applicationKey = 'nidavellir',
-        array $additionalParameters = []
-    ): void {
-        if (config('martingalian.send_pushover_notifications') === false) {
-            return;
-        }
-
-        $this->pushover(
+        $notification = new AdminAlertNotification(
             message: $message,
             title: '['.gethostname().'] '.$title,
             applicationKey: $applicationKey,
             additionalParameters: $additionalParameters
         );
+
+        // Send once to the delivery group (not to each admin individually)
+        $admin->notify($notification);
+
+        // Clean up temporary property
+        unset($admin->_pushover_application_key);
+    }
+
+    /**
+     * Send a notification to this user using Laravel's notification system.
+     *
+     * Respects user's notification_channels preference (Pushover, Email, etc.)
+     * The notification channels are determined by AdminAlertNotification::via()
+     */
+    public function notifyViaPushover(
+        string $message,
+        string $title = '',
+        ?string $applicationKey = 'default',
+        array $additionalParameters = []
+    ): void {
+        // Store application key on the user instance for routing
+        $this->_pushover_application_key = $applicationKey;
+
+        $notification = new AdminAlertNotification(
+            message: $message,
+            title: '['.gethostname().'] '.$title,
+            applicationKey: $applicationKey,
+            additionalParameters: $additionalParameters
+        );
+
+        $this->notify($notification);
+
+        // Clean up temporary property
+        unset($this->_pushover_application_key);
     }
 }

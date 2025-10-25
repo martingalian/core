@@ -56,6 +56,7 @@ final class CoreServiceProvider extends ServiceProvider
         }
 
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'martingalian');
 
         $this->publishes([
             __DIR__.'/../config/martingalian.php' => config_path('martingalian.php'),
