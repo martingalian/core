@@ -71,10 +71,13 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
 
         if ($latestPerIndicator->isEmpty()) {
             // No indicator data found - this shouldn't happen if QuerySymbolIndicatorsJob ran properly
-            return [
+            $response = [
                 'result' => 'error',
                 'message' => "No indicator data found for timeframe {$this->timeframe}",
             ];
+            $this->step->update(['response' => $response]);
+
+            return $response;
         }
 
         // Check if we have data for all expected indicators
@@ -173,12 +176,15 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         // No direction change (first-time or same direction) - update symbol
         $this->updateSymbol($exchangeSymbol, $newDirection, $indicatorData);
 
-        return [
+        $response = [
             'result' => 'concluded',
             'direction' => $newDirection,
             'timeframe' => $this->timeframe,
             'is_change' => is_null($oldDirection) ? 'first_time' : 'same_direction',
         ];
+        $this->step->update(['response' => $response]);
+
+        return $response;
     }
 
     /**
@@ -192,7 +198,10 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         // Find next timeframe
         $currentIndex = array_search($this->timeframe, $allTimeframes);
         if ($currentIndex === false) {
-            return ['result' => 'error', 'message' => "Invalid timeframe: {$this->timeframe}"];
+            $response = ['result' => 'error', 'message' => "Invalid timeframe: {$this->timeframe}"];
+            $this->step->update(['response' => $response]);
+
+            return $response;
         }
 
         $nextIndex = $currentIndex + 1;
@@ -206,22 +215,28 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
                 'is_active' => false,
             ]);
 
-            return [
+            $response = [
                 'result' => 'not_concluded',
                 'message' => 'All timeframes exhausted without conclusion',
                 'path' => $this->buildPathString($currentConclusions, $allTimeframes),
             ];
+            $this->step->update(['response' => $response]);
+
+            return $response;
         }
 
         // Spawn child workflow for next timeframe
         $nextTimeframe = $allTimeframes[$nextIndex];
         $this->spawnNextTimeframeWorkflow($exchangeSymbol->id, $nextTimeframe, $currentConclusions);
 
-        return [
+        $response = [
             'result' => 'inconclusive',
             'next_timeframe' => $nextTimeframe,
             'path' => $this->buildPathString($currentConclusions, $allTimeframes),
         ];
+        $this->step->update(['response' => $response]);
+
+        return $response;
     }
 
     /**
@@ -273,25 +288,31 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
                 $exchangeSymbol->symbol->token
             );
 
-            return [
+            $response = [
                 'result' => 'rejected',
                 'reason' => 'path_inconsistency',
                 'old_direction' => $oldDirection,
                 'new_direction' => $newDirection,
                 'path' => $this->buildPathString($currentConclusions, $allTimeframes),
             ];
+            $this->step->update(['response' => $response]);
+
+            return $response;
         }
 
         // Path valid - update symbol with new direction
         $this->updateSymbol($exchangeSymbol, $newDirection, $indicatorData);
 
-        return [
+        $response = [
             'result' => 'concluded',
             'direction' => $newDirection,
             'timeframe' => $this->timeframe,
             'is_change' => 'direction_changed',
             'old_direction' => $oldDirection,
         ];
+        $this->step->update(['response' => $response]);
+
+        return $response;
     }
 
     /**

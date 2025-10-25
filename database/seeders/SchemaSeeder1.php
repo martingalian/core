@@ -32,7 +32,9 @@ final class SchemaSeeder1 extends Seeder
 
         Indicator::create([
             'canonical' => 'candle-comparison',
-            'is_active' => false,
+            'type' => 'refresh-data',
+            'is_active' => true,
+            'is_apiable' => true,
             'class' => "Martingalian\Core\Indicators\Ongoing\CandleComparisonIndicator",
             'parameters' => [
                 'results' => 2,

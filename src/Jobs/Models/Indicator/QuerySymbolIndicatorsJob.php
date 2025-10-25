@@ -145,6 +145,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
         $stored = 0;
         $errors = [];
         $now = now();
+        $indicatorData = [];
 
         foreach ($data as $entry) {
             $id = $entry['id'] ?? null;
@@ -218,6 +219,12 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
 
                 $conclusion = $indicatorInstance->conclusion();
 
+                // Store indicator data for computed indicators
+                $indicatorData[$indicator->canonical] = [
+                    'result' => $result,
+                    'conclusion' => $conclusion,
+                ];
+
                 // Upsert to indicator_histories
                 IndicatorHistory::query()->upsert(
                     [
@@ -242,6 +249,56 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
                 $stored++;
             } catch (Throwable $e) {
                 $errors[] = "Parse error for {$id}: {$e->getMessage()}";
+            }
+        }
+
+        // Process computed (non-apiable) indicators
+        $computedIndicators = Indicator::query()
+            ->where('is_active', true)
+            ->where('is_apiable', false)
+            ->where('type', 'refresh-data')
+            ->get();
+
+        foreach ($computedIndicators as $computedIndicator) {
+            try {
+                $indicatorClass = $computedIndicator->class;
+                if (! class_exists($indicatorClass)) {
+                    $errors[] = "Computed indicator class not found: {$indicatorClass}";
+
+                    continue;
+                }
+
+                // Instantiate computed indicator and load all indicator data
+                $computedInstance = new $indicatorClass($exchangeSymbol, ['interval' => $this->timeframe]);
+                $computedInstance->load($indicatorData);
+
+                $conclusion = $computedInstance->conclusion();
+                $timestamp = now()->timestamp;
+
+                // Store computed indicator conclusion
+                IndicatorHistory::query()->upsert(
+                    [
+                        [
+                            'exchange_symbol_id' => $exchangeSymbol->id,
+                            'indicator_id' => $computedIndicator->id,
+                            'taapi_construct_id' => "computed_{$computedIndicator->canonical}_{$this->timeframe}_{$timestamp}",
+                            'timeframe' => $this->timeframe,
+                            'timestamp' => (string) $timestamp,
+                            'data' => json_encode($indicatorData),
+                            'conclusion' => $conclusion,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ],
+                    ],
+                    // Unique constraint
+                    ['exchange_symbol_id', 'indicator_id', 'timeframe', 'timestamp'],
+                    // Update on conflict
+                    ['taapi_construct_id', 'data', 'conclusion', 'updated_at']
+                );
+
+                $stored++;
+            } catch (Throwable $e) {
+                $errors[] = "Computed indicator error for {$computedIndicator->canonical}: {$e->getMessage()}";
             }
         }
 
