@@ -59,9 +59,7 @@ final class Martingalian
             return;
         }
 
-        // Get any active admin to use as the notifiable
         $admin = User::admin()->where('is_active', true)->first();
-
         if (! $admin) {
             return;
         }

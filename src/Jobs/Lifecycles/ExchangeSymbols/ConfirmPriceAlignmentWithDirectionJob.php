@@ -121,18 +121,6 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
         // Send notification based on direction change status from previous step
         $this->sendDirectionNotification($direction, $timeframe);
 
-        // Delete all indicator_histories entries for refresh-data indicators
-        // This is necessary because we're using the timestamp column instead of the timestamp inside the response data
-        // Deleting ensures fresh data on the next e2e indicator conclusion analysis
-        $refreshDataIndicatorIds = Indicator::where('type', 'refresh-data')->pluck('id');
-
-        if ($refreshDataIndicatorIds->isNotEmpty()) {
-            IndicatorHistory::query()
-                ->where('exchange_symbol_id', $this->exchangeSymbol->id)
-                ->whereIn('indicator_id', $refreshDataIndicatorIds)
-                ->delete();
-        }
-
         return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair}-{$direction} CONFIRMED (Last: {$data['close'][1]} Previous: {$data['close'][0]}, timeframe: {$timeframe})"];
     }
 
@@ -171,17 +159,22 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
 
         // Send notification based on change status
         if ($isChange === 'first_time') {
+            $message = "[ES:{$this->exchangeSymbol->id}] Symbol {$this->exchangeSymbol->parsed_trading_pair} now has direction: {$direction} (timeframe: {$timeframe})";
+            $title = "Direction Set ({$exchangeName})";
+
             Martingalian::notifyAdmins(
-                message: "Symbol {$this->exchangeSymbol->parsed_trading_pair} now has direction: {$direction} (timeframe: {$timeframe})",
-                title: "Direction Set ({$exchangeName})",
+                message: $message,
+                title: $title,
                 deliveryGroup: 'indicators'
             );
         } elseif ($isChange === 'direction_changed') {
             $oldDirection = $response['old_direction'] ?? 'unknown';
+            $message = "[ES:{$this->exchangeSymbol->id}] Symbol {$this->exchangeSymbol->parsed_trading_pair} direction changed: {$oldDirection} → {$direction} (timeframe: {$timeframe})";
+            $title = "Direction Changed ({$exchangeName})";
 
             Martingalian::notifyAdmins(
-                message: "Symbol {$this->exchangeSymbol->parsed_trading_pair} direction changed: {$oldDirection} → {$direction} (timeframe: {$timeframe})",
-                title: "Direction Changed ({$exchangeName})",
+                message: $message,
+                title: $title,
                 deliveryGroup: 'indicators'
             );
         }

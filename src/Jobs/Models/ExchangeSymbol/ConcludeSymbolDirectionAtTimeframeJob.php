@@ -34,16 +34,20 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
 
     public array $previousConclusions;
 
+    public bool $shouldCleanup;
+
     /**
      * @param  int  $exchangeSymbolId  Symbol to conclude
      * @param  string  $timeframe  Current timeframe being evaluated
      * @param  array  $previousConclusions  Map of previous timeframe conclusions (e.g., ['1h' => 'INCONCLUSIVE'])
+     * @param  bool  $shouldCleanup  Whether to clean up indicator histories after completion
      */
-    public function __construct(int $exchangeSymbolId, string $timeframe, array $previousConclusions = [])
+    public function __construct(int $exchangeSymbolId, string $timeframe, array $previousConclusions = [], bool $shouldCleanup = true)
     {
         $this->exchangeSymbolId = $exchangeSymbolId;
         $this->timeframe = $timeframe;
         $this->previousConclusions = $previousConclusions;
+        $this->shouldCleanup = $shouldCleanup;
         $this->retries = 20;
     }
 
@@ -122,6 +126,18 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
             }
         }
 
+        // Check if we're concluding on the same data we already have
+        if ($this->isSameIndicatorData($exchangeSymbol, $indicatorData, $this->timeframe)) {
+            $response = [
+                'result' => 'skipped',
+                'reason' => 'same_indicator_data',
+                'message' => "Indicator data unchanged for timeframe {$this->timeframe}",
+            ];
+            $this->step->update(['response' => $response]);
+
+            return $response;
+        }
+
         // Process indicators to determine conclusion
         $directions = [];
         $validationsPassed = true;
@@ -181,6 +197,9 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         // No direction change (first-time or same direction) - update symbol
         $this->updateSymbol($exchangeSymbol, $newDirection, $indicatorData);
 
+        // Create confirmation and cleanup steps now that we've concluded
+        $this->createConfirmationAndCleanupSteps($exchangeSymbol->id, $this->shouldCleanup);
+
         $response = [
             'result' => 'concluded',
             'direction' => $newDirection,
@@ -225,9 +244,12 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
 
             // Notify admin when direction is invalidated after exhausting all timeframes
             if ($hadDirection) {
+                $message = "[ES:{$exchangeSymbol->id}] Symbol {$exchangeSymbol->parsed_trading_pair} direction invalidated (was {$previousDirection}, all timeframes exhausted)";
+                $title = 'Direction Invalidated ('.ucfirst($exchangeSymbol->apiSystem->canonical).')';
+
                 Martingalian::notifyAdmins(
-                    message: "Symbol {$exchangeSymbol->parsed_trading_pair} direction invalidated (was {$previousDirection}, all timeframes exhausted)",
-                    title: 'Direction Invalidated ('.ucfirst($exchangeSymbol->apiSystem->canonical).')',
+                    message: $message,
+                    title: $title,
                     deliveryGroup: 'indicators'
                 );
             }
@@ -244,7 +266,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
 
         // Spawn child workflow for next timeframe
         $nextTimeframe = $allTimeframes[$nextIndex];
-        $this->spawnNextTimeframeWorkflow($exchangeSymbol->id, $nextTimeframe, $currentConclusions);
+        $this->spawnNextTimeframeWorkflow($exchangeSymbol->id, $nextTimeframe, $currentConclusions, $this->shouldCleanup);
 
         $response = [
             'result' => 'inconclusive',
@@ -306,9 +328,12 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
             );
 
             // Notify admin when direction is invalidated due to path inconsistency
+            $message = "[ES:{$exchangeSymbol->id}] Symbol {$exchangeSymbol->parsed_trading_pair} direction invalidated (was {$oldDirection}, path inconsistency detected)";
+            $title = 'Direction Invalidated ('.ucfirst($exchangeSymbol->apiSystem->canonical).')';
+
             Martingalian::notifyAdmins(
-                message: "Symbol {$exchangeSymbol->parsed_trading_pair} direction invalidated (was {$oldDirection}, path inconsistency detected)",
-                title: 'Direction Invalidated ('.ucfirst($exchangeSymbol->apiSystem->canonical).')',
+                message: $message,
+                title: $title,
                 deliveryGroup: 'indicators'
             );
 
@@ -326,6 +351,9 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
 
         // Path valid - update symbol with new direction
         $this->updateSymbol($exchangeSymbol, $newDirection, $indicatorData);
+
+        // Create confirmation and cleanup steps now that we've concluded
+        $this->createConfirmationAndCleanupSteps($exchangeSymbol->id, $this->shouldCleanup);
 
         $response = [
             'result' => 'concluded',
@@ -361,14 +389,16 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
 
     /**
      * Spawn child workflow for next timeframe.
+     * Only creates Query and Conclude steps upfront.
+     * ConfirmPriceAlignment and Cleanup steps will be created if child workflow concludes.
      */
-    private function spawnNextTimeframeWorkflow(int $symbolId, string $nextTimeframe, array $conclusions): void
+    private function spawnNextTimeframeWorkflow(int $symbolId, string $nextTimeframe, array $conclusions, bool $shouldCleanup): void
     {
         $childBlockUuid = Str::uuid()->toString();
         $group = $this->step->group;
         $now = Carbon::now();
 
-        // Create child workflow: Query + Conclude + ConfirmPriceAlignment for next timeframe
+        // Only create Query and Conclude steps for child workflow
         Step::create([
             'class' => QuerySymbolIndicatorsJob::class,
             'queue' => 'indicators',
@@ -392,22 +422,52 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
                 'exchangeSymbolId' => $symbolId,
                 'timeframe' => $nextTimeframe,
                 'previousConclusions' => $conclusions,
+                'shouldCleanup' => $shouldCleanup,
             ],
         ]);
+
+        // Steps 3 and 4 (ConfirmPriceAlignment and Cleanup) will be created dynamically
+        // by the child workflow's ConcludeSymbolDirectionAtTimeframeJob if it concludes
+
+        // Link child workflow to current step
+        $this->step->update(['child_block_uuid' => $childBlockUuid]);
+    }
+
+    /**
+     * Create confirmation and cleanup steps after successful conclusion.
+     * These should only be created in the workflow that actually concludes.
+     */
+    private function createConfirmationAndCleanupSteps(int $symbolId, bool $shouldCleanup): void
+    {
+        $blockUuid = $this->step->block_uuid;
+        $group = $this->step->group;
+
+        // Find the highest index in this block to append after
+        $maxIndex = Step::where('block_uuid', $blockUuid)->max('index');
 
         Step::create([
             'class' => ConfirmPriceAlignmentWithDirectionJob::class,
             'queue' => 'indicators',
-            'block_uuid' => $childBlockUuid,
+            'block_uuid' => $blockUuid,
             'group' => $group,
-            'index' => 3,
+            'index' => $maxIndex + 1,
             'arguments' => [
                 'exchangeSymbolId' => $symbolId,
             ],
         ]);
 
-        // Link child workflow to current step
-        $this->step->update(['child_block_uuid' => $childBlockUuid]);
+        if ($shouldCleanup) {
+            Step::create([
+                'class' => CleanupIndicatorHistoriesJob::class,
+                'queue' => 'indicators',
+                'block_uuid' => $blockUuid,
+                'group' => $group,
+                'index' => $maxIndex + 2,
+                'arguments' => [
+                    'exchangeSymbolId' => $symbolId,
+                ],
+            ]);
+        }
     }
 
     /**
@@ -423,5 +483,43 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         }
 
         return implode(' -> ', $path);
+    }
+
+    /**
+     * Check if the new indicator data is the same as what's already stored on the exchange symbol.
+     * Compares candle timestamps from candle-comparison indicator to determine if data has changed.
+     */
+    private function isSameIndicatorData(ExchangeSymbol $exchangeSymbol, array $newIndicatorData, string $timeframe): bool
+    {
+        // If symbol has no existing indicators_values, data is new
+        if (! $exchangeSymbol->indicators_values || ! $exchangeSymbol->indicators_timeframe) {
+            return false;
+        }
+
+        // If the stored timeframe is different, data is new
+        if ($exchangeSymbol->indicators_timeframe !== $timeframe) {
+            return false;
+        }
+
+        // Extract candle timestamps from stored data
+        $storedData = $exchangeSymbol->indicators_values;
+        $storedCandleData = $storedData['candle-comparison']['result'] ?? null;
+        $storedTimestamps = $storedCandleData['timestamp'] ?? null;
+
+        // Extract candle timestamps from new data
+        $newCandleData = $newIndicatorData['candle-comparison']['result'] ?? null;
+        $newTimestamps = $newCandleData['timestamp'] ?? null;
+
+        // If we can't find timestamps in either dataset, consider them different (to be safe)
+        if (! $storedTimestamps || ! $newTimestamps) {
+            return false;
+        }
+
+        // Compare the timestamp arrays
+        // We compare the last timestamp as it represents the most recent candle
+        $storedLastTimestamp = is_array($storedTimestamps) ? end($storedTimestamps) : $storedTimestamps;
+        $newLastTimestamp = is_array($newTimestamps) ? end($newTimestamps) : $newTimestamps;
+
+        return $storedLastTimestamp === $newLastTimestamp;
     }
 }
