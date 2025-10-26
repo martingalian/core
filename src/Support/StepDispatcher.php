@@ -122,7 +122,7 @@ final class StepDispatcher
                 ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
                 ->where(function ($q) {
                     $q->whereNull('dispatch_after')
-                        ->orWhere('dispatch_after', '<', now());
+                        ->orWhere('dispatch_after', '<=', now());
                 });
 
             $pendingSteps = $pendingQuery->get();

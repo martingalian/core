@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Queue;
 use InvalidArgumentException;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\States\Dispatched;
 use Martingalian\Core\States\Failed;
 use ReflectionClass;
 use ReflectionException;

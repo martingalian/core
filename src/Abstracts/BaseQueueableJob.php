@@ -125,6 +125,9 @@ abstract class BaseQueueableJob extends BaseJob
 
     protected function prepareJobExecution(): void
     {
+        // Refresh step from database to get latest state (it should be Dispatched)
+        $this->step->refresh();
+
         $this->step->state->transitionTo(Running::class);
         $this->startDuration();
         $this->attachRelatable();

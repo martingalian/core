@@ -147,7 +147,7 @@ final class StepsDispatcher extends BaseModel
                 $startedAtFloat = Cache::pull("steps_dispatcher_tick_start:{$cacheSuffix}");
 
                 if ($startedAtFloat) {
-                    $durationMs = (int) round((microtime(true) - $startedAtFloat) * 1000);
+                    $durationMs = max(0, (int) round((microtime(true) - $startedAtFloat) * 1000));
 
                     $tick->update([
                         'progress' => $progress,
