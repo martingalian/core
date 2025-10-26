@@ -7,7 +7,7 @@ namespace Martingalian\Core\Jobs\Models\Order;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class PlaceLimitOrderJob extends BaseApiableJob
@@ -52,10 +52,10 @@ final class PlaceLimitOrderJob extends BaseApiableJob
                 __FUNCTION__
             );
 
-            User::notifyAdminsViaPushover(
-                "{$this->order->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
-                '['.class_basename(self::class).'] - startOrFail() returned false',
-                'nidavellir_warnings'
+            Martingalian::notifyAdmins(
+                message: "{$this->order->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
+                title: '['.class_basename(self::class).'] - startOrFail() returned false',
+                deliveryGroup: 'exceptions'
             );
 
             return $result;
@@ -113,10 +113,10 @@ final class PlaceLimitOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[S:{$this->step->id} P:{$this->order->position->id} O:{$this->order->id}] Order {$this->order->type} {$this->order->side} LIMIT place error - {$e->getMessage()}",
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[S:{$this->step->id} P:{$this->order->position->id} O:{$this->order->id}] Order {$this->order->type} {$this->order->side} LIMIT place error - {$e->getMessage()}",
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
     }
 }

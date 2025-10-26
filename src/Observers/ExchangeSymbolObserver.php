@@ -7,7 +7,7 @@ namespace Martingalian\Core\Observers;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 
 final class ExchangeSymbolObserver
 {
@@ -57,7 +57,11 @@ final class ExchangeSymbolObserver
                     $when
                 );
                 $title = '[ExchangeSymbolObserver] Futures delisting detected';
-                User::notifyAdminsViaPushover($msg, $title, 'nidavellir_warnings');
+                Martingalian::notifyAdmins(
+                    message: $msg,
+                    title: $title,
+                    deliveryGroup: 'exceptions'
+                );
             }
         }
     }

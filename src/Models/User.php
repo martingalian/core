@@ -6,20 +6,20 @@ namespace Martingalian\Core\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
-use Martingalian\Core\Concerns\User\NotifiesViaPushover;
 use NotificationChannels\Pushover\PushoverChannel;
 use NotificationChannels\Pushover\PushoverReceiver;
 
 final class User extends Authenticatable
 {
     use HasDebuggable;
+    use HasFactory;
     use HasLoggable;
     use Notifiable;
-    use NotifiesViaPushover;
 
     protected $guarded = [];
 
@@ -40,6 +40,11 @@ final class User extends Authenticatable
         'password' => 'hashed',
         'notification_channels' => 'array',
     ];
+
+    protected static function newFactory()
+    {
+        return \Martingalian\Core\Database\Factories\UserFactory::new();
+    }
 
     public function steps()
     {
@@ -67,46 +72,58 @@ final class User extends Authenticatable
     }
 
     /**
+     * Send a notification with optional delivery group routing.
+     *
+     * This method handles the temporary property pattern required because
+     * the Pushover package doesn't pass the notification object to routing methods.
+     *
+     * @param  \Illuminate\Notifications\Notification  $notification
+     * @param  string|null  $deliveryGroup  Delivery group name (exceptions, default, indicators) or null for individual user key
+     */
+    public function notifyWithGroup($notification, ?string $deliveryGroup = null): void
+    {
+        if ($deliveryGroup) {
+            $this->_temp_delivery_group = $deliveryGroup;
+        }
+
+        $this->notify($notification);
+
+        if ($deliveryGroup) {
+            unset($this->_temp_delivery_group);
+        }
+    }
+
+    /**
      * Route notifications for the Pushover channel.
      *
-     * For admin users: Uses admin delivery groups
-     * For regular users: Uses individual user's pushover_key
+     * If notification has a deliveryGroup set, routes to that group.
+     * Otherwise, routes to the user's individual pushover_key.
      */
     public function routeNotificationForPushover($notification): ?PushoverReceiver
     {
-        // For admin users, route to admin delivery groups
-        if ($this->is_admin) {
-            // Get application key from temporary property set by notifyViaPushover()
-            $applicationKey = $this->_pushover_application_key ?? 'default';
+        $appToken = config('martingalian.api.pushover.application_key');
 
-            // Map application keys to delivery groups
-            $groupType = match ($applicationKey) {
-                'errors', 'exceptions' => 'critical',
-                'indicators' => 'indicators',
-                default => 'default',
-            };
+        // Determine delivery group from temp property (if set) or notification object
+        // Note: Pushover package doesn't pass $notification, so it's often null
+        $deliveryGroup = $this->_temp_delivery_group
+            ?? ($notification && property_exists($notification, 'deliveryGroup') ? $notification->deliveryGroup : null);
 
-            // Get the delivery group configuration
-            $groupConfig = config("martingalian.api.pushover.admin_delivery_groups.{$groupType}");
+        // If delivery group is specified, route to that group
+        if ($deliveryGroup) {
+            $groupConfig = config("martingalian.api.pushover.delivery_groups.{$deliveryGroup}");
 
             if (! $groupConfig || ! isset($groupConfig['group_key'])) {
                 return null;
             }
 
-            // Get the admin application key
-            $appToken = config('martingalian.api.pushover.admin_application_key');
-
             return PushoverReceiver::withUserKey($groupConfig['group_key'])
                 ->withApplicationToken($appToken);
         }
 
-        // For non-admin users, use their individual pushover_key
+        // Otherwise, route to user's individual pushover_key
         if (! $this->pushover_key) {
             return null;
         }
-
-        // Use the same admin application key (it's the Martingalian app for all notifications)
-        $appToken = config('martingalian.api.pushover.admin_application_key');
 
         return PushoverReceiver::withUserKey($this->pushover_key)
             ->withApplicationToken($appToken);

@@ -10,7 +10,6 @@ use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
@@ -79,10 +78,10 @@ final class PlaceMarketOrderJob extends BaseApiableJob
             );
         }
 
-        User::notifyAdminsViaPushover(
-            "{$this->position->parsed_trading_pair} trading deactivated due to an issue on startOrFail()",
-            '['.class_basename(self::class).'] - startOrFail() returned false',
-            'nidavellir_warnings'
+        Martingalian::notifyAdmins(
+            message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on startOrFail()",
+            title: '['.class_basename(self::class).'] - startOrFail() returned false',
+            deliveryGroup: 'exceptions'
         );
 
         return false;
@@ -216,16 +215,16 @@ final class PlaceMarketOrderJob extends BaseApiableJob
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->marketOrder) {
-            User::notifyAdminsViaPushover(
-                "[{$this->marketOrder->id}] Order {$this->marketOrder->type} {$this->marketOrder->side} MARKET place error - {$e->getMessage()}",
-                '['.class_basename(self::class).'] - Error',
-                'nidavellir_errors'
+            Martingalian::notifyAdmins(
+                message: "[{$this->marketOrder->id}] Order {$this->marketOrder->type} {$this->marketOrder->side} MARKET place error - {$e->getMessage()}",
+                title: '['.class_basename(self::class).'] - Error',
+                deliveryGroup: 'exceptions'
             );
         } else {
-            User::notifyAdminsViaPushover(
-                "[{$this->position->id}] MARKET place error before order instance - {$e->getMessage()}",
-                '['.class_basename(self::class).'] - Error',
-                'nidavellir_errors'
+            Martingalian::notifyAdmins(
+                message: "[{$this->position->id}] MARKET place error before order instance - {$e->getMessage()}",
+                title: '['.class_basename(self::class).'] - Error',
+                deliveryGroup: 'exceptions'
             );
         }
     }

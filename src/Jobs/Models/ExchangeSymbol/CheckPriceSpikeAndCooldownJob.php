@@ -9,7 +9,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 /**
@@ -87,10 +87,10 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
                     $summary['errors']++;
 
                     // Per your requirement, notify admins on exceptions:
-                    User::notifyAdminsViaPushover(
-                        "[{$ex->id}] - ExchangeSymbol price spike check error - ".ExceptionParser::with($e)->friendlyMessage(),
-                        '[Batch: '.class_basename(static::class)."] Symbol {$ex->id} error",
-                        'nidavellir_errors'
+                    Martingalian::notifyAdmins(
+                        message: "[{$ex->id}] - ExchangeSymbol price spike check error - ".ExceptionParser::with($e)->friendlyMessage(),
+                        title: '[Batch: '.class_basename(static::class)."] Symbol {$ex->id} error",
+                        deliveryGroup: 'exceptions'
                     );
 
                     $summary['details'][] = [
@@ -111,10 +111,10 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
      */
     public function resolveException(Throwable $e): void
     {
-        User::notifyAdminsViaPushover(
-            'Batch price spike check error - '.ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(self::class).'] Batch error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: 'Batch price spike check error - '.ExceptionParser::with($e)->friendlyMessage(),
+            title: '['.class_basename(self::class).'] Batch error',
+            deliveryGroup: 'exceptions'
         );
     }
 

@@ -12,7 +12,6 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Models\Order\PlaceLimitOrderJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
@@ -174,10 +173,10 @@ final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
      */
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[{$this->position->id}] Placing limit orders for {$this->position->parsed_trading_pair} failed - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$this->position->id}] Placing limit orders for {$this->position->parsed_trading_pair} failed - ".ExceptionParser::with($e)->friendlyMessage(),
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
 
         $this->position->updateSaving([

@@ -9,9 +9,9 @@ use Martingalian\Core\Exceptions\JustEndException;
 use Martingalian\Core\Exceptions\JustResolveException;
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
 use Martingalian\Core\Exceptions\NonNotifiableException;
-use Martingalian\Core\Models\User;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 /**
@@ -35,10 +35,10 @@ trait HandlesStepExceptions
         }
 
         if (! $e instanceof NonNotifiableException) {
-            User::notifyAdminsViaPushover(
-                'Step error - '.$parser->friendlyMessage(),
-                "[S:{$this->step->id} ".class_basename(static::class).'] - Error',
-                'nidavellir_errors'
+            Martingalian::notifyAdmins(
+                message: 'Step error - '.$parser->friendlyMessage(),
+                title: "[S:{$this->step->id} ".class_basename(static::class).'] - Error',
+                deliveryGroup: 'exceptions'
             );
         }
 

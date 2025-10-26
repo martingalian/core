@@ -9,7 +9,6 @@ use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
@@ -57,10 +56,10 @@ final class PlaceProfitOrderJob extends BaseApiableJob
                 __FUNCTION__
             );
 
-            User::notifyAdminsViaPushover(
-                "{$this->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
-                '['.class_basename(self::class).'] - startOrFail() returned false',
-                'nidavellir_warnings'
+            Martingalian::notifyAdmins(
+                message: "{$this->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
+                title: '['.class_basename(self::class).'] - startOrFail() returned false',
+                deliveryGroup: 'exceptions'
             );
 
             return $result;
@@ -161,16 +160,16 @@ final class PlaceProfitOrderJob extends BaseApiableJob
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->profitOrder) {
-            User::notifyAdminsViaPushover(
-                "[O:{$this->profitOrder->id}] Order {$this->profitOrder->type} {$this->profitOrder->side} PROFIT-LIMIT place error - {$e->getMessage()}",
-                '['.class_basename(self::class).'] - Error',
-                'nidavellir_errors'
+            Martingalian::notifyAdmins(
+                message: "[O:{$this->profitOrder->id}] Order {$this->profitOrder->type} {$this->profitOrder->side} PROFIT-LIMIT place error - {$e->getMessage()}",
+                title: '['.class_basename(self::class).'] - Error',
+                deliveryGroup: 'exceptions'
             );
         } else {
-            User::notifyAdminsViaPushover(
-                "[P:{$this->position->id}] PROFIT-LIMIT place error before order instance - {$e->getMessage()}",
-                '['.class_basename(self::class).'] - Error',
-                'nidavellir_errors'
+            Martingalian::notifyAdmins(
+                message: "[P:{$this->position->id}] PROFIT-LIMIT place error before order instance - {$e->getMessage()}",
+                title: '['.class_basename(self::class).'] - Error',
+                deliveryGroup: 'exceptions'
             );
         }
     }

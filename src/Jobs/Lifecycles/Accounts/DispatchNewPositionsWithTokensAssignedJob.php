@@ -9,7 +9,7 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Lifecycles\Positions\DispatchPositionJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob
@@ -46,10 +46,10 @@ final class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+            title: "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
     }
 }

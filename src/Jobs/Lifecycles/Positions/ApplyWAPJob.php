@@ -12,7 +12,7 @@ use Martingalian\Core\Jobs\Models\Position\CalculateWAPAndModifyProfitOrderJob;
 use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class ApplyWAPJob extends BaseQueueableJob
@@ -89,10 +89,10 @@ final class ApplyWAPJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
 
         $this->position->updateSaving([

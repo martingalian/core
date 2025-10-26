@@ -76,7 +76,7 @@ trait HandlesApiJobExceptions
 
             // Check if this is an IP ban scenario (429 or 418 for Binance)
             if (in_array($statusCode, [418, 429], true)) {
-                $retryAfterSeconds = max(0, now()->diffInSeconds($retryAt, false));
+                $retryAfterSeconds = (int) max(0, now()->diffInSeconds($retryAt, false));
 
                 if ($retryAfterSeconds > 0) {
                     $this->exceptionHandler->recordIpBan($retryAfterSeconds);

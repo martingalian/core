@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Abstracts;
 
 use Exception;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Ratchet\Client\Connector;
 use Ratchet\Client\WebSocket;
 use Ratchet\RFC6455\Messaging\Frame;
@@ -53,10 +53,10 @@ abstract class BaseWebsocketClient
         if ($this->wsConnection) {
             $this->wsConnection->send(new Frame('', true, Frame::OP_PING));
         } else {
-            User::notifyAdminsViaPushover(
+            Martingalian::notifyAdmins(
                 message: 'Ping attempted but WebSocket is not connected.',
                 title: "{$this->exchangeName} WebSocket Warning",
-                applicationKey: 'nidavellir_errors'
+                deliveryGroup: 'exceptions'
             );
         }
     }
@@ -117,10 +117,10 @@ abstract class BaseWebsocketClient
                  * Handle failure to connect and notify admins.
                  * Trigger custom error handler if provided.
                  */
-                User::notifyAdminsViaPushover(
+                Martingalian::notifyAdmins(
                     message: "Could not connect to {$url}: {$e->getMessage()}",
                     title: "{$this->exchangeName} WebSocket Error",
-                    applicationKey: 'nidavellir_errors'
+                    deliveryGroup: 'exceptions'
                 );
 
                 if (isset($callback['error']) && is_callable($callback['error'])) {
@@ -142,10 +142,10 @@ abstract class BaseWebsocketClient
          * Stops trying after configured maximum attempts.
          */
         if ($this->reconnectAttempt >= $this->maxReconnectAttempts) {
-            User::notifyAdminsViaPushover(
+            Martingalian::notifyAdmins(
                 message: "Max reconnect attempts reached for WebSocket: {$url}",
                 title: "{$this->exchangeName} WebSocket Failure",
-                applicationKey: 'nidavellir_errors'
+                deliveryGroup: 'exceptions'
             );
 
             if (isset($callback['error']) && is_callable($callback['error'])) {
@@ -158,10 +158,10 @@ abstract class BaseWebsocketClient
         $delay = pow(2, $this->reconnectAttempt);
 
         if ($this->reconnectAttempt > 0) {
-            User::notifyAdminsViaPushover(
+            Martingalian::notifyAdmins(
                 message: "WebSocket reconnecting to {$url} in {$delay} seconds (attempt {$this->reconnectAttempt})...",
                 title: "{$this->exchangeName} WebSocket Reconnect",
-                applicationKey: 'nidavellir_errors'
+                deliveryGroup: 'exceptions'
             );
         }
         $this->loop->addTimer($delay, function () use ($url, $callback) {

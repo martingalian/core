@@ -11,7 +11,7 @@ use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 
 final class ClosePositionAtomicallyJob extends BaseApiableJob
 {
@@ -55,11 +55,11 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
             if (($this->position->direction === 'SHORT' && $this->position->opening_price < $this->position->exchangeSymbol->mark_price) ||
                 ($this->position->direction === 'LONG' && $this->position->opening_price > $this->position->exchangeSymbol->mark_price)
             ) {
-                User::notifyAdminsViaPushover(
-                    "Position {$this->position->parsed_trading_pair} is possibly closing with a negative PnL. Exchange symbol disabled. Please check!",
-                    "Position {$this->position->parsed_trading_pair} possible closed with negative PnL",
-                    'nidavellir_warnings'
-                );
+                Martingalian::notifyAdmins(
+            message: "Position {$this->position->parsed_trading_pair} is possibly closing with a negative PnL. Exchange symbol disabled. Please check!",
+            title: "Position {$this->position->parsed_trading_pair} possible closed with negative PnL",
+            deliveryGroup: 'exceptions'
+        );
 
                 $this->position->exchangeSymbol->is_tradeable = false;
                 $this->position->exchangeSymbol->save();
@@ -117,9 +117,11 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
                         ]);
 
                         // Notify admins so it's visible in ops.
-                        User::notifyAdminsViaPushover(
-                            "Cooldown set for {$this->position->parsed_trading_pair}: +".number_format($pct, 2).'% vs latest 1D close. Tradeable again at '.$until->format('Y-m-d H:i').'.',
-                            '[ClosePositionAtomicallyJob] Big pump cooldown (1D)',
+                        Martingalian::notifyAdmins(
+            message: "Cooldown set for {$this->position->parsed_trading_pair}: +".number_format($pct,
+            title: 2).'% vs latest 1D close. Tradeable again at '.$until->format('Y-m-d H:i').'.',
+            deliveryGroup: 'exceptions'
+        )',
                             'nidavellir_warnings'
                         );
                     }

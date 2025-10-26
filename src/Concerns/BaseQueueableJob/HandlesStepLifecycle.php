@@ -11,6 +11,7 @@ use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Skipped;
 use Martingalian\Core\States\Stopped;
+use Throwable;
 
 /**
  * Trait HandlesStepLifecycle
@@ -76,9 +77,35 @@ trait HandlesStepLifecycle
     protected function checkMaxRetries(): void
     {
         if ($this->step->retries >= $this->retries) {
-            throw new MaxRetriesReachedException(
-                "Max retries ({$this->step->retries}) reached for Step ID {$this->step->id}."
-            );
+            $diagnostics = [];
+
+            // Add context about why retries might be happening
+            if (method_exists($this, 'assignExceptionHandler') && method_exists($this, 'exceptionHandler')) {
+                try {
+                    if (! isset($this->exceptionHandler)) {
+                        $this->assignExceptionHandler();
+                    }
+
+                    $hostname = gethostbyname(gethostname());
+                    $isForbidden = \Martingalian\Core\Models\ForbiddenHostname::query()
+                        ->where('account_id', $this->exceptionHandler->account->id)
+                        ->where('ip_address', $hostname)
+                        ->exists();
+
+                    if ($isForbidden) {
+                        $diagnostics[] = "Hostname {$hostname} is FORBIDDEN for account {$this->exceptionHandler->account->id}";
+                    }
+                } catch (Throwable $e) {
+                    // Silently skip diagnostics if anything fails
+                }
+            }
+
+            $message = "Max retries ({$this->step->retries}) reached for Step ID {$this->step->id}.";
+            if (! empty($diagnostics)) {
+                $message .= ' | Diagnostics: '.implode(', ', $diagnostics);
+            }
+
+            throw new MaxRetriesReachedException($message);
         }
     }
 

@@ -7,7 +7,7 @@ namespace Martingalian\Core\Jobs\Models\Order;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class PlaceOrderJob extends BaseApiableJob
@@ -77,10 +77,10 @@ final class PlaceOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[{$this->order->id}] Order {$this->order->type} {$this->order->side} place error - {$e->getMessage()}",
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$this->order->id}] Order {$this->order->type} {$this->order->side} place error - {$e->getMessage()}",
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
     }
 }

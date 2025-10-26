@@ -9,6 +9,7 @@ use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Position;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
@@ -64,10 +65,10 @@ final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
 
         $this->position->updateSaving([

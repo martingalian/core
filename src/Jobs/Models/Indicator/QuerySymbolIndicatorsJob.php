@@ -12,7 +12,7 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Throwable;
 
@@ -97,10 +97,10 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            '[Symbol:'.$this->exchangeSymbolId.' | Timeframe:'.$this->timeframe.'] Query error - '.$e->getMessage(),
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: '[Symbol:'.$this->exchangeSymbolId.' | Timeframe:'.$this->timeframe.'] Query error - '.$e->getMessage(),
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
     }
 

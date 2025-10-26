@@ -8,7 +8,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 /**
@@ -165,12 +165,11 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
             }
 
             // --- All guards passed: notify admins with context
-            User::notifyAdminsViaPushover(
-                'Unknown exchange orders for ['.$symbol.']: '.$unknownOrders->implode(', ').'.',
-                '[Step ID: '.$this->step->id.' Symbol: '.$symbol.' Account ID: '.$this->account->id
-                .' Grace: '.$graceMinutes.'m]',
-                'nidavellir_monitor'
-            );
+            Martingalian::notifyAdmins(
+            message: 'Unknown exchange orders for ['.$symbol.']: '.$unknownOrders->implode(',
+            title: ').'.',
+            deliveryGroup: 'exceptions'
+        );
         }
     }
 
@@ -179,14 +178,14 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
      */
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            '['.$this->account->id.'] Account '
+        Martingalian::notifyAdmins(
+            message: '['.$this->account->id.'] Account '
             .$this->account->user->name.'/'
             .$this->account->tradingQuote->canonical
             .' surveillance error - '
             .ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(self::class).'] - Error.',
-            'nidavellir_errors'
+            title: '['.class_basename(self::class).'] - Error.',
+            deliveryGroup: 'exceptions'
         );
     }
 }

@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
@@ -333,10 +333,10 @@ final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[{$this->position->id}] Position {$this->position->parsed_trading_pair} creation/dispatch error - {$e->getMessage()}",
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} creation/dispatch error - {$e->getMessage()}",
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
     }
 }

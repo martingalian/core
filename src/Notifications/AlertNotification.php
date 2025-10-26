@@ -11,13 +11,14 @@ use NotificationChannels\Pushover\PushoverChannel;
 use NotificationChannels\Pushover\PushoverMessage;
 
 /**
- * AdminAlertNotification
+ * AlertNotification
  *
- * Unified notification class for admin alerts.
+ * Unified notification class for alerts.
  * Supports multiple channels: Pushover, Email (more to come: SMS)
  * Respects user's notification_channels preference.
+ * Can be sent to individual users or admin delivery groups.
  */
-final class AdminAlertNotification extends Notification
+final class AlertNotification extends Notification
 {
     // Removed Queueable - notifications sent immediately so routing has access to notification object
 
@@ -26,13 +27,13 @@ final class AdminAlertNotification extends Notification
      *
      * @param  string  $message  The notification message body
      * @param  string  $title  The notification title
-     * @param  string  $applicationKey  Application key for routing (e.g., 'errors', 'indicators')
+     * @param  string|null  $deliveryGroup  Delivery group name (exceptions, default, indicators) or null for individual user
      * @param  array  $additionalParameters  Extra parameters (sound, priority, url, etc.)
      */
     public function __construct(
         public string $message,
-        public string $title = 'Admin Alert',
-        public string $applicationKey = 'default',
+        public string $title = 'Alert',
+        public ?string $deliveryGroup = null,
         public array $additionalParameters = []
     ) {}
 
@@ -57,31 +58,10 @@ final class AdminAlertNotification extends Notification
     }
 
     /**
-     * Determine if this notification should use critical/emergency settings.
-     *
-     * Maps application key to delivery group and checks its critical_notification flag.
-     */
-    protected function shouldBeCritical(): bool
-    {
-        // Map application key to delivery group
-        $deliveryGroupKey = match ($this->applicationKey) {
-            'errors', 'exceptions' => 'critical',
-            'indicators' => 'indicators',
-            default => 'default',
-        };
-
-        // Get the delivery group configuration
-        $groupConfig = config("martingalian.api.pushover.admin_delivery_groups.{$deliveryGroupKey}");
-
-        // Check if this delivery group has critical_notification enabled
-        return $groupConfig['critical_notification'] ?? false;
-    }
-
-    /**
      * Get the Pushover representation of the notification.
      *
-     * The application token is determined by User::routeNotificationForPushover()
-     * based on this notification's applicationKey parameter.
+     * The application token and routing (group key vs user key) is determined by
+     * User::routeNotificationForPushover() based on this notification's deliveryGroup property.
      *
      * @param  mixed  $notifiable
      */
@@ -90,38 +70,28 @@ final class AdminAlertNotification extends Notification
         $message = PushoverMessage::create($this->message)
             ->title($this->title);
 
-        // Determine if this notification should be critical based on delivery group
-        $isCritical = $this->shouldBeCritical();
+        // Get priority from delivery group config, or use additionalParameters
+        $priority = $this->getDeliveryGroupPriority() ?? $this->additionalParameters['priority'] ?? 0;
 
-        // Apply priority and sound based on whether it's critical
-        if ($isCritical) {
-            $message->emergencyPriority(
+        // Apply priority
+        match ($priority) {
+            -2 => $message->lowestPriority(),
+            -1 => $message->lowPriority(),
+            0 => $message->normalPriority(),
+            1 => $message->highPriority(),
+            2 => $message->emergencyPriority(
                 $this->additionalParameters['retry'] ?? 30,
                 $this->additionalParameters['expire'] ?? 3600
-            );
-            // Use urgent sound for critical notifications (overrides any custom sound)
-            $message->sound($this->additionalParameters['sound'] ?? 'siren');
-        } else {
-            // Apply custom priority if provided
-            if (isset($this->additionalParameters['priority'])) {
-                $priority = (int) $this->additionalParameters['priority'];
-                match ($priority) {
-                    -2 => $message->lowestPriority(),
-                    -1 => $message->lowPriority(),
-                    0 => $message->normalPriority(),
-                    1 => $message->highPriority(),
-                    2 => $message->emergencyPriority(
-                        $this->additionalParameters['retry'] ?? 30,
-                        $this->additionalParameters['expire'] ?? 3600
-                    ),
-                    default => $message->normalPriority()
-                };
-            }
+            ),
+            default => $message->normalPriority()
+        };
 
-            // Apply custom sound if provided
-            if (isset($this->additionalParameters['sound'])) {
-                $message->sound($this->additionalParameters['sound']);
-            }
+        // For emergency priority (2), use siren sound unless overridden
+        if ($priority === 2) {
+            $message->sound($this->additionalParameters['sound'] ?? 'siren');
+        } elseif (isset($this->additionalParameters['sound'])) {
+            // Apply custom sound if provided for non-emergency
+            $message->sound($this->additionalParameters['sound']);
         }
 
         // Apply URL if provided
@@ -164,7 +134,29 @@ final class AdminAlertNotification extends Notification
         return [
             'message' => $this->message,
             'title' => $this->title,
-            'application_key' => $this->applicationKey,
+            'delivery_group' => $this->deliveryGroup,
         ];
+    }
+
+    /**
+     * Get the configured priority for this notification's delivery group.
+     *
+     * Retrieves priority setting from delivery group configuration.
+     * Returns null if no priority is configured (will use additionalParameters priority).
+     *
+     * @return int|null Priority: -2 (lowest), -1 (low), 0 (normal), 1 (high), 2 (emergency)
+     */
+    public function getDeliveryGroupPriority(): ?int
+    {
+        // If no delivery group, use additionalParameters priority
+        if (! $this->deliveryGroup) {
+            return null;
+        }
+
+        // Get the delivery group configuration
+        $groupConfig = config("martingalian.api.pushover.delivery_groups.{$this->deliveryGroup}");
+
+        // Return the configured priority, or null if not set
+        return $groupConfig['priority'] ?? null;
     }
 }

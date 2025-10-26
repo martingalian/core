@@ -6,7 +6,7 @@ namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\ForbiddenHostname;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 
 final class ForbiddenHostnameObserver
 {
@@ -26,10 +26,10 @@ final class ForbiddenHostnameObserver
     {
         $this->logChanges($model, self::class, __FUNCTION__);
 
-        User::notifyAdminsViaPushover(
-            "[{$model->id}] - Forbidden Hostname was added. IP: {$model->ip_address}",
-            'Forbidden hostname was added to the database',
-            'nidavellir_warnings'
+        Martingalian::notifyAdmins(
+            message: "[{$model->id}] - Forbidden Hostname was added. IP: {$model->ip_address}",
+            title: 'Forbidden hostname was added to the database',
+            deliveryGroup: 'exceptions'
         );
     }
 

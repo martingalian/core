@@ -10,7 +10,7 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
@@ -58,20 +58,20 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 
         // Sanity checks.
         if (bccomp($breakEvenPrice, '0', $scale) !== 1) {
-            User::notifyAdminsViaPushover(
-                "[{$this->position->id}] {$this->position->parsed_trading_pair} — WAP not triggered: invalid breakEvenPrice={$breakEvenPrice}.",
-                'WAP skipped',
-                'nidavellir_positions'
+            Martingalian::notifyAdmins(
+                message: "[{$this->position->id}] {$this->position->parsed_trading_pair} — WAP not triggered: invalid breakEvenPrice={$breakEvenPrice}.",
+                title: 'WAP skipped',
+                deliveryGroup: 'exceptions'
             );
 
             return;
         }
 
         if (bccomp($rawQty, '0', $scale) === 0) {
-            User::notifyAdminsViaPushover(
-                "[{$this->position->id}] {$this->position->parsed_trading_pair} — WAP not triggered: zero quantity from exchange.",
-                'WAP skipped',
-                'nidavellir_positions'
+            Martingalian::notifyAdmins(
+                message: "[{$this->position->id}] {$this->position->parsed_trading_pair} — WAP not triggered: zero quantity from exchange.",
+                title: 'WAP skipped',
+                deliveryGroup: 'exceptions'
             );
 
             return;
@@ -110,10 +110,10 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
         // 7) Fetch profit order and modify.
         $profitOrder = $this->position->profitOrder();
         if (! $profitOrder) {
-            User::notifyAdminsViaPushover(
-                "[{$this->position->id}] {$this->position->parsed_trading_pair} — WAP computed but profit order missing.",
-                'WAP warning',
-                'nidavellir_positions'
+            Martingalian::notifyAdmins(
+                message: "[{$this->position->id}] {$this->position->parsed_trading_pair} — WAP computed but profit order missing.",
+                title: 'WAP warning',
+                deliveryGroup: 'exceptions'
             );
 
             return;
@@ -150,23 +150,23 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 
         // Notify once the ladder threshold is met.
         if ($this->position->totalLimitOrdersFilled() >= $this->position->account->total_limit_orders_filled_to_notify) {
-            User::notifyAdminsViaPushover(
-                "{$this->position->parsed_trading_pair_extended} — WAP Profit order updated"
+            Martingalian::notifyAdmins(
+                message: "{$this->position->parsed_trading_pair_extended} — WAP Profit order updated"
                 ."\nPrice: {$oldPrice} → {$profitOrder->price}"
                 ."\nQty:   {$oldQty} → {$profitOrder->quantity}"
                 ."\nBEP:   {$formattedBEP}",
-                "[P:{$this->position->id} O:{$profitOrder->id}] - Profit WAP updated",
-                'nidavellir_positions'
+                title: "[P:{$this->position->id} O:{$profitOrder->id}] - Profit WAP updated",
+                deliveryGroup: 'exceptions'
             );
         }
     }
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
 
         $this->position->updateSaving([

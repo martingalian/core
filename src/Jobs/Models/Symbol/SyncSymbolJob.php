@@ -9,6 +9,7 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Debuggable;
 use Martingalian\Core\Models\Symbol;
+use Martingalian\Core\Support\Martingalian;
 
 /**
  * This job syncs an unique symbol. Normally it's just called once on its
@@ -41,5 +42,14 @@ final class SyncSymbolJob extends BaseApiableJob
         $this->symbol->apiSyncCMCData();
 
         Debuggable::debug($this->symbol, 'CMC data synced', $this->symbol->token);
+
+        // Notify admin when symbol is successfully synced with CMC data
+        if ($this->symbol->cmc_id) {
+            Martingalian::notifyAdmins(
+                message: "Symbol {$this->symbol->token} successfully synced with CoinMarketCap (CMC ID: {$this->symbol->cmc_id})",
+                title: 'Symbol Synced',
+                deliveryGroup: 'default'
+            );
+        }
     }
 }

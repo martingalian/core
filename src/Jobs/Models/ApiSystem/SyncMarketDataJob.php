@@ -15,7 +15,7 @@ use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\Symbol;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 
 /*
  * SyncMarketDataJob
@@ -199,7 +199,11 @@ final class SyncMarketDataJob extends BaseApiableJob
                         $pairText,
                         $position->account_id
                     );
-                    User::notifyAdminsViaPushover($adminMsg, $title, 'nidavellir_warnings');
+                    Martingalian::notifyAdmins(
+                        message: $adminMsg,
+                        title: $title,
+                        deliveryGroup: 'exceptions'
+                    );
 
                     return;
                 }
@@ -214,7 +218,11 @@ final class SyncMarketDataJob extends BaseApiableJob
                         $pairText,
                         $position->account_id
                     );
-                    User::notifyAdminsViaPushover($adminMsg, $title, 'nidavellir_warnings');
+                    Martingalian::notifyAdmins(
+                        message: $adminMsg,
+                        title: $title,
+                        deliveryGroup: 'exceptions'
+                    );
 
                     return;
                 }
@@ -228,7 +236,11 @@ final class SyncMarketDataJob extends BaseApiableJob
                     $pairText,
                     $position->account_id
                 );
-                User::notifyAdminsViaPushover($adminMsg, $title, 'nidavellir_warnings');
+                Martingalian::notifyAdmins(
+                    message: $adminMsg,
+                    title: $title,
+                    deliveryGroup: 'exceptions'
+                );
             });
     }
 }

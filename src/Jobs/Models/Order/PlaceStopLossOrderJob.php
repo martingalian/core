@@ -9,7 +9,6 @@ use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\Martingalian;
 use RuntimeException;
 use Throwable;
@@ -63,10 +62,10 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
             __FUNCTION__
         );
 
-        User::notifyAdminsViaPushover(
-            "{$this->position->parsed_trading_pair} trading deactivated due to an issue on a StartOrFail()",
-            '['.class_basename(self::class).'] - startOrFail() returned false',
-            'nidavellir_warnings'
+        Martingalian::notifyAdmins(
+            message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on a StartOrFail()",
+            title: '['.class_basename(self::class).'] - startOrFail() returned false',
+            deliveryGroup: 'exceptions'
         );
 
         return false;
@@ -128,10 +127,10 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
             __FUNCTION__
         );
 
-        User::notifyAdminsViaPushover(
-            "{$this->position->parsed_trading_pair} Stop Loss Order successfully placed. ID [{$this->stopLossOrder->id}] Qty: {$calc['quantity']}, Price: {$calc['price']}",
-            '['.class_basename(self::class).'] - Stop Loss placed',
-            'nidavellir_positions'
+        Martingalian::notifyAdmins(
+            message: "{$this->position->parsed_trading_pair} Stop Loss Order successfully placed. ID [{$this->stopLossOrder->id}] Qty: {$calc['quantity']}, Price: {$calc['price']}",
+            title: '['.class_basename(self::class).'] - Stop Loss placed',
+            deliveryGroup: 'exceptions'
         );
 
         return ['order' => format_model_attributes($this->stopLossOrder)];
@@ -177,10 +176,10 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
     {
         $id = $this->stopLossOrder?->id ?? 'unknown';
 
-        User::notifyAdminsViaPushover(
-            "[{$id}] STOP-MARKET order place error - {$e->getMessage()}",
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$id}] STOP-MARKET order place error - {$e->getMessage()}",
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
     }
 }

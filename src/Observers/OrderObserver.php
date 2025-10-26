@@ -8,7 +8,6 @@ use Illuminate\Support\Str;
 use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Models\Order;
-use Martingalian\Core\Models\User;
 
 final class OrderObserver
 {
@@ -42,10 +41,10 @@ final class OrderObserver
                 $model->position->logApplicationEvent('The STOP-MARKET order cannot be created, because another is already active');
 
                 /*
-                User::notifyAdminsViaPushover(
-                    "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingStop->id}",
-                    'Order creation blocked - STOP-MARKET',
-                    'nidavellir_warnings'
+                Martingalian::notifyAdmins(
+                    message: "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingStop->id}",
+                    title: 'Order creation blocked - STOP-MARKET',
+                    deliveryGroup: 'exceptions'
                 );
                 */
 
@@ -60,10 +59,10 @@ final class OrderObserver
                 $model->position->logApplicationEvent('The MARKET order cannot be created, because another is already active');
 
                 /*
-                User::notifyAdminsViaPushover(
-                    "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingMarket->id}",
-                    'Order creation blocked - MARKET',
-                    'nidavellir_warnings'
+                Martingalian::notifyAdmins(
+                    message: "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingMarket->id}",
+                    title: 'Order creation blocked - MARKET',
+                    deliveryGroup: 'exceptions'
                 );
                 */
 
@@ -78,10 +77,10 @@ final class OrderObserver
                 $model->position->logApplicationEvent('The PROFIT order cannot be created, because another is already active');
 
                 /*
-                User::notifyAdminsViaPushover(
-                    "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingProfit->id}",
-                    'Order creation blocked - PROFIT',
-                    'nidavellir_warnings'
+                Martingalian::notifyAdmins(
+                    message: "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingProfit->id}",
+                    title: 'Order creation blocked - PROFIT',
+                    deliveryGroup: 'exceptions'
                 );
                 */
 
@@ -97,10 +96,10 @@ final class OrderObserver
                 $ids = $existingLimits->pluck('id')->join(', ');
 
                 /*
-                User::notifyAdminsViaPushover(
-                    "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$ids}",
-                    'Order creation blocked - LIMIT',
-                    'nidavellir_warnings'
+                Martingalian::notifyAdmins(
+                    message: "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$ids}",
+                    title: 'Order creation blocked - LIMIT',
+                    deliveryGroup: 'exceptions'
                 );
                 */
 

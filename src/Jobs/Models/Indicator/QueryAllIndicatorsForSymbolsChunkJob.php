@@ -12,7 +12,7 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Throwable;
 
@@ -132,10 +132,10 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            '[Timeframe:'.$this->timeframe.'] Chunk query error - '.$e->getMessage(),
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: '[Timeframe:'.$this->timeframe.'] Chunk query error - '.$e->getMessage(),
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
     }
 

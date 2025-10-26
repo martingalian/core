@@ -8,7 +8,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class ValidatePositionJob extends BaseQueueableJob
@@ -36,10 +36,10 @@ final class ValidatePositionJob extends BaseQueueableJob
                 __FUNCTION__
             );
 
-            User::notifyAdminsViaPushover(
-                "[{$this->position->id}] Position {$this->position->parsed_trading_pair} not in an active-related status. Canceling position...",
-                '['.class_basename(self::class).'] - Warning',
-                'nidavellir_warnings'
+            Martingalian::notifyAdmins(
+                message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} not in an active-related status. Canceling position...",
+                title: '['.class_basename(self::class).'] - Warning',
+                deliveryGroup: 'exceptions'
             );
 
             $shouldCancel = true;
@@ -55,10 +55,10 @@ final class ValidatePositionJob extends BaseQueueableJob
                 __FUNCTION__
             );
 
-            User::notifyAdminsViaPushover(
-                "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have invalid sync'ed orders. Canceling position...",
-                '['.class_basename(self::class).'] - Warning',
-                'nidavellir_warnings'
+            Martingalian::notifyAdmins(
+                message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have invalid sync'ed orders. Canceling position...",
+                title: '['.class_basename(self::class).'] - Warning',
+                deliveryGroup: 'exceptions'
             );
 
             $shouldCancel = true;
@@ -75,10 +75,10 @@ final class ValidatePositionJob extends BaseQueueableJob
                 __FUNCTION__
             );
 
-            User::notifyAdminsViaPushover(
-                "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have a different number of total active limit orders. Canceling position...",
-                '['.class_basename(self::class).'] - Warning',
-                'nidavellir_warnings'
+            Martingalian::notifyAdmins(
+                message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have a different number of total active limit orders. Canceling position...",
+                title: '['.class_basename(self::class).'] - Warning',
+                deliveryGroup: 'exceptions'
             );
 
             $shouldCancel = true;
@@ -97,10 +97,10 @@ final class ValidatePositionJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
 
         $this->position->updateSaving([

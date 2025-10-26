@@ -6,7 +6,7 @@ namespace Martingalian\Core\Jobs\Models\Position;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class DeletePositionHistoryDataJob extends BaseQueueableJob
@@ -40,10 +40,10 @@ final class DeletePositionHistoryDataJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[{$this->position->id}] Position {$this->position->parsed_trading_pair} historical data delete error - {$e->getMessage()}",
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} historical data delete error - {$e->getMessage()}",
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
     }
 }

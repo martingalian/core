@@ -7,7 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class VerifyPositionResidualAmountJob extends BaseQueueableJob
@@ -39,10 +39,10 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
                 __FUNCTION__
             );
 
-            User::notifyAdminsViaPushover(
-                "Position {$this->position->parsed_trading_pair} with residual amount (Qty:{$amount}). Please close position MANUALLY on exchange",
-                "Position {$this->position->parsed_trading_pair} with residual amount",
-                'nidavellir_warnings'
+            Martingalian::notifyAdmins(
+                message: "Position {$this->position->parsed_trading_pair} with residual amount (Qty:{$amount}). Please close position MANUALLY on exchange",
+                title: "Position {$this->position->parsed_trading_pair} with residual amount",
+                deliveryGroup: 'exceptions'
             );
 
             return [
@@ -57,10 +57,10 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[{$this->position->id}] Position {$this->position->parsed_trading_pair} historical data delete error - {$e->getMessage()}",
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} historical data delete error - {$e->getMessage()}",
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
     }
 }

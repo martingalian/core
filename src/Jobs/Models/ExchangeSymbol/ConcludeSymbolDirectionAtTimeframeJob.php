@@ -13,6 +13,7 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\TradeConfiguration;
+use Martingalian\Core\Support\Martingalian;
 use Str;
 
 /**
@@ -211,6 +212,9 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         $nextIndex = $currentIndex + 1;
         if ($nextIndex >= count($allTimeframes)) {
             // No more timeframes - invalidate symbol
+            $hadDirection = ! is_null($exchangeSymbol->direction);
+            $previousDirection = $exchangeSymbol->direction;
+
             $exchangeSymbol->updateSaving([
                 'direction' => null,
                 'indicators_values' => null,
@@ -218,6 +222,15 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
                 'indicators_synced_at' => null,
                 'is_active' => false,
             ]);
+
+            // Notify admin when direction is invalidated after exhausting all timeframes
+            if ($hadDirection) {
+                Martingalian::notifyAdmins(
+                    message: "Symbol {$exchangeSymbol->parsed_trading_pair} direction invalidated (was {$previousDirection}, all timeframes exhausted)",
+                    title: 'Direction Invalidated ('.ucfirst($exchangeSymbol->apiSystem->canonical).')',
+                    deliveryGroup: 'indicators'
+                );
+            }
 
             $response = [
                 'result' => 'not_concluded',
@@ -290,6 +303,13 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
                 $exchangeSymbol,
                 "Direction change rejected due to path inconsistency: {$oldDirection} -> {$newDirection}",
                 $exchangeSymbol->symbol->token
+            );
+
+            // Notify admin when direction is invalidated due to path inconsistency
+            Martingalian::notifyAdmins(
+                message: "Symbol {$exchangeSymbol->parsed_trading_pair} direction invalidated (was {$oldDirection}, path inconsistency detected)",
+                title: 'Direction Invalidated ('.ucfirst($exchangeSymbol->apiSystem->canonical).')',
+                deliveryGroup: 'indicators'
             );
 
             $response = [

@@ -8,7 +8,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class MatchOrphanedExchangeOrdersJob extends BaseQueueableJob
@@ -64,20 +64,20 @@ final class MatchOrphanedExchangeOrdersJob extends BaseQueueableJob
             });
 
             // ✅ Alert: Orphaned orders found
-            User::notifyAdminsViaPushover(
-                'Orphaned Orders detected: '.$formattedOrphans->implode(', '),
-                "[Step ID:{$this->step->id}] [Account ID: {$this->account->id}] Orphaned Exchange Orders",
-                'nidavellir_monitor'
-            );
+            Martingalian::notifyAdmins(
+            message: 'Orphaned Orders detected: '.$formattedOrphans->implode(',
+            title: '),
+            deliveryGroup: 'exceptions'
+        );
         }
     }
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} surveillance error - ".ExceptionParser::with($e)->friendlyMessage(),
-            '['.class_basename(self::class).'] - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} surveillance error - ".ExceptionParser::with($e)->friendlyMessage(),
+            title: '['.class_basename(self::class).'] - Error',
+            deliveryGroup: 'exceptions'
         );
     }
 }

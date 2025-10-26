@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
+use Martingalian\Core\Support\Martingalian;
 
 final class StepsDispatcher extends BaseModel
 {
@@ -155,10 +156,10 @@ final class StepsDispatcher extends BaseModel
                     ]);
 
                     if ($durationMs > 40000) {
-                        User::notifyAdminsViaPushover(
+                        Martingalian::notifyAdmins(
                             message: "Dispatch took too long: {$durationMs}ms.",
                             title: 'Step Dispatcher Tick Warning',
-                            applicationKey: 'nidavellir_warnings'
+                            deliveryGroup: 'exceptions'
                         );
                     }
                 } else {

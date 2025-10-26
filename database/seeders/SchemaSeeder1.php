@@ -6,6 +6,7 @@ namespace Martingalian\Core\Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
@@ -148,14 +149,20 @@ final class SchemaSeeder1 extends Seeder
             'name' => 'BFUSDT (USD Coin)',
         ]);
 
-        $trader = User::create([
+        $userData = [
             'name' => env('TRADER_NAME'),
             'email' => env('TRADER_EMAIL'),
             'password' => bcrypt('password'),
             'is_admin' => true,
+            'is_active' => true,
             'pushover_key' => env('TRADER_PUSHOVER_KEY'),
-            'notification_channels' => ['pushover', 'mail'],
-        ]);
+        ];
+
+        if (Schema::hasColumn('users', 'notification_channels')) {
+            $userData['notification_channels'] = ['pushover', 'mail'];
+        }
+
+        $trader = User::create($userData);
 
         $account = Account::create([
             'uuid' => (string) Str::uuid(),

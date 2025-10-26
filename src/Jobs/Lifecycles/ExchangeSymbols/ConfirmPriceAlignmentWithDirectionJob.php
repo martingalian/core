@@ -10,7 +10,8 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
-use Martingalian\Core\Models\User;
+use Martingalian\Core\Models\Step;
+use Martingalian\Core\Support\Martingalian;
 use Throwable;
 
 final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
@@ -117,15 +118,61 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
         // Last step: activate exchange symbol for trading.
         $this->exchangeSymbol->updateSaving(['is_active' => true]);
 
+        // Send notification based on direction change status from previous step
+        $this->sendDirectionNotification($direction, $timeframe);
+
         return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair}-{$direction} CONFIRMED (Last: {$data['close'][1]} Previous: {$data['close'][0]}, timeframe: {$timeframe})"];
     }
 
     public function resolveException(Throwable $e)
     {
-        User::notifyAdminsViaPushover(
-            "[{$this->exchangeSymbol->id}] - ExchangeSymbol price alignment error - ".ExceptionParser::with($e)->friendlyMessage(),
-            "[S:{$this->step->id} ES:{$this->exchangeSymbol->id}] ".class_basename(self::class).' - Error',
-            'nidavellir_errors'
+        Martingalian::notifyAdmins(
+            message: "[{$this->exchangeSymbol->id}] - ExchangeSymbol price alignment error - ".ExceptionParser::with($e)->friendlyMessage(),
+            title: "[S:{$this->step->id} ES:{$this->exchangeSymbol->id}] ".class_basename(self::class).' - Error',
+            deliveryGroup: 'exceptions'
         );
+    }
+
+    /**
+     * Send appropriate notification based on direction change status from previous step.
+     */
+    private function sendDirectionNotification(string $direction, string $timeframe): void
+    {
+        // Guard clause: step might not be initialized in tests
+        if (! isset($this->step)) {
+            return;
+        }
+
+        // Find the previous step (ConcludeSymbolDirectionAtTimeframeJob) in the same block
+        $previousStep = Step::query()
+            ->where('block_uuid', $this->step->block_uuid)
+            ->where('class', \Martingalian\Core\Jobs\Models\ExchangeSymbol\ConcludeSymbolDirectionAtTimeframeJob::class)
+            ->first();
+
+        if (! $previousStep || ! $previousStep->response) {
+            return;
+        }
+
+        $response = $previousStep->response;
+        $isChange = $response['is_change'] ?? 'unknown';
+        $exchangeName = ucfirst($this->exchangeSymbol->apiSystem->canonical);
+
+        // Send notification based on change status
+        if ($isChange === 'first_time') {
+            Martingalian::notifyAdmins(
+                message: "Symbol {$this->exchangeSymbol->parsed_trading_pair} now has direction: {$direction} (timeframe: {$timeframe})",
+                title: "Direction Set ({$exchangeName})",
+                deliveryGroup: 'indicators'
+            );
+        } elseif ($isChange === 'direction_changed') {
+            $oldDirection = $response['old_direction'] ?? 'unknown';
+
+            Martingalian::notifyAdmins(
+                message: "Symbol {$this->exchangeSymbol->parsed_trading_pair} direction changed: {$oldDirection} → {$direction} (timeframe: {$timeframe})",
+                title: "Direction Changed ({$exchangeName})",
+                deliveryGroup: 'indicators'
+            );
+        }
+        // No notification for 'same_direction' case
     }
 }
