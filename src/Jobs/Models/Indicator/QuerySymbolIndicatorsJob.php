@@ -41,7 +41,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
         $this->exchangeSymbolId = $exchangeSymbolId;
         $this->timeframe = $timeframe;
         $this->previousConclusions = $previousConclusions;
-        $this->retries = 100;
+        $this->retries = 150;
     }
 
     public function relatable()
@@ -97,11 +97,11 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        Martingalian::notifyAdmins(
-            message: '[Symbol:'.$this->exchangeSymbolId.' | Timeframe:'.$this->timeframe.'] Query error - '.$e->getMessage(),
-            title: '['.class_basename(self::class).'] - Error',
-            deliveryGroup: 'exceptions'
-        );
+        // Martingalian::notifyAdmins(
+        //     message: '[Symbol:'.$this->exchangeSymbolId.' | Timeframe:'.$this->timeframe.'] Query error - '.$e->getMessage(),
+        //     title: '['.class_basename(self::class).'] - Error',
+        //     deliveryGroup: 'exceptions'
+        // );
     }
 
     /**

@@ -126,11 +126,11 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        Martingalian::notifyAdmins(
-            message: "[{$this->exchangeSymbol->id}] - ExchangeSymbol price alignment error - ".ExceptionParser::with($e)->friendlyMessage(),
-            title: "[S:{$this->step->id} ES:{$this->exchangeSymbol->id}] ".class_basename(self::class).' - Error',
-            deliveryGroup: 'exceptions'
-        );
+        // Martingalian::notifyAdmins(
+        //     message: "[{$this->exchangeSymbol->id}] - ExchangeSymbol price alignment error - ".ExceptionParser::with($e)->friendlyMessage(),
+        //     title: "[S:{$this->step->id} ES:{$this->exchangeSymbol->id}] ".class_basename(self::class).' - Error',
+        //     deliveryGroup: 'exceptions'
+        // );
     }
 
     /**
@@ -162,21 +162,21 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
             $message = "[ES:{$this->exchangeSymbol->id}] Symbol {$this->exchangeSymbol->parsed_trading_pair} now has direction: {$direction} (timeframe: {$timeframe})";
             $title = "Direction Set ({$exchangeName})";
 
-            Martingalian::notifyAdmins(
-                message: $message,
-                title: $title,
-                deliveryGroup: 'indicators'
-            );
+            // Martingalian::notifyAdmins(
+            //     message: $message,
+            //     title: $title,
+            //     deliveryGroup: 'indicators'
+            // );
         } elseif ($isChange === 'direction_changed') {
             $oldDirection = $response['old_direction'] ?? 'unknown';
             $message = "[ES:{$this->exchangeSymbol->id}] Symbol {$this->exchangeSymbol->parsed_trading_pair} direction changed: {$oldDirection} → {$direction} (timeframe: {$timeframe})";
             $title = "Direction Changed ({$exchangeName})";
 
-            Martingalian::notifyAdmins(
-                message: $message,
-                title: $title,
-                deliveryGroup: 'indicators'
-            );
+            // Martingalian::notifyAdmins(
+            //     message: $message,
+            //     title: $title,
+            //     deliveryGroup: 'indicators'
+            // );
         }
         // No notification for 'same_direction' case
     }

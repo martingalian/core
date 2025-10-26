@@ -131,7 +131,7 @@ abstract class BaseQueueableJob extends BaseJob
         $this->step->state->transitionTo(Running::class);
         $this->startDuration();
         $this->attachRelatable();
-        $this->checkMaxRetries();
+        // Note: checkMaxRetries() moved to shouldExitEarly() to occur AFTER throttle check
     }
 
     protected function isInConfirmationMode(): bool
@@ -173,6 +173,9 @@ abstract class BaseQueueableJob extends BaseJob
 
             return true;
         }
+
+        // Check max retries AFTER throttle check to avoid failing jobs that are just waiting for rate limit
+        $this->checkMaxRetries();
 
         return false;
     }
