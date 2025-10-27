@@ -9,10 +9,10 @@ use Log;
 use Martingalian\Core\Concerns\BaseQueueableJob\FormatsStepResult;
 use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepExceptions;
 use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepLifecycle;
+use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\Running;
-use NonNotifiableException;
 use Throwable;
 
 /*

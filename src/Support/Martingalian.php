@@ -10,8 +10,6 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\LeverageBracket;
 use Martingalian\Core\Models\Martingalian as MartingalianModel;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\User;
-use Martingalian\Core\Notifications\AlertNotification;
 use RuntimeException;
 
 /**
@@ -39,41 +37,6 @@ final class Martingalian
      * Example: '0.003' represents 0.3%
      */
     public const BRACKET_HEADROOM_PCT = '0.003';
-
-    /**
-     * Send a notification to admin users via a delivery group.
-     *
-     * @param  string  $message  The notification message body
-     * @param  string  $title  The notification title (hostname will be prepended automatically)
-     * @param  string|null  $deliveryGroup  Delivery group name (exceptions, default, indicators) - defaults to 'default'
-     * @param  array  $additionalParameters  Extra parameters (sound, priority, url, etc.)
-     */
-    public static function notifyAdmins(
-        string $message,
-        string $title = 'Admin Alert',
-        ?string $deliveryGroup = 'default',
-        array $additionalParameters = []
-    ): void {
-        // Check if notifications are enabled
-        if (! config('martingalian.notifications_enabled', true)) {
-            return;
-        }
-
-        $admin = User::admin()->where('is_active', true)->first();
-        if (! $admin) {
-            return;
-        }
-
-        $admin->notifyWithGroup(
-            new AlertNotification(
-                message: $message,
-                title: '['.gethostname().'] '.$title,
-                deliveryGroup: $deliveryGroup,
-                additionalParameters: $additionalParameters
-            ),
-            $deliveryGroup
-        );
-    }
 
     /**
      * Accumulative PnL helper.

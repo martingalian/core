@@ -41,7 +41,7 @@ final class FetchAndStoreOnHistoryJob extends BaseApiableJob
         $this->type = $type;
         $this->timeframe = $timeframe;
         $this->params = $params;
-        $this->retries = 20;
+        $this->retries = 150;
     }
 
     public function assignExceptionHandler(): void

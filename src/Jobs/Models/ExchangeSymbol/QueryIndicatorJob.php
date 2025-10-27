@@ -37,7 +37,7 @@ final class QueryIndicatorJob extends BaseApiableJob
 
         $this->exchangeSymbol = ExchangeSymbol::findOrFail($exchangeSymbolId);
 
-        $this->retries = 20;
+        $this->retries = 150;
     }
 
     public function assignExceptionHandler(): void

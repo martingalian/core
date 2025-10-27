@@ -41,7 +41,7 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
     {
         $this->exchangeSymbolIds = $exchangeSymbolIds;
         $this->timeframe = $timeframe;
-        $this->retries = 20;
+        $this->retries = 150;
     }
 
     public function relatable()

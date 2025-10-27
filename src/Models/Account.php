@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -22,6 +23,7 @@ final class Account extends BaseModel
     use HasAccessors;
     use HasCollections;
     use HasDebuggable;
+    use HasFactory;
     use HasLoggable;
     use HasScopes;
     use HasStatuses;
@@ -43,6 +45,11 @@ final class Account extends BaseModel
         'coinmarketcap_api_key' => 'encrypted',
         'taapi_secret' => 'encrypted',
     ];
+
+    protected static function newFactory()
+    {
+        return \Martingalian\Core\Database\Factories\AccountFactory::new();
+    }
 
     /**
      * Build an in-memory Account carrying the "Martingalian admin" credentials

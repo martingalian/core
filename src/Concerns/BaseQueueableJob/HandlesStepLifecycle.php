@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\BaseQueueableJob;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Log;
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
@@ -40,7 +41,7 @@ trait HandlesStepLifecycle
         $this->stepStatusUpdated = true;
     }
 
-    public function retryJob(?Carbon $dispatchAfter = null): void
+    public function retryJob(Carbon|CarbonImmutable|null $dispatchAfter = null): void
     {
         $this->step->update([
             'dispatch_after' => $dispatchAfter ?? now()->addSeconds($this->jobBackoffSeconds),

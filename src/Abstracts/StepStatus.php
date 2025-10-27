@@ -20,6 +20,7 @@ use Martingalian\Core\Transitions\NotRunnableToPending;
 use Martingalian\Core\Transitions\PendingToCancelled;
 use Martingalian\Core\Transitions\PendingToDispatched;
 use Martingalian\Core\Transitions\PendingToFailed;
+use Martingalian\Core\Transitions\PendingToRunning;
 use Martingalian\Core\Transitions\PendingToSkipped;
 use Martingalian\Core\Transitions\RunningToCompleted;
 use Martingalian\Core\Transitions\RunningToFailed;
@@ -37,6 +38,7 @@ abstract class StepStatus extends State
         return parent::config()
             ->default(Pending::class)
             ->allowTransition(Pending::class, Dispatched::class, PendingToDispatched::class)
+            ->allowTransition(Pending::class, Running::class, PendingToRunning::class)
             ->allowTransition(Pending::class, Cancelled::class, PendingToCancelled::class)
             ->allowTransition(Pending::class, Failed::class, PendingToFailed::class)
             ->allowTransition(Pending::class, Skipped::class, PendingToSkipped::class)

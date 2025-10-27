@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Martingalian\Core\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -35,7 +34,6 @@ final class User extends Authenticatable
 
         'can_trade' => 'boolean',
         'is_active' => 'boolean',
-        'is_admin' => 'boolean',
 
         'password' => 'hashed',
         'notification_channels' => 'array',
@@ -59,11 +57,6 @@ final class User extends Authenticatable
     public function positions()
     {
         return $this->hasManyThrough(Position::class, Account::class);
-    }
-
-    public function scopeAdmin(Builder $query)
-    {
-        $query->where('users.is_admin', true);
     }
 
     public function apiRequestLogs()

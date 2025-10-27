@@ -48,7 +48,7 @@ final class QueryIndicatorsByChunkJob extends BaseApiableJob
         $this->exchangeSymbolIds = $exchangeSymbolIds;
         $this->indicatorId = $indicatorId;
         $this->parameters = $parameters;
-        $this->retries = 20;
+        $this->retries = 150;
 
         // Load models
         $this->indicator = Indicator::findOrFail($indicatorId);

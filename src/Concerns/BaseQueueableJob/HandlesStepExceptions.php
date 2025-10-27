@@ -11,7 +11,7 @@ use Martingalian\Core\Exceptions\MaxRetriesReachedException;
 use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 /**
@@ -35,7 +35,8 @@ trait HandlesStepExceptions
         }
 
         if (! $e instanceof NonNotifiableException) {
-            Martingalian::notifyAdmins(
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'step_error',
                 message: 'Step error - '.$parser->friendlyMessage(),
                 title: "[S:{$this->step->id} ".class_basename(static::class).'] - Error',
                 deliveryGroup: 'exceptions'
@@ -71,6 +72,7 @@ trait HandlesStepExceptions
 
         $this->logExceptionToStep($e);
         $this->logExceptionToRelatable($e);
+        $this->notifyExceptionIfNeeded($e);
         $this->resolveExceptionIfPossible($e);
 
         if (! $this->stepStatusUpdated) {
@@ -131,6 +133,19 @@ trait HandlesStepExceptions
 
         if (! $this->stepStatusUpdated) {
             $this->reportAndFail($e);
+        }
+    }
+
+    protected function notifyExceptionIfNeeded(Throwable $e): void
+    {
+        if (method_exists($this, 'notifyException')) {
+            $this->notifyException($e);
+        }
+
+        if (isset($this->exceptionHandler)
+            && method_exists($this->exceptionHandler, 'notifyException')
+        ) {
+            $this->exceptionHandler->notifyException($e);
         }
     }
 

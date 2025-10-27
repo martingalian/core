@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
@@ -13,6 +14,7 @@ use Martingalian\Core\Concerns\TradeConfiguration\HasScopes;
 final class TradeConfiguration extends BaseModel
 {
     use HasDebuggable;
+    use HasFactory;
     use HasGetters;
     use HasLoggable;
     use HasScopes;
@@ -25,6 +27,11 @@ final class TradeConfiguration extends BaseModel
 
         'indicator_timeframes' => 'array',
     ];
+
+    protected static function newFactory()
+    {
+        return \Martingalian\Core\Database\Factories\TradeConfigurationFactory::new();
+    }
 
     public function accounts()
     {

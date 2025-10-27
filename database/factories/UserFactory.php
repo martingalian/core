@@ -32,7 +32,6 @@ final class UserFactory extends Factory
             'password' => self::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
             'is_active' => true,
-            'is_admin' => false,
             'can_trade' => false,
             'pushover_key' => null,
         ];
@@ -43,15 +42,6 @@ final class UserFactory extends Factory
         return $this->state(function (array $attributes): array {
             return [
                 'email_verified_at' => null,
-            ];
-        });
-    }
-
-    public function admin(): self
-    {
-        return $this->state(function (array $attributes): array {
-            return [
-                'is_admin' => true,
             ];
         });
     }

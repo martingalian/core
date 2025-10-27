@@ -14,6 +14,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default Admin User (Fallback)
+    |--------------------------------------------------------------------------
+    |
+    | Used for system-level notifications when no specific user is available
+    | (e.g., virtual accounts created via Account::admin()).
+    */
+    'admin_user_name' => env('ADMIN_USER_NAME', 'Bruno Falcao'),
+    'admin_user_email' => env('ADMIN_USER_EMAIL'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notification Throttling
+    |--------------------------------------------------------------------------
+    |
+    | auto_create_missing_throttle_rules: When true, automatically creates
+    |   NotificationThrottleRule entries for messageCanonical values that
+    |   don't yet exist in the database. This allows notifications to be sent
+    |   even if you haven't pre-seeded the throttle rules.
+    |
+    | default_throttle_seconds: Default throttle window (in seconds) to use
+    |   when auto-creating missing rules. Applies when auto_create is enabled.
+    */
+    'auto_create_missing_throttle_rules' => env('AUTO_CREATE_MISSING_THROTTLE_RULES', true),
+    'default_throttle_seconds' => env('DEFAULT_THROTTLE_SECONDS', 1800), // 30 minutes
+
+    /*
+    |--------------------------------------------------------------------------
     | Performance / Feature Toggles
     |--------------------------------------------------------------------------
     |

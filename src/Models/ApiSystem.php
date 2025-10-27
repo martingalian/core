@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\ApiSystem\HasScopes;
 use Martingalian\Core\Concerns\ApiSystem\InteractsWithApis;
@@ -13,9 +14,15 @@ use Martingalian\Core\Concerns\HasLoggable;
 final class ApiSystem extends BaseModel
 {
     use HasDebuggable;
+    use HasFactory;
     use HasLoggable;
     use HasScopes;
     use InteractsWithApis;
+
+    protected static function newFactory()
+    {
+        return \Martingalian\Core\Database\Factories\ApiSystemFactory::new();
+    }
 
     public function steps()
     {

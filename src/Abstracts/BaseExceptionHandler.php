@@ -13,6 +13,7 @@ use Martingalian\Core\Support\ApiExceptionHandlers\BinanceExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\BybitExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\CoinmarketCapExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
@@ -103,11 +104,118 @@ abstract class BaseExceptionHandler
     }
 
     /**
+     * Send throttled notifications to the account user for common API exceptions.
+     * If no specific user is associated with the account (virtual/system accounts),
+     * notifications are sent to all active admins instead.
+     * Override in child classes to add API-specific notifications.
+     */
+    final public function notifyException(Throwable $exception): void
+    {
+        if (! $this->account) {
+            return;
+        }
+
+        $apiSystem = $this->getApiSystem();
+        $hostname = gethostname();
+        $hasSpecificUser = $this->account->user !== null;
+
+        // 429 - Rate Limit Exceeded
+        if ($this->isRateLimited($exception)) {
+            $this->sendThrottledNotification(
+                hasSpecificUser: $hasSpecificUser,
+                messageCanonical: 'api_rate_limit_exceeded',
+                message: "API rate limit exceeded on {$apiSystem}. Worker: {$hostname}",
+                title: 'Rate Limit Exceeded'
+            );
+
+            return;
+        }
+
+        // 403 - Forbidden / IP Not Whitelisted
+        if ($this->isForbidden($exception)) {
+            $this->sendThrottledNotification(
+                hasSpecificUser: $hasSpecificUser,
+                messageCanonical: 'ip_not_whitelisted',
+                message: "Worker IP {$hostname} is not whitelisted on {$apiSystem}",
+                title: 'IP Not Whitelisted'
+            );
+
+            return;
+        }
+
+        // Connection failures
+        if ($exception instanceof RequestException && ! $exception->hasResponse()) {
+            $this->sendThrottledNotification(
+                hasSpecificUser: $hasSpecificUser,
+                messageCanonical: 'api_connection_failed',
+                message: "Unable to connect to {$apiSystem} from {$hostname}",
+                title: 'API Connection Failed'
+            );
+
+            return;
+        }
+
+        // 401 - Invalid credentials
+        if ($exception instanceof RequestException && $exception->getResponse()?->getStatusCode() === 401) {
+            $this->sendThrottledNotification(
+                hasSpecificUser: $hasSpecificUser,
+                messageCanonical: 'invalid_api_credentials',
+                message: "Invalid API credentials for {$apiSystem} on account {$this->account->name}",
+                title: 'Invalid API Credentials'
+            );
+
+            return;
+        }
+
+        // 503 - Service unavailable / Maintenance
+        if ($exception instanceof RequestException && $exception->getResponse()?->getStatusCode() === 503) {
+            $this->sendThrottledNotification(
+                hasSpecificUser: $hasSpecificUser,
+                messageCanonical: 'exchange_maintenance',
+                message: "{$apiSystem} is currently under maintenance or unavailable",
+                title: 'Exchange Maintenance'
+            );
+
+            return;
+        }
+    }
+
+    /**
      * Get the current server's IP address.
      * Used for IP-based rate limiting and ban coordination.
      */
     protected function getCurrentIp(): string
     {
         return gethostbyname(gethostname());
+    }
+
+    /**
+     * Send notification to specific user if available, otherwise to admin from config.
+     * This handles both user-specific accounts and virtual/system accounts.
+     */
+    private function sendThrottledNotification(
+        bool $hasSpecificUser,
+        string $messageCanonical,
+        string $message,
+        string $title
+    ): void {
+        if ($hasSpecificUser) {
+            // Notify the specific user associated with this account
+            NotificationThrottler::sendToUser(
+                user: $this->account->user,
+                messageCanonical: $messageCanonical,
+                message: $message,
+                title: $title,
+                deliveryGroup: 'exceptions'
+            );
+        } else {
+            // No specific user (virtual/system account) - notify admin from config
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: $messageCanonical,
+                message: $message,
+                title: $title,
+                deliveryGroup: 'exceptions'
+            );
+        }
     }
 }

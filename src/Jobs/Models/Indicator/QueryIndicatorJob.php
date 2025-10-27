@@ -25,6 +25,7 @@ final class QueryIndicatorJob extends BaseApiableJob
         $this->indicator = Indicator::findOrFail($indicatorId);
         $this->exchangeSymbol = ExchangeSymbol::findOrFail($exchangeSymbolId);
         $this->parameters = $parameters;
+        $this->retries = 150;
     }
 
     public function relatable()
