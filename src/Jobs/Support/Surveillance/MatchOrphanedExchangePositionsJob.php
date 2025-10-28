@@ -8,7 +8,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class MatchOrphanedExchangePositionsJob extends BaseQueueableJob
@@ -51,17 +51,19 @@ final class MatchOrphanedExchangePositionsJob extends BaseQueueableJob
         $missingInDB = $exchangeSymbolDirections->diff($dbSymbolDirections);
 
         if ($missingInDB->isNotEmpty()) {
-            Martingalian::notifyAdmins(
-            message: "[{$this->account->id}] Monitoring Synced Positions mismatch: ".$missingInDB->implode(',
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'match_orphaned_positions',
+                message: "[{$this->account->id}] Monitoring Synced Positions mismatch: ".$missingInDB->implode(',
             title: ').' opened in Exchange and not in DB',
-            deliveryGroup: 'exceptions'
-        );
+                deliveryGroup: 'exceptions'
+            );
         }
     }
 
     public function resolveException(Throwable $e)
     {
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'match_orphaned_positions_2',
             message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} surveillance error - ".ExceptionParser::with($e)->friendlyMessage(),
             title: '['.class_basename(self::class).'] - Error',
             deliveryGroup: 'exceptions'

@@ -9,7 +9,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 /**
@@ -87,7 +87,8 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
                     $summary['errors']++;
 
                     // Per your requirement, notify admins on exceptions:
-                    Martingalian::notifyAdmins(
+                    NotificationThrottler::sendToAdmin(
+                        messageCanonical: 'check_price_spike_cooldown',
                         message: "[{$ex->id}] - ExchangeSymbol price spike check error - ".ExceptionParser::with($e)->friendlyMessage(),
                         title: '[Batch: '.class_basename(static::class)."] Symbol {$ex->id} error",
                         deliveryGroup: 'exceptions'
@@ -111,7 +112,8 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
      */
     public function resolveException(Throwable $e): void
     {
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'check_price_spike_cooldown_2',
             message: 'Batch price spike check error - '.ExceptionParser::with($e)->friendlyMessage(),
             title: '['.class_basename(self::class).'] Batch error',
             deliveryGroup: 'exceptions'

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Abstracts;
 
 use Exception;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use Ratchet\Client\Connector;
 use Ratchet\Client\WebSocket;
 use Ratchet\RFC6455\Messaging\Frame;
@@ -53,7 +53,8 @@ abstract class BaseWebsocketClient
         if ($this->wsConnection) {
             $this->wsConnection->send(new Frame('', true, Frame::OP_PING));
         } else {
-            Martingalian::notifyAdmins(
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'websocket_error',
                 message: 'Ping attempted but WebSocket is not connected.',
                 title: "{$this->exchangeName} WebSocket Warning",
                 deliveryGroup: 'exceptions'
@@ -117,7 +118,8 @@ abstract class BaseWebsocketClient
                  * Handle failure to connect and notify admins.
                  * Trigger custom error handler if provided.
                  */
-                Martingalian::notifyAdmins(
+                NotificationThrottler::sendToAdmin(
+                    messageCanonical: 'websocket_error_2',
                     message: "Could not connect to {$url}: {$e->getMessage()}",
                     title: "{$this->exchangeName} WebSocket Error",
                     deliveryGroup: 'exceptions'
@@ -142,7 +144,8 @@ abstract class BaseWebsocketClient
          * Stops trying after configured maximum attempts.
          */
         if ($this->reconnectAttempt >= $this->maxReconnectAttempts) {
-            Martingalian::notifyAdmins(
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'websocket_error_3',
                 message: "Max reconnect attempts reached for WebSocket: {$url}",
                 title: "{$this->exchangeName} WebSocket Failure",
                 deliveryGroup: 'exceptions'
@@ -158,7 +161,8 @@ abstract class BaseWebsocketClient
         $delay = pow(2, $this->reconnectAttempt);
 
         if ($this->reconnectAttempt > 0) {
-            Martingalian::notifyAdmins(
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'websocket_error_4',
                 message: "WebSocket reconnecting to {$url} in {$delay} seconds (attempt {$this->reconnectAttempt})...",
                 title: "{$this->exchangeName} WebSocket Reconnect",
                 deliveryGroup: 'exceptions'

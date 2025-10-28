@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\ApiClients\Websocket;
 
 use Martingalian\Core\Abstracts\BaseWebsocketClient;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 
 final class BybitApiClient extends BaseWebsocketClient
 {
@@ -99,7 +99,8 @@ final class BybitApiClient extends BaseWebsocketClient
                     $decoded = json_decode($payload, true);
                     if (is_array($decoded) && isset($decoded['op']) && $decoded['op'] === 'subscribe') {
                         if (isset($decoded['success']) && $decoded['success'] === false) {
-                            Martingalian::notifyAdmins(
+                            NotificationThrottler::sendToAdmin(
+                                messageCanonical: 'bybit_websocket',
                                 message: 'Bybit subscription failed: '.json_encode($decoded),
                                 title: 'Bybit WebSocket Subscription Error',
                                 deliveryGroup: 'exceptions'
@@ -136,7 +137,8 @@ final class BybitApiClient extends BaseWebsocketClient
             },
             function ($e) use ($url, $callback) {
                 // Handle connection failure
-                Martingalian::notifyAdmins(
+                NotificationThrottler::sendToAdmin(
+                    messageCanonical: 'bybit_websocket_2',
                     message: "Could not connect to {$url}: {$e->getMessage()}",
                     title: "{$this->exchangeName} WebSocket Error",
                     deliveryGroup: 'exceptions'

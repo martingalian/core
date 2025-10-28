@@ -6,7 +6,6 @@ namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Models\StepsDispatcher;
 use Martingalian\Core\States\NotRunnable;
 use Martingalian\Core\States\Pending;
 

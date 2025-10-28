@@ -10,7 +10,7 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
@@ -58,7 +58,8 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 
         // Sanity checks.
         if (bccomp($breakEvenPrice, '0', $scale) !== 1) {
-            Martingalian::notifyAdmins(
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'calculate_wap_modify_profit',
                 message: "[{$this->position->id}] {$this->position->parsed_trading_pair} — WAP not triggered: invalid breakEvenPrice={$breakEvenPrice}.",
                 title: 'WAP skipped',
                 deliveryGroup: 'exceptions'
@@ -68,7 +69,8 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
         }
 
         if (bccomp($rawQty, '0', $scale) === 0) {
-            Martingalian::notifyAdmins(
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'calculate_wap_modify_profit_2',
                 message: "[{$this->position->id}] {$this->position->parsed_trading_pair} — WAP not triggered: zero quantity from exchange.",
                 title: 'WAP skipped',
                 deliveryGroup: 'exceptions'
@@ -110,7 +112,8 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
         // 7) Fetch profit order and modify.
         $profitOrder = $this->position->profitOrder();
         if (! $profitOrder) {
-            Martingalian::notifyAdmins(
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'calculate_wap_modify_profit_3',
                 message: "[{$this->position->id}] {$this->position->parsed_trading_pair} — WAP computed but profit order missing.",
                 title: 'WAP warning',
                 deliveryGroup: 'exceptions'
@@ -150,7 +153,8 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 
         // Notify once the ladder threshold is met.
         if ($this->position->totalLimitOrdersFilled() >= $this->position->account->total_limit_orders_filled_to_notify) {
-            Martingalian::notifyAdmins(
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'calculate_wap_modify_profit_4',
                 message: "{$this->position->parsed_trading_pair_extended} — WAP Profit order updated"
                 ."\nPrice: {$oldPrice} → {$profitOrder->price}"
                 ."\nQty:   {$oldQty} → {$profitOrder->quantity}"
@@ -163,7 +167,8 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'calculate_wap_modify_profit_5',
             message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
             title: '['.class_basename(self::class).'] - Error',
             deliveryGroup: 'exceptions'

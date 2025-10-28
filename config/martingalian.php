@@ -19,9 +19,14 @@ return [
     |
     | Used for system-level notifications when no specific user is available
     | (e.g., virtual accounts created via Account::admin()).
+    |
+    | admin_user_name: Display name for admin notifications
+    | admin_user_email: Email address for admin notifications (requires mail config)
+    | admin_user_pushover_key: Pushover user key for admin push notifications
     */
     'admin_user_name' => env('ADMIN_USER_NAME', 'Bruno Falcao'),
     'admin_user_email' => env('ADMIN_USER_EMAIL'),
+    'admin_user_pushover_key' => env('ADMIN_USER_PUSHOVER_KEY'),
 
     /*
     |--------------------------------------------------------------------------

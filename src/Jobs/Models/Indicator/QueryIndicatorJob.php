@@ -9,7 +9,7 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class QueryIndicatorJob extends BaseApiableJob
@@ -47,7 +47,8 @@ final class QueryIndicatorJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'query_indicator',
             message: "[{$this->indicator->id}] Indicator query error - {$e->getMessage()}",
             title: '['.class_basename(self::class).'] - Error',
             deliveryGroup: 'exceptions'

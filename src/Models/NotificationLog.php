@@ -42,7 +42,7 @@ final class NotificationLog extends Model
         $this->update(['last_sent_at' => now()]);
     }
 
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'last_sent_at' => 'datetime',

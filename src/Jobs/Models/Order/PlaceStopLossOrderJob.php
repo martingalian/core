@@ -9,7 +9,7 @@ use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use RuntimeException;
 use Throwable;
 
@@ -62,7 +62,8 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
             __FUNCTION__
         );
 
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'place_stop_loss_order',
             message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on a StartOrFail()",
             title: '['.class_basename(self::class).'] - startOrFail() returned false',
             deliveryGroup: 'exceptions'
@@ -127,7 +128,8 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
             __FUNCTION__
         );
 
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'place_stop_loss_order_2',
             message: "{$this->position->parsed_trading_pair} Stop Loss Order successfully placed. ID [{$this->stopLossOrder->id}] Qty: {$calc['quantity']}, Price: {$calc['price']}",
             title: '['.class_basename(self::class).'] - Stop Loss placed',
             deliveryGroup: 'exceptions'
@@ -176,7 +178,8 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
     {
         $id = $this->stopLossOrder?->id ?? 'unknown';
 
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'place_stop_loss_order_3',
             message: "[{$id}] STOP-MARKET order place error - {$e->getMessage()}",
             title: '['.class_basename(self::class).'] - Error',
             deliveryGroup: 'exceptions'

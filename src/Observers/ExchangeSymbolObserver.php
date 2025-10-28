@@ -7,7 +7,7 @@ namespace Martingalian\Core\Observers;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 
 final class ExchangeSymbolObserver
 {
@@ -57,7 +57,8 @@ final class ExchangeSymbolObserver
                     $when
                 );
                 $title = '[ExchangeSymbolObserver] Futures delisting detected';
-                Martingalian::notifyAdmins(
+                NotificationThrottler::sendToAdmin(
+                    messageCanonical: 'futures_delisting_detected',
                     message: $msg,
                     title: $title,
                     deliveryGroup: 'exceptions'

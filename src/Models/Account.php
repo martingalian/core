@@ -46,11 +46,6 @@ final class Account extends BaseModel
         'taapi_secret' => 'encrypted',
     ];
 
-    protected static function newFactory()
-    {
-        return \Martingalian\Core\Database\Factories\AccountFactory::new();
-    }
-
     /**
      * Build an in-memory Account carrying the "Martingalian admin" credentials
      * for the requested API system. This does not persist anything.
@@ -123,5 +118,10 @@ final class Account extends BaseModel
     public function tradeConfiguration(): BelongsTo
     {
         return $this->belongsTo(TradeConfiguration::class);
+    }
+
+    protected static function newFactory()
+    {
+        return \Martingalian\Core\Database\Factories\AccountFactory::new();
     }
 }

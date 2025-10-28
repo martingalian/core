@@ -8,6 +8,7 @@ use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Log;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
 use Psr\Http\Message\ResponseInterface;
@@ -244,41 +245,6 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     }
 
     /**
-     * Parse Binance interval headers (e.g., X-MBX-USED-WEIGHT-1M, X-MBX-ORDER-COUNT-10S).
-     * Returns array keyed by interval string (e.g., '1M', '10S') with parsed data.
-     *
-     * @param  array  $headers  Normalized headers (lowercase keys)
-     * @param  string  $prefix  Header prefix to match (e.g., 'x-mbx-used-weight-')
-     * @return array Array of ['intervalNum' => int, 'intervalLetter' => string, 'value' => int, 'interval' => string]
-     */
-    protected function parseIntervalHeaders(array $headers, string $prefix): array
-    {
-        $result = [];
-
-        foreach ($headers as $key => $value) {
-            // Match headers like: x-mbx-used-weight-1m => 50
-            if (! Str::startsWith($key, $prefix)) {
-                continue;
-            }
-
-            // Extract interval part (e.g., "1m" from "x-mbx-used-weight-1m")
-            $interval = Str::after($key, $prefix);
-
-            // Parse intervalNum and intervalLetter (e.g., "1m" => num=1, letter=m)
-            if (preg_match('/^(\d+)([smhd])$/i', $interval, $matches)) {
-                $result[$interval] = [
-                    'intervalNum' => (int) $matches[1],
-                    'intervalLetter' => mb_strtolower($matches[2]),
-                    'value' => (int) $value,
-                    'interval' => $interval,
-                ];
-            }
-        }
-
-        return $result;
-    }
-
-    /**
      * Record Binance response headers in Redis for IP-based rate limit coordination.
      * Parses X-MBX-USED-WEIGHT-* and X-MBX-ORDER-COUNT-* headers and stores them
      * so all workers on the same IP can coordinate.
@@ -317,9 +283,9 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
 
             // Record timestamp of last request
             Cache::put("binance:{$ip}:last_request", now()->timestamp, 60);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Fail silently - don't break the application if Cache fails
-            \Log::warning("Failed to record Binance response headers: {$e->getMessage()}");
+            Log::warning("Failed to record Binance response headers: {$e->getMessage()}");
         }
     }
 
@@ -333,9 +299,9 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
             $bannedUntil = Cache::get("binance:{$ip}:banned_until");
 
             return $bannedUntil && now()->timestamp < (int) $bannedUntil;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Fail safe - if Cache fails, allow the request
-            \Log::warning("Failed to check Binance ban status: {$e->getMessage()}");
+            Log::warning("Failed to check Binance ban status: {$e->getMessage()}");
 
             return false;
         }
@@ -357,10 +323,10 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
                 $retryAfterSeconds
             );
 
-            \Log::warning("Binance IP ban recorded for {$ip} until {$expiresAt->toDateTimeString()}");
-        } catch (\Throwable $e) {
+            Log::warning("Binance IP ban recorded for {$ip} until {$expiresAt->toDateTimeString()}");
+        } catch (Throwable $e) {
             // Log but don't throw - failing to record ban shouldn't break the app
-            \Log::error("Failed to record Binance IP ban: {$e->getMessage()}");
+            Log::error("Failed to record Binance IP ban: {$e->getMessage()}");
         }
     }
 
@@ -414,19 +380,54 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
                 $current = Cache::get($key) ?? 0;
 
                 if ($current / $limit > $safetyThreshold) {
-                    \Log::info("Binance rate limit safety threshold exceeded for {$interval}: {$current}/{$limit}");
+                    Log::info("Binance rate limit safety threshold exceeded for {$interval}: {$current}/{$limit}");
 
                     return false;
                 }
             }
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Fail safe - if Cache fails, allow the request
-            \Log::warning("Failed to check Binance safety: {$e->getMessage()}");
+            Log::warning("Failed to check Binance safety: {$e->getMessage()}");
 
             return true;
         }
+    }
+
+    /**
+     * Parse Binance interval headers (e.g., X-MBX-USED-WEIGHT-1M, X-MBX-ORDER-COUNT-10S).
+     * Returns array keyed by interval string (e.g., '1M', '10S') with parsed data.
+     *
+     * @param  array  $headers  Normalized headers (lowercase keys)
+     * @param  string  $prefix  Header prefix to match (e.g., 'x-mbx-used-weight-')
+     * @return array Array of ['intervalNum' => int, 'intervalLetter' => string, 'value' => int, 'interval' => string]
+     */
+    protected function parseIntervalHeaders(array $headers, string $prefix): array
+    {
+        $result = [];
+
+        foreach ($headers as $key => $value) {
+            // Match headers like: x-mbx-used-weight-1m => 50
+            if (! Str::startsWith($key, $prefix)) {
+                continue;
+            }
+
+            // Extract interval part (e.g., "1m" from "x-mbx-used-weight-1m")
+            $interval = Str::after($key, $prefix);
+
+            // Parse intervalNum and intervalLetter (e.g., "1m" => num=1, letter=m)
+            if (preg_match('/^(\d+)([smhd])$/i', $interval, $matches)) {
+                $result[$interval] = [
+                    'intervalNum' => (int) $matches[1],
+                    'intervalLetter' => mb_strtolower($matches[2]),
+                    'value' => (int) $value,
+                    'interval' => $interval,
+                ];
+            }
+        }
+
+        return $result;
     }
 
     /**

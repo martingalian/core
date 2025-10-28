@@ -8,7 +8,7 @@ use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ForbiddenHostname;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -58,7 +58,8 @@ trait ApiExceptionHelpers
 
         info("----- HOSTNAME WAS FORBIDDEN: {$record->ip_address}");
 
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'api_exception',
             message: "Forbidden hostname detected.\n".
             "Account ID: {$this->account->id}\n".
             "IP: {$record->ip_address}\n".

@@ -15,7 +15,7 @@ use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\Symbol;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 
 /*
  * SyncMarketDataJob
@@ -199,7 +199,8 @@ final class SyncMarketDataJob extends BaseApiableJob
                         $pairText,
                         $position->account_id
                     );
-                    Martingalian::notifyAdmins(
+                    NotificationThrottler::sendToAdmin(
+                        messageCanonical: 'sync_market_data',
                         message: $adminMsg,
                         title: $title,
                         deliveryGroup: 'exceptions'
@@ -218,7 +219,8 @@ final class SyncMarketDataJob extends BaseApiableJob
                         $pairText,
                         $position->account_id
                     );
-                    Martingalian::notifyAdmins(
+                    NotificationThrottler::sendToAdmin(
+                        messageCanonical: 'sync_market_data_2',
                         message: $adminMsg,
                         title: $title,
                         deliveryGroup: 'exceptions'
@@ -236,7 +238,8 @@ final class SyncMarketDataJob extends BaseApiableJob
                     $pairText,
                     $position->account_id
                 );
-                Martingalian::notifyAdmins(
+                NotificationThrottler::sendToAdmin(
+                    messageCanonical: 'sync_market_data_3',
                     message: $adminMsg,
                     title: $title,
                     deliveryGroup: 'exceptions'

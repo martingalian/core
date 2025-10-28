@@ -10,7 +10,7 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class CheckPositionOrderChangesJob extends BaseQueueableJob
@@ -48,7 +48,8 @@ final class CheckPositionOrderChangesJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'check_position_order_changes',
             message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
             title: '['.class_basename(self::class).'] - Error',
             deliveryGroup: 'exceptions'

@@ -7,6 +7,7 @@ namespace Martingalian\Core\Support\ApiExceptionHandlers;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Log;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
 use Psr\Http\Message\ResponseInterface;
@@ -240,7 +241,7 @@ final class BybitExceptionHandler extends BaseExceptionHandler
      * Bybit uses {retCode, retMsg} structure.
      * Overrides parent to map Bybit's retCode to status_code.
      */
-    public function extractHttpErrorCodes(Throwable|\Psr\Http\Message\ResponseInterface $input): array
+    public function extractHttpErrorCodes(Throwable|ResponseInterface $input): array
     {
         $data = $this->baseExtractHttpErrorCodes($input);
 
@@ -283,9 +284,9 @@ final class BybitExceptionHandler extends BaseExceptionHandler
 
             // Record timestamp of last request
             Cache::put("bybit:{$ip}:last_request", now()->timestamp, 60);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Fail silently - don't break the application if Cache fails
-            \Log::warning("Failed to record Bybit response headers: {$e->getMessage()}");
+            Log::warning("Failed to record Bybit response headers: {$e->getMessage()}");
         }
     }
 
@@ -299,9 +300,9 @@ final class BybitExceptionHandler extends BaseExceptionHandler
             $bannedUntil = Cache::get("bybit:{$ip}:banned_until");
 
             return $bannedUntil && now()->timestamp < (int) $bannedUntil;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Fail safe - if Cache fails, allow the request
-            \Log::warning("Failed to check Bybit ban status: {$e->getMessage()}");
+            Log::warning("Failed to check Bybit ban status: {$e->getMessage()}");
 
             return false;
         }
@@ -323,10 +324,10 @@ final class BybitExceptionHandler extends BaseExceptionHandler
                 $retryAfterSeconds
             );
 
-            \Log::warning("Bybit IP ban recorded for {$ip} until {$expiresAt->toDateTimeString()}");
-        } catch (\Throwable $e) {
+            Log::warning("Bybit IP ban recorded for {$ip} until {$expiresAt->toDateTimeString()}");
+        } catch (Throwable $e) {
             // Log but don't throw - failing to record ban shouldn't break the app
-            \Log::error("Failed to record Bybit IP ban: {$e->getMessage()}");
+            Log::error("Failed to record Bybit IP ban: {$e->getMessage()}");
         }
     }
 
@@ -367,16 +368,16 @@ final class BybitExceptionHandler extends BaseExceptionHandler
                 $remainingPercentage = $remaining / $limit;
 
                 if ($remainingPercentage < $safetyThreshold) {
-                    \Log::info("Bybit rate limit safety threshold exceeded: {$remaining}/{$limit} remaining");
+                    Log::info("Bybit rate limit safety threshold exceeded: {$remaining}/{$limit} remaining");
 
                     return false;
                 }
             }
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Fail safe - if Cache fails, allow the request
-            \Log::warning("Failed to check Bybit safety: {$e->getMessage()}");
+            Log::warning("Failed to check Bybit safety: {$e->getMessage()}");
 
             return true;
         }

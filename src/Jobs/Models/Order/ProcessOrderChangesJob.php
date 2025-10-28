@@ -11,7 +11,7 @@ use Martingalian\Core\Jobs\Lifecycles\Positions\ClosePositionJob;
 use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 
 final class ProcessOrderChangesJob extends BaseQueueableJob
 {
@@ -99,7 +99,8 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
             __FUNCTION__
         );
 
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'process_order_changes',
             message: "Position {$this->order->position->parsed_trading_pair} STOP-MARKET filled. Please monitor!",
             title: "Position {$this->order->position->parsed_trading_pair} STOP-MARKET filled, closing position",
             deliveryGroup: 'exceptions'

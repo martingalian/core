@@ -7,7 +7,6 @@ namespace Martingalian\Core\Transitions;
 use App\States\Running;
 use Martingalian\Core\Models\Step;
 use Spatie\ModelStates\Transition;
-use Martingalian\Core\States\Skipped;
 
 final class CompleteToRunning extends Transition
 {

@@ -11,6 +11,10 @@ use Martingalian\Core\Concerns\ApiSystem\InteractsWithApis;
 use Martingalian\Core\Concerns\HasDebuggable;
 use Martingalian\Core\Concerns\HasLoggable;
 
+/**
+ * @property bool $should_restart_websocket
+ * @property string|null $websocket_class
+ */
 final class ApiSystem extends BaseModel
 {
     use HasDebuggable;
@@ -18,11 +22,6 @@ final class ApiSystem extends BaseModel
     use HasLoggable;
     use HasScopes;
     use InteractsWithApis;
-
-    protected static function newFactory()
-    {
-        return \Martingalian\Core\Database\Factories\ApiSystemFactory::new();
-    }
 
     public function steps()
     {
@@ -42,5 +41,10 @@ final class ApiSystem extends BaseModel
     public function positions()
     {
         return $this->hasManyThrough(Position::class, Account::class);
+    }
+
+    protected static function newFactory()
+    {
+        return \Martingalian\Core\Database\Factories\ApiSystemFactory::new();
     }
 }

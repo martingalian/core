@@ -8,7 +8,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 /**
@@ -165,11 +165,12 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
             }
 
             // --- All guards passed: notify admins with context
-            Martingalian::notifyAdmins(
-            message: 'Unknown exchange orders for ['.$symbol.']: '.$unknownOrders->implode(',
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'assess_unknown_orders',
+                message: 'Unknown exchange orders for ['.$symbol.']: '.$unknownOrders->implode(',
             title: ').'.',
-            deliveryGroup: 'exceptions'
-        );
+                deliveryGroup: 'exceptions'
+            );
         }
     }
 
@@ -178,7 +179,8 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
      */
     public function resolveException(Throwable $e)
     {
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'assess_unknown_orders_2',
             message: '['.$this->account->id.'] Account '
             .$this->account->user->name.'/'
             .$this->account->tradingQuote->canonical

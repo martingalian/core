@@ -36,11 +36,6 @@ final class Step extends BaseModel
         'state' => StepStatus::class,
     ];
 
-    protected static function newFactory()
-    {
-        return \Martingalian\Core\Database\Factories\StepFactory::new();
-    }
-
     public static function concludedStepStates()
     {
         return [Completed::class, Skipped::class];
@@ -60,6 +55,15 @@ final class Step extends BaseModel
             Failed::class,
             Stopped::class,
         ];
+    }
+
+    /**
+     * Get a random dispatch group from available groups.
+     * Delegates to StepsDispatcher::getDispatchGroup().
+     */
+    public static function getDispatchGroup(): ?string
+    {
+        return StepsDispatcher::getDispatchGroup();
     }
 
     public function stepTick()
@@ -315,12 +319,8 @@ final class Step extends BaseModel
             ->get();
     }
 
-    /**
-     * Get a random dispatch group from available groups.
-     * Delegates to StepsDispatcher::getDispatchGroup().
-     */
-    public static function getDispatchGroup(): ?string
+    protected static function newFactory()
     {
-        return StepsDispatcher::getDispatchGroup();
+        return \Martingalian\Core\Database\Factories\StepFactory::new();
     }
 }

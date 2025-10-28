@@ -9,7 +9,7 @@ use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class PlaceProfitOrderJob extends BaseApiableJob
@@ -56,7 +56,8 @@ final class PlaceProfitOrderJob extends BaseApiableJob
                 __FUNCTION__
             );
 
-            Martingalian::notifyAdmins(
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'place_profit_order',
                 message: "{$this->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
                 title: '['.class_basename(self::class).'] - startOrFail() returned false',
                 deliveryGroup: 'exceptions'
@@ -160,13 +161,15 @@ final class PlaceProfitOrderJob extends BaseApiableJob
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->profitOrder) {
-            Martingalian::notifyAdmins(
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'place_profit_order_2',
                 message: "[O:{$this->profitOrder->id}] Order {$this->profitOrder->type} {$this->profitOrder->side} PROFIT-LIMIT place error - {$e->getMessage()}",
                 title: '['.class_basename(self::class).'] - Error',
                 deliveryGroup: 'exceptions'
             );
         } else {
-            Martingalian::notifyAdmins(
+            NotificationThrottler::sendToAdmin(
+                messageCanonical: 'place_profit_order_3',
                 message: "[P:{$this->position->id}] PROFIT-LIMIT place error before order instance - {$e->getMessage()}",
                 title: '['.class_basename(self::class).'] - Error',
                 deliveryGroup: 'exceptions'

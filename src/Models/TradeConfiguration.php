@@ -28,13 +28,13 @@ final class TradeConfiguration extends BaseModel
         'indicator_timeframes' => 'array',
     ];
 
-    protected static function newFactory()
-    {
-        return \Martingalian\Core\Database\Factories\TradeConfigurationFactory::new();
-    }
-
     public function accounts()
     {
         return $this->hasMany(Account::class);
+    }
+
+    protected static function newFactory()
+    {
+        return \Martingalian\Core\Database\Factories\TradeConfigurationFactory::new();
     }
 }

@@ -39,11 +39,6 @@ final class User extends Authenticatable
         'notification_channels' => 'array',
     ];
 
-    protected static function newFactory()
-    {
-        return \Martingalian\Core\Database\Factories\UserFactory::new();
-    }
-
     public function steps()
     {
         return $this->morphMany(Step::class, 'relatable');
@@ -142,5 +137,10 @@ final class User extends Authenticatable
                 default => $channel
             };
         }, $channels);
+    }
+
+    protected static function newFactory()
+    {
+        return \Martingalian\Core\Database\Factories\UserFactory::new();
     }
 }

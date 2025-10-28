@@ -13,7 +13,7 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 /**
@@ -126,7 +126,8 @@ final class ConfirmPriceAlignmentsJob extends BaseQueueableJob
     {
         $symbolId = isset($this->exchangeSymbolBeingComputed) ? $this->exchangeSymbolBeingComputed->id : 'unknown';
 
-        Martingalian::notifyAdmins(
+        NotificationThrottler::sendToAdmin(
+            messageCanonical: 'confirm_price_alignments',
             message: "[{$symbolId}] - ExchangeSymbol price confirmation lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
             title: "[S:{$this->step->id}] - ".class_basename(self::class).' - Error',
             deliveryGroup: 'exceptions'
