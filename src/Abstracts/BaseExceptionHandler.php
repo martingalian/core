@@ -218,7 +218,7 @@ abstract class BaseExceptionHandler
             // No specific user (virtual/system account) - notify admin from config
             Throttler::using(NotificationService::class)
                 ->withCanonical($messageCanonical)
-                ->execute(function () {
+                ->execute(function () use ($message, $title) {
                     NotificationService::sendToAdmin(
                         message: $message,
                         title: $title,
