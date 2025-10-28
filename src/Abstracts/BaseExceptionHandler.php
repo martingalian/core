@@ -193,6 +193,7 @@ abstract class BaseExceptionHandler
     /**
      * Send notification to specific user if available, otherwise to admin from config.
      * This handles both user-specific accounts and virtual/system accounts.
+     * Canonicals are automatically prefixed with API system to prevent cross-API throttling.
      */
     private function sendThrottledNotification(
         bool $hasSpecificUser,
@@ -200,11 +201,15 @@ abstract class BaseExceptionHandler
         string $message,
         string $title
     ): void {
+        // Prefix canonical with API system to segregate throttle windows per API
+        // Example: 'ip_not_whitelisted' becomes 'binance_ip_not_whitelisted'
+        $prefixedCanonical = $this->getApiSystem() . '_' . $messageCanonical;
+
         if ($hasSpecificUser) {
             // Notify the specific user associated with this account
             $user = $this->account->user;
             Throttler::using(NotificationService::class)
-                ->withCanonical($messageCanonical)
+                ->withCanonical($prefixedCanonical)
                 ->for($user)
                 ->execute(function () use ($user, $message, $title) {
                     NotificationService::sendToUser(
@@ -217,7 +222,7 @@ abstract class BaseExceptionHandler
         } else {
             // No specific user (virtual/system account) - notify admin from config
             Throttler::using(NotificationService::class)
-                ->withCanonical($messageCanonical)
+                ->withCanonical($prefixedCanonical)
                 ->execute(function () use ($message, $title) {
                     NotificationService::sendToAdmin(
                         message: $message,

@@ -38,7 +38,7 @@ trait HandlesStepExceptions
         if (! $e instanceof NonNotifiableException) {
             Throttler::using(NotificationService::class)
                 ->withCanonical('step_error')
-                ->execute(function () {
+                ->execute(function () use ($parser) {
                     NotificationService::sendToAdmin(
                         message: 'Step error - '.$parser->friendlyMessage(),
                         title: "[S:{$this->step->id} ".class_basename(static::class).'] - Error',
