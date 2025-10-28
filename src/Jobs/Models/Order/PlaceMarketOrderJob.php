@@ -10,7 +10,8 @@ use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 final class PlaceMarketOrderJob extends BaseApiableJob
@@ -78,12 +79,15 @@ final class PlaceMarketOrderJob extends BaseApiableJob
             );
         }
 
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'place_market_order',
-            message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on startOrFail()",
-            title: '['.class_basename(self::class).'] - startOrFail() returned false',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+                ->withCanonical('place_market_order')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on startOrFail()",
+                        title: '['.class_basename(self::class).'] - startOrFail() returned false',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
 
         return false;
     }
@@ -216,19 +220,25 @@ final class PlaceMarketOrderJob extends BaseApiableJob
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->marketOrder) {
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'place_market_order_2',
-                message: "[{$this->marketOrder->id}] Order {$this->marketOrder->type} {$this->marketOrder->side} MARKET place error - {$e->getMessage()}",
-                title: '['.class_basename(self::class).'] - Error',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('place_market_order_2')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->marketOrder->id}] Order {$this->marketOrder->type} {$this->marketOrder->side} MARKET place error - {$e->getMessage()}",
+                        title: '['.class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
         } else {
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'place_market_order_3',
-                message: "[{$this->position->id}] MARKET place error before order instance - {$e->getMessage()}",
-                title: '['.class_basename(self::class).'] - Error',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('place_market_order_3')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->position->id}] MARKET place error before order instance - {$e->getMessage()}",
+                        title: '['.class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
         }
     }
 }

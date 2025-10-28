@@ -7,7 +7,8 @@ namespace Martingalian\Core\Jobs\Models\Account;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 /*
@@ -79,11 +80,14 @@ final class AssignTokensToNewPositionsJob extends BaseQueueableJob
          * Notify admins via Pushover if any exception occurs during job.
          * Includes account ID, user name, quote symbol, and error summary.
          */
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'assign_tokens_positions',
-            message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            title: '['.class_basename(self::class).'] - Error',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+                ->withCanonical('assign_tokens_positions')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+                        title: '['.class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
     }
 }

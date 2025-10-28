@@ -11,7 +11,8 @@ use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 
 final class ClosePositionAtomicallyJob extends BaseApiableJob
 {
@@ -55,12 +56,15 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
             if (($this->position->direction === 'SHORT' && $this->position->opening_price < $this->position->exchangeSymbol->mark_price) ||
                 ($this->position->direction === 'LONG' && $this->position->opening_price > $this->position->exchangeSymbol->mark_price)
             ) {
-                NotificationThrottler::sendToAdmin(
-                    messageCanonical: 'close_position_atomically',
-                    message: "Position {$this->position->parsed_trading_pair} is possibly closing with a negative PnL. Exchange symbol disabled. Please check!",
-                    title: "Position {$this->position->parsed_trading_pair} possible closed with negative PnL",
-                    deliveryGroup: 'exceptions'
-                );
+                Throttler::using(NotificationService::class)
+                ->withCanonical('close_position_atomically')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "Position {$this->position->parsed_trading_pair} is possibly closing with a negative PnL. Exchange symbol disabled. Please check!",
+                        title: "Position {$this->position->parsed_trading_pair} possible closed with negative PnL",
+                        deliveryGroup: 'exceptions'
+                    );
+                });
 
                 $this->position->exchangeSymbol->is_tradeable = false;
                 $this->position->exchangeSymbol->save();

@@ -9,7 +9,8 @@ use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 final class PlaceProfitOrderJob extends BaseApiableJob
@@ -56,12 +57,15 @@ final class PlaceProfitOrderJob extends BaseApiableJob
                 __FUNCTION__
             );
 
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'place_profit_order',
-                message: "{$this->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
-                title: '['.class_basename(self::class).'] - startOrFail() returned false',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('place_profit_order')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "{$this->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
+                        title: '['.class_basename(self::class).'] - startOrFail() returned false',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
 
             return $result;
         }
@@ -161,19 +165,25 @@ final class PlaceProfitOrderJob extends BaseApiableJob
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->profitOrder) {
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'place_profit_order_2',
-                message: "[O:{$this->profitOrder->id}] Order {$this->profitOrder->type} {$this->profitOrder->side} PROFIT-LIMIT place error - {$e->getMessage()}",
-                title: '['.class_basename(self::class).'] - Error',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('place_profit_order_2')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[O:{$this->profitOrder->id}] Order {$this->profitOrder->type} {$this->profitOrder->side} PROFIT-LIMIT place error - {$e->getMessage()}",
+                        title: '['.class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
         } else {
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'place_profit_order_3',
-                message: "[P:{$this->position->id}] PROFIT-LIMIT place error before order instance - {$e->getMessage()}",
-                title: '['.class_basename(self::class).'] - Error',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('place_profit_order_3')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[P:{$this->position->id}] PROFIT-LIMIT place error before order instance - {$e->getMessage()}",
+                        title: '['.class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
         }
     }
 }

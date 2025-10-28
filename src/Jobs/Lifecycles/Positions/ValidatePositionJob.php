@@ -8,7 +8,8 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 final class ValidatePositionJob extends BaseQueueableJob
@@ -36,12 +37,15 @@ final class ValidatePositionJob extends BaseQueueableJob
                 __FUNCTION__
             );
 
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'validate_position',
-                message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} not in an active-related status. Canceling position...",
-                title: '['.class_basename(self::class).'] - Warning',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('validate_position')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} not in an active-related status. Canceling position...",
+                        title: '['.class_basename(self::class).'] - Warning',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
 
             $shouldCancel = true;
         }
@@ -56,12 +60,15 @@ final class ValidatePositionJob extends BaseQueueableJob
                 __FUNCTION__
             );
 
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'validate_position_2',
-                message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have invalid sync'ed orders. Canceling position...",
-                title: '['.class_basename(self::class).'] - Warning',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('validate_position_2')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have invalid sync'ed orders. Canceling position...",
+                        title: '['.class_basename(self::class).'] - Warning',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
 
             $shouldCancel = true;
         }
@@ -77,12 +84,15 @@ final class ValidatePositionJob extends BaseQueueableJob
                 __FUNCTION__
             );
 
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'validate_position_3',
-                message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have a different number of total active limit orders. Canceling position...",
-                title: '['.class_basename(self::class).'] - Warning',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('validate_position_3')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have a different number of total active limit orders. Canceling position...",
+                        title: '['.class_basename(self::class).'] - Warning',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
 
             $shouldCancel = true;
         }
@@ -100,12 +110,15 @@ final class ValidatePositionJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'validate_position_4',
-            message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
-            title: '['.class_basename(self::class).'] - Error',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+                ->withCanonical('validate_position_4')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
+                        title: '['.class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

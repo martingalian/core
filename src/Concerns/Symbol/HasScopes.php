@@ -10,9 +10,6 @@ trait HasScopes
 {
     public function scopeIncomplete(Builder $query)
     {
-        return $query->whereNull('symbols.name')
-            ->orWhereNull('symbols.description')
-            ->orWhereNull('symbols.site_url')
-            ->orWhereNull('symbols.image_url');
+        return $query->whereNull('symbols.name');
     }
 }

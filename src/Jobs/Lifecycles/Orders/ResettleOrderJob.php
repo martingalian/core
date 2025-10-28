@@ -10,7 +10,8 @@ use Martingalian\Core\Jobs\Models\Order\PlaceOrderJob;
 use Martingalian\Core\Jobs\Models\Order\SyncReferenceDataJob;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 final class ResettleOrderJob extends BaseQueueableJob
@@ -72,11 +73,14 @@ final class ResettleOrderJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'resettle_order',
-            message: "[{$this->order->id}] Resettle Order lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            title: "[S:{$this->step->id} P:{$this->order->position->id}] O:{$this->order->id}".class_basename(self::class).'] - Error',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+                ->withCanonical('resettle_order')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->order->id}] Resettle Order lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+                        title: "[S:{$this->step->id} P:{$this->order->position->id}] O:{$this->order->id}".class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
     }
 }

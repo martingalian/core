@@ -13,7 +13,8 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\StepsDispatcher;
 use Martingalian\Core\Models\TradeConfiguration;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 /**
@@ -199,11 +200,14 @@ final class ConcludeIndicatorsJob extends BaseQueueableJob
     {
         $symbolId = isset($this->exchangeSymbol) ? $this->exchangeSymbol->id : 'unknown';
 
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'conclude_indicators_error',
-            message: "[{$symbolId}] - ConcludeIndicatorsJob lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-            title: "[S:{$this->step->id}] ".class_basename(self::class).' - Error',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+                ->withCanonical('conclude_indicators_error')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$symbolId}] - ConcludeIndicatorsJob lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+                        title: "[S:{$this->step->id}] ".class_basename(self::class).' - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
     }
 }

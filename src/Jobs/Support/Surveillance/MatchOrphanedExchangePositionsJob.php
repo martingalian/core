@@ -8,7 +8,8 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 final class MatchOrphanedExchangePositionsJob extends BaseQueueableJob
@@ -51,22 +52,28 @@ final class MatchOrphanedExchangePositionsJob extends BaseQueueableJob
         $missingInDB = $exchangeSymbolDirections->diff($dbSymbolDirections);
 
         if ($missingInDB->isNotEmpty()) {
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'match_orphaned_positions',
-                message: "[{$this->account->id}] Monitoring Synced Positions mismatch: ".$missingInDB->implode(',
-            title: ').' opened in Exchange and not in DB',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('match_orphaned_positions')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->account->id}] Monitoring Synced Positions mismatch: ".$missingInDB->implode(',
+                        title: ').' opened in Exchange and not in DB',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
         }
     }
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'match_orphaned_positions_2',
-            message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} surveillance error - ".ExceptionParser::with($e)->friendlyMessage(),
-            title: '['.class_basename(self::class).'] - Error',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+                ->withCanonical('match_orphaned_positions_2')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} surveillance error - ".ExceptionParser::with($e)->friendlyMessage(),
+                        title: '['.class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
     }
 }

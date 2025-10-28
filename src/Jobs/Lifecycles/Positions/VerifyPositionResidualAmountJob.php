@@ -7,7 +7,8 @@ namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 final class VerifyPositionResidualAmountJob extends BaseQueueableJob
@@ -39,12 +40,15 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
                 __FUNCTION__
             );
 
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'verify_position_residual',
-                message: "Position {$this->position->parsed_trading_pair} with residual amount (Qty:{$amount}). Please close position MANUALLY on exchange",
-                title: "Position {$this->position->parsed_trading_pair} with residual amount",
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('verify_position_residual')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "Position {$this->position->parsed_trading_pair} with residual amount (Qty:{$amount}). Please close position MANUALLY on exchange",
+                        title: "Position {$this->position->parsed_trading_pair} with residual amount",
+                        deliveryGroup: 'exceptions'
+                    );
+                });
 
             return [
                 'message' => "Position {$this->position->parsed_trading_pair} with residual amount detected. Qty: {$amount}",
@@ -58,11 +62,14 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'verify_position_residual_2',
-            message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} historical data delete error - {$e->getMessage()}",
-            title: '['.class_basename(self::class).'] - Error',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+                ->withCanonical('verify_position_residual_2')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} historical data delete error - {$e->getMessage()}",
+                        title: '['.class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
     }
 }

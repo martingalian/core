@@ -9,7 +9,8 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 final class QueryIndicatorJob extends BaseApiableJob
@@ -47,11 +48,14 @@ final class QueryIndicatorJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'query_indicator',
-            message: "[{$this->indicator->id}] Indicator query error - {$e->getMessage()}",
-            title: '['.class_basename(self::class).'] - Error',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+                ->withCanonical('query_indicator')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$this->indicator->id}] Indicator query error - {$e->getMessage()}",
+                        title: '['.class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
     }
 }

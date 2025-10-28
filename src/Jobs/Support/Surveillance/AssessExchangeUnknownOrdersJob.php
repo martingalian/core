@@ -8,7 +8,8 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 /**
@@ -165,12 +166,15 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
             }
 
             // --- All guards passed: notify admins with context
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'assess_unknown_orders',
-                message: 'Unknown exchange orders for ['.$symbol.']: '.$unknownOrders->implode(',
-            title: ').'.',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('assess_unknown_orders')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: 'Unknown exchange orders for ['.$symbol.']: '.$unknownOrders->implode(',
+                        title: ').'.',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
         }
     }
 
@@ -179,15 +183,18 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
      */
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'assess_unknown_orders_2',
-            message: '['.$this->account->id.'] Account '
+        Throttler::using(NotificationService::class)
+                ->withCanonical('assess_unknown_orders_2')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: '['.$this->account->id.'] Account '
             .$this->account->user->name.'/'
             .$this->account->tradingQuote->canonical
             .' surveillance error - '
             .ExceptionParser::with($e)->friendlyMessage(),
-            title: '['.class_basename(self::class).'] - Error.',
-            deliveryGroup: 'exceptions'
-        );
+                        title: '['.class_basename(self::class).'] - Error.',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
     }
 }

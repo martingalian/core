@@ -11,7 +11,8 @@ use Martingalian\Core\Exceptions\MaxRetriesReachedException;
 use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 /**
@@ -35,12 +36,15 @@ trait HandlesStepExceptions
         }
 
         if (! $e instanceof NonNotifiableException) {
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'step_error',
-                message: 'Step error - '.$parser->friendlyMessage(),
-                title: "[S:{$this->step->id} ".class_basename(static::class).'] - Error',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('step_error')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: 'Step error - '.$parser->friendlyMessage(),
+                        title: "[S:{$this->step->id} ".class_basename(static::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
         }
 
         $this->finalizeDuration();

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\ApiClients\Websocket;
 
 use Martingalian\Core\Abstracts\BaseWebsocketClient;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 
 final class BybitApiClient extends BaseWebsocketClient
 {
@@ -51,8 +52,8 @@ final class BybitApiClient extends BaseWebsocketClient
             $this->subscriptionArgs[] = "tickers.{$symbol}";
         }
 
-        // Override handleCallback to inject subscription logic
-        $this->handleCallbackWithSubscription($url, $callbacks);
+        // Use parent's handleCallback which properly manages the event loop
+        $this->handleCallback($url, $callbacks);
     }
 
     public function subscribeToUserStream(string $listenKey, array $callbacks): void
@@ -68,91 +69,42 @@ final class BybitApiClient extends BaseWebsocketClient
         return $this->loop;
     }
 
-    public function handleCallbackWithSubscription(string $url, array $callback): void
+    protected function onConnectionEstablished(\Ratchet\Client\WebSocket $conn, array $callback): void
     {
-        $subscriptionArgs = $this->subscriptionArgs;
-        $loop = $this->loop;
-        $connector = $this->wsConnector;
+        // IMMEDIATELY send subscription after connection (before event handlers are set up)
+        if (! empty($this->subscriptionArgs)) {
+            $subscriptionMessage = json_encode([
+                'op' => 'subscribe',
+                'args' => $this->subscriptionArgs,
+            ]);
+            $conn->send($subscriptionMessage);
+        }
 
-        $connector($url)->then(
-            function ($conn) use ($callback, $url, $subscriptionArgs, $loop) {
-                $this->wsConnection = $conn;
-                $this->reconnectAttempt = 0;
-
-                // IMMEDIATELY send subscription after connection
-                $subscriptionMessage = json_encode([
-                    'op' => 'subscribe',
-                    'args' => $subscriptionArgs,
-                ]);
-                $conn->send($subscriptionMessage);
-
-                // Send periodic ping every 20 seconds as per Bybit requirements
-                $loop->addPeriodicTimer(20, function () use ($conn) {
-                    $conn->send(json_encode(['op' => 'ping']));
-                });
-
-                // Handle incoming messages
-                $conn->on('message', function ($msg) use ($conn, $callback) {
-                    $payload = (string) $msg;
-
-                    // Check for subscription failures
-                    $decoded = json_decode($payload, true);
-                    if (is_array($decoded) && isset($decoded['op']) && $decoded['op'] === 'subscribe') {
-                        if (isset($decoded['success']) && $decoded['success'] === false) {
-                            NotificationThrottler::sendToAdmin(
-                                messageCanonical: 'bybit_websocket',
-                                message: 'Bybit subscription failed: '.json_encode($decoded),
-                                title: 'Bybit WebSocket Subscription Error',
-                                deliveryGroup: 'exceptions'
-                            );
-                        }
-                    }
-
-                    // Pass to user callback
-                    if (is_callable($callback['message'] ?? null)) {
-                        $callback['message']($conn, $payload);
-                    }
-
-                    // Handle pong responses
-                    if (is_array($decoded) && isset($decoded['op']) && $decoded['op'] === 'pong') {
-                        if (is_callable($callback['pong'] ?? null)) {
-                            $callback['pong']($conn, $payload);
-                        }
-                    }
-                });
-
-                // Optional ping handler override
-                if (isset($callback['ping']) && is_callable($callback['ping'])) {
-                    $conn->on('ping', fn ($msg) => $callback['ping']($conn, $msg));
-                }
-
-                // Handle disconnections and initiate reconnect
-                $conn->on('close', function () use ($conn, $url, $callback) {
-                    if (isset($callback['close']) && is_callable($callback['close'])) {
-                        $callback['close']($conn);
-                    }
-
-                    $this->reconnect($url, $callback);
-                });
-            },
-            function ($e) use ($url, $callback) {
-                // Handle connection failure
-                NotificationThrottler::sendToAdmin(
-                    messageCanonical: 'bybit_websocket_2',
-                    message: "Could not connect to {$url}: {$e->getMessage()}",
-                    title: "{$this->exchangeName} WebSocket Error",
-                    deliveryGroup: 'exceptions'
-                );
-
-                if (isset($callback['error']) && is_callable($callback['error'])) {
-                    $callback['error'](null, $e);
-                }
-
-                $this->reconnect($url, $callback);
+        // Send periodic ping every 20 seconds as per Bybit requirements
+        $this->loop->addPeriodicTimer(20, function () use ($conn) {
+            if ($conn->isConnected()) {
+                $conn->send(json_encode(['op' => 'ping']));
             }
-        );
+        });
 
-        // Run the ReactPHP loop
-        $loop->run();
+        // Add a message handler specifically for checking subscription failures
+        $conn->on('message', function ($msg) {
+            $payload = (string) $msg;
+            $decoded = json_decode($payload, true);
+
+            if (is_array($decoded) && isset($decoded['op']) && $decoded['op'] === 'subscribe') {
+                if (isset($decoded['success']) && $decoded['success'] === false) {
+                    Throttler::using(NotificationService::class)
+                ->withCanonical('bybit_subscription_failed')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: 'Bybit subscription failed: '.json_encode($decoded),
+                        title: 'Bybit WebSocket Subscription Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
+                }
+            }
+        });
     }
 }

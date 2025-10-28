@@ -26,12 +26,8 @@ final class ForbiddenHostnameObserver
     {
         $this->logChanges($model, self::class, __FUNCTION__);
 
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'forbidden_hostname_added',
-            message: "[{$model->id}] - Forbidden Hostname was added. IP: {$model->ip_address}",
-            title: 'Forbidden hostname was added to the database',
-            deliveryGroup: 'exceptions'
-        );
+        // Notification is sent by ApiExceptionHelpers::forbid() which has more context
+        // about WHY the hostname was forbidden (e.g., 403 error, IP not whitelisted)
     }
 
     public function updated(ForbiddenHostname $model): void

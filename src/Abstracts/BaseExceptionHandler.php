@@ -13,7 +13,8 @@ use Martingalian\Core\Support\ApiExceptionHandlers\BinanceExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\BybitExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\CoinmarketCapExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
@@ -201,21 +202,29 @@ abstract class BaseExceptionHandler
     ): void {
         if ($hasSpecificUser) {
             // Notify the specific user associated with this account
-            NotificationThrottler::sendToUser(
-                user: $this->account->user,
-                messageCanonical: $messageCanonical,
-                message: $message,
-                title: $title,
-                deliveryGroup: 'exceptions'
-            );
+            $user = $this->account->user;
+            Throttler::using(NotificationService::class)
+                ->withCanonical($messageCanonical)
+                ->for($user)
+                ->execute(function () use ($user, $message, $title) {
+                    NotificationService::sendToUser(
+                        user: $user,
+                        message: $message,
+                        title: $title,
+                        deliveryGroup: 'exceptions'
+                    );
+                });
         } else {
             // No specific user (virtual/system account) - notify admin from config
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: $messageCanonical,
-                message: $message,
-                title: $title,
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical($messageCanonical)
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: $message,
+                        title: $title,
+                        deliveryGroup: 'exceptions'
+                    );
+                });
         }
     }
 }

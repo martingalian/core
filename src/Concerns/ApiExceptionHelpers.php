@@ -8,7 +8,8 @@ use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ForbiddenHostname;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -58,15 +59,30 @@ trait ApiExceptionHelpers
 
         info("----- HOSTNAME WAS FORBIDDEN: {$record->ip_address}");
 
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'api_exception',
-            message: "Forbidden hostname detected.\n".
-            "Account ID: {$this->account->id}\n".
-            "IP: {$record->ip_address}\n".
-            'Time: '.now()->toDateTimeString(),
-            title: "[A:{$this->account->id}] - Forbidden Hostname added",
-            deliveryGroup: 'exceptions'
-        );
+        // Only send notification if this is a NEW forbidden hostname (not an update)
+        if ($record->wasRecentlyCreated) {
+            $hostname = gethostname();
+            $exchange = $this->getApiSystem();
+            $exchangeName = ucfirst($exchange);
+            $accountInfo = $this->account->user
+                ? "User: {$this->account->user->name}"
+                : 'Account: Admin';
+
+            Throttler::using(NotificationService::class)
+                ->withCanonical('forbidden_hostname_added')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "A hostname has been forbidden from accessing {$exchangeName} API.\n\n".
+                         "Hostname: {$hostname}\n".
+                         "IP Address: {$record->ip_address}\n".
+                         "Exchange: {$exchangeName}\n".
+                         "{$accountInfo}\n".
+                         "Time: ".now()->toDateTimeString(),
+                        title: 'Forbidden Hostname Detected',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
+        }
     }
 
     public function retryException(Throwable $exception): bool

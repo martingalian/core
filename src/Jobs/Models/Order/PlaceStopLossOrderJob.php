@@ -9,7 +9,8 @@ use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use RuntimeException;
 use Throwable;
 
@@ -62,12 +63,15 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
             __FUNCTION__
         );
 
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'place_stop_loss_order',
-            message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on a StartOrFail()",
-            title: '['.class_basename(self::class).'] - startOrFail() returned false',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+                ->withCanonical('place_stop_loss_order')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on a StartOrFail()",
+                        title: '['.class_basename(self::class).'] - startOrFail() returned false',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
 
         return false;
     }
@@ -178,11 +182,14 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
     {
         $id = $this->stopLossOrder?->id ?? 'unknown';
 
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'place_stop_loss_order_3',
-            message: "[{$id}] STOP-MARKET order place error - {$e->getMessage()}",
-            title: '['.class_basename(self::class).'] - Error',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+                ->withCanonical('place_stop_loss_order_3')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[{$id}] STOP-MARKET order place error - {$e->getMessage()}",
+                        title: '['.class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
     }
 }

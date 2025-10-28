@@ -59,6 +59,11 @@ final class User extends Authenticatable
         return $this->morphMany(ApiRequestLog::class, 'relatable');
     }
 
+    public function throttleLogs()
+    {
+        return $this->morphMany(\App\Models\ThrottleLog::class, 'contextable');
+    }
+
     /**
      * Send a notification with optional delivery group routing.
      *

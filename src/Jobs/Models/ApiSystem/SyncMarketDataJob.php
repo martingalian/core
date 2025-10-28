@@ -15,7 +15,8 @@ use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\Symbol;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 
 /*
  * SyncMarketDataJob
@@ -199,12 +200,15 @@ final class SyncMarketDataJob extends BaseApiableJob
                         $pairText,
                         $position->account_id
                     );
-                    NotificationThrottler::sendToAdmin(
-                        messageCanonical: 'sync_market_data',
+                    Throttler::using(NotificationService::class)
+                ->withCanonical('sync_market_data')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
                         message: $adminMsg,
                         title: $title,
                         deliveryGroup: 'exceptions'
                     );
+                });
 
                     return;
                 }
@@ -219,12 +223,15 @@ final class SyncMarketDataJob extends BaseApiableJob
                         $pairText,
                         $position->account_id
                     );
-                    NotificationThrottler::sendToAdmin(
-                        messageCanonical: 'sync_market_data_2',
+                    Throttler::using(NotificationService::class)
+                ->withCanonical('sync_market_data_2')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
                         message: $adminMsg,
                         title: $title,
                         deliveryGroup: 'exceptions'
                     );
+                });
 
                     return;
                 }
@@ -238,12 +245,15 @@ final class SyncMarketDataJob extends BaseApiableJob
                     $pairText,
                     $position->account_id
                 );
-                NotificationThrottler::sendToAdmin(
-                    messageCanonical: 'sync_market_data_3',
-                    message: $adminMsg,
-                    title: $title,
-                    deliveryGroup: 'exceptions'
-                );
+                Throttler::using(NotificationService::class)
+                ->withCanonical('sync_market_data_3')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: $adminMsg,
+                        title: $title,
+                        deliveryGroup: 'exceptions'
+                    );
+                });
             });
     }
 }

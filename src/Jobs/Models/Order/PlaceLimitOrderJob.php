@@ -7,7 +7,8 @@ namespace Martingalian\Core\Jobs\Models\Order;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
-use Martingalian\Core\Support\NotificationThrottler;
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Throwable;
 
 final class PlaceLimitOrderJob extends BaseApiableJob
@@ -52,12 +53,15 @@ final class PlaceLimitOrderJob extends BaseApiableJob
                 __FUNCTION__
             );
 
-            NotificationThrottler::sendToAdmin(
-                messageCanonical: 'place_limit_order',
-                message: "{$this->order->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
-                title: '['.class_basename(self::class).'] - startOrFail() returned false',
-                deliveryGroup: 'exceptions'
-            );
+            Throttler::using(NotificationService::class)
+                ->withCanonical('place_limit_order')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "{$this->order->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
+                        title: '['.class_basename(self::class).'] - startOrFail() returned false',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
 
             return $result;
         }
@@ -114,11 +118,14 @@ final class PlaceLimitOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'place_limit_order_2',
-            message: "[S:{$this->step->id} P:{$this->order->position->id} O:{$this->order->id}] Order {$this->order->type} {$this->order->side} LIMIT place error - {$e->getMessage()}",
-            title: '['.class_basename(self::class).'] - Error',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+                ->withCanonical('place_limit_order_2')
+                ->execute(function () {
+                    NotificationService::sendToAdmin(
+                        message: "[S:{$this->step->id} P:{$this->order->position->id} O:{$this->order->id}] Order {$this->order->type} {$this->order->side} LIMIT place error - {$e->getMessage()}",
+                        title: '['.class_basename(self::class).'] - Error',
+                        deliveryGroup: 'exceptions'
+                    );
+                });
     }
 }
