@@ -23,5 +23,8 @@ final class Martingalian extends BaseModel
         'bybit_api_secret' => 'encrypted',
         'coinmarketcap_api_key' => 'encrypted',
         'taapi_secret' => 'encrypted',
+        'admin_pushover_key' => 'encrypted',
+
+        'notification_channels' => 'array',
     ];
 }
