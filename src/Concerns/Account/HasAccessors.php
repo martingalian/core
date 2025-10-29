@@ -11,19 +11,33 @@ trait HasAccessors
 {
     /**
      * Aggregate credentials from concrete columns.
+     * Uses getAttribute to properly decrypt encrypted columns.
+     * Returns null for attributes that don't exist in the database.
      *
      * @return array<string,string|null>
      */
     public function getAllCredentialsAttribute(): array
     {
-        return [
-            'binance_api_key' => $this->binance_api_key,
-            'binance_api_secret' => $this->binance_api_secret,
-            'bybit_api_key' => $this->bybit_api_key,
-            'bybit_api_secret' => $this->bybit_api_secret,
-            'coinmarketcap_api_key' => $this->coinmarketcap_api_key,
-            'taapi_secret' => $this->taapi_secret,
+        $keys = [
+            'binance_api_key',
+            'binance_api_secret',
+            'bybit_api_key',
+            'bybit_api_secret',
+            'coinmarketcap_api_key',
+            'taapi_secret',
         ];
+
+        $credentials = [];
+
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $this->attributes)) {
+                $credentials[$key] = $this->getAttributeValue($key);
+            } else {
+                $credentials[$key] = null;
+            }
+        }
+
+        return $credentials;
     }
 
     /**

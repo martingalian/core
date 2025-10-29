@@ -87,39 +87,43 @@ final class StepsDispatcher extends BaseModel
             $dispatcher->update(['can_dispatch' => true]);
         }
 
-        // Atomic lock acquire on THIS row -> can_dispatch FALSE
-        $acquired = DB::table('steps_dispatcher')
-            ->where('id', $dispatcher->id)
-            ->where('can_dispatch', true)
-            ->update([
-                'can_dispatch' => false,
-                'updated_at' => now(),
-            ]) === 1;
+        // Wrap lock acquisition and tick creation in transaction
+        // to prevent orphaned locks if process crashes between lock and tick creation
+        return DB::transaction(function () use ($dispatcher, $group) {
+            // Atomic lock acquire on THIS row -> can_dispatch FALSE
+            $acquired = DB::table('steps_dispatcher')
+                ->where('id', $dispatcher->id)
+                ->where('can_dispatch', true)
+                ->update([
+                    'can_dispatch' => false,
+                    'updated_at' => now(),
+                ]) === 1;
 
-        if (! $acquired) {
-            return false;
-        }
+            if (! $acquired) {
+                return false;
+            }
 
-        // Per-group tick bookkeeping
-        $cacheSuffix = $group ?? 'global';
-        Cache::put("steps_dispatcher_tick_start:{$cacheSuffix}", microtime(true), 300);
+            // Per-group tick bookkeeping
+            $cacheSuffix = $group ?? 'global';
+            Cache::put("steps_dispatcher_tick_start:{$cacheSuffix}", microtime(true), 300);
 
-        $startedAt = now();
-        $tick = StepsDispatcherTicks::create([
-            'started_at' => $startedAt,
-            'group' => $group,
-        ]);
-
-        Cache::put("current_tick_id:{$cacheSuffix}", $tick->id, 300);
-
-        DB::table('steps_dispatcher')
-            ->where('id', $dispatcher->id)
-            ->update([
-                'current_tick_id' => $tick->id,
-                'updated_at' => now(),
+            $startedAt = now();
+            $tick = StepsDispatcherTicks::create([
+                'started_at' => $startedAt,
+                'group' => $group,
             ]);
 
-        return true;
+            Cache::put("current_tick_id:{$cacheSuffix}", $tick->id, 300);
+
+            DB::table('steps_dispatcher')
+                ->where('id', $dispatcher->id)
+                ->update([
+                    'current_tick_id' => $tick->id,
+                    'updated_at' => now(),
+                ]);
+
+            return true;
+        });
     }
 
     /**
