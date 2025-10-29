@@ -35,21 +35,6 @@ return new class extends Migration
             );
         });
 
-        Schema::create('debuggable_logs', function (Blueprint $table) {
-            $table->id();
-            $table->morphs('debuggable');
-            $table->string('label')->nullable();
-            $table->text('message');
-            $table->timestamps();
-        });
-
-        Schema::create('debuggables', function (Blueprint $table) {
-            $table->id();
-            $table->morphs('debuggable');
-
-            $table->timestamps();
-        });
-
         Schema::create('price_history', function (Blueprint $table) {
             $table->id();
             $table->foreignId('exchange_symbol_id');
@@ -326,16 +311,6 @@ return new class extends Migration
 
             $table->string('canonical')->unique();
             $table->string('taapi_canonical')->nullable();
-
-            $table->timestamps();
-        });
-
-        Schema::create('application_logs', function (Blueprint $table) {
-            $table->id();
-
-            $table->string('block_uuid')->nullable();
-            $table->morphs('loggable');
-            $table->text('event');
 
             $table->timestamps();
         });

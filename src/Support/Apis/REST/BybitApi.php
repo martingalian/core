@@ -51,4 +51,16 @@ final class BybitApi
 
         return $this->client->publicRequest($apiRequest);
     }
+
+    // https://bybit-exchange.github.io/docs/v5/account/wallet-balance
+    public function account(ApiProperties $properties)
+    {
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/v5/account/wallet-balance',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
 }

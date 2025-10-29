@@ -155,12 +155,6 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 
         $formattedBEP = api_format_price($breakEvenPrice, $this->position->exchangeSymbol);
 
-        $this->position->logApplicationEvent(
-            "WAP Profit order updated. Price: {$oldPrice} → {$profitOrder->price}, Qty: {$oldQty} → {$profitOrder->quantity}",
-            self::class,
-            __FUNCTION__
-        );
-
         // Notify once the ladder threshold is met.
         if ($this->position->totalLimitOrdersFilled() >= $this->position->account->total_limit_orders_filled_to_notify) {
             Throttler::using(NotificationService::class)

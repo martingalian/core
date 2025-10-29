@@ -47,12 +47,6 @@ final class PlaceLimitOrderJob extends BaseApiableJob
                 $reason .= 'Position status not in opening';
             }
 
-            $this->order->position->logApplicationEvent(
-                '[StartOrFail] Start-or-fail FALSE. Reason: '.$reason,
-                self::class,
-                __FUNCTION__
-            );
-
             Throttler::using(NotificationService::class)
                 ->withCanonical('place_limit_order')
                 ->execute(function () {
@@ -69,12 +63,6 @@ final class PlaceLimitOrderJob extends BaseApiableJob
 
     public function computeApiable()
     {
-        $this->order->position->logApplicationEvent(
-            "[Attempting] LIMIT order [{$this->order->id}] Qty: {$this->order->quantity}, Price: {$this->order->price}",
-            self::class,
-            __FUNCTION__
-        );
-
         $this->order->apiPlace();
 
         return ['order' => format_model_attributes($this->order)];
@@ -102,18 +90,6 @@ final class PlaceLimitOrderJob extends BaseApiableJob
             'reference_quantity' => $this->order->quantity,
             'reference_status' => $this->order->status,
         ]);
-
-        $this->order->position->logApplicationEvent(
-            "[Completed] LIMIT order [{$this->order->id}] successfully placed (Price: {$this->order->price}, Qty: {$this->order->quantity})",
-            self::class,
-            __FUNCTION__
-        );
-
-        $this->order->logApplicationEvent(
-            "Order [{$this->order->id}] successfully placed (Price: {$this->order->price}, Qty: {$this->order->quantity})",
-            self::class,
-            __FUNCTION__
-        );
     }
 
     public function resolveException(Throwable $e)

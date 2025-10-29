@@ -94,12 +94,6 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
     {
         info('[ProcessOrderChangesJob] Logging and dispatching ClosePositionJob due to STOP-MARKET filled.');
 
-        $this->order->position->logApplicationEvent(
-            'Position closed',
-            self::class,
-            __FUNCTION__
-        );
-
         NotificationThrottler::sendToAdmin(
             messageCanonical: 'process_order_changes',
             message: "Position {$this->order->position->parsed_trading_pair} STOP-MARKET filled. Please monitor!",
@@ -120,12 +114,6 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
     {
         info('[ProcessOrderChangesJob] Logging and dispatching ClosePositionJob due to PROFIT-LIMIT filled.');
 
-        $this->order->position->logApplicationEvent(
-            'Position close lifecycle triggered because PROFIT-LIMIT order was FILLED',
-            self::class,
-            __FUNCTION__
-        );
-
         $this->position->updateSaving(['closed_by' => 'watcher']);
 
         Step::create([
@@ -140,18 +128,6 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
     private function handleLimitFilled(): void
     {
         info('[ProcessOrderChangesJob] Logging and dispatching ApplyWAPJob due to LIMIT filled.');
-
-        $this->order->logApplicationEvent(
-            'WAP step lifecycle triggered because it was filled',
-            self::class,
-            __FUNCTION__
-        );
-
-        $this->order->position->logApplicationEvent(
-            "WAP step lifecycle triggered because order ID {$this->order->id} type {$this->order->type} was filled",
-            self::class,
-            __FUNCTION__
-        );
 
         $uuid = Str::uuid()->toString();
         $childBlockId = Str::uuid()->toString();

@@ -31,12 +31,6 @@ final class RemoveIndicatorDataJob extends BaseQueueableJob
             'is_active' => false,
         ]);
 
-        $this->exchangeSymbol->logApplicationEvent(
-            'Indicator data was removed, possibly due to an exception during indicator assessment',
-            self::class,
-            __FUNCTION__
-        );
-
         return ['response' => "Indicator data from {$this->exchangeSymbol->parsed_trading_pair} was removed"];
     }
 }

@@ -70,19 +70,8 @@ final class QueryAccountBalanceJob extends BaseApiableJob
          * Helps with debugging empty or minimal accounts.
          */
         if ($nonZeroBalances === '') {
-            $this->account->logApplicationEvent(
-                'No non-zero balances found.',
-                self::class,
-                __FUNCTION__
-            );
-
             return ['response' => "No non-zero balances found for account ID {$this->account->id} / {$this->account->user->name}"];
         }
-        $this->account->logApplicationEvent(
-            "Synced non-zero balances: {$nonZeroBalances}",
-            self::class,
-            __FUNCTION__
-        );
 
         return $apiResponse->result;
     }

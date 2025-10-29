@@ -18,12 +18,6 @@ return new class extends Migration
         );
 
         $this->createIndexIfNotExists(
-            'application_logs',
-            'app_logs_loggable_idx',
-            fn (Blueprint $table) => $table->index(['loggable_type', 'loggable_id', 'created_at'], 'app_logs_loggable_idx')
-        );
-
-        $this->createIndexIfNotExists(
             'steps',
             'steps_rel_idx',
             fn (Blueprint $table) => $table->index(['relatable_type', 'relatable_id', 'created_at'], 'steps_rel_idx')
@@ -45,7 +39,6 @@ return new class extends Migration
     public function down(): void
     {
         $this->dropIndexIfExists('api_request_logs', 'api_req_logs_rel_idx');
-        $this->dropIndexIfExists('application_logs', 'app_logs_loggable_idx');
         $this->dropIndexIfExists('steps', 'steps_rel_idx');
         $this->dropIndexIfExists('steps_dispatcher_ticks', 'ticks_created_idx');
         $this->dropIndexIfExists('order_history', 'order_hist_ord_idx');

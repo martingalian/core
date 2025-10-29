@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Observers;
 
-use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\Account;
 
 final class AccountObserver
 {
-    use LogsAttributeChanges;
 
     public function creating(Account $model): void
     {
@@ -23,21 +21,17 @@ final class AccountObserver
 
     public function created(Account $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function updated(Account $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function deleted(Account $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function forceDeleted(Account $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 }

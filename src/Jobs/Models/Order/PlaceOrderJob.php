@@ -42,18 +42,6 @@ final class PlaceOrderJob extends BaseApiableJob
         $this->order->apiPlace();
         $this->order->refresh();
 
-        $this->order->logApplicationEvent(
-            "Order placed (Price: {$this->order->price}, Qty: {$this->order->quantity})",
-            self::class,
-            __FUNCTION__
-        );
-
-        $this->order->position->logApplicationEvent(
-            "{$this->order->type} order placed (Price: {$this->order->price}, Qty: {$this->order->quantity})",
-            self::class,
-            __FUNCTION__
-        );
-
         $this->order->updateSaving([
             'reference_price' => $this->order->price,
             'reference_quantity' => $this->order->quantity,

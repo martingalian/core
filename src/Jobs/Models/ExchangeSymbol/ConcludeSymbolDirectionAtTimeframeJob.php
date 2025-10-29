@@ -372,12 +372,6 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
             'indicators_synced_at' => Carbon::now(),
             'is_active' => true,
         ]);
-
-        $exchangeSymbol->logApplicationEvent(
-            "{$exchangeSymbol->parsed_trading_pair} concluded as {$direction} on timeframe {$this->timeframe}",
-            self::class,
-            __FUNCTION__
-        );
     }
 
     /**

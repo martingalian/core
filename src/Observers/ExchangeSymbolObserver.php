@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Carbon;
-use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\ExchangeSymbol;
 use App\Support\NotificationService;
 use App\Support\Throttler;
 
 final class ExchangeSymbolObserver
 {
-    use LogsAttributeChanges;
 
     public function creating(ExchangeSymbol $model): void
     {
@@ -26,12 +24,10 @@ final class ExchangeSymbolObserver
 
     public function created(ExchangeSymbol $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function updated(ExchangeSymbol $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
 
         // Notify admins when delivery date changes (delisting schedule update)
         // Only notify when both old and new values are non-null (actual change in schedule)
@@ -73,11 +69,9 @@ final class ExchangeSymbolObserver
 
     public function deleted(ExchangeSymbol $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function forceDeleted(ExchangeSymbol $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 }

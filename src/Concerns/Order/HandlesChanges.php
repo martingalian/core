@@ -20,18 +20,6 @@ trait HandlesChanges
 
         // Only handle LIMIT orders that were filled.
         if ($this->type === 'LIMIT' && $this->status === 'FILLED') {
-            $this->logApplicationEvent(
-                'WAP step lifecycle triggered because it was filled',
-                self::class,
-                __FUNCTION__
-            );
-
-            $this->position->logApplicationEvent(
-                "WAP step lifecycle triggered because order ID {$this->id} type {$this->type} was filled",
-                self::class,
-                __FUNCTION__
-            );
-
             $uuid = Str::uuid()->toString();
             $childBlockUuid = Str::uuid()->toString();
 

@@ -46,12 +46,6 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
             ->first();
 
         if (! $history) {
-            $this->exchangeSymbol->logApplicationEvent(
-                "{$this->exchangeSymbol->parsed_trading_pair} indicator data CLEANED due to missing indicator history",
-                self::class,
-                __FUNCTION__
-            );
-
             $this->exchangeSymbol->updateSaving([
                 'direction' => null,
                 'indicators_values' => null,
@@ -67,12 +61,6 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
         $data = $history->data;
 
         if (! isset($data['close']) || count($data['close']) < 2) {
-            $this->exchangeSymbol->logApplicationEvent(
-                "{$this->exchangeSymbol->parsed_trading_pair} indicator data CLEANED due to invalid indicator data format",
-                self::class,
-                __FUNCTION__
-            );
-
             $this->exchangeSymbol->updateSaving([
                 'direction' => null,
                 'indicators_values' => null,
@@ -92,12 +80,6 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
         if (($direction === 'LONG' && $last <= $first) ||
         ($direction === 'SHORT' && $last >= $first)
         ) {
-            $this->exchangeSymbol->logApplicationEvent(
-                "{$this->exchangeSymbol->parsed_trading_pair} indicator {$direction} data CLEANED due to price misalignment (Last: {$data['close'][1]} Previous: {$data['close'][0]}, timeframe: {$timeframe})",
-                self::class,
-                __FUNCTION__
-            );
-
             $this->exchangeSymbol->updateSaving([
                 'direction' => null,
                 'indicators_values' => null,
@@ -108,12 +90,6 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
 
             return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair}-{$direction} REMOVED due to price misalignment (Last: {$data['close'][1]} Previous: {$data['close'][0]}, timeframe: {$timeframe})"];
         }
-
-        $this->exchangeSymbol->logApplicationEvent(
-            "Price alignment CONFIRMED (Last: {$data['close'][1]} Previous: {$data['close'][0]}, timeframe: {$timeframe})",
-            self::class,
-            __FUNCTION__
-        );
 
         // Last step: activate exchange symbol for trading.
         $this->exchangeSymbol->updateSaving(['is_active' => true]);

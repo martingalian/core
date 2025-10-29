@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Str;
-use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Models\Order;
 
 final class OrderObserver
 {
-    use LogsAttributeChanges;
 
     public function creating(Order $model): void
     {
@@ -38,8 +36,6 @@ final class OrderObserver
             && $existingStop
             && ! in_array($existingStop->status, ['CANCELLED', 'EXPIRED'], true)
             ) {
-                $model->position->logApplicationEvent('The STOP-MARKET order cannot be created, because another is already active');
-
                 /*
                 Martingalian::notifyAdmins(
                     message: "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingStop->id}",
@@ -56,8 +52,6 @@ final class OrderObserver
             && $existingMarket
             && ! in_array($existingMarket->status, ['CANCELLED', 'EXPIRED'], true)
             ) {
-                $model->position->logApplicationEvent('The MARKET order cannot be created, because another is already active');
-
                 /*
                 Martingalian::notifyAdmins(
                     message: "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingMarket->id}",
@@ -74,8 +68,6 @@ final class OrderObserver
             && $existingProfit
             && ! in_array($existingProfit->status, ['CANCELLED', 'EXPIRED'], true)
             ) {
-                $model->position->logApplicationEvent('The PROFIT order cannot be created, because another is already active');
-
                 /*
                 Martingalian::notifyAdmins(
                     message: "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingProfit->id}",
@@ -91,8 +83,6 @@ final class OrderObserver
             if ($model->type === 'LIMIT'
             && $existingLimits->count() >= (int) $model->position->total_limit_orders
             ) {
-                $model->position->logApplicationEvent('The LIMIT order cannot be created, because all limit orders are already created');
-
                 $ids = $existingLimits->pluck('id')->join(', ');
 
                 /*
@@ -119,26 +109,21 @@ final class OrderObserver
 
     public function created(Order $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function saved(Order $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function updated(Order $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function deleted(Order $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function forceDeleted(Order $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 }

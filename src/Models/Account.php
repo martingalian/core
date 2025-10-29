@@ -29,6 +29,7 @@ final class Account extends BaseModel
 
     protected $casts = [
         'can_trade' => 'boolean',
+        'is_active' => 'boolean',
         'credentials' => 'array',
         'credentials_testing' => 'array',
 

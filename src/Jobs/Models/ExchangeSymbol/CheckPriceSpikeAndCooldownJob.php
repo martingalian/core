@@ -215,7 +215,6 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
                 $cooldownHours,
                 $finalUntil->format('Y-m-d H:i')
             );
-            $ex->logApplicationEvent($msg, self::class, __FUNCTION__);
 
             return [
                 'status' => 'cooled',

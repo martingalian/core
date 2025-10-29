@@ -217,35 +217,17 @@ final class ConcludeDirectionJob extends BaseApiableJob
                 // Store this timeframe's conclusion
                 $timeframeConclusions[$timeframe] = $newSide;
 
-                $this->exchangeSymbol->logApplicationEvent(
-                    "Indicators concluded {$newSide} on timeframe {$timeframe}. Current: {$this->exchangeSymbol->direction} on timeframe {$this->exchangeSymbol->indicators_timeframe}",
-                    self::class,
-                    __FUNCTION__
-                );
-
                 if (! is_null($this->exchangeSymbol->direction) && $this->exchangeSymbol->direction !== $newSide) {
                     // Direction change detected
                     $leastTimeFrameIndex = $this->tradeConfiguration->least_timeframe_index_to_change_indicator;
                     $currentTimeFrameIndex = $timeframeIndex;
                     $oldDirection = $this->exchangeSymbol->direction;
 
-                    $this->exchangeSymbol->logApplicationEvent(
-                        "{$this->exchangeSymbol->parsed_trading_pair} current direction is {$oldDirection} on timeframe {$this->exchangeSymbol->indicators_timeframe} and wants to change to {$newSide} at timeframe {$timeframe} (index {$currentTimeFrameIndex})",
-                        self::class,
-                        __FUNCTION__
-                    );
-
                     info_if('[ConcludeDirectionJob] Direction change: '.$oldDirection.' -> '.$newSide.' at timeframe '.$timeframe.' (index '.$currentTimeFrameIndex.')');
 
                     // Check if we've reached the minimum timeframe index
                     if ($currentTimeFrameIndex < $leastTimeFrameIndex) {
                         $this->shouldCleanIndicatorData = false;
-
-                        $this->exchangeSymbol->logApplicationEvent(
-                            "{$this->exchangeSymbol->parsed_trading_pair} wants to change direction, but current index {$currentTimeFrameIndex} < minimum index {$leastTimeFrameIndex} ({$timeframes[$leastTimeFrameIndex]})",
-                            self::class,
-                            __FUNCTION__
-                        );
 
                         info_if('[ConcludeDirectionJob] Current index '.$currentTimeFrameIndex.' < minimum index '.$leastTimeFrameIndex.', trying next timeframe');
 
@@ -276,12 +258,6 @@ final class ConcludeDirectionJob extends BaseApiableJob
 
                     if (! $pathValid) {
                         // Path has contradictions - INVALIDATE exchange symbol
-                        $this->exchangeSymbol->logApplicationEvent(
-                            "{$this->exchangeSymbol->parsed_trading_pair} direction change REJECTED due to path inconsistency. Path: ".implode(' -> ', $pathDetails),
-                            self::class,
-                            __FUNCTION__
-                        );
-
                         $this->step->update(['response' => 'Direction change REJECTED due to path inconsistency. Path: '.implode(' -> ', $pathDetails)]);
 
                         // Clean indicator data
@@ -305,12 +281,6 @@ final class ConcludeDirectionJob extends BaseApiableJob
 
                     $message = "{$this->exchangeSymbol->parsed_trading_pair} indicator CONCLUDED as {$newSide} on timeframe {$timeframe} (previously was {$previousDirection} on timeframe {$previousTimeframe})";
 
-                    $this->exchangeSymbol->logApplicationEvent(
-                        $message,
-                        self::class,
-                        __FUNCTION__
-                    );
-
                     $this->step->update(['response' => $message]);
 
                     $this->updateIndicatorDataAndConclude([
@@ -327,12 +297,6 @@ final class ConcludeDirectionJob extends BaseApiableJob
                 }
 
                 if (is_null($this->exchangeSymbol->direction)) {
-                    $this->exchangeSymbol->logApplicationEvent(
-                        "{$this->exchangeSymbol->parsed_trading_pair} indicator CONCLUDED as {$newSide} on timeframe {$timeframe} (previously was {$this->exchangeSymbol->direction} on timeframe {$this->exchangeSymbol->indicators_timeframe}",
-                        self::class,
-                        __FUNCTION__
-                    );
-
                     $this->step->update(['response' => "{$this->exchangeSymbol->parsed_trading_pair} indicator CONCLUDED as {$newSide} on timeframe {$timeframe} (previously was {$this->exchangeSymbol->direction} on timeframe {$this->exchangeSymbol->indicators_timeframe})"]);
 
                     $this->updateIndicatorDataAndConclude([
@@ -380,11 +344,6 @@ final class ConcludeDirectionJob extends BaseApiableJob
 
         if ($this->shouldCleanIndicatorData) {
             info_if('[ConcludeDirectionJob] Cleaning indicator data (no conclusion reached)');
-            $this->exchangeSymbol->logApplicationEvent(
-                "{$this->exchangeSymbol->parsed_trading_pair} indicator completed all timeframes without conclusion. Path: ".implode(' -> ', $pathSummary),
-                self::class,
-                __FUNCTION__
-            );
 
             // Prepare detailed response with all conclusions data
             $responseData = [

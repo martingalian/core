@@ -209,18 +209,6 @@ trait HandlesStepExceptions
 
     protected function logExceptionToRelatable(Throwable $e): void
     {
-        if (! $this->step->relatable) {
-            return;
-        }
-
-        if (! method_exists($this->step->relatable, 'logApplicationEvent')) {
-            return;
-        }
-
-        $this->step->relatable->logApplicationEvent(
-            "[{$this->step->id}] Step failed. Error: ".ExceptionParser::with($e)->friendlyMessage(),
-            self::class,
-            __FUNCTION__
-        );
+        // Intentionally empty - no longer logging to relatable
     }
 }

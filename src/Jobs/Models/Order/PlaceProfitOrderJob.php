@@ -51,12 +51,6 @@ final class PlaceProfitOrderJob extends BaseApiableJob
                 $reason .= 'Position status not in opening';
             }
 
-            $this->position->logApplicationEvent(
-                '[StartOrFail] Start-or-fail FALSE. Reason: '.$reason,
-                self::class,
-                __FUNCTION__
-            );
-
             Throttler::using(NotificationService::class)
                 ->withCanonical('place_profit_order')
                 ->execute(function () {
@@ -102,12 +96,6 @@ final class PlaceProfitOrderJob extends BaseApiableJob
             'price' => $calc['price'],
         ]);
 
-        $this->position->logApplicationEvent(
-            "[Attempting] PROFIT-LIMIT order [{$this->profitOrder->id}] Price: {$calc['price']}, Qty: {$calc['quantity']}",
-            self::class,
-            __FUNCTION__
-        );
-
         $this->profitOrder->apiPlace();
 
         return ['order' => format_model_attributes($this->profitOrder)];
@@ -146,18 +134,6 @@ final class PlaceProfitOrderJob extends BaseApiableJob
             'reference_quantity' => $this->profitOrder->quantity,
             'reference_status' => $this->profitOrder->status,
         ]);
-
-        $this->position->logApplicationEvent(
-            "[Completed] PROFIT-LIMIT order [{$this->profitOrder->id}] successfully placed (Price: {$this->profitOrder->price}, Qty: {$this->profitOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
-
-        $this->profitOrder->logApplicationEvent(
-            "Order [{$this->profitOrder->id}] successfully placed (Price: {$this->profitOrder->price}, Qty: {$this->profitOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
     }
 
     public function resolveException(Throwable $e)

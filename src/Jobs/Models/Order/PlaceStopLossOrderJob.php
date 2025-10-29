@@ -57,12 +57,6 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
             $this->position->exchangeSymbol->updateSaving(['is_tradeable' => false]);
         }
 
-        $this->position->logApplicationEvent(
-            '[StartOrFail] Start-or-fail FALSE. Exchange Symbol set to is_tradeable=false (if present).',
-            self::class,
-            __FUNCTION__
-        );
-
         Throttler::using(NotificationService::class)
                 ->withCanonical('place_stop_loss_order')
                 ->execute(function () {
@@ -83,11 +77,6 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
 
         // Guards: we need both profit order (for qty/side) and an anchor price
         if (! $profitOrder || $profitOrder->quantity === null) {
-            $this->position->logApplicationEvent(
-                '[Attempting] Aborting STOP-MARKET: missing profit order or quantity.',
-                self::class,
-                __FUNCTION__
-            );
             throw new RuntimeException('Missing profit order context for stop loss.');
         }
 
@@ -118,19 +107,7 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
             'price' => (string) $calc['price'],
         ]);
 
-        $this->position->logApplicationEvent(
-            "[Attempting] STOP-MARKET order [{$this->stopLossOrder->id}] Qty: {$calc['quantity']}, Price: {$calc['price']}",
-            self::class,
-            __FUNCTION__
-        );
-
         $this->stopLossOrder->apiPlace();
-
-        $this->position->logApplicationEvent(
-            "[Placed] STOP-MARKET order [{$this->stopLossOrder->id}] Qty: {$calc['quantity']}, Price: {$calc['price']}",
-            self::class,
-            __FUNCTION__
-        );
 
         NotificationThrottler::sendToAdmin(
             messageCanonical: 'place_stop_loss_order_2',
@@ -164,18 +141,6 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
             'reference_quantity' => $this->stopLossOrder->quantity,
             'reference_status' => $this->stopLossOrder->status,
         ]);
-
-        $this->position->logApplicationEvent(
-            "[Completed] STOP-MARKET order [{$this->stopLossOrder->id}] successfully placed (Price: {$this->stopLossOrder->price}, Qty: {$this->stopLossOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
-
-        $this->stopLossOrder->logApplicationEvent(
-            "Order [{$this->stopLossOrder->id}] successfully placed (Price: {$this->stopLossOrder->price}, Qty: {$this->stopLossOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
     }
 
     public function resolveException(Throwable $e)

@@ -53,16 +53,6 @@ final class QueryOpenOrdersJob extends BaseApiableJob
         ApiSnapshot::storeFor($this->account, 'account-open-orders', $apiResponse->result);
 
         if (empty($apiResponse->result)) {
-            /*
-             * Log the absence of open orders for visibility.
-             * This is useful when validating system behavior.
-             */
-            $this->account->logApplicationEvent(
-                'No open orders returned from API.',
-                self::class,
-                __FUNCTION__
-            );
-
             return ['response' => "No open orders found for account ID {$this->account->id} / {$this->account->user->name}"];
         }
 

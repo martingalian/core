@@ -31,12 +31,6 @@ final class ValidatePositionJob extends BaseQueueableJob
         ]);
 
         if (! in_array($this->position->status, $this->position->activeStatuses(), true)) {
-            $this->position->logApplicationEvent(
-                "Position {$this->position->parsed_trading_pair} not in an active-related status. Canceling position...",
-                self::class,
-                __FUNCTION__
-            );
-
             Throttler::using(NotificationService::class)
                 ->withCanonical('validate_position')
                 ->execute(function () {
@@ -54,12 +48,6 @@ final class ValidatePositionJob extends BaseQueueableJob
             ->where('orders.position_side', $this->position->direction)
             ->whereNull('orders.exchange_order_id')
             ->count() > 0) {
-            $this->position->logApplicationEvent(
-                "Position {$this->position->parsed_trading_pair} have orders with null exchange order id. Canceling position",
-                self::class,
-                __FUNCTION__
-            );
-
             Throttler::using(NotificationService::class)
                 ->withCanonical('validate_position_2')
                 ->execute(function () {
@@ -78,12 +66,6 @@ final class ValidatePositionJob extends BaseQueueableJob
             ->where('orders.type', 'LIMIT')
             ->active()
             ->count() !== $this->position->total_limit_orders) {
-            $this->position->logApplicationEvent(
-                "Position {$this->position->parsed_trading_pair} have a different number of total active limit orders. Canceling position...",
-                self::class,
-                __FUNCTION__
-            );
-
             Throttler::using(NotificationService::class)
                 ->withCanonical('validate_position_3')
                 ->execute(function () {

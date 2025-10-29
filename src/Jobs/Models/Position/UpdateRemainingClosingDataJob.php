@@ -41,12 +41,6 @@ final class UpdateRemainingClosingDataJob extends BaseApiableJob
                 $this->position->updateSaving([
                     'closing_price' => $trade['price'],
                 ]);
-
-                $this->position->logApplicationEvent(
-                    "Closing price updated to {$trade['price']}",
-                    self::class,
-                    __FUNCTION__
-                );
             }
         }
 
@@ -65,12 +59,6 @@ final class UpdateRemainingClosingDataJob extends BaseApiableJob
                 $this->position->updateSaving(['was_fast_traded' => $wasFast]);
             }
         }
-
-        $this->position->logApplicationEvent(
-            'Fast traded: '.($wasFast ? 'true' : 'false'),
-            self::class,
-            __FUNCTION__
-        );
 
         // Finally update all orders reference_status from status.
         $this->position->orders->each(function (Order $order) {

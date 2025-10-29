@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Observers;
 
-use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\ApiSystem;
 
 final class ApiSystemObserver
 {
-    use LogsAttributeChanges;
 
     public function creating(ApiSystem $model): void
     {
@@ -23,21 +21,17 @@ final class ApiSystemObserver
 
     public function created(ApiSystem $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function updated(ApiSystem $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function deleted(ApiSystem $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function forceDeleted(ApiSystem $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 }

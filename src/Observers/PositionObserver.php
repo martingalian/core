@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Str;
-use Martingalian\Core\Concerns\LogsAttributeChanges;
 use Martingalian\Core\Models\Position;
 
 final class PositionObserver
 {
-    use LogsAttributeChanges;
 
     public function creating(Position $model): void
     {
@@ -20,7 +18,6 @@ final class PositionObserver
 
     public function created(Position $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function updating(Position $model): void
@@ -30,16 +27,13 @@ final class PositionObserver
 
     public function updated(Position $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function deleted(Position $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 
     public function forceDeleted(Position $model): void
     {
-        $this->logChanges($model, self::class, __FUNCTION__);
     }
 }

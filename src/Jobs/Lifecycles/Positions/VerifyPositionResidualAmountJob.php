@@ -34,12 +34,6 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
         if (is_array($positions) && array_key_exists($this->position->parsed_trading_pair, $positions)) {
             $amount = $positions[$this->position->parsed_trading_pair]['positionAmt'];
 
-            $this->position->logApplicationEvent(
-                "Residual amount present - Qty: {$amount}",
-                self::class,
-                __FUNCTION__
-            );
-
             Throttler::using(NotificationService::class)
                 ->withCanonical('verify_position_residual')
                 ->execute(function () {

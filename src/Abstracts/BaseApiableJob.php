@@ -45,12 +45,6 @@ abstract class BaseApiableJob extends BaseQueueableJob
         Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | Forbidden check: {$forbiddenTime}ms | Result: ".($isForbidden ? 'YES' : 'NO'));
 
         if ($isForbidden) {
-            $this->step->logApplicationEvent(
-                'This hostname is FORBIDDEN on this exchange. Retrying again so the job can be picked up by another worker server',
-                self::class,
-                __FUNCTION__
-            );
-
             // Place back the job in the queue;
             $this->retryJob();
 

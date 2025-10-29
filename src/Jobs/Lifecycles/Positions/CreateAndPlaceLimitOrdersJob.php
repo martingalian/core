@@ -68,12 +68,6 @@ final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
 
         // Hard guard: we cannot plan limits without a market order as reference.
         if (! $marketOrder || $marketOrder->price === null || $marketOrder->quantity === null) {
-            $this->position->logApplicationEvent(
-                '[Planning] Missing market order or incomplete data (price/quantity). Aborting ladder planning.',
-                self::class,
-                __FUNCTION__
-            );
-
             return;
         }
 
@@ -85,12 +79,6 @@ final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
 
         // If no rungs requested, exit gracefully.
         if ($N <= 0) {
-            $this->position->logApplicationEvent(
-                '[Planning] total_limit_orders <= 0; skipping ladder creation.',
-                self::class,
-                __FUNCTION__
-            );
-
             return;
         }
 
@@ -106,12 +94,6 @@ final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
         );
 
         if (empty($planned)) {
-            $this->position->logApplicationEvent(
-                '[Planning] Planner returned 0 rows (likely zero/negative budget). Skipping.',
-                self::class,
-                __FUNCTION__
-            );
-
             return;
         }
 
@@ -136,12 +118,6 @@ final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
             ]);
         }
 
-        $this->position->logApplicationEvent(
-            sprintf('[Planning] Created %d local LIMIT orders.', count($planned)),
-            self::class,
-            __FUNCTION__
-        );
-
         // --- Enqueue placement steps (each order -> PlaceLimitOrderJob) ---
         // Use a shared block_uuid so the graph/workflow can visualize this batch.
         $blockUuid = $this->uuid();
@@ -161,12 +137,6 @@ final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
                 ],
             ]);
         }
-
-        $this->position->logApplicationEvent(
-            sprintf('[Planning] Enqueued %d PlaceLimitOrderJob steps (block=%s).', count($limitOrders), $blockUuid),
-            self::class,
-            __FUNCTION__
-        );
     }
 
     /**

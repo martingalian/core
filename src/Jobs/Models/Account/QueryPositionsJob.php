@@ -53,16 +53,6 @@ final class QueryPositionsJob extends BaseApiableJob
         ApiSnapshot::storeFor($this->account, 'account-positions', $apiResponse->result);
 
         if (empty($apiResponse->result)) {
-            /*
-             * Log an informative message when no positions exist.
-             * Useful for validation and monitoring.
-             */
-            $this->account->logApplicationEvent(
-                'No open positions returned from API.',
-                self::class,
-                __FUNCTION__
-            );
-
             return ['response' => "No open positions returned for account ID {$this->account->id} - {$this->account->user->name}"];
         }
 
@@ -71,12 +61,6 @@ final class QueryPositionsJob extends BaseApiableJob
          * Logs the symbols for transparency and audit trail.
          */
         $tradingPairs = collect(array_keys($apiResponse->result))->join(', ');
-
-        $this->account->logApplicationEvent(
-            "Exchange opened positions: {$tradingPairs}",
-            self::class,
-            __FUNCTION__
-        );
 
         return $apiResponse->result;
     }

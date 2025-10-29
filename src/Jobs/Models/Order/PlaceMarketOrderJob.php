@@ -65,18 +65,6 @@ final class PlaceMarketOrderJob extends BaseApiableJob
         // Null-guard: exchange_symbol_id may be null; only inactivate if we can.
         if ($this->position->exchange_symbol_id && $this->position->exchangeSymbol) {
             $this->position->exchangeSymbol->updateSaving(['is_tradeable' => false]);
-
-            $this->position->logApplicationEvent(
-                '[StartOrFail] Preconditions failed. Exchange Symbol inactivated (is_tradeable = false).',
-                self::class,
-                __FUNCTION__
-            );
-        } else {
-            $this->position->logApplicationEvent(
-                '[StartOrFail] Preconditions failed. No exchange_symbol_id set; cannot inactivate symbol.',
-                self::class,
-                __FUNCTION__
-            );
         }
 
         Throttler::using(NotificationService::class)
@@ -127,20 +115,6 @@ final class PlaceMarketOrderJob extends BaseApiableJob
             // No price on MARKET orders.
         ]);
 
-        // Informational logs to aid audits/debugging.
-        $this->position->logApplicationEvent(
-            sprintf(
-                '[Attempting] MARKET order [%s] Qty: %s | Notional: %s | Divider: %s | MarketAmount: %s',
-                $this->marketOrder->id,
-                $marketQty,
-                $calc['notional'],
-                $calc['divider'],
-                $calc['marketAmount'],
-            ),
-            self::class,
-            __FUNCTION__
-        );
-
         // Place on the exchange.
         $this->marketOrder->apiPlace();
 
@@ -188,18 +162,6 @@ final class PlaceMarketOrderJob extends BaseApiableJob
             'reference_quantity' => $this->marketOrder->quantity,
             'reference_status' => $this->marketOrder->status,
         ]);
-
-        $this->position->logApplicationEvent(
-            "[Completed] MARKET order [{$this->marketOrder->id}] placed (Price: {$this->marketOrder->price}, Qty: {$this->marketOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
-
-        $this->marketOrder->logApplicationEvent(
-            "Order [{$this->marketOrder->id}] placed (Price: {$this->marketOrder->price}, Qty: {$this->marketOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
 
         // Update position with the executed opening context.
         $this->position->updateSaving([

@@ -33,12 +33,6 @@ final class CancelPositionOpenOrdersJob extends BaseApiableJob
     {
         $response = $this->position->apiCancelOpenOrders();
 
-        $this->position->logApplicationEvent(
-            'Open orders, if any, cancelled on exchange',
-            self::class,
-            __FUNCTION__
-        );
-
         return $response->result;
     }
 }

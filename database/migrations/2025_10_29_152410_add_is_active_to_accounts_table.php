@@ -13,12 +13,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('api_request_logs', function (Blueprint $table) {
-            $table->index('created_at', 'idx_api_request_logs_created_at');
-        });
-
-        Schema::table('steps', function (Blueprint $table) {
-            $table->index('created_at', 'idx_steps_created_at');
+        Schema::table('accounts', function (Blueprint $table) {
+            $table->boolean('is_active')->default(true)->after('can_trade');
         });
     }
 
@@ -27,6 +23,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        //
+        Schema::table('accounts', function (Blueprint $table) {
+            $table->dropColumn('is_active');
+        });
     }
 };

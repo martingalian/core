@@ -88,12 +88,6 @@ final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
             'price' => api_format_price((string) $markPrice, $exchangeSymbol),
         ]);
 
-        $this->position->logApplicationEvent(
-            "[Attempting] MARKET order [{$marketOrder->id}] (Price: {$marketOrder->price}, Qty: {$marketOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
-
         $marketOrder->apiPlace();
         $marketOrder->apiSync();
 
@@ -106,18 +100,6 @@ final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
         if ($marketOrder->status !== 'FILLED') {
             throw new Exception('Market order was not on status FILLED after being placed. Aborting position dispatch.');
         }
-
-        $this->position->logApplicationEvent(
-            "[Completed] MARKET order [{$marketOrder->id}] successfully placed (Price: {$marketOrder->price}, Qty: {$marketOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
-
-        $marketOrder->logApplicationEvent(
-            "Order [{$marketOrder->id}] successfully placed (Price: {$marketOrder->price}, Qty: {$marketOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
 
         // Track initial filled quantity on the position (you adjust later via WAP logic on fills).
         $this->position->updateSaving(['quantity' => $marketOrder->quantity]);
@@ -205,17 +187,6 @@ final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
                 'reference_quantity' => $limitOrder->quantity,
                 'reference_status' => $limitOrder->status,
             ]);
-
-            $this->position->logApplicationEvent(
-                "LIMIT order [{$limitOrder->id}] successfully placed (Price: {$limitOrder->price}, Qty: {$limitOrder->quantity}).",
-                self::class,
-                __FUNCTION__
-            );
-            $limitOrder->logApplicationEvent(
-                "Order [{$limitOrder->id}] successfully placed (Price: {$limitOrder->price}, Qty: {$limitOrder->quantity}).",
-                self::class,
-                __FUNCTION__
-            );
         }
 
         // ---- PROFIT ORDER (initial; later adjusted by WAP logic on fills) ----
@@ -249,17 +220,6 @@ final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
             'reference_status' => $profitOrder->status,
         ]);
 
-        $this->position->logApplicationEvent(
-            "PROFIT order [{$profitOrder->id}] successfully placed (Price: {$profitOrder->price}, Qty: {$profitOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
-        $profitOrder->logApplicationEvent(
-            "PROFIT order [{$profitOrder->id}] successfully placed (Price: {$profitOrder->price}, Qty: {$profitOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
-
         // ---- STOP-MARKET (initial anchor at last limit price) ----
         $stopSide = $profitOrder->side;
 
@@ -292,17 +252,6 @@ final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
             'reference_quantity' => $stopLossOrder->quantity,
             'reference_status' => $stopLossOrder->status,
         ]);
-
-        $this->position->logApplicationEvent(
-            "STOP-MARKET order [{$stopLossOrder->id}] successfully placed (Price: {$stopLossOrder->price}, Qty: {$stopLossOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
-        $stopLossOrder->logApplicationEvent(
-            "Order successfully placed (Price: {$stopLossOrder->price}, Qty: {$stopLossOrder->quantity}).",
-            self::class,
-            __FUNCTION__
-        );
 
         // ---- FINALIZE POSITION ----
         $this->position->updateSaving([

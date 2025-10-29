@@ -112,12 +112,6 @@ trait InteractsWithApis
 
             $order = Order::create($data);
             $apiResponse = $order->apiPlace();
-
-            $this->logApplicationEvent(
-                "Placed MARKET-CANCEL: symbol={$this->parsed_trading_pair} posSide={$data['position_side']} side={$data['side']} qty={$data['quantity']}",
-                self::class,
-                __FUNCTION__
-            );
         }
 
         return $apiResponse ?? new ApiResponse;

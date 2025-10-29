@@ -104,12 +104,6 @@ trait HasTokenDiscovery
             if ($bestToken) {
                 $this->tokens .= $bestToken->parsed_trading_pair.'-'.$bestToken->direction.' ';
 
-                $position->logApplicationEvent(
-                    "Best token {$bestToken->parsed_trading_pair} updated on position ID {$position->id} with direction {$bestToken->direction}",
-                    self::class,
-                    __FUNCTION__
-                );
-
                 $position->updateSaving([
                     'exchange_symbol_id' => $bestToken->id,
                     'direction' => $bestToken->direction,
