@@ -82,9 +82,7 @@ final class BybitApiClient extends BaseWebsocketClient
 
         // Send periodic ping every 20 seconds as per Bybit requirements
         $this->loop->addPeriodicTimer(20, function () use ($conn) {
-            if ($conn->isConnected()) {
-                $conn->send(json_encode(['op' => 'ping']));
-            }
+            $conn->send(json_encode(['op' => 'ping']));
         });
 
         // Add a message handler specifically for checking subscription failures
