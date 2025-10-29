@@ -15,16 +15,12 @@ use Martingalian\Core\Concerns\Account\HasScopes;
 use Martingalian\Core\Concerns\Account\HasStatuses;
 use Martingalian\Core\Concerns\Account\HasTokenDiscovery;
 use Martingalian\Core\Concerns\Account\InteractsWithApis;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
 
 final class Account extends BaseModel
 {
     use HasAccessors;
     use HasCollections;
-    use HasDebuggable;
     use HasFactory;
-    use HasLoggable;
     use HasScopes;
     use HasStatuses;
     use HasTokenDiscovery;

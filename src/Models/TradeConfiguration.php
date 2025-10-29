@@ -6,17 +6,13 @@ namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
 use Martingalian\Core\Concerns\TradeConfiguration\HasGetters;
 use Martingalian\Core\Concerns\TradeConfiguration\HasScopes;
 
 final class TradeConfiguration extends BaseModel
 {
-    use HasDebuggable;
     use HasFactory;
     use HasGetters;
-    use HasLoggable;
     use HasScopes;
 
     protected $table = 'trade_configuration';

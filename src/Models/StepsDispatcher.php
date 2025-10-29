@@ -8,14 +8,11 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
 use App\Support\NotificationService;
 use App\Support\Throttler;
 
 final class StepsDispatcher extends BaseModel
 {
-    use HasDebuggable, HasLoggable;
 
     protected $table = 'steps_dispatcher';
 

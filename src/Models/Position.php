@@ -6,8 +6,6 @@ namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
 use Martingalian\Core\Concerns\Position\HasAccessors;
 use Martingalian\Core\Concerns\Position\HasGetters;
 use Martingalian\Core\Concerns\Position\HasScopes;
@@ -23,9 +21,7 @@ use Martingalian\Core\Concerns\Position\InteractsWithApis;
 final class Position extends BaseModel
 {
     use HasAccessors;
-    use HasDebuggable;
     use HasGetters;
-    use HasLoggable;
     use HasScopes;
     use HasStatuses;
     use HasTradingActions;

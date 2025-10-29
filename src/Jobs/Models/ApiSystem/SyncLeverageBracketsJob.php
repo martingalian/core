@@ -9,7 +9,6 @@ use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Models\Debuggable;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\LeverageBracket;
 use Martingalian\Core\Models\Quote;
@@ -166,9 +165,6 @@ final class SyncLeverageBracketsJob extends BaseApiableJob
                     );
                 }
             });
-
-            // Log debug information for auditing and traceability.
-            Debuggable::debug($exchangeSymbol, 'Leverage data was synced', $exchangeSymbol->symbol->token);
         }
 
         return $response->result;

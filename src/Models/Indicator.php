@@ -5,14 +5,10 @@ declare(strict_types=1);
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
 use Martingalian\Core\Concerns\Indicator\HasScopes;
 
 final class Indicator extends BaseModel
 {
-    use HasDebuggable;
-    use HasLoggable;
     use HasScopes;
 
     protected $casts = [

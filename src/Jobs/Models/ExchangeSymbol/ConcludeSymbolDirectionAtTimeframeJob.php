@@ -8,7 +8,6 @@ use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols\ConfirmPriceAlignmentWithDirectionJob;
 use Martingalian\Core\Jobs\Models\Indicator\QuerySymbolIndicatorsJob;
-use Martingalian\Core\Models\Debuggable;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\Step;
@@ -320,12 +319,6 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
                 'indicators_synced_at' => null,
                 'is_active' => false,
             ]);
-
-            Debuggable::debug(
-                $exchangeSymbol,
-                "Direction change rejected due to path inconsistency: {$oldDirection} -> {$newDirection}",
-                $exchangeSymbol->symbol->token
-            );
 
             // Notify admin when direction is invalidated due to path inconsistency
             $message = "[ES:{$exchangeSymbol->id}] Symbol {$exchangeSymbol->parsed_trading_pair} direction invalidated (was {$oldDirection}, path inconsistency detected)";

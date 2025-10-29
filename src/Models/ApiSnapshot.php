@@ -7,13 +7,9 @@ namespace Martingalian\Core\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
 
 final class ApiSnapshot extends BaseModel
 {
-    use HasDebuggable;
-    use HasLoggable;
 
     protected $casts = [
         'api_response' => 'array',

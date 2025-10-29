@@ -8,16 +8,12 @@ namespace Martingalian\Core\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
 use NotificationChannels\Pushover\PushoverChannel;
 use NotificationChannels\Pushover\PushoverReceiver;
 
 final class User extends Authenticatable
 {
-    use HasDebuggable;
     use HasFactory;
-    use HasLoggable;
     use Notifiable;
 
     protected $guarded = [];

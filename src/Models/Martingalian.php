@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
 use Martingalian\Core\Concerns\Martingalian\HasAccessors;
 
 final class Martingalian extends BaseModel
 {
     use HasAccessors;
-    use HasDebuggable;
-    use HasLoggable;
 
     protected $table = 'martingalian';
 

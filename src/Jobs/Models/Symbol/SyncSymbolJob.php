@@ -7,7 +7,6 @@ namespace Martingalian\Core\Jobs\Models\Symbol;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
-use Martingalian\Core\Models\Debuggable;
 use Martingalian\Core\Models\Symbol;
 use App\Support\NotificationService;
 use App\Support\Throttler;
@@ -41,8 +40,6 @@ final class SyncSymbolJob extends BaseApiableJob
     public function computeApiable()
     {
         $this->symbol->apiSyncCMCData();
-
-        Debuggable::debug($this->symbol, 'CMC data synced', $this->symbol->token);
 
         // Notify admin when symbol is successfully synced with CMC data
         if ($this->symbol->cmc_id) {

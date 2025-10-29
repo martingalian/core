@@ -8,8 +8,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\ApiSystem\HasScopes;
 use Martingalian\Core\Concerns\ApiSystem\InteractsWithApis;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
 
 /**
  * @property bool $should_restart_websocket
@@ -17,9 +15,7 @@ use Martingalian\Core\Concerns\HasLoggable;
  */
 final class ApiSystem extends BaseModel
 {
-    use HasDebuggable;
     use HasFactory;
-    use HasLoggable;
     use HasScopes;
     use InteractsWithApis;
 

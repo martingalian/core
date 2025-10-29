@@ -6,8 +6,6 @@ namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
 use Martingalian\Core\Concerns\Order\HandlesChanges;
 use Martingalian\Core\Concerns\Order\HasGetters;
 use Martingalian\Core\Concerns\Order\HasScopes;
@@ -23,9 +21,7 @@ use Martingalian\Core\Concerns\Order\InteractsWithApis;
 final class Order extends BaseModel
 {
     use HandlesChanges;
-    use HasDebuggable;
     use HasGetters;
-    use HasLoggable;
     use HasScopes;
     use HasStatuses;
     use HasTradingActions;

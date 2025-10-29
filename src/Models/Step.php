@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Abstracts\StepStatus;
-use Martingalian\Core\Concerns\HasLoggable;
 use Martingalian\Core\Concerns\Step\HasActions;
 use Martingalian\Core\States\Cancelled;
 use Martingalian\Core\States\Completed;
@@ -21,7 +20,7 @@ use Spatie\ModelStates\HasStates;
 
 final class Step extends BaseModel
 {
-    use HasActions, HasFactory, HasLoggable, HasStates;
+    use HasActions, HasFactory, HasStates;
 
     protected $guarded = [];
 

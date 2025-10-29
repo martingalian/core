@@ -10,14 +10,10 @@ use Martingalian\Core\Concerns\ExchangeSymbol\HasScopes;
 use Martingalian\Core\Concerns\ExchangeSymbol\HasStatuses;
 use Martingalian\Core\Concerns\ExchangeSymbol\HasTradingComputations;
 use Martingalian\Core\Concerns\ExchangeSymbol\InteractsWithApis;
-use Martingalian\Core\Concerns\HasDebuggable;
-use Martingalian\Core\Concerns\HasLoggable;
 
 final class ExchangeSymbol extends BaseModel
 {
     use HasAccessors;
-    use HasDebuggable;
-    use HasLoggable;
     use HasScopes;
     use HasStatuses;
     use HasTradingComputations;

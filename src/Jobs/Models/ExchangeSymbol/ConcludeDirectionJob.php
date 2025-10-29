@@ -7,7 +7,6 @@ namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
-use Martingalian\Core\Models\Debuggable;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
@@ -207,12 +206,6 @@ final class ConcludeDirectionJob extends BaseApiableJob
             info_if('[ConcludeDirectionJob] Directions collected: '.json_encode($directions));
             info_if('[ConcludeDirectionJob] Unique directions: '.count(array_unique($directions)));
 
-            Debuggable::debug(
-                $this->exchangeSymbol,
-                'Conclusion directions for timeframe '.$timeframe.': '.json_encode($directions),
-                $this->exchangeSymbol->symbol->token
-            );
-
             // Check if we have a valid conclusion:
             // 1. At least one direction indicator must exist
             // 2. All direction indicators must agree (only 1 unique direction)
@@ -289,12 +282,6 @@ final class ConcludeDirectionJob extends BaseApiableJob
                             __FUNCTION__
                         );
 
-                        Debuggable::debug(
-                            $this->exchangeSymbol,
-                            "Symbol {$this->exchangeSymbol->symbol->token} direction change rejected due to path inconsistency",
-                            $this->exchangeSymbol->symbol->token
-                        );
-
                         $this->step->update(['response' => 'Direction change REJECTED due to path inconsistency. Path: '.implode(' -> ', $pathDetails)]);
 
                         // Clean indicator data
@@ -325,12 +312,6 @@ final class ConcludeDirectionJob extends BaseApiableJob
                     );
 
                     $this->step->update(['response' => $message]);
-
-                    Debuggable::debug(
-                        $this->exchangeSymbol,
-                        $message,
-                        $this->exchangeSymbol->symbol->token
-                    );
 
                     $this->updateIndicatorDataAndConclude([
                         'direction' => $newSide,
@@ -414,12 +395,6 @@ final class ConcludeDirectionJob extends BaseApiableJob
             ];
 
             $this->step->update(['response' => json_encode($responseData)]);
-
-            Debuggable::debug(
-                $this->exchangeSymbol,
-                "Symbol {$this->exchangeSymbol->symbol->token}/{$this->exchangeSymbol->quote->canonical} didnt get any direction conclusion on any timeframe, so we are cleaning its indicator data",
-                $this->exchangeSymbol->symbol->token
-            );
 
             $this->updateIndicatorDataAndConclude([
                 'direction' => null,

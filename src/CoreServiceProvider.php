@@ -16,7 +16,6 @@ use Martingalian\Core\Models\AccountBalanceHistory;
 use Martingalian\Core\Models\ApiRequestLog;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Models\ApplicationLog;
 use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\ForbiddenHostname;
@@ -33,7 +32,6 @@ use Martingalian\Core\Observers\AccountObserver;
 use Martingalian\Core\Observers\ApiRequestLogObserver;
 use Martingalian\Core\Observers\ApiSnapshotObserver;
 use Martingalian\Core\Observers\ApiSystemObserver;
-use Martingalian\Core\Observers\ApplicationLogObserver;
 use Martingalian\Core\Observers\BaseAssetMapperObserver;
 use Martingalian\Core\Observers\ExchangeSymbolObserver;
 use Martingalian\Core\Observers\ForbiddenHostnameObserver;
@@ -67,7 +65,6 @@ final class CoreServiceProvider extends ServiceProvider
 
         AccountBalanceHistory::observe(AccountBalanceHistoryObserver::class);
         Account::observe(AccountObserver::class);
-        ApplicationLog::observe(ApplicationLogObserver::class);
         ApiRequestLog::observe(ApiRequestLogObserver::class);
         ApiSnapshot::observe(ApiSnapshotObserver::class);
         ApiSystem::observe(ApiSystemObserver::class);
