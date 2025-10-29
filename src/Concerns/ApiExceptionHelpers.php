@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ForbiddenHostname;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -77,7 +77,7 @@ trait ApiExceptionHelpers
                          "IP Address: {$record->ip_address}\n".
                          "Exchange: {$exchangeName}\n".
                          "{$accountInfo}\n".
-                         "Time: ".now()->toDateTimeString(),
+                         'Time: '.now()->toDateTimeString(),
                         title: 'Forbidden Hostname Detected',
                         deliveryGroup: 'exceptions'
                     );

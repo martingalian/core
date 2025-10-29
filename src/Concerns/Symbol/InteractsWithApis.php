@@ -28,6 +28,7 @@ trait InteractsWithApis
     {
         $this->apiAccount = Account::admin('coinmarketcap');
         $this->apiProperties = $this->apiMapper()->prepareSyncMarketDataProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount);
         $this->apiResponse = $this->apiAccount->withApi()->getSymbolsMetadata($this->apiProperties);
         $result = json_decode((string) $this->apiResponse->getBody(), true);
 

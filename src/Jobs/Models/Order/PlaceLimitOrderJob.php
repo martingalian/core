@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Order;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 final class PlaceLimitOrderJob extends BaseApiableJob
@@ -95,13 +95,13 @@ final class PlaceLimitOrderJob extends BaseApiableJob
     public function resolveException(Throwable $e)
     {
         Throttler::using(NotificationService::class)
-                ->withCanonical('place_limit_order_2')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "[S:{$this->step->id} P:{$this->order->position->id} O:{$this->order->id}] Order {$this->order->type} {$this->order->side} LIMIT place error - {$e->getMessage()}",
-                        title: '['.class_basename(self::class).'] - Error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            ->withCanonical('place_limit_order_2')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: "[S:{$this->step->id} P:{$this->order->position->id} O:{$this->order->id}] Order {$this->order->type} {$this->order->side} LIMIT place error - {$e->getMessage()}",
+                    title: '['.class_basename(self::class).'] - Error',
+                    deliveryGroup: 'exceptions'
+                );
+            });
     }
 }

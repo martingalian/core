@@ -11,8 +11,6 @@ use Martingalian\Core\Jobs\Lifecycles\Positions\ClosePositionJob;
 use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Step;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 
 final class ProcessOrderChangesJob extends BaseQueueableJob
 {

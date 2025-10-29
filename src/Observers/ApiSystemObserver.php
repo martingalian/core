@@ -8,7 +8,6 @@ use Martingalian\Core\Models\ApiSystem;
 
 final class ApiSystemObserver
 {
-
     public function creating(ApiSystem $model): void
     {
         $model->cacheChangesForCreate();
@@ -19,19 +18,11 @@ final class ApiSystemObserver
         $model->cacheChangesForUpdate();
     }
 
-    public function created(ApiSystem $model): void
-    {
-    }
+    public function created(ApiSystem $model): void {}
 
-    public function updated(ApiSystem $model): void
-    {
-    }
+    public function updated(ApiSystem $model): void {}
 
-    public function deleted(ApiSystem $model): void
-    {
-    }
+    public function deleted(ApiSystem $model): void {}
 
-    public function forceDeleted(ApiSystem $model): void
-    {
-    }
+    public function forceDeleted(ApiSystem $model): void {}
 }

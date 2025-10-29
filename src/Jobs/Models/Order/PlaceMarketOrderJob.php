@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Order;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 final class PlaceMarketOrderJob extends BaseApiableJob
@@ -68,14 +68,14 @@ final class PlaceMarketOrderJob extends BaseApiableJob
         }
 
         Throttler::using(NotificationService::class)
-                ->withCanonical('place_market_order')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on startOrFail()",
-                        title: '['.class_basename(self::class).'] - startOrFail() returned false',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            ->withCanonical('place_market_order')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on startOrFail()",
+                    title: '['.class_basename(self::class).'] - startOrFail() returned false',
+                    deliveryGroup: 'exceptions'
+                );
+            });
 
         return false;
     }

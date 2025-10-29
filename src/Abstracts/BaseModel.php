@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 abstract class BaseModel extends Model
 {
-
     // Internal only; not persisted
     protected array $attributeChangesCache = [];
 

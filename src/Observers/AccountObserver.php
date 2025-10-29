@@ -8,7 +8,6 @@ use Martingalian\Core\Models\Account;
 
 final class AccountObserver
 {
-
     public function creating(Account $model): void
     {
         $model->cacheChangesForCreate();
@@ -19,19 +18,11 @@ final class AccountObserver
         $model->cacheChangesForUpdate();
     }
 
-    public function created(Account $model): void
-    {
-    }
+    public function created(Account $model): void {}
 
-    public function updated(Account $model): void
-    {
-    }
+    public function updated(Account $model): void {}
 
-    public function deleted(Account $model): void
-    {
-    }
+    public function deleted(Account $model): void {}
 
-    public function forceDeleted(Account $model): void
-    {
-    }
+    public function forceDeleted(Account $model): void {}
 }

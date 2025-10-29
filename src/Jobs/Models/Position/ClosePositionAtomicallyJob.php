@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Position;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
@@ -11,8 +13,6 @@ use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 
 final class ClosePositionAtomicallyJob extends BaseApiableJob
 {
@@ -57,14 +57,14 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
                 ($this->position->direction === 'LONG' && $this->position->opening_price > $this->position->exchangeSymbol->mark_price)
             ) {
                 Throttler::using(NotificationService::class)
-                ->withCanonical('close_position_atomically')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "Position {$this->position->parsed_trading_pair} is possibly closing with a negative PnL. Exchange symbol disabled. Please check!",
-                        title: "Position {$this->position->parsed_trading_pair} possible closed with negative PnL",
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+                    ->withCanonical('close_position_atomically')
+                    ->execute(function () {
+                        NotificationService::sendToAdmin(
+                            message: "Position {$this->position->parsed_trading_pair} is possibly closing with a negative PnL. Exchange symbol disabled. Please check!",
+                            title: "Position {$this->position->parsed_trading_pair} possible closed with negative PnL",
+                            deliveryGroup: 'exceptions'
+                        );
+                    });
 
                 $this->position->exchangeSymbol->is_tradeable = false;
                 $this->position->exchangeSymbol->save();

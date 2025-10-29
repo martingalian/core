@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Accounts;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
@@ -13,8 +15,6 @@ use Martingalian\Core\Jobs\Models\Account\QueryOpenOrdersJob;
 use Martingalian\Core\Jobs\Models\Account\QueryPositionsJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 final class LaunchCreatedPositionsJob extends BaseQueueableJob
@@ -101,13 +101,13 @@ final class LaunchCreatedPositionsJob extends BaseQueueableJob
     public function resolveException(Throwable $e)
     {
         Throttler::using(NotificationService::class)
-                ->withCanonical('launch_created_positions')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-                        title: "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(self::class).'] - Error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            ->withCanonical('launch_created_positions')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+                    title: "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(self::class).'] - Error',
+                    deliveryGroup: 'exceptions'
+                );
+            });
     }
 }

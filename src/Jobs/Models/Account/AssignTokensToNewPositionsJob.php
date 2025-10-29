@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Account;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 /*
@@ -81,13 +81,13 @@ final class AssignTokensToNewPositionsJob extends BaseQueueableJob
          * Includes account ID, user name, quote symbol, and error summary.
          */
         Throttler::using(NotificationService::class)
-                ->withCanonical('assign_tokens_positions')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-                        title: '['.class_basename(self::class).'] - Error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            ->withCanonical('assign_tokens_positions')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+                    title: '['.class_basename(self::class).'] - Error',
+                    deliveryGroup: 'exceptions'
+                );
+            });
     }
 }

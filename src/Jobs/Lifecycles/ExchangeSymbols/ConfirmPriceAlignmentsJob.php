@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Exception;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
@@ -13,8 +15,6 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 /**
@@ -128,13 +128,13 @@ final class ConfirmPriceAlignmentsJob extends BaseQueueableJob
         $symbolId = isset($this->exchangeSymbolBeingComputed) ? $this->exchangeSymbolBeingComputed->id : 'unknown';
 
         Throttler::using(NotificationService::class)
-                ->withCanonical('confirm_price_alignments')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "[{$symbolId}] - ExchangeSymbol price confirmation lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-                        title: "[S:{$this->step->id}] - ".class_basename(self::class).' - Error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            ->withCanonical('confirm_price_alignments')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: "[{$symbolId}] - ExchangeSymbol price confirmation lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+                    title: "[S:{$this->step->id}] - ".class_basename(self::class).' - Error',
+                    deliveryGroup: 'exceptions'
+                );
+            });
     }
 }

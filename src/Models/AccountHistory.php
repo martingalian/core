@@ -8,7 +8,6 @@ use Martingalian\Core\Abstracts\BaseModel;
 
 final class AccountHistory extends BaseModel
 {
-
     protected $table = 'account_history';
 
     protected $casts = [

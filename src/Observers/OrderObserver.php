@@ -10,7 +10,6 @@ use Martingalian\Core\Models\Order;
 
 final class OrderObserver
 {
-
     public function creating(Order $model): void
     {
         $model->cacheChangesForCreate();
@@ -107,23 +106,13 @@ final class OrderObserver
         $model->cacheChangesForUpdate();
     }
 
-    public function created(Order $model): void
-    {
-    }
+    public function created(Order $model): void {}
 
-    public function saved(Order $model): void
-    {
-    }
+    public function saved(Order $model): void {}
 
-    public function updated(Order $model): void
-    {
-    }
+    public function updated(Order $model): void {}
 
-    public function deleted(Order $model): void
-    {
-    }
+    public function deleted(Order $model): void {}
 
-    public function forceDeleted(Order $model): void
-    {
-    }
+    public function forceDeleted(Order $model): void {}
 }

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Symbol;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Symbol;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 
 /**
  * This job syncs an unique symbol. Normally it's just called once on its

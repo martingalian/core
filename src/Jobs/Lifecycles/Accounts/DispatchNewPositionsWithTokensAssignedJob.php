@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Accounts;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Lifecycles\Positions\DispatchPositionJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 final class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob
@@ -48,13 +48,13 @@ final class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob
     public function resolveException(Throwable $e)
     {
         Throttler::using(NotificationService::class)
-                ->withCanonical('dispatch_new_positions_tokens_assigned')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-                        title: "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(self::class).'] - Error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            ->withCanonical('dispatch_new_positions_tokens_assigned')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: "Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+                    title: "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(self::class).'] - Error',
+                    deliveryGroup: 'exceptions'
+                );
+            });
     }
 }

@@ -8,7 +8,6 @@ use Martingalian\Core\Abstracts\BaseModel;
 
 final class BaseAssetMapper extends BaseModel
 {
-
     public function apiSystem()
     {
         return $this->belongsTo(ApiSystem::class);

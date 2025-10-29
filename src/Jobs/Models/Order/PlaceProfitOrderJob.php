@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Order;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 final class PlaceProfitOrderJob extends BaseApiableJob

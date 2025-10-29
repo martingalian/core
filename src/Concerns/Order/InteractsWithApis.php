@@ -28,6 +28,7 @@ trait InteractsWithApis
     public function apiCancel(): ApiResponse
     {
         $this->apiProperties = $this->apiMapper()->prepareOrderCancelProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
         $this->apiResponse = $this->apiAccount()->withApi()->cancelOrder($this->apiProperties);
 
         return new ApiResponse(
@@ -47,6 +48,7 @@ trait InteractsWithApis
         }
 
         $this->apiProperties = $this->apiMapper()->prepareOrderModifyProperties($this, $quantity, $price);
+        $this->apiProperties->set('account', $this->apiAccount());
         $this->apiResponse = $this->apiAccount()->withApi()->modifyOrder($this->apiProperties);
 
         return new ApiResponse(
@@ -59,6 +61,7 @@ trait InteractsWithApis
     public function apiQuery(): ApiResponse
     {
         $this->apiProperties = $this->apiMapper()->prepareOrderQueryProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
         $this->apiResponse = $this->apiAccount()->withApi()->orderQuery($this->apiProperties);
 
         return new ApiResponse(
@@ -85,6 +88,7 @@ trait InteractsWithApis
     public function apiPlace(): ApiResponse
     {
         $this->apiProperties = $this->apiMapper()->preparePlaceOrderProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
         $this->apiResponse = $this->apiAccount()->withApi()->placeOrder($this->apiProperties);
 
         $finalResponse = new ApiResponse(

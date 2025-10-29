@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 /**
@@ -89,14 +89,14 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
 
                     // Per your requirement, notify admins on exceptions:
                     Throttler::using(NotificationService::class)
-                ->withCanonical('check_price_spike_cooldown')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "[{$ex->id}] - ExchangeSymbol price spike check error - ".ExceptionParser::with($e)->friendlyMessage(),
-                        title: '[Batch: '.class_basename(static::class)."] Symbol {$ex->id} error",
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+                        ->withCanonical('check_price_spike_cooldown')
+                        ->execute(function () {
+                            NotificationService::sendToAdmin(
+                                message: "[{$ex->id}] - ExchangeSymbol price spike check error - ".ExceptionParser::with($e)->friendlyMessage(),
+                                title: '[Batch: '.class_basename(static::class)."] Symbol {$ex->id} error",
+                                deliveryGroup: 'exceptions'
+                            );
+                        });
 
                     $summary['details'][] = [
                         'symbol_id' => $ex->id,
@@ -117,14 +117,14 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
     public function resolveException(Throwable $e): void
     {
         Throttler::using(NotificationService::class)
-                ->withCanonical('check_price_spike_cooldown_2')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: 'Batch price spike check error - '.ExceptionParser::with($e)->friendlyMessage(),
-                        title: '['.class_basename(self::class).'] Batch error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            ->withCanonical('check_price_spike_cooldown_2')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: 'Batch price spike check error - '.ExceptionParser::with($e)->friendlyMessage(),
+                    title: '['.class_basename(self::class).'] Batch error',
+                    deliveryGroup: 'exceptions'
+                );
+            });
     }
 
     /**

@@ -34,6 +34,7 @@ final class UserFactory extends Factory
             'is_active' => true,
             'can_trade' => false,
             'pushover_key' => null,
+            'notification_channels' => ['mail'],
         ];
     }
 

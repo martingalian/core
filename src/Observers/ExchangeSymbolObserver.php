@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Observers;
 
-use Illuminate\Support\Carbon;
-use Martingalian\Core\Models\ExchangeSymbol;
 use App\Support\NotificationService;
 use App\Support\Throttler;
+use Illuminate\Support\Carbon;
+use Martingalian\Core\Models\ExchangeSymbol;
 
 final class ExchangeSymbolObserver
 {
-
     public function creating(ExchangeSymbol $model): void
     {
         $model->cacheChangesForCreate();
@@ -22,9 +21,7 @@ final class ExchangeSymbolObserver
         $model->cacheChangesForUpdate();
     }
 
-    public function created(ExchangeSymbol $model): void
-    {
-    }
+    public function created(ExchangeSymbol $model): void {}
 
     public function updated(ExchangeSymbol $model): void
     {
@@ -55,23 +52,19 @@ final class ExchangeSymbolObserver
                 );
                 $title = '[ExchangeSymbolObserver] Futures delisting detected';
                 Throttler::using(NotificationService::class)
-                ->withCanonical('futures_delisting_detected')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: $msg,
-                        title: $title,
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+                    ->withCanonical('futures_delisting_detected')
+                    ->execute(function () {
+                        NotificationService::sendToAdmin(
+                            message: $msg,
+                            title: $title,
+                            deliveryGroup: 'exceptions'
+                        );
+                    });
             }
         }
     }
 
-    public function deleted(ExchangeSymbol $model): void
-    {
-    }
+    public function deleted(ExchangeSymbol $model): void {}
 
-    public function forceDeleted(ExchangeSymbol $model): void
-    {
-    }
+    public function forceDeleted(ExchangeSymbol $model): void {}
 }

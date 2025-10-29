@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
@@ -15,8 +17,6 @@ use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\Symbol;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 
 /*
  * SyncMarketDataJob
@@ -201,14 +201,14 @@ final class SyncMarketDataJob extends BaseApiableJob
                         $position->account_id
                     );
                     Throttler::using(NotificationService::class)
-                ->withCanonical('sync_market_data')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: $adminMsg,
-                        title: $title,
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+                        ->withCanonical('sync_market_data')
+                        ->execute(function () {
+                            NotificationService::sendToAdmin(
+                                message: $adminMsg,
+                                title: $title,
+                                deliveryGroup: 'exceptions'
+                            );
+                        });
 
                     return;
                 }
@@ -224,14 +224,14 @@ final class SyncMarketDataJob extends BaseApiableJob
                         $position->account_id
                     );
                     Throttler::using(NotificationService::class)
-                ->withCanonical('sync_market_data_2')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: $adminMsg,
-                        title: $title,
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+                        ->withCanonical('sync_market_data_2')
+                        ->execute(function () {
+                            NotificationService::sendToAdmin(
+                                message: $adminMsg,
+                                title: $title,
+                                deliveryGroup: 'exceptions'
+                            );
+                        });
 
                     return;
                 }
@@ -246,14 +246,14 @@ final class SyncMarketDataJob extends BaseApiableJob
                     $position->account_id
                 );
                 Throttler::using(NotificationService::class)
-                ->withCanonical('sync_market_data_3')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: $adminMsg,
-                        title: $title,
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+                    ->withCanonical('sync_market_data_3')
+                    ->execute(function () {
+                        NotificationService::sendToAdmin(
+                            message: $adminMsg,
+                            title: $title,
+                            deliveryGroup: 'exceptions'
+                        );
+                    });
             });
     }
 }

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Support\Surveillance;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 /**
@@ -184,17 +184,17 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
     public function resolveException(Throwable $e)
     {
         Throttler::using(NotificationService::class)
-                ->withCanonical('assess_unknown_orders_2')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: '['.$this->account->id.'] Account '
+            ->withCanonical('assess_unknown_orders_2')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: '['.$this->account->id.'] Account '
             .$this->account->user->name.'/'
             .$this->account->tradingQuote->canonical
             .' surveillance error - '
             .ExceptionParser::with($e)->friendlyMessage(),
-                        title: '['.class_basename(self::class).'] - Error.',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+                    title: '['.class_basename(self::class).'] - Error.',
+                    deliveryGroup: 'exceptions'
+                );
+            });
     }
 }

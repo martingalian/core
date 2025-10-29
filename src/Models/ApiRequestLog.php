@@ -25,4 +25,9 @@ final class ApiRequestLog extends BaseModel
     {
         return $this->morphTo();
     }
+
+    public function account()
+    {
+        return $this->belongsTo(Account::class);
+    }
 }

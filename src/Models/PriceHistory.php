@@ -8,7 +8,6 @@ use Martingalian\Core\Abstracts\BaseModel;
 
 final class PriceHistory extends BaseModel
 {
-
     protected $table = 'price_history';
 
     public function exchangeSymbol()

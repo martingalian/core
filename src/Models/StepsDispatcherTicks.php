@@ -8,7 +8,6 @@ use Martingalian\Core\Abstracts\BaseModel;
 
 final class StepsDispatcherTicks extends BaseModel
 {
-
     protected $table = 'steps_dispatcher_ticks';
 
     protected $casts = [

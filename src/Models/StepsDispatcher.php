@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Abstracts\BaseModel;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 
 final class StepsDispatcher extends BaseModel
 {
-
     protected $table = 'steps_dispatcher';
 
     protected $casts = [
@@ -159,14 +158,14 @@ final class StepsDispatcher extends BaseModel
 
                     if ($durationMs > 40000) {
                         Throttler::using(NotificationService::class)
-                ->withCanonical('steps_dispatcher')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "Dispatch took too long: {$durationMs}ms.",
-                        title: 'Step Dispatcher Tick Warning',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+                            ->withCanonical('steps_dispatcher')
+                            ->execute(function () {
+                                NotificationService::sendToAdmin(
+                                    message: "Dispatch took too long: {$durationMs}ms.",
+                                    title: 'Step Dispatcher Tick Warning',
+                                    deliveryGroup: 'exceptions'
+                                );
+                            });
                     }
                 } else {
                     $tick->update([

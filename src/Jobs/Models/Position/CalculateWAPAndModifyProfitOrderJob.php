@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Position;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Exception;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
@@ -175,14 +175,14 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
     public function resolveException(Throwable $e)
     {
         Throttler::using(NotificationService::class)
-                ->withCanonical('calculate_wap_modify_profit_5')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-                        title: '['.class_basename(self::class).'] - Error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            ->withCanonical('calculate_wap_modify_profit_5')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
+                    title: '['.class_basename(self::class).'] - Error',
+                    deliveryGroup: 'exceptions'
+                );
+            });
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

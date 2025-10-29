@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 final class VerifyPositionResidualAmountJob extends BaseQueueableJob
@@ -57,13 +57,13 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
     public function resolveException(Throwable $e)
     {
         Throttler::using(NotificationService::class)
-                ->withCanonical('verify_position_residual_2')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} historical data delete error - {$e->getMessage()}",
-                        title: '['.class_basename(self::class).'] - Error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            ->withCanonical('verify_position_residual_2')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} historical data delete error - {$e->getMessage()}",
+                    title: '['.class_basename(self::class).'] - Error',
+                    deliveryGroup: 'exceptions'
+                );
+            });
     }
 }

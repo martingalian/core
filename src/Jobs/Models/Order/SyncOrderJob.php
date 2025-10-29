@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Order;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 final class SyncOrderJob extends BaseApiableJob
@@ -44,13 +44,13 @@ final class SyncOrderJob extends BaseApiableJob
     public function resolveException(Throwable $e)
     {
         Throttler::using(NotificationService::class)
-                ->withCanonical('sync_order')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "[{$this->order->id}] Order {$this->order->type} {$this->order->side} synchronization error - {$e->getMessage()}",
-                        title: '['.class_basename(self::class).'] - Error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            ->withCanonical('sync_order')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: "[{$this->order->id}] Order {$this->order->type} {$this->order->side} synchronization error - {$e->getMessage()}",
+                    title: '['.class_basename(self::class).'] - Error',
+                    deliveryGroup: 'exceptions'
+                );
+            });
     }
 }

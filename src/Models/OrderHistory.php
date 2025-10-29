@@ -8,7 +8,6 @@ use Martingalian\Core\Abstracts\BaseModel;
 
 final class OrderHistory extends BaseModel
 {
-
     protected $table = 'order_history';
 
     public function order()

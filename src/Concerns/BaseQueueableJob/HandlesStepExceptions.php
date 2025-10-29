@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\BaseQueueableJob;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Exceptions\JustEndException;
 use Martingalian\Core\Exceptions\JustResolveException;
@@ -11,8 +13,6 @@ use Martingalian\Core\Exceptions\MaxRetriesReachedException;
 use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 /**

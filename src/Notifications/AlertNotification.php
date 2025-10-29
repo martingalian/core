@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Notifications;
 
+use App\Mail\AlertMail;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Mail\Mailable;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\Pushover\PushoverChannel;
 use NotificationChannels\Pushover\PushoverMessage;
@@ -29,12 +30,16 @@ final class AlertNotification extends Notification
      * @param  string  $title  The notification title
      * @param  string|null  $deliveryGroup  Delivery group name (exceptions, default, indicators) or null for individual user
      * @param  array  $additionalParameters  Extra parameters (sound, priority, url, etc.)
+     * @param  \App\Enums\NotificationSeverity|null  $severity  Severity level for visual styling
+     * @param  string|null  $pushoverMessage  Override message for Pushover (defaults to $message)
      */
     public function __construct(
         public string $message,
         public string $title = 'Alert',
         public ?string $deliveryGroup = null,
-        public array $additionalParameters = []
+        public array $additionalParameters = [],
+        public ?\App\Enums\NotificationSeverity $severity = null,
+        public ?string $pushoverMessage = null
     ) {}
 
     /**
@@ -67,8 +72,14 @@ final class AlertNotification extends Notification
      */
     public function toPushover($notifiable): PushoverMessage
     {
-        $message = PushoverMessage::create($this->message)
-            ->title($this->title);
+        // Use pushoverMessage if provided, otherwise use the main message
+        $pushoverText = $this->pushoverMessage ?? $this->message;
+
+        // Add hostname prefix for Pushover notifications only
+        $pushoverTitle = '['.gethostname().'] '.$this->title;
+
+        $message = PushoverMessage::create($pushoverText)
+            ->title($pushoverTitle);
 
         // Get priority from delivery group config, or use additionalParameters
         $priority = $this->getDeliveryGroupPriority() ?? $this->additionalParameters['priority'] ?? 0;
@@ -110,17 +121,18 @@ final class AlertNotification extends Notification
      *
      * @param  mixed  $notifiable
      */
-    public function toMail($notifiable): MailMessage
+    public function toMail($notifiable): Mailable
     {
-        return (new MailMessage)
-            ->subject($this->title)
-            ->view('martingalian::notifications.admin-alert', [
-                'alertTitle' => $this->title,
-                'alertMessage' => $this->message,
-                'hostname' => gethostname(),
-                'url' => $this->additionalParameters['url'] ?? null,
-                'url_title' => $this->additionalParameters['url_title'] ?? 'View Details',
-            ]);
+        return (new AlertMail(
+            notificationTitle: $this->title,
+            notificationMessage: $this->message,
+            severity: $this->severity,
+            actionUrl: $this->additionalParameters['url'] ?? null,
+            actionLabel: $this->additionalParameters['url_title'] ?? null,
+            details: $this->additionalParameters['details'] ?? null,
+            hostname: gethostname(),
+            userName: $notifiable->name ?? null
+        ))->to($notifiable->email);
     }
 
     /**

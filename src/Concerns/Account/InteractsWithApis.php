@@ -45,6 +45,7 @@ trait InteractsWithApis
     public function apiQuery(): ApiResponse
     {
         $this->apiProperties = $this->apiMapper()->prepareQueryAccountProperties($this);
+        $this->apiProperties->set('account', $this);
         $this->apiResponse = $this->withApi()->account($this->apiProperties);
 
         return new ApiResponse(
@@ -56,6 +57,7 @@ trait InteractsWithApis
     public function apiQueryOpenOrders(): ApiResponse
     {
         $this->apiProperties = $this->apiMapper()->prepareQueryOpenOrdersProperties($this);
+        $this->apiProperties->set('account', $this);
         $this->apiResponse = $this->withApi()->getCurrentOpenOrders($this->apiProperties);
 
         return new ApiResponse(
@@ -68,6 +70,7 @@ trait InteractsWithApis
     public function apiQueryPositions(): ApiResponse
     {
         $this->apiProperties = $this->apiMapper()->prepareQueryPositionsProperties($this);
+        $this->apiProperties->set('account', $this);
         $this->apiResponse = $this->withApi()->getPositions($this->apiProperties);
 
         return new ApiResponse(
@@ -80,6 +83,7 @@ trait InteractsWithApis
     public function apiQueryBalance(): ApiResponse
     {
         $this->apiProperties = $this->apiMapper()->prepareGetBalanceProperties($this);
+        $this->apiProperties->set('account', $this);
         $this->apiResponse = $this->withApi()->getAccountBalance($this->apiProperties);
 
         return new ApiResponse(

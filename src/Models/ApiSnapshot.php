@@ -10,7 +10,6 @@ use Martingalian\Core\Abstracts\BaseModel;
 
 final class ApiSnapshot extends BaseModel
 {
-
     protected $casts = [
         'api_response' => 'array',
     ];

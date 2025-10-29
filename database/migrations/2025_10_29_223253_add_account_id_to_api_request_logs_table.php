@@ -13,9 +13,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            // pushover_key already exists, only add notification_channels
-            $table->json('notification_channels')->nullable()->after('pushover_key');
+        Schema::table('api_request_logs', function (Blueprint $table) {
+            $table->unsignedBigInteger('account_id')->nullable()->after('api_system_id');
+            $table->index('account_id');
         });
     }
 
@@ -24,8 +24,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('notification_channels');
+        Schema::table('api_request_logs', function (Blueprint $table) {
+            $table->dropIndex(['account_id']);
+            $table->dropColumn('account_id');
         });
     }
 };

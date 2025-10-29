@@ -8,7 +8,6 @@ use Martingalian\Core\Abstracts\BaseModel;
 
 final class AccountBalanceHistory extends BaseModel
 {
-
     protected $table = 'account_balance_history';
 
     public function account()

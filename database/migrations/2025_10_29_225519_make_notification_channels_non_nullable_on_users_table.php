@@ -13,9 +13,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // First, update all existing users with null notification_channels to have ['mail'] as default
+        Illuminate\Support\Facades\DB::table('users')
+            ->whereNull('notification_channels')
+            ->update(['notification_channels' => json_encode(['mail'])]);
+
+        // Now make the column non-nullable (JSON columns cannot have defaults in MySQL)
         Schema::table('users', function (Blueprint $table) {
-            // pushover_key already exists, only add notification_channels
-            $table->json('notification_channels')->nullable()->after('pushover_key');
+            $table->json('notification_channels')->nullable(false)->change();
         });
     }
 
@@ -25,7 +30,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('notification_channels');
+            $table->json('notification_channels')->nullable()->change();
         });
     }
 };

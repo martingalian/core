@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Position;
 
+use App\Support\NotificationService;
+use App\Support\Throttler;
 use Exception;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Position;
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Throwable;
 
 final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
@@ -284,13 +284,13 @@ final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
     public function resolveException(Throwable $e)
     {
         Throttler::using(NotificationService::class)
-                ->withCanonical('create_dispatch_position_orders')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} creation/dispatch error - {$e->getMessage()}",
-                        title: '['.class_basename(self::class).'] - Error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            ->withCanonical('create_dispatch_position_orders')
+            ->execute(function () {
+                NotificationService::sendToAdmin(
+                    message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} creation/dispatch error - {$e->getMessage()}",
+                    title: '['.class_basename(self::class).'] - Error',
+                    deliveryGroup: 'exceptions'
+                );
+            });
     }
 }

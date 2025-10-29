@@ -83,6 +83,16 @@ final class User extends Authenticatable
     }
 
     /**
+     * Route notifications for the Mail channel.
+     *
+     * Returns the user's email address for mail notifications.
+     */
+    public function routeNotificationForMail($notification): ?string
+    {
+        return $this->email;
+    }
+
+    /**
      * Route notifications for the Pushover channel.
      *
      * If notification has a deliveryGroup set, routes to that group.
@@ -128,7 +138,7 @@ final class User extends Authenticatable
         $channels = is_string($value) ? json_decode($value, true) : $value;
 
         if (! is_array($channels) || empty($channels)) {
-            return [PushoverChannel::class];
+            return [];
         }
 
         return array_map(function ($channel) {

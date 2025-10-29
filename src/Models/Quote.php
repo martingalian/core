@@ -8,7 +8,6 @@ use Martingalian\Core\Abstracts\BaseModel;
 
 final class Quote extends BaseModel
 {
-
     public function exchangeSymbols()
     {
         return $this->hasMany(ExchangeSymbol::class);

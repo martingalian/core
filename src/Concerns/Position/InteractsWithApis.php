@@ -25,6 +25,7 @@ trait InteractsWithApis
     public function apiUpdateMarginTypeToCrossed()
     {
         $this->apiProperties = $this->apiMapper()->prepareUpdateMarginTypeProperties($this);
+        $this->apiProperties->set('account', $this->account);
         $this->apiResponse = $this->account->withApi()->updateMarginType($this->apiProperties);
 
         return new ApiResponse(
@@ -37,6 +38,7 @@ trait InteractsWithApis
     public function apiUpdateLeverageRatio(int $leverage): ApiResponse
     {
         $this->apiProperties = $this->apiMapper()->prepareUpdateLeverageRatioProperties($this, $leverage);
+        $this->apiProperties->set('account', $this->account);
         $this->apiResponse = $this->account->withApi()->changeInitialLeverage($this->apiProperties);
 
         return new ApiResponse(
@@ -49,6 +51,7 @@ trait InteractsWithApis
     public function apiCancelOpenOrders(): ApiResponse
     {
         $this->apiProperties = $this->apiMapper()->prepareCancelOrdersProperties($this);
+        $this->apiProperties->set('account', $this->account);
 
         $this->apiResponse = $this->account->withApi()->cancelAllOpenOrders($this->apiProperties);
 
@@ -65,6 +68,7 @@ trait InteractsWithApis
         $orderId = $this->profitOrder()->exchange_order_id;
 
         $this->apiProperties = $this->apiMapper()->prepareQueryTokenTradesProperties($this);
+        $this->apiProperties->set('account', $this->account);
 
         $this->apiResponse = $this->account->withApi()->accountTrades($this->apiProperties);
 

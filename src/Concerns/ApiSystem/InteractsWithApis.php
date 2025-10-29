@@ -27,6 +27,7 @@ trait InteractsWithApis
         $account = Account::admin($this->canonical);
 
         $this->apiProperties = $this->apiMapper()->prepareQueryMarketDataProperties($this);
+        $this->apiProperties->set('account', $account);
         $this->apiResponse = $account->withApi()->getExchangeInformation($this->apiProperties);
 
         return new ApiResponse(
@@ -41,6 +42,7 @@ trait InteractsWithApis
         $account = Account::admin($this->canonical);
 
         $this->apiProperties = $this->apiMapper()->prepareQueryLeverageBracketsDataProperties($this);
+        $this->apiProperties->set('account', $account);
         $this->apiResponse = $account->withApi()->getLeverageBrackets($this->apiProperties);
 
         return new ApiResponse(
