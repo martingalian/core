@@ -23,10 +23,7 @@ trait HandlesApiJobExceptions
 {
     protected function handleApiException(Throwable $e): void
     {
-        // Send throttled notifications for common API errors
-        if (isset($this->exceptionHandler) && method_exists($this->exceptionHandler, 'notifyException')) {
-            $this->exceptionHandler->notifyException($e);
-        }
+        // Notifications are sent by ApiRequestLogObserver after log is persisted
 
         // Handle connection failures like timeouts or DNS issues.
         if ($e instanceof ConnectException) {

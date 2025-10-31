@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Abstracts;
 
-use App\Support\NotificationService;
-use App\Support\Throttler;
 use Exception;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
@@ -105,283 +103,9 @@ abstract class BaseExceptionHandler
     }
 
     /**
-     * Send throttled notifications to the account user for common API exceptions.
-     * If no specific user is associated with the account (virtual/system accounts),
-     * notifications are sent to all active admins instead.
-     * Override in child classes to add API-specific notifications.
-     */
-    final public function notifyException(Throwable $exception): void
-    {
-        if (! $this->account) {
-            return;
-        }
-
-        $apiSystem = $this->getApiSystem();
-        $hostname = gethostname();
-        $hasSpecificUser = $this->account->user !== null;
-
-        // 429 - Rate Limit Exceeded
-        if ($this->isRateLimited($exception)) {
-            $this->sendThrottledNotification(
-                hasSpecificUser: $hasSpecificUser,
-                messageCanonical: 'api_rate_limit_exceeded',
-                message: "API rate limit exceeded on {$apiSystem}. Worker: {$hostname}",
-                title: 'Rate Limit Exceeded'
-            );
-
-            return;
-        }
-
-        // 403 - Forbidden / IP Not Whitelisted
-        if ($this->isForbidden($exception)) {
-            $this->sendThrottledNotification(
-                hasSpecificUser: $hasSpecificUser,
-                messageCanonical: 'ip_not_whitelisted',
-                message: "Worker IP {$hostname} is not whitelisted on {$apiSystem}",
-                title: 'IP Not Whitelisted'
-            );
-
-            return;
-        }
-
-        // Connection failures
-        if ($exception instanceof RequestException && ! $exception->hasResponse()) {
-            $this->sendThrottledNotification(
-                hasSpecificUser: $hasSpecificUser,
-                messageCanonical: 'api_connection_failed',
-                message: "Unable to connect to {$apiSystem} from {$hostname}",
-                title: 'API Connection Failed'
-            );
-
-            return;
-        }
-
-        // 401 - Invalid credentials
-        if ($exception instanceof RequestException && $exception->getResponse()?->getStatusCode() === 401) {
-            $this->sendThrottledNotification(
-                hasSpecificUser: $hasSpecificUser,
-                messageCanonical: 'invalid_api_credentials',
-                message: "Invalid API credentials for {$apiSystem} on account {$this->account->name}",
-                title: 'Invalid API Credentials'
-            );
-
-            return;
-        }
-
-        // 503 - Service unavailable / Maintenance
-        if ($exception instanceof RequestException && $exception->getResponse()?->getStatusCode() === 503) {
-            $this->sendThrottledNotification(
-                hasSpecificUser: $hasSpecificUser,
-                messageCanonical: 'exchange_maintenance',
-                message: "{$apiSystem} is currently under maintenance or unavailable",
-                title: 'Exchange Maintenance'
-            );
-
-            return;
-        }
-    }
-
-    /**
-     * Send notifications based on API request log data.
-     * This method analyzes the log and sends appropriate throttled notifications.
-     * Used by ApiRequestLogObserver to notify on API errors.
-     */
-    final public function notifyFromApiLog(\Martingalian\Core\Models\ApiRequestLog $log): void
-    {
-        if (! $this->account) {
-            return;
-        }
-
-        $apiSystem = $this->getApiSystem();
-        $hostname = $log->hostname ?? gethostname();
-        $hasSpecificUser = $this->account->user !== null;
-        $httpCode = $log->http_response_code;
-
-        // Extract vendor-specific error code from response
-        $vendorCode = $this->extractVendorCodeFromLog($log);
-
-        // 429 / 418 / 403 - Rate Limit
-        if ($this->isRateLimitedFromLog($httpCode, $vendorCode)) {
-            $this->sendThrottledNotification(
-                hasSpecificUser: $hasSpecificUser,
-                messageCanonical: 'api_rate_limit_exceeded',
-                message: "API rate limit exceeded on {$apiSystem}. Worker: {$hostname}",
-                title: 'Rate Limit Exceeded'
-            );
-
-            return;
-        }
-
-        // 403 / 401 with IP whitelist codes - Forbidden / IP Not Whitelisted
-        if ($this->isForbiddenFromLog($httpCode, $vendorCode)) {
-            $this->sendThrottledNotification(
-                hasSpecificUser: $hasSpecificUser,
-                messageCanonical: 'ip_not_whitelisted',
-                message: "Worker IP {$hostname} is not whitelisted on {$apiSystem}",
-                title: 'IP Not Whitelisted'
-            );
-
-            return;
-        }
-
-        // 401 - Invalid credentials (without specific IP codes)
-        if ($httpCode === 401) {
-            $this->sendThrottledNotification(
-                hasSpecificUser: $hasSpecificUser,
-                messageCanonical: 'invalid_api_credentials',
-                message: "Invalid API credentials for {$apiSystem}",
-                title: 'Invalid API Credentials'
-            );
-
-            return;
-        }
-
-        // 503 - Service unavailable / Maintenance
-        if ($httpCode === 503) {
-            $this->sendThrottledNotification(
-                hasSpecificUser: $hasSpecificUser,
-                messageCanonical: 'exchange_maintenance',
-                message: "{$apiSystem} is currently under maintenance or unavailable",
-                title: 'Exchange Maintenance'
-            );
-
-            return;
-        }
-
-        // Connection failures (no http_response_code but has error_message)
-        if (! $httpCode && $log->error_message) {
-            $this->sendThrottledNotification(
-                hasSpecificUser: $hasSpecificUser,
-                messageCanonical: 'api_connection_failed',
-                message: "Unable to connect to {$apiSystem} from {$hostname}",
-                title: 'API Connection Failed'
-            );
-
-            return;
-        }
-    }
-
-    /**
-     * Send admin-only notifications based on API request log data.
-     * Used when there's no account associated (system-level API calls).
-     */
-    final public function notifyFromApiLogToAdmin(\Martingalian\Core\Models\ApiRequestLog $log): void
-    {
-        $apiSystem = $this->getApiSystem();
-        $hostname = $log->hostname ?? gethostname();
-        $httpCode = $log->http_response_code;
-        $vendorCode = $this->extractVendorCodeFromLog($log);
-        $prefixedCanonical = $this->getApiSystem().'_';
-
-        // Rate Limit
-        if ($this->isRateLimitedFromLog($httpCode, $vendorCode)) {
-            $prefixedCanonical .= 'api_rate_limit_exceeded';
-            Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
-                ->execute(function () use ($apiSystem, $hostname) {
-                    NotificationService::sendToAdmin(
-                        message: "System API rate limit exceeded on {$apiSystem}. Worker: {$hostname}",
-                        title: 'System Rate Limit',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
-
-            return;
-        }
-
-        // Forbidden / IP Not Whitelisted
-        if ($this->isForbiddenFromLog($httpCode, $vendorCode)) {
-            $prefixedCanonical .= 'ip_not_whitelisted';
-            Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
-                ->execute(function () use ($apiSystem, $hostname) {
-                    NotificationService::sendToAdmin(
-                        message: "System worker IP {$hostname} is not whitelisted on {$apiSystem}",
-                        title: 'System IP Not Whitelisted',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
-
-            return;
-        }
-
-        // Invalid credentials
-        if ($httpCode === 401) {
-            $prefixedCanonical .= 'invalid_api_credentials';
-            Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
-                ->execute(function () use ($apiSystem) {
-                    NotificationService::sendToAdmin(
-                        message: "Invalid system API credentials for {$apiSystem}",
-                        title: 'System API Credentials Invalid',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
-
-            return;
-        }
-
-        // Service unavailable
-        if ($httpCode === 503) {
-            $prefixedCanonical .= 'exchange_maintenance';
-            Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
-                ->execute(function () use ($apiSystem) {
-                    NotificationService::sendToAdmin(
-                        message: "{$apiSystem} is currently under maintenance or unavailable",
-                        title: 'System API Maintenance',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
-
-            return;
-        }
-
-        // Connection failures
-        if (! $httpCode && $log->error_message) {
-            $prefixedCanonical .= 'api_connection_failed';
-            Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
-                ->execute(function () use ($apiSystem, $hostname) {
-                    NotificationService::sendToAdmin(
-                        message: "Unable to connect to {$apiSystem} from {$hostname}",
-                        title: 'System API Connection Failed',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
-
-            return;
-        }
-    }
-
-    /**
-     * Get the current server's IP address.
-     * Used for IP-based rate limiting and ban coordination.
-     */
-    protected function getCurrentIp(): string
-    {
-        return gethostbyname(gethostname());
-    }
-
-    /**
-     * Extract vendor-specific error code from API request log response.
-     */
-    protected function extractVendorCodeFromLog(\Martingalian\Core\Models\ApiRequestLog $log): ?int
-    {
-        $response = $log->response;
-
-        if (! is_array($response)) {
-            return null;
-        }
-
-        // Binance uses 'code', Bybit uses 'retCode'
-        return $response['code'] ?? $response['retCode'] ?? null;
-    }
-
-    /**
      * Check if log represents a rate limit error based on HTTP code and vendor code.
      */
-    protected function isRateLimitedFromLog(int $httpCode, ?int $vendorCode): bool
+    final public function isRateLimitedFromLog(int $httpCode, ?int $vendorCode): bool
     {
         // HTTP 429, 418, 403 are rate limits
         if (in_array($httpCode, [429, 418, 403], true)) {
@@ -399,7 +123,7 @@ abstract class BaseExceptionHandler
     /**
      * Check if log represents a forbidden/IP whitelist error based on HTTP code and vendor code.
      */
-    protected function isForbiddenFromLog(int $httpCode, ?int $vendorCode): bool
+    final public function isForbiddenFromLog(int $httpCode, ?int $vendorCode): bool
     {
         if (! in_array($httpCode, [401, 403], true)) {
             return false;
@@ -425,65 +149,91 @@ abstract class BaseExceptionHandler
     }
 
     /**
-     * Send notification to specific user if available, otherwise to admin from config.
-     * This handles both user-specific accounts and virtual/system accounts.
-     * Canonicals are automatically prefixed with API system to prevent cross-API throttling.
+     * Check if log represents a server overload/busy error based on HTTP code and vendor code.
+     * These are treated the same as exchange maintenance - server cannot process requests.
      */
-    private function sendThrottledNotification(
-        bool $hasSpecificUser,
-        string $messageCanonical,
-        string $message,
-        string $title
-    ): void {
-        // Prefix canonical with API system to segregate throttle windows per API
-        // Example: 'ip_not_whitelisted' becomes 'binance_ip_not_whitelisted'
-        $prefixedCanonical = $this->getApiSystem().'_'.$messageCanonical;
-
-        // Build user-friendly message with context
-        $messageData = \App\Support\NotificationMessageBuilder::build(
-            canonical: $prefixedCanonical,
-            context: [
-                'exchange' => $this->getApiSystem(),
-                'ip' => $this->getCurrentIp(),
-                'hostname' => gethostname(),
-                'account_name' => $this->account?->name ?? 'your account',
-            ],
-            user: $hasSpecificUser ? $this->account->user : null
-        );
-
-        if ($hasSpecificUser) {
-            // Notify the specific user associated with this account
-            $user = $this->account->user;
-            Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
-                ->for($user)
-                ->execute(function () use ($user, $messageData) {
-                    NotificationService::sendToUser(
-                        user: $user,
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel']
-                    );
-                });
-        } else {
-            // No specific user (virtual/system account) - notify admin from config
-            Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
-                ->execute(function () use ($messageData) {
-                    NotificationService::sendToAdmin(
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel']
-                    );
-                });
+    final public function isServerOverloadFromLog(int $httpCode, ?int $vendorCode): bool
+    {
+        // HTTP 503/504 indicate service unavailable or gateway timeout
+        if (in_array($httpCode, [503, 504], true)) {
+            return true;
         }
+
+        // Check vendor-specific server overload codes if available
+        if ($vendorCode && property_exists($this, 'serverOverloadCodes')) {
+            return in_array($vendorCode, $this->serverOverloadCodes, true);
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if log represents a critical account status error requiring account disabling.
+     * These errors trigger can_trade = 0 on the account.
+     */
+    final public function isAccountStatusErrorFromLog(?int $vendorCode): bool
+    {
+        if (! $vendorCode || ! property_exists($this, 'accountStatusCodes')) {
+            return false;
+        }
+
+        return in_array($vendorCode, $this->accountStatusCodes, true);
+    }
+
+    /**
+     * Check if log represents insufficient balance/margin error.
+     */
+    final public function isInsufficientBalanceFromLog(?int $vendorCode): bool
+    {
+        if (! $vendorCode || ! property_exists($this, 'insufficientBalanceCodes')) {
+            return false;
+        }
+
+        return in_array($vendorCode, $this->insufficientBalanceCodes, true);
+    }
+
+    /**
+     * Check if log represents KYC verification required error.
+     */
+    final public function isKycRequiredFromLog(?int $vendorCode): bool
+    {
+        if (! $vendorCode || ! property_exists($this, 'kycRequiredCodes')) {
+            return false;
+        }
+
+        return in_array($vendorCode, $this->kycRequiredCodes, true);
+    }
+
+    /**
+     * Check if log represents system error (unknown error, timeout).
+     */
+    final public function isSystemErrorFromLog(?int $vendorCode): bool
+    {
+        if (! $vendorCode || ! property_exists($this, 'systemErrorCodes')) {
+            return false;
+        }
+
+        return in_array($vendorCode, $this->systemErrorCodes, true);
+    }
+
+    /**
+     * Check if log represents network error.
+     */
+    final public function isNetworkErrorFromLog(?int $vendorCode): bool
+    {
+        if (! $vendorCode || ! property_exists($this, 'networkErrorCodes')) {
+            return false;
+        }
+
+        return in_array($vendorCode, $this->networkErrorCodes, true);
+    }
+
+    /**
+     * Get the current server's IP address.
+     * Used for IP-based rate limiting and ban coordination.
+     */
+    protected function getCurrentIp(): string
+    {
+        return gethostbyname(gethostname());
     }
 }

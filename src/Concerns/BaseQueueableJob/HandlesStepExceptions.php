@@ -76,7 +76,7 @@ trait HandlesStepExceptions
 
         $this->logExceptionToStep($e);
         $this->logExceptionToRelatable($e);
-        $this->notifyExceptionIfNeeded($e);
+        // Notifications are sent by ApiRequestLogObserver after log is persisted
         $this->resolveExceptionIfPossible($e);
 
         if (! $this->stepStatusUpdated) {
@@ -137,19 +137,6 @@ trait HandlesStepExceptions
 
         if (! $this->stepStatusUpdated) {
             $this->reportAndFail($e);
-        }
-    }
-
-    protected function notifyExceptionIfNeeded(Throwable $e): void
-    {
-        if (method_exists($this, 'notifyException')) {
-            $this->notifyException($e);
-        }
-
-        if (isset($this->exceptionHandler)
-            && method_exists($this->exceptionHandler, 'notifyException')
-        ) {
-            $this->exceptionHandler->notifyException($e);
         }
     }
 

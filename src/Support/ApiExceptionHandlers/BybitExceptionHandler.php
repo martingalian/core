@@ -72,6 +72,64 @@ final class BybitExceptionHandler extends BaseExceptionHandler
     ];
 
     /**
+     * Server overload/busy codes - treated as maintenance (cannot process requests).
+     * Critical during price crashes when exchanges get overloaded.
+     */
+    protected array $serverOverloadCodes = [
+        10019,   // Service restarting
+        170007,  // Backend timeout
+        177002,  // Server busy
+    ];
+
+    /**
+     * Account status errors - critical issues requiring account disabling.
+     * These trigger can_trade = 0 on the account.
+     */
+    protected array $accountStatusCodes = [
+        33004,   // API key expired
+        10008,   // Common ban applied
+        10024,   // Compliance rules triggered
+        10027,   // Transactions are banned
+        110023,  // Can only reduce positions
+        110066,  // Trading currently not allowed
+        10007,   // User authentication failed (also in forbidden)
+    ];
+
+    /**
+     * Balance/margin insufficiency errors.
+     */
+    protected array $insufficientBalanceCodes = [
+        110004,  // Insufficient wallet balance
+        110007,  // Insufficient available balance
+        110012,  // Insufficient available balance
+        110044,  // Insufficient available margin
+        110045,  // Insufficient wallet balance
+    ];
+
+    /**
+     * KYC verification required errors.
+     */
+    protected array $kycRequiredCodes = [
+        20096,   // KYC authentication required
+    ];
+
+    /**
+     * System errors - unknown errors and timeouts.
+     */
+    protected array $systemErrorCodes = [
+        10016,   // Internal server error
+        10000,   // Server timeout
+        10002,   // Request time exceeds acceptable window
+    ];
+
+    /**
+     * Network errors - connectivity issues.
+     */
+    protected array $networkErrorCodes = [
+        170032,  // Network error
+    ];
+
+    /**
      * Check if exception represents an IP ban (HTTP 429).
      */
     public function isIpBanned(Throwable $exception): bool

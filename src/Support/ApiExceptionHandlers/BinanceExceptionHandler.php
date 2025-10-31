@@ -69,6 +69,44 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     ];
 
     /**
+     * Account status errors - critical issues requiring account disabling.
+     * These trigger can_trade = 0 on the account.
+     */
+    protected array $accountStatusCodes = [
+        -2015,   // Invalid API key / rejected (also in forbidden, treated as credentials invalid)
+        -2017,   // API keys locked
+        -2023,   // User in liquidation
+        -4087,   // Reduce-only order permission
+        -4088,   // No place order permission
+        -4400,   // Trading quantitative rule (risk control)
+        -1002,   // Unauthorized
+    ];
+
+    /**
+     * Balance/margin insufficiency errors.
+     */
+    protected array $insufficientBalanceCodes = [
+        -2018,   // Balance not sufficient
+        -2019,   // Margin not sufficient
+    ];
+
+    /**
+     * KYC verification required errors.
+     */
+    protected array $kycRequiredCodes = [
+        -4202,   // Adjust leverage KYC failed (>20x requires enhanced KYC)
+    ];
+
+    /**
+     * System errors - unknown errors and timeouts.
+     */
+    protected array $systemErrorCodes = [
+        -1000,   // Unknown error
+        -1007,   // Timeout
+        -1008,   // Server overload - request throttled
+    ];
+
+    /**
      * Rate-limited — slow down and back off.
      * • 429 Too Many Requests (may or may not carry Retry-After)
      * • 418 IP ban escalation (always treat as rate-limit, not forbidden)
