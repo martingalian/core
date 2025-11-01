@@ -16,6 +16,24 @@ use Martingalian\Core\Concerns\Account\HasStatuses;
 use Martingalian\Core\Concerns\Account\HasTokenDiscovery;
 use Martingalian\Core\Concerns\Account\InteractsWithApis;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $user_id
+ * @property int $api_system_id
+ * @property int $trade_configuration_id
+ * @property int|null $portfolio_quote_id
+ * @property int|null $trading_quote_id
+ * @property float|null $margin
+ * @property bool $can_trade
+ * @property int|null $last_notified_account_balance_history_id
+ * @property array|null $credentials
+ * @property array|null $credentials_testing
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property \Illuminate\Support\Carbon $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read ApiSystem $apiSystem
+ */
 final class Account extends BaseModel
 {
     use HasAccessors;
@@ -82,7 +100,7 @@ final class Account extends BaseModel
         return $this->belongsTo(User::class);
     }
 
-    public function apiSystem()
+    public function apiSystem(): BelongsTo
     {
         return $this->belongsTo(ApiSystem::class);
     }

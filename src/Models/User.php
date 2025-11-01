@@ -11,6 +11,23 @@ use Illuminate\Notifications\Notifiable;
 use NotificationChannels\Pushover\PushoverChannel;
 use NotificationChannels\Pushover\PushoverReceiver;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property \Illuminate\Support\Carbon|null $email_verified_at
+ * @property string $password
+ * @property string|null $remember_token
+ * @property string|null $pushover_key
+ * @property array<int, string> $notification_channels
+ * @property \Illuminate\Support\Carbon|null $last_logged_in_at
+ * @property \Illuminate\Support\Carbon|null $previous_logged_in_at
+ * @property bool $can_trade
+ * @property bool $is_active
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property \Illuminate\Support\Carbon $updated_at
+ * @property string|null $_temp_delivery_group
+ */
 final class User extends Authenticatable
 {
     use HasFactory;
@@ -100,7 +117,14 @@ final class User extends Authenticatable
      */
     public function routeNotificationForPushover($notification): ?PushoverReceiver
     {
-        $appToken = config('martingalian.api.pushover.application_key');
+        // Get application token from Martingalian model
+        $martingalian = Martingalian::find(1);
+
+        if (! $martingalian || ! $martingalian->admin_pushover_application_key) {
+            return null;
+        }
+
+        $appToken = $martingalian->admin_pushover_application_key;
 
         // Determine delivery group from temp property (if set) or notification object
         // Note: Pushover package doesn't pass $notification, so it's often null

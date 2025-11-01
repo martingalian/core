@@ -69,6 +69,26 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     ];
 
     /**
+     * Rate-limited — slow down and back off.
+     * • 429 Too Many Requests (may or may not carry Retry-After)
+     * • 418 IP ban escalation (always treat as rate-limit, not forbidden)
+     * • 403 on Binance is often WAF throttling and should be treated as rate-limit-ish.
+     */
+    public array $rateLimitedHttpCodes = [
+        429,
+        418,
+        403,
+    ];
+
+    /**
+     * recvWindow mismatches:
+     * • -1021 (spot), -5028 (futures)
+     */
+    public $recvWindowMismatchedHttpCodes = [
+        400 => [-1021, -5028],
+    ];
+
+    /**
      * Account status errors - critical issues requiring account disabling.
      * These trigger can_trade = 0 on the account.
      */
@@ -104,26 +124,6 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
         -1000,   // Unknown error
         -1007,   // Timeout
         -1008,   // Server overload - request throttled
-    ];
-
-    /**
-     * Rate-limited — slow down and back off.
-     * • 429 Too Many Requests (may or may not carry Retry-After)
-     * • 418 IP ban escalation (always treat as rate-limit, not forbidden)
-     * • 403 on Binance is often WAF throttling and should be treated as rate-limit-ish.
-     */
-    public array $rateLimitedHttpCodes = [
-        429,
-        418,
-        403,
-    ];
-
-    /**
-     * recvWindow mismatches:
-     * • -1021 (spot), -5028 (futures)
-     */
-    public $recvWindowMismatchedHttpCodes = [
-        400 => [-1021, -5028],
     ];
 
     /**

@@ -18,6 +18,34 @@ use Martingalian\Core\States\Skipped;
 use Martingalian\Core\States\Stopped;
 use Spatie\ModelStates\HasStates;
 
+/**
+ * @property int $id
+ * @property string $block_uuid
+ * @property string $type
+ * @property StepStatus $state
+ * @property string|null $class
+ * @property int|null $index
+ * @property array|null $response
+ * @property string|null $error_message
+ * @property string|null $error_stack_trace
+ * @property string|null $relatable_type
+ * @property int|null $relatable_id
+ * @property string|null $child_block_uuid
+ * @property string $execution_mode
+ * @property int $double_check
+ * @property string $queue
+ * @property array|null $arguments
+ * @property int $retries
+ * @property \Illuminate\Support\Carbon|null $dispatch_after
+ * @property \Illuminate\Support\Carbon|null $started_at
+ * @property \Illuminate\Support\Carbon|null $completed_at
+ * @property int $duration
+ * @property string|null $hostname
+ * @property bool $was_notified
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property \Illuminate\Support\Carbon $updated_at
+ * @property-read string|null $group
+ */
 final class Step extends BaseModel
 {
     use HasActions, HasFactory, HasStates;

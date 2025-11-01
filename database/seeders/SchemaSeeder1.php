@@ -158,8 +158,9 @@ final class SchemaSeeder1 extends Seeder
             'pushover_key' => env('TRADER_PUSHOVER_KEY'),
         ];
 
+        // Add notification_channels if column exists (added in later migration)
         if (Schema::hasColumn('users', 'notification_channels')) {
-            $userData['notification_channels'] = ['pushover', 'mail'];
+            $userData['notification_channels'] = ['mail', 'pushover'];
         }
 
         $trader = User::create($userData);

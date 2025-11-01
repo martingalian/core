@@ -14,7 +14,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('martingalian', function (Blueprint $table) {
-            $table->longText('admin_pushover_user_key')->nullable()->after('notification_channels');
+            $table->string('admin_user_email')->nullable()->after('admin_pushover_application_key');
         });
     }
 
@@ -24,7 +24,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('martingalian', function (Blueprint $table) {
-            $table->dropColumn('admin_pushover_user_key');
+            $table->dropColumn('admin_user_email');
         });
     }
 };

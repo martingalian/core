@@ -13,10 +13,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // First, update all existing users with null notification_channels to have ['mail'] as default
+        // First, update all existing users with null notification_channels to have ['mail', 'pushover'] as default
         Illuminate\Support\Facades\DB::table('users')
             ->whereNull('notification_channels')
-            ->update(['notification_channels' => json_encode(['mail'])]);
+            ->update(['notification_channels' => json_encode(['mail', 'pushover'])]);
 
         // Now make the column non-nullable (JSON columns cannot have defaults in MySQL)
         Schema::table('users', function (Blueprint $table) {
