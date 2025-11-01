@@ -85,6 +85,13 @@ trait SendsNotifications
             return;
         }
 
+        // Check if this is specifically an IP whitelist error before checking generic forbidden
+        if ($this->isIpWhitelistError($vendorCode)) {
+            $this->handleIpWhitelistError($handler, $account, $hasSpecificUser, $hostname);
+
+            return;
+        }
+
         // 403 / 401 with forbidden codes - API Access Denied (ambiguous error)
         if ($handler->isForbiddenFromLog($httpCode, $vendorCode)) {
             $this->sendThrottledNotification(
@@ -512,5 +519,88 @@ trait SendsNotifications
 
         // Binance uses 'code', Bybit uses 'retCode'
         return $response['code'] ?? $response['retCode'] ?? null;
+    }
+
+    /**
+     * Check if this error is specifically an IP whitelist error.
+     * Binance: -2015 with "Invalid IP" message
+     * Bybit: 10003 or similar IP restriction errors
+     */
+    protected function isIpWhitelistError(?int $vendorCode): bool
+    {
+        if (! $vendorCode) {
+            return false;
+        }
+
+        // Binance: -2015 can be "Invalid API key" OR "Invalid IP"
+        // We need to check the message to distinguish
+        if ($vendorCode === -2015) {
+            $response = $this->response;
+            if (is_array($response)) {
+                $message = $response['msg'] ?? '';
+                // Check if message specifically mentions IP
+                if (str_contains(strtolower($message), 'ip')) {
+                    return true;
+                }
+            }
+        }
+
+        // Bybit: 10003 (IP not in whitelist)
+        if ($vendorCode === 10003) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Handle IP whitelist error: send notification and create repeater.
+     */
+    protected function handleIpWhitelistError(
+        BaseExceptionHandler $handler,
+        Account $account,
+        bool $hasSpecificUser,
+        string $hostname
+    ): void {
+        // Send ip_not_whitelisted notification
+        $this->sendThrottledNotification(
+            handler: $handler,
+            account: $account,
+            hasSpecificUser: $hasSpecificUser,
+            messageCanonical: 'ip_not_whitelisted',
+            hostname: $hostname
+        );
+
+        // Get or create Server record for this hostname
+        $server = \Martingalian\Core\Models\Server::where('hostname', $hostname)->first();
+
+        if (! $server) {
+            // Create server record if it doesn't exist
+            $server = \Martingalian\Core\Models\Server::create([
+                'hostname' => $hostname,
+                'ip_address' => gethostbyname($hostname),
+                'type' => 'worker',
+            ]);
+        }
+
+        // Check if repeater already exists for this account+server combination
+        $existingRepeater = \Martingalian\Core\Models\Repeater::where('class', \App\Repeaters\ServerIpNotWhitelistedRepeater::class)
+            ->where('parameters->account_id', $account->id)
+            ->where('parameters->server_id', $server->id)
+            ->first();
+
+        // Only create repeater if one doesn't already exist
+        if (! $existingRepeater) {
+            \Martingalian\Core\Models\Repeater::create([
+                'class' => \App\Repeaters\ServerIpNotWhitelistedRepeater::class,
+                'parameters' => [
+                    'account_id' => $account->id,
+                    'server_id' => $server->id,
+                ],
+                'retry_strategy' => 'proportional',
+                'retry_interval_minutes' => 1,
+                'max_attempts' => 60, // 1min intervals for up to 1 hour
+            ]);
+        }
     }
 }
