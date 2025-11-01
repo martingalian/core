@@ -35,12 +35,35 @@ abstract class BaseApiableJob extends BaseQueueableJob
         $handlerTime = round((microtime(true) - $handlerStart) * 1000, 2);
         Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | assignExceptionHandler: {$handlerTime}ms");
 
-        // Is this hostname forbidden on this account?
+        // Is this hostname forbidden for this API system and account?
         $forbiddenStart = microtime(true);
-        $isForbidden = ForbiddenHostname::query()
-            ->where('account_id', $this->exceptionHandler->account->id)
-            ->where('ip_address', gethostbyname(gethostname()))
-            ->exists();
+        $apiSystemCanonical = $this->exceptionHandler->getApiSystem();
+        $apiSystem = \Martingalian\Core\Models\ApiSystem::where('canonical', $apiSystemCanonical)->firstOrFail();
+        $accountId = $this->exceptionHandler->account->id;
+        $ipAddress = gethostbyname(gethostname());
+
+        // Check forbidden status based on account type:
+        // - Admin accounts (transient, id = NULL): Check system-wide ban only
+        // - User accounts (real, id != NULL): Check both account-specific AND system-wide bans
+        if ($accountId === null) {
+            // Admin account - check system-wide ban only
+            $isForbidden = ForbiddenHostname::query()
+                ->where('api_system_id', $apiSystem->id)
+                ->where('ip_address', $ipAddress)
+                ->whereNull('account_id')
+                ->exists();
+        } else {
+            // User account - check both account-specific AND system-wide bans
+            $isForbidden = ForbiddenHostname::query()
+                ->where('api_system_id', $apiSystem->id)
+                ->where('ip_address', $ipAddress)
+                ->where(function ($query) use ($accountId) {
+                    $query->where('account_id', $accountId)
+                        ->orWhereNull('account_id');
+                })
+                ->exists();
+        }
+
         $forbiddenTime = round((microtime(true) - $forbiddenStart) * 1000, 2);
         Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | Forbidden check: {$forbiddenTime}ms | Result: ".($isForbidden ? 'YES' : 'NO'));
 

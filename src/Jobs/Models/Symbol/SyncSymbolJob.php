@@ -44,7 +44,7 @@ final class SyncSymbolJob extends BaseApiableJob
         // Notify admin when symbol is successfully synced with CMC data
         if ($this->symbol->cmc_id) {
             Throttler::using(NotificationService::class)
-                ->withCanonical('symbol_synced')
+                ->withCanonical('throttle_3600')
                 ->execute(function () {
                     NotificationService::sendToAdmin(
                         message: "Symbol {$this->symbol->token} successfully synced with CoinMarketCap (CMC ID: {$this->symbol->cmc_id})",

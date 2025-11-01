@@ -40,22 +40,27 @@ final class BybitExceptionHandler extends BaseExceptionHandler
     ];
 
     /**
-     * Errors indicating authentication/authorization failures.
+     * Forbidden — real exchange-level IP bans.
+     *
+     * IMPORTANT:
+     * • 10009 = IP banned by Bybit exchange (permanent until manual unban)
+     * • 403 is NOT here (it's a temporary rate limit, handled as rate-limit)
+     * • 10003/10004/10005/10007 are NOT here (API key credential issues, not server bans)
+     * • 10010 is NOT here (IP whitelist configuration in API key settings, not a server ban)
      */
     protected array $forbiddenHttpCodes = [
-        10003,   // Invalid API key
-        10004,   // Signature error
-        10005,   // Permission denied
-        10007,   // Authentication failed
-        10009,   // IP banned
-        10010,   // Unmatched IP address
+        10009,   // IP banned by exchange (permanent)
     ];
 
     /**
      * Rate limit related error codes.
+     * • 10006 = Too many visits (per-UID limit)
+     * • 10018 = Exceeded IP rate limit
+     * • 403 = HTTP-level IP rate limit (600 req/5s)
      */
     protected array $rateLimitedHttpCodes = [
-        10006,   // Too many visits
+        403,     // HTTP-level: IP rate limit breached (temporary, lifts after 10 minutes)
+        10006,   // Too many visits (per-UID)
         10018,   // Exceeded IP rate limit
         170005,  // Exceeded max orders per time period
         170222,  // Too many requests

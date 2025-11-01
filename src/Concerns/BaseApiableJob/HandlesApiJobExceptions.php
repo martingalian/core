@@ -72,16 +72,20 @@ trait HandlesApiJobExceptions
          */
         $retryAt = $this->exceptionHandler->rateLimitUntil($e);
 
-        // Record IP ban for coordination across workers when applicable
+        // Record IP ban in throttler for coordination across workers when applicable
         if ($e instanceof RequestException && $e->hasResponse()) {
             $statusCode = $e->getResponse()->getStatusCode();
 
-            // Check if this is an IP ban scenario (429 or 418 for Binance)
-            if (in_array($statusCode, [418, 429], true)) {
+            // Check if this is an IP ban scenario (418/429 for Binance, 403 for Bybit)
+            if (in_array($statusCode, [418, 429, 403], true)) {
                 $retryAfterSeconds = (int) max(0, now()->diffInSeconds($retryAt, false));
 
                 if ($retryAfterSeconds > 0) {
-                    $this->exceptionHandler->recordIpBan($retryAfterSeconds);
+                    // Record ban in the appropriate throttler
+                    $throttler = $this->getThrottlerForApiSystem();
+                    if ($throttler && method_exists($throttler, 'recordIpBan')) {
+                        $throttler::recordIpBan($retryAfterSeconds);
+                    }
                 }
             }
         }

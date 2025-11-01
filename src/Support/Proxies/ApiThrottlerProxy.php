@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Support\Proxies;
 
+use Martingalian\Core\Support\Throttlers\BinanceThrottler;
+use Martingalian\Core\Support\Throttlers\BybitThrottler;
 use Martingalian\Core\Support\Throttlers\CoinmarketCapThrottler;
 use Martingalian\Core\Support\Throttlers\TaapiThrottler;
 
@@ -18,7 +20,7 @@ final class ApiThrottlerProxy
     /**
      * Get the throttler class for a given API system.
      *
-     * @param  string  $apiSystem  The API system canonical name ('taapi', 'coinmarketcap', etc.)
+     * @param  string  $apiSystem  The API system canonical name ('taapi', 'coinmarketcap', 'binance', 'bybit', etc.)
      * @return string|null The fully-qualified throttler class name, or null if no throttler exists
      */
     public static function getThrottler(string $apiSystem): ?string
@@ -26,9 +28,8 @@ final class ApiThrottlerProxy
         return match ($apiSystem) {
             'taapi' => TaapiThrottler::class,
             'coinmarketcap' => CoinmarketCapThrottler::class,
-            // Future throttlers:
-            // 'binance' => BinanceThrottler::class,
-            // 'bybit' => BybitThrottler::class,
+            'binance' => BinanceThrottler::class,
+            'bybit' => BybitThrottler::class,
             default => null, // No throttler = no rate limiting
         };
     }

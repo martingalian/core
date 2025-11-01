@@ -116,6 +116,7 @@ final class SyncMarketDataJob extends BaseApiableJob
                     'min_price' => $tokenData['minPrice'],
                     'max_price' => $tokenData['maxPrice'],
                     'min_notional' => $tokenData['minNotional'],
+                    'limit_quantity_multipliers' => [2, 2, 2, 2],
                 ]
             );
 

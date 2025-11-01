@@ -8,6 +8,11 @@ use Martingalian\Core\Abstracts\BaseModel;
 
 final class ForbiddenHostname extends BaseModel
 {
+    public function apiSystem()
+    {
+        return $this->belongsTo(ApiSystem::class);
+    }
+
     public function account()
     {
         return $this->belongsTo(Account::class);
