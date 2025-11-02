@@ -41,15 +41,16 @@ use Throwable;
 final class BybitThrottler extends BaseApiThrottler
 {
     /**
-     * Override: Check IP ban status before allowing dispatch.
+     * Pre-flight safety check called before canDispatch().
+     * Checks IP ban status, minimum delay, and rate limit threshold.
+     *
+     * @return int Seconds to wait, or 0 if safe to proceed
      */
-    public static function canDispatch(int $retryCount = 0): int
+    public static function isSafeToDispatch(): int
     {
         $prefix = self::getCacheKeyPrefix();
 
-        Log::channel('jobs')->info("[THROTTLER] {$prefix} | canDispatch() called");
-
-        // 1. Check if IP is currently banned (403 response)
+        // Check if IP is currently banned (403 response)
         if (self::isCurrentlyBanned()) {
             $secondsRemaining = self::getSecondsUntilBanLifts();
             Log::channel('jobs')->info("[THROTTLER] {$prefix} | IP currently banned | Wait: {$secondsRemaining}s");
@@ -57,13 +58,63 @@ final class BybitThrottler extends BaseApiThrottler
             return $secondsRemaining;
         }
 
-        // 2. Use base throttling logic
-        return parent::canDispatch($retryCount);
+        try {
+            $ip = self::getCurrentIp();
+
+            // Check minimum delay since last request
+            $minDelayMs = config('martingalian.throttlers.bybit.min_delay_ms', 0);
+            if ($minDelayMs > 0) {
+                $lastRequest = Cache::get("bybit:{$ip}:last_request");
+                if ($lastRequest) {
+                    $elapsedMs = (now()->timestamp - $lastRequest) * 1000;
+                    if ($elapsedMs < $minDelayMs) {
+                        $waitSeconds = (int) ceil(($minDelayMs - $elapsedMs) / 1000);
+
+                        return $waitSeconds > 0 ? $waitSeconds : 1;
+                    }
+                }
+            }
+
+            // Check rate limit threshold
+            $safetyThreshold = config('martingalian.throttlers.bybit.safety_threshold', 0.1);
+            $limitStatus = Cache::get("bybit:{$ip}:limit:status");
+            $limitMax = Cache::get("bybit:{$ip}:limit:max");
+
+            // If no rate limit data exists, allow request (fail-safe)
+            if ($limitStatus === null || $limitMax === null) {
+                return 0;
+            }
+
+            // If max is 0, allow request (avoid division by zero)
+            if ($limitMax === 0) {
+                return 0;
+            }
+
+            // If status is 0 or negative, we're at or over limit
+            if ($limitStatus <= 0) {
+                return 1; // Wait at least 1 second
+            }
+
+            // Calculate remaining percentage
+            $remainingPercentage = $limitStatus / $limitMax;
+
+            // If below safety threshold, wait
+            if ($remainingPercentage < $safetyThreshold) {
+                return 1; // Wait at least 1 second
+            }
+        } catch (Throwable $e) {
+            // Fail-safe: allow request on error
+            Log::warning("Failed to check Bybit safety: {$e->getMessage()}");
+
+            return 0;
+        }
+
+        return 0;
     }
 
     /**
-     * Record Bybit response headers (currently minimal - Bybit doesn't expose rate limit headers like Binance).
-     * If Bybit adds rate limit headers in the future, parse them here.
+     * Record Bybit response headers.
+     * Bybit provides X-Bapi-Limit-Status and X-Bapi-Limit headers for rate limiting.
      */
     public static function recordResponseHeaders(ResponseInterface $response): void
     {
@@ -73,8 +124,20 @@ final class BybitThrottler extends BaseApiThrottler
             // Record timestamp of last request
             Cache::put("bybit:{$ip}:last_request", now()->timestamp, 60);
 
-            // Future: Parse Bybit rate limit headers if they add them
-            // Currently Bybit doesn't expose X-Rate-Limit-* headers
+            // Parse Bybit rate limit headers
+            // X-Bapi-Limit-Status: Current usage count
+            if ($response->hasHeader('X-Bapi-Limit-Status')) {
+                $statusHeader = $response->getHeader('X-Bapi-Limit-Status');
+                $status = (int) ($statusHeader[0] ?? 0);
+                Cache::put("bybit:{$ip}:limit:status", $status, 60);
+            }
+
+            // X-Bapi-Limit: Maximum allowed requests
+            if ($response->hasHeader('X-Bapi-Limit')) {
+                $limitHeader = $response->getHeader('X-Bapi-Limit');
+                $limit = (int) ($limitHeader[0] ?? 0);
+                Cache::put("bybit:{$ip}:limit:max", $limit, 60);
+            }
         } catch (Throwable $e) {
             // Fail silently - don't break the application if Cache fails
             Log::warning("Failed to record Bybit response headers: {$e->getMessage()}");

@@ -95,25 +95,36 @@ abstract class BaseApiableJob extends BaseQueueableJob
      */
     protected function shouldStartOrThrottle(): bool
     {
-        // First, check IP-based safety (bans, rate limit proximity)
+        // Ensure exception handler is assigned before safety checks
         if (! isset($this->exceptionHandler)) {
             $this->assignExceptionHandler();
         }
 
-        if (! $this->exceptionHandler->isSafeToMakeRequest()) {
-            // Not safe to proceed - wait and retry
-            $this->jobBackoffSeconds = 5; // Conservative backoff
+        // 0. First check exception handler's pre-flight safety check
+        if (isset($this->exceptionHandler) && ! $this->exceptionHandler->isSafeToMakeRequest()) {
+            $this->jobBackoffSeconds = 5; // Default 5 second backoff when not safe
 
-            return false;
+            return false; // Not safe - wait and retry
         }
 
-        // Then check standard throttler
+        // Get throttler for this API system
         $throttler = $this->getThrottlerForApiSystem();
 
         if (! $throttler) {
             return true; // No throttler = proceed
         }
 
+        // 1. First check IP-based safety (bans, rate limit proximity) if throttler supports it
+        if (method_exists($throttler, 'isSafeToDispatch')) {
+            $secondsToWait = $throttler::isSafeToDispatch();
+            if ($secondsToWait > 0) {
+                $this->jobBackoffSeconds = $secondsToWait;
+
+                return false; // Not safe - wait and retry
+            }
+        }
+
+        // 2. Then check standard throttling (rate limits, min delays, etc.)
         $retryCount = $this->step->retries ?? 0;
         $secondsToWait = $throttler::canDispatch($retryCount);
 

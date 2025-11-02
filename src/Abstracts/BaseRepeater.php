@@ -99,6 +99,6 @@ abstract class BaseRepeater
             default => $baseInterval,
         };
 
-        return now()->addMinutes((int) $minutes);
+        return Carbon::now()->addMinutes((int) $minutes);
     }
 }

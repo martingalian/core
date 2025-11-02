@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\ApiRequestLog;
 
+use App\Models\Notification;
+use App\Repeaters\ServerIpNotWhitelistedRepeater;
 use App\Support\NotificationMessageBuilder;
 use App\Support\NotificationService;
 use App\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
+use Martingalian\Core\Models\Repeater;
+use Martingalian\Core\Models\Server;
 
 /**
  * SendsNotifications
@@ -85,9 +89,74 @@ trait SendsNotifications
             return;
         }
 
-        // Check if this is specifically an IP whitelist error before checking generic forbidden
-        if ($this->isIpWhitelistError($vendorCode)) {
-            $this->handleIpWhitelistError($handler, $account, $hasSpecificUser, $hostname);
+        // Binance ambiguous error -2015 (could be credentials, IP, or permissions)
+        if ($handler->isCredentialsOrIpErrorFromLog($vendorCode)) {
+            $this->sendThrottledNotification(
+                handler: $handler,
+                account: $account,
+                hasSpecificUser: $hasSpecificUser,
+                messageCanonical: 'api_credentials_or_ip',
+                hostname: $hostname,
+                disableAccount: true  // Disable trading - cannot access account
+            );
+
+            return;
+        }
+
+        // Bybit specific: Invalid API Key (10003)
+        if ($handler->isInvalidApiKeyFromLog($vendorCode)) {
+            $this->sendThrottledNotification(
+                handler: $handler,
+                account: $account,
+                hasSpecificUser: $hasSpecificUser,
+                messageCanonical: 'invalid_api_key',
+                hostname: $hostname,
+                disableAccount: true  // Disable trading - cannot access account
+            );
+
+            return;
+        }
+
+        // Bybit specific: Invalid Signature (10004)
+        if ($handler->isInvalidSignatureFromLog($vendorCode)) {
+            $this->sendThrottledNotification(
+                handler: $handler,
+                account: $account,
+                hasSpecificUser: $hasSpecificUser,
+                messageCanonical: 'invalid_signature',
+                hostname: $hostname,
+                disableAccount: true  // Disable trading - cannot access account
+            );
+
+            return;
+        }
+
+        // Bybit specific: Insufficient Permissions (10005)
+        if ($handler->isInsufficientPermissionsFromLog($vendorCode)) {
+            $this->sendThrottledNotification(
+                handler: $handler,
+                account: $account,
+                hasSpecificUser: $hasSpecificUser,
+                messageCanonical: 'insufficient_permissions',
+                hostname: $hostname,
+                disableAccount: true  // Disable trading - some operations blocked
+            );
+
+            return;
+        }
+
+        // Bybit specific: IP Not Whitelisted (10010)
+        if ($handler->isIpNotWhitelistedFromLog($vendorCode)) {
+            $this->sendThrottledNotification(
+                handler: $handler,
+                account: $account,
+                hasSpecificUser: $hasSpecificUser,
+                messageCanonical: 'ip_not_whitelisted',
+                hostname: $hostname
+            );
+
+            // Create IP whitelist repeater for automatic retry
+            $this->createIpWhitelistRepeater($handler, $account, $hostname);
 
             return;
         }
@@ -261,37 +330,25 @@ trait SendsNotifications
         $hostname = $this->hostname ?? gethostname();
         $httpCode = $this->http_response_code;
         $vendorCode = $this->extractVendorCodeFromResponse();
-        $prefixedCanonical = $apiSystem.'_';
+        $serverIp = gethostbyname($hostname);
 
-        // Rate Limit
-        if ($handler->isRateLimitedFromLog($httpCode, $vendorCode)) {
-            $prefixedCanonical .= 'api_rate_limit_exceeded';
-
-            // Load account if available
-            $accountInfo = 'System-level API call (no specific account)';
-            if ($this->account_id) {
-                $account = Account::find($this->account_id);
-                if ($account) {
-                    $accountInfo = "Account ID: {$account->id}";
-                    if ($account->user) {
-                        $accountInfo .= " (User: {$account->user->name})";
-                    }
-                }
-            }
-
-            $serverIp = gethostbyname($hostname);
+        // Binance ambiguous error -2015 (could be credentials, IP, or permissions)
+        if ($handler->isCredentialsOrIpErrorFromLog($vendorCode)) {
             $messageData = NotificationMessageBuilder::build(
-                canonical: 'api_rate_limit_exceeded',
+                canonical: 'api_credentials_or_ip',
                 context: [
                     'exchange' => $apiSystem,
-                    'ip' => $hostname,  // Use hostname as IP for display purposes
+                    'ip' => $hostname,
                     'hostname' => $hostname,
-                    'account_info' => $accountInfo,
+                    'account_info' => 'System-level API call (admin account)',
+                    'account_name' => 'Admin Account',
                 ]
             );
 
+            $throttleCanonical = $apiSystem.'_api_credentials_or_ip';
+
             Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
+                ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
@@ -309,17 +366,203 @@ trait SendsNotifications
             return;
         }
 
-        // Forbidden / API Access Denied (ambiguous)
-        if ($handler->isForbiddenFromLog($httpCode, $vendorCode)) {
-            $prefixedCanonical .= 'api_access_denied';
-            $serverIp = gethostbyname(gethostname());
+        // Bybit specific: Invalid API Key (10003)
+        if ($handler->isInvalidApiKeyFromLog($vendorCode)) {
+            $messageData = NotificationMessageBuilder::build(
+                canonical: 'invalid_api_key',
+                context: [
+                    'exchange' => $apiSystem,
+                    'account_name' => 'Admin Account',
+                ]
+            );
+
+            $throttleCanonical = $apiSystem.'_invalid_api_key';
+
             Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
-                ->execute(function () use ($apiSystem, $hostname, $serverIp) {
+                ->withCanonical($throttleCanonical)
+                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::sendToAdmin(
-                        message: "System API access denied on {$apiSystem} from {$hostname}",
-                        title: 'System API Access Denied',
+                        message: $messageData['emailMessage'],
+                        title: $messageData['title'],
                         deliveryGroup: 'exceptions',
+                        severity: $messageData['severity'],
+                        pushoverMessage: $messageData['pushoverMessage'],
+                        actionUrl: $messageData['actionUrl'],
+                        actionLabel: $messageData['actionLabel'],
+                        exchange: $apiSystem,
+                        serverIp: $serverIp
+                    );
+                });
+
+            return;
+        }
+
+        // Bybit specific: Invalid Signature (10004)
+        if ($handler->isInvalidSignatureFromLog($vendorCode)) {
+            $messageData = NotificationMessageBuilder::build(
+                canonical: 'invalid_signature',
+                context: [
+                    'exchange' => $apiSystem,
+                    'account_name' => 'Admin Account',
+                ]
+            );
+
+            $throttleCanonical = $apiSystem.'_invalid_signature';
+
+            Throttler::using(NotificationService::class)
+                ->withCanonical($throttleCanonical)
+                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
+                    NotificationService::sendToAdmin(
+                        message: $messageData['emailMessage'],
+                        title: $messageData['title'],
+                        deliveryGroup: 'exceptions',
+                        severity: $messageData['severity'],
+                        pushoverMessage: $messageData['pushoverMessage'],
+                        actionUrl: $messageData['actionUrl'],
+                        actionLabel: $messageData['actionLabel'],
+                        exchange: $apiSystem,
+                        serverIp: $serverIp
+                    );
+                });
+
+            return;
+        }
+
+        // Bybit specific: Insufficient Permissions (10005)
+        if ($handler->isInsufficientPermissionsFromLog($vendorCode)) {
+            $messageData = NotificationMessageBuilder::build(
+                canonical: 'insufficient_permissions',
+                context: [
+                    'exchange' => $apiSystem,
+                    'account_name' => 'Admin Account',
+                ]
+            );
+
+            $throttleCanonical = $apiSystem.'_insufficient_permissions';
+
+            Throttler::using(NotificationService::class)
+                ->withCanonical($throttleCanonical)
+                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
+                    NotificationService::sendToAdmin(
+                        message: $messageData['emailMessage'],
+                        title: $messageData['title'],
+                        deliveryGroup: 'exceptions',
+                        severity: $messageData['severity'],
+                        pushoverMessage: $messageData['pushoverMessage'],
+                        actionUrl: $messageData['actionUrl'],
+                        actionLabel: $messageData['actionLabel'],
+                        exchange: $apiSystem,
+                        serverIp: $serverIp
+                    );
+                });
+
+            return;
+        }
+
+        // Bybit specific: IP Not Whitelisted (10010)
+        if ($handler->isIpNotWhitelistedFromLog($vendorCode)) {
+            $messageData = NotificationMessageBuilder::build(
+                canonical: 'ip_not_whitelisted',
+                context: [
+                    'exchange' => $apiSystem,
+                    'ip' => $hostname,
+                    'hostname' => $hostname,
+                    'account_info' => 'System-level API call (admin account)',
+                    'account_name' => 'Admin Account',
+                ]
+            );
+
+            $throttleCanonical = $apiSystem.'_ip_not_whitelisted';
+
+            Throttler::using(NotificationService::class)
+                ->withCanonical($throttleCanonical)
+                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
+                    NotificationService::sendToAdmin(
+                        message: $messageData['emailMessage'],
+                        title: $messageData['title'],
+                        deliveryGroup: 'exceptions',
+                        severity: $messageData['severity'],
+                        pushoverMessage: $messageData['pushoverMessage'],
+                        actionUrl: $messageData['actionUrl'],
+                        actionLabel: $messageData['actionLabel'],
+                        exchange: $apiSystem,
+                        serverIp: $serverIp
+                    );
+                });
+
+            return;
+        }
+
+        // Rate Limit
+        if ($handler->isRateLimitedFromLog($httpCode, $vendorCode)) {
+            $throttleCanonical = $apiSystem.'_api_rate_limit_exceeded';
+
+            // Load account if available
+            $accountInfo = 'System-level API call (no specific account)';
+            if ($this->account_id) {
+                $account = Account::find($this->account_id);
+                if ($account) {
+                    $accountInfo = "Account ID: {$account->id}";
+                    if ($account->user) {
+                        $accountInfo .= " (User: {$account->user->name})";
+                    }
+                }
+            }
+
+            $messageData = NotificationMessageBuilder::build(
+                canonical: 'api_rate_limit_exceeded',
+                context: [
+                    'exchange' => $apiSystem,
+                    'ip' => $hostname,
+                    'hostname' => $hostname,
+                    'account_info' => $accountInfo,
+                ]
+            );
+
+            Throttler::using(NotificationService::class)
+                ->withCanonical($throttleCanonical)
+                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
+                    NotificationService::sendToAdmin(
+                        message: $messageData['emailMessage'],
+                        title: $messageData['title'],
+                        deliveryGroup: 'exceptions',
+                        severity: $messageData['severity'],
+                        pushoverMessage: $messageData['pushoverMessage'],
+                        actionUrl: $messageData['actionUrl'],
+                        actionLabel: $messageData['actionLabel'],
+                        exchange: $apiSystem,
+                        serverIp: $serverIp
+                    );
+                });
+
+            return;
+        }
+
+        // Forbidden / API Access Denied
+        if ($handler->isForbiddenFromLog($httpCode, $vendorCode)) {
+            $messageData = NotificationMessageBuilder::build(
+                canonical: 'api_access_denied',
+                context: [
+                    'exchange' => $apiSystem,
+                    'ip' => $hostname,
+                    'hostname' => $hostname,
+                    'account_info' => 'System-level API call (admin account)',
+                ]
+            );
+
+            $throttleCanonical = $apiSystem.'_api_access_denied';
+
+            Throttler::using(NotificationService::class)
+                ->withCanonical($throttleCanonical)
+                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
+                    NotificationService::sendToAdmin(
+                        message: $messageData['emailMessage'],
+                        title: $messageData['title'],
+                        deliveryGroup: 'exceptions',
+                        severity: $messageData['severity'],
+                        pushoverMessage: $messageData['pushoverMessage'],
+                        actionUrl: $messageData['actionUrl'],
+                        actionLabel: $messageData['actionLabel'],
                         exchange: $apiSystem,
                         serverIp: $serverIp
                     );
@@ -330,15 +573,29 @@ trait SendsNotifications
 
         // Invalid credentials (generic 401)
         if ($httpCode === 401) {
-            $prefixedCanonical .= 'api_access_denied';
-            $serverIp = gethostbyname(gethostname());
+            $messageData = NotificationMessageBuilder::build(
+                canonical: 'api_access_denied',
+                context: [
+                    'exchange' => $apiSystem,
+                    'ip' => $hostname,
+                    'hostname' => $hostname,
+                    'account_info' => 'System-level API call (admin account)',
+                ]
+            );
+
+            $throttleCanonical = $apiSystem.'_api_access_denied';
+
             Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
-                ->execute(function () use ($apiSystem, $hostname, $serverIp) {
+                ->withCanonical($throttleCanonical)
+                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::sendToAdmin(
-                        message: "System API access denied on {$apiSystem} from {$hostname}",
-                        title: 'System API Access Denied',
+                        message: $messageData['emailMessage'],
+                        title: $messageData['title'],
                         deliveryGroup: 'exceptions',
+                        severity: $messageData['severity'],
+                        pushoverMessage: $messageData['pushoverMessage'],
+                        actionUrl: $messageData['actionUrl'],
+                        actionLabel: $messageData['actionLabel'],
                         exchange: $apiSystem,
                         serverIp: $serverIp
                     );
@@ -350,15 +607,28 @@ trait SendsNotifications
         // Service unavailable / Server Overload
         // CRITICAL: During price crashes, exchanges get overloaded and cannot process requests
         if ($handler->isServerOverloadFromLog($httpCode, $vendorCode)) {
-            $prefixedCanonical .= 'exchange_maintenance';
-            $serverIp = gethostbyname(gethostname());
+            $messageData = NotificationMessageBuilder::build(
+                canonical: 'exchange_maintenance',
+                context: [
+                    'exchange' => $apiSystem,
+                    'ip' => $hostname,
+                    'hostname' => $hostname,
+                ]
+            );
+
+            $throttleCanonical = $apiSystem.'_exchange_maintenance';
+
             Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
-                ->execute(function () use ($apiSystem, $serverIp) {
+                ->withCanonical($throttleCanonical)
+                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::sendToAdmin(
-                        message: "{$apiSystem} is currently under maintenance, unavailable, or overloaded",
-                        title: 'System API Maintenance/Overload',
+                        message: $messageData['emailMessage'],
+                        title: $messageData['title'],
                         deliveryGroup: 'exceptions',
+                        severity: $messageData['severity'],
+                        pushoverMessage: $messageData['pushoverMessage'],
+                        actionUrl: $messageData['actionUrl'],
+                        actionLabel: $messageData['actionLabel'],
                         exchange: $apiSystem,
                         serverIp: $serverIp
                     );
@@ -369,15 +639,28 @@ trait SendsNotifications
 
         // Connection failures
         if (! $httpCode && $this->error_message) {
-            $prefixedCanonical .= 'api_connection_failed';
-            $serverIp = gethostbyname(gethostname());
+            $messageData = NotificationMessageBuilder::build(
+                canonical: 'api_connection_failed',
+                context: [
+                    'exchange' => $apiSystem,
+                    'ip' => $hostname,
+                    'hostname' => $hostname,
+                ]
+            );
+
+            $throttleCanonical = $apiSystem.'_api_connection_failed';
+
             Throttler::using(NotificationService::class)
-                ->withCanonical($prefixedCanonical)
-                ->execute(function () use ($apiSystem, $hostname, $serverIp) {
+                ->withCanonical($throttleCanonical)
+                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::sendToAdmin(
-                        message: "Unable to connect to {$apiSystem} from {$hostname}",
-                        title: 'System API Connection Failed',
+                        message: $messageData['emailMessage'],
+                        title: $messageData['title'],
                         deliveryGroup: 'exceptions',
+                        severity: $messageData['severity'],
+                        pushoverMessage: $messageData['pushoverMessage'],
+                        actionUrl: $messageData['actionUrl'],
+                        actionLabel: $messageData['actionLabel'],
                         exchange: $apiSystem,
                         serverIp: $serverIp
                     );
@@ -399,7 +682,7 @@ trait SendsNotifications
         bool $disableAccount = false
     ): void {
         // Check who should receive this notification type
-        $notification = \App\Models\Notification::findByCanonical($messageCanonical);
+        $notification = Notification::findByCanonical($messageCanonical);
         if (! $notification) {
             return;
         }
@@ -437,6 +720,10 @@ trait SendsNotifications
             'ip_not_whitelisted',
             'api_access_denied',
             'exchange_maintenance',
+            'api_credentials_or_ip',
+            'invalid_api_key',
+            'invalid_signature',
+            'insufficient_permissions',
         ];
 
         $isServerRelated = in_array($messageCanonical, $serverRelatedCanonicals, true);
@@ -522,61 +809,20 @@ trait SendsNotifications
     }
 
     /**
-     * Check if this error is specifically an IP whitelist error.
-     * Binance: -2015 with "Invalid IP" message
-     * Bybit: 10003 or similar IP restriction errors
+     * Create IP whitelist repeater for automatic retry.
+     * Only called for Bybit error 10010 (IP not whitelisted).
      */
-    protected function isIpWhitelistError(?int $vendorCode): bool
-    {
-        if (! $vendorCode) {
-            return false;
-        }
-
-        // Binance: -2015 can be "Invalid API key" OR "Invalid IP"
-        // We need to check the message to distinguish
-        if ($vendorCode === -2015) {
-            $response = $this->response;
-            if (is_array($response)) {
-                $message = $response['msg'] ?? '';
-                // Check if message specifically mentions IP
-                if (str_contains(strtolower($message), 'ip')) {
-                    return true;
-                }
-            }
-        }
-
-        // Bybit: 10003 (IP not in whitelist)
-        if ($vendorCode === 10003) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Handle IP whitelist error: send notification and create repeater.
-     */
-    protected function handleIpWhitelistError(
+    protected function createIpWhitelistRepeater(
         BaseExceptionHandler $handler,
         Account $account,
-        bool $hasSpecificUser,
         string $hostname
     ): void {
-        // Send ip_not_whitelisted notification
-        $this->sendThrottledNotification(
-            handler: $handler,
-            account: $account,
-            hasSpecificUser: $hasSpecificUser,
-            messageCanonical: 'ip_not_whitelisted',
-            hostname: $hostname
-        );
-
         // Get or create Server record for this hostname
-        $server = \Martingalian\Core\Models\Server::where('hostname', $hostname)->first();
+        $server = Server::where('hostname', $hostname)->first();
 
         if (! $server) {
             // Create server record if it doesn't exist
-            $server = \Martingalian\Core\Models\Server::create([
+            $server = Server::create([
                 'hostname' => $hostname,
                 'ip_address' => gethostbyname($hostname),
                 'type' => 'worker',
@@ -584,15 +830,15 @@ trait SendsNotifications
         }
 
         // Check if repeater already exists for this account+server combination
-        $existingRepeater = \Martingalian\Core\Models\Repeater::where('class', \App\Repeaters\ServerIpNotWhitelistedRepeater::class)
+        $existingRepeater = Repeater::where('class', ServerIpNotWhitelistedRepeater::class)
             ->where('parameters->account_id', $account->id)
             ->where('parameters->server_id', $server->id)
             ->first();
 
         // Only create repeater if one doesn't already exist
         if (! $existingRepeater) {
-            \Martingalian\Core\Models\Repeater::create([
-                'class' => \App\Repeaters\ServerIpNotWhitelistedRepeater::class,
+            Repeater::create([
+                'class' => ServerIpNotWhitelistedRepeater::class,
                 'parameters' => [
                     'account_id' => $account->id,
                     'server_id' => $server->id,

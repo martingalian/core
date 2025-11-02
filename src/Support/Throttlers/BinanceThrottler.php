@@ -42,13 +42,14 @@ use Throwable;
 final class BinanceThrottler extends BaseApiThrottler
 {
     /**
-     * Override: Check IP ban status and rate limit proximity before allowing dispatch.
+     * Pre-flight safety check called before canDispatch().
+     * Checks IP ban status and rate limit proximity.
+     *
+     * @return int Seconds to wait, or 0 if safe to proceed
      */
-    public static function canDispatch(int $retryCount = 0): int
+    public static function isSafeToDispatch(): int
     {
         $prefix = self::getCacheKeyPrefix();
-
-        Log::channel('jobs')->info("[THROTTLER] {$prefix} | canDispatch() called");
 
         // 1. Check if IP is currently banned (418 response)
         if (self::isCurrentlyBanned()) {
@@ -58,15 +59,24 @@ final class BinanceThrottler extends BaseApiThrottler
             return $secondsRemaining;
         }
 
-        // 2. Check minimum delay between requests
-        $config = self::getRateLimitConfig();
-        if (isset($config['min_delay_between_requests_ms'])) {
-            $secondsToWait = self::checkMinimumDelay($prefix, $config['min_delay_between_requests_ms']);
-            if ($secondsToWait > 0) {
-                Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by min delay: {$secondsToWait}s");
+        // 2. Check minimum delay since last request
+        try {
+            $ip = self::getCurrentIp();
+            $minDelayMs = config('martingalian.throttlers.binance.min_delay_ms', 0);
+            if ($minDelayMs > 0) {
+                $lastRequest = Cache::get("binance:{$ip}:last_request");
+                if ($lastRequest) {
+                    $elapsedMs = (now()->timestamp - $lastRequest) * 1000;
+                    if ($elapsedMs < $minDelayMs) {
+                        $waitSeconds = (int) ceil(($minDelayMs - $elapsedMs) / 1000);
 
-                return $secondsToWait;
+                        return $waitSeconds > 0 ? $waitSeconds : 1;
+                    }
+                }
             }
+        } catch (Throwable $e) {
+            // Fail-safe: allow request on error
+            Log::warning("Failed to check Binance min delay: {$e->getMessage()}");
         }
 
         // 3. Check if approaching any rate limit (>80% threshold)
@@ -77,23 +87,7 @@ final class BinanceThrottler extends BaseApiThrottler
             return $secondsToWait;
         }
 
-        // 4. Check base window limit (fallback)
-        $secondsToWait = self::checkWindowLimit($prefix, $config['requests_per_window'], $config['window_seconds']);
-
-        if ($secondsToWait > 0) {
-            Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by window limit: {$secondsToWait}s");
-        } else {
-            Log::channel('jobs')->info("[THROTTLER] {$prefix} | OK to dispatch");
-        }
-
-        // 5. Apply exponential backoff if this is a retry
-        if ($retryCount > 0 && $secondsToWait > 0) {
-            $exponentialDelay = self::calculateExponentialBackoff($retryCount);
-            $secondsToWait += $exponentialDelay;
-            Log::channel('jobs')->info("[THROTTLER] {$prefix} | Retry #{$retryCount} | Added exponential backoff: +{$exponentialDelay}s | Total: {$secondsToWait}s");
-        }
-
-        return $secondsToWait;
+        return 0;
     }
 
     /**

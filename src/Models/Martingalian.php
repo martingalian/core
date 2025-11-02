@@ -9,7 +9,6 @@ use Martingalian\Core\Concerns\Martingalian\HasAccessors;
 
 /**
  * @property int $id
- * @property bool $should_kill_order_events
  * @property bool $allow_opening_positions
  * @property string|null $binance_api_key
  * @property string|null $binance_api_secret
@@ -31,7 +30,6 @@ final class Martingalian extends BaseModel
     protected $table = 'martingalian';
 
     protected $casts = [
-        'should_kill_order_events' => 'boolean',
         'allow_opening_positions' => 'boolean',
 
         'binance_api_key' => 'encrypted',

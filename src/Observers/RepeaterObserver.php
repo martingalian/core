@@ -26,6 +26,10 @@ final class RepeaterObserver
             $repeater->max_attempts = 15;
         }
 
+        if (is_null($repeater->attempts)) {
+            $repeater->attempts = 0;
+        }
+
         // If queue is not set, default to 'repeaters'
         if (! $repeater->queue) {
             $repeater->queue = 'repeaters';

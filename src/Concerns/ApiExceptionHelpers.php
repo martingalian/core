@@ -50,8 +50,8 @@ trait ApiExceptionHelpers
         $apiSystem = \Martingalian\Core\Models\ApiSystem::where('canonical', $this->getApiSystem())->firstOrFail();
 
         // Determine account_id:
-        // - Admin accounts (transient, id = NULL) → save as NULL (system-wide ban)
-        // - User accounts (real, id != NULL) → save real ID (account-specific ban)
+        // - Admin accounts (transient, id is NULL) → save as NULL (system-wide ban)
+        // - User accounts (real, id has value) → save real ID (account-specific ban)
         $accountId = $this->account->id;
 
         $record = ForbiddenHostname::updateOrCreate(
@@ -76,8 +76,10 @@ trait ApiExceptionHelpers
                 ? "User: {$this->account->user->name}"
                 : 'Account: Admin';
 
+            $throttleCanonical = $exchange.'_forbidden_hostname_added';
+
             Throttler::using(NotificationService::class)
-                ->withCanonical('forbidden_hostname_added')
+                ->withCanonical($throttleCanonical)
                 ->execute(function () use ($exchangeName, $hostname, $record, $accountInfo) {
                     NotificationService::sendToAdmin(
                         message: "A hostname has been forbidden from accessing {$exchangeName} API.\n\n".

@@ -58,10 +58,10 @@ abstract class BaseApiClient
         $logData = $this->prepareLogData($apiRequest, $headers);
         $options = $this->prepareRequestOptions($apiRequest, $sendAsJson, $headers);
 
-        $this->apiRequestLog = ApiRequestLog::create($logData);
-
         $startTime = microtime(true);
         $logData['started_at'] = now();
+
+        $this->apiRequestLog = ApiRequestLog::create($logData);
 
         try {
             $response = $this->executeHttpRequest(
@@ -158,7 +158,7 @@ abstract class BaseApiClient
     {
         $endTime = microtime(true);
         $logData['completed_at'] = now();
-        $logData['duration'] = (int) (($endTime - $startTime) * 1000);
+        $logData['duration'] = max(0, (int) (($endTime - $startTime) * 1000)); // Ensure non-negative
         $logData['http_response_code'] = $response->getStatusCode();
         $logData['response'] = json_decode((string) $response->getBody(), true);
         $logData['http_headers_returned'] = $response->getHeaders();

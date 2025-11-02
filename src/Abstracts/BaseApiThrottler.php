@@ -112,7 +112,8 @@ abstract class BaseApiThrottler
 
         // Clear current and previous windows
         $config = static::getRateLimitConfig();
-        $currentWindow = floor(Carbon::now()->timestamp / $config['window_seconds']);
+        $windowSeconds = max(1, $config['window_seconds']); // Guard against division by zero
+        $currentWindow = floor(Carbon::now()->timestamp / $windowSeconds);
 
         for ($i = -2; $i <= 2; $i++) {
             Cache::forget("{$prefix}:window:".($currentWindow + $i));
@@ -162,6 +163,11 @@ abstract class BaseApiThrottler
      */
     protected static function checkWindowLimit(string $prefix, int $maxRequests, int $windowSeconds): int
     {
+        // Guard against division by zero - default to 1 second window
+        if ($windowSeconds <= 0) {
+            $windowSeconds = 1;
+        }
+
         $windowKey = static::getCurrentWindowKey($prefix, $windowSeconds);
         $currentCount = Cache::get($windowKey, 0);
 
@@ -183,6 +189,11 @@ abstract class BaseApiThrottler
      */
     protected static function getCurrentWindowKey(string $prefix, int $windowSeconds): string
     {
+        // Guard against division by zero - default to 1 second window
+        if ($windowSeconds <= 0) {
+            $windowSeconds = 1;
+        }
+
         $currentWindow = floor(Carbon::now()->timestamp / $windowSeconds);
 
         return "{$prefix}:window:{$currentWindow}";

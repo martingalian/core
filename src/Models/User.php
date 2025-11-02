@@ -49,6 +49,7 @@ final class User extends Authenticatable
         'is_active' => 'boolean',
 
         'password' => 'hashed',
+        'pushover_key' => 'encrypted',
         'notification_channels' => 'array',
     ];
 

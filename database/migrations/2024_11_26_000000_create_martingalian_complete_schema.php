@@ -183,7 +183,7 @@ return new class extends Migration
             $table->longText('leverage_brackets')->nullable();
             $table->decimal('mark_price', 20, 8)->nullable();
             $table->text('indicators_values')->nullable();
-            $table->json('limit_quantity_multipliers');
+            $table->json('limit_quantity_multipliers')->nullable();
             $table->decimal('disable_on_price_spike_percentage', 4, 2)->default(15.00);
             $table->unsignedTinyInteger('price_spike_cooldown_hours')->default(72);
             $table->string('indicators_timeframe')->nullable();
@@ -293,7 +293,6 @@ return new class extends Migration
         // martingalian table
         Schema::create('martingalian', function (Blueprint $table) {
             $table->id();
-            $table->boolean('should_kill_order_events')->default(false);
             $table->longText('binance_api_key')->nullable();
             $table->longText('binance_api_secret')->nullable();
             $table->longText('bybit_api_key')->nullable();
@@ -615,7 +614,7 @@ return new class extends Migration
             $table->id();
             $table->boolean('is_default')->default(false);
             $table->string('canonical')->unique();
-            $table->string('description');
+            $table->string('description')->nullable();
             $table->unsignedInteger('least_timeframe_index_to_change_indicator')->default(1)->comment('Minimum array key index on the timeframe array to accept a direction change');
             $table->unsignedInteger('fast_trade_position_duration_seconds')->default(600)->comment('Total seconds that a position had since opened_at to closed_at, to be considered fast tracked. E.g.: 60 means, only positions that were opened and closed in less than 60 seconds');
             $table->unsignedInteger('fast_trade_position_closed_age_seconds')->default(3600)->comment('Total seconds after a position as been closed to consider a position as fast tracked. E.g: 3600 means only take in consideration for possible fast track positions that were closed no more than 1h ago');
@@ -630,7 +629,7 @@ return new class extends Migration
             $table->text('two_factor_recovery_codes')->nullable()->after('two_factor_secret');
             $table->timestamp('two_factor_confirmed_at')->nullable()->after('two_factor_recovery_codes');
             $table->text('pushover_key')->nullable()->after('two_factor_confirmed_at');
-            $table->json('notification_channels')->after('pushover_key');
+            $table->json('notification_channels')->nullable()->after('pushover_key');
             $table->timestamp('previous_logged_in_at')->nullable()->after('remember_token');
             $table->timestamp('last_logged_in_at')->nullable()->after('previous_logged_in_at');
             $table->boolean('is_active')->default(false)->after('last_logged_in_at');

@@ -95,11 +95,17 @@ final class Account extends BaseModel
         return $this->morphMany(\App\Models\ThrottleLog::class, 'contextable');
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @return BelongsTo<ApiSystem, $this>
+     */
     public function apiSystem(): BelongsTo
     {
         return $this->belongsTo(ApiSystem::class);

@@ -9,6 +9,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
+use Martingalian\Core\Support\Throttlers\BinanceThrottler;
+use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
 /**
@@ -59,13 +61,11 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
      * Forbidden — real exchange-level IP bans.
      *
      * IMPORTANT:
-     * • 403 = WAF violation (exchange blocked this server IP)
+     * • 403 is NOT here (it's treated as rate-limit when it has WAF/forbidden messages)
      * • 418 is NOT here (it's a temporary rate-limit ban, handled as rate limit)
-     * • 401/-2015 is NOT here (it's an API key config issue, not a server ban)
+     * • 401/-2015 is NOT here (it's an API key config issue, handled separately)
      */
-    public array $forbiddenHttpCodes = [
-        403,  // WAF limit violation - exchange-level IP ban
-    ];
+    public array $forbiddenHttpCodes = [];
 
     /**
      * Rate-limited — slow down and back off.
@@ -88,11 +88,22 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     ];
 
     /**
+     * Ambiguous credential/IP/permission errors.
+     * -2015 REJECTED_MBX_KEY: "Invalid API-key, IP, or permissions for action"
+     * This single error code covers 3 scenarios:
+     * 1. Invalid API credentials
+     * 2. IP not whitelisted
+     * 3. Insufficient API key permissions
+     */
+    protected array $credentialsOrIpCodes = [
+        -2015,
+    ];
+
+    /**
      * Account status errors - critical issues requiring account disabling.
      * These trigger can_trade = 0 on the account.
      */
     protected array $accountStatusCodes = [
-        -2015,   // Invalid API key / rejected (also in forbidden, treated as credentials invalid)
         -2017,   // API keys locked
         -2023,   // User in liquidation
         -4087,   // Reduce-only order permission
@@ -314,5 +325,43 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
         }
 
         return $result;
+    }
+
+    /**
+     * Record response headers for IP-based rate limiting coordination.
+     * Delegates to BinanceThrottler to parse and cache rate limit headers.
+     */
+    public function recordResponseHeaders(ResponseInterface $response): void
+    {
+        BinanceThrottler::recordResponseHeaders($response);
+    }
+
+    /**
+     * Check if current server IP is banned by Binance.
+     * Delegates to BinanceThrottler which tracks IP bans in cache.
+     */
+    public function isCurrentlyBanned(): bool
+    {
+        return BinanceThrottler::isCurrentlyBanned();
+    }
+
+    /**
+     * Record an IP ban when 418/429 errors with Retry-After occur.
+     * Delegates to BinanceThrottler to store ban state in cache.
+     */
+    public function recordIpBan(int $retryAfterSeconds): void
+    {
+        BinanceThrottler::recordIpBan($retryAfterSeconds);
+    }
+
+    /**
+     * Pre-flight safety check before making API request.
+     * Checks: IP ban status, rate limit proximity (>80%).
+     * Delegates to BinanceThrottler.
+     */
+    public function isSafeToMakeRequest(): bool
+    {
+        // If IP is banned or approaching rate limits, return false
+        return BinanceThrottler::isSafeToDispatch() === 0;
     }
 }

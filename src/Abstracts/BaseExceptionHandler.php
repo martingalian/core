@@ -229,6 +229,71 @@ abstract class BaseExceptionHandler
     }
 
     /**
+     * Check if log represents ambiguous credentials/IP/permissions error.
+     * Only used by Binance (-2015) which doesn't distinguish between these scenarios.
+     */
+    final public function isCredentialsOrIpErrorFromLog(?int $vendorCode): bool
+    {
+        if (! $vendorCode || ! property_exists($this, 'credentialsOrIpCodes')) {
+            return false;
+        }
+
+        return in_array($vendorCode, $this->credentialsOrIpCodes, true);
+    }
+
+    /**
+     * Check if log represents invalid API key error.
+     * Used by Bybit (10003) for specific API key validation failures.
+     */
+    final public function isInvalidApiKeyFromLog(?int $vendorCode): bool
+    {
+        if (! $vendorCode || ! property_exists($this, 'invalidApiKeyCodes')) {
+            return false;
+        }
+
+        return in_array($vendorCode, $this->invalidApiKeyCodes, true);
+    }
+
+    /**
+     * Check if log represents invalid signature error.
+     * Used by Bybit (10004) for signature generation/validation failures.
+     */
+    final public function isInvalidSignatureFromLog(?int $vendorCode): bool
+    {
+        if (! $vendorCode || ! property_exists($this, 'invalidSignatureCodes')) {
+            return false;
+        }
+
+        return in_array($vendorCode, $this->invalidSignatureCodes, true);
+    }
+
+    /**
+     * Check if log represents insufficient permissions error.
+     * Used by Bybit (10005) for API key permission restrictions.
+     */
+    final public function isInsufficientPermissionsFromLog(?int $vendorCode): bool
+    {
+        if (! $vendorCode || ! property_exists($this, 'insufficientPermissionsCodes')) {
+            return false;
+        }
+
+        return in_array($vendorCode, $this->insufficientPermissionsCodes, true);
+    }
+
+    /**
+     * Check if log represents IP not whitelisted error.
+     * Used by Bybit (10010) for IP whitelist configuration issues.
+     */
+    final public function isIpNotWhitelistedFromLog(?int $vendorCode): bool
+    {
+        if (! $vendorCode || ! property_exists($this, 'ipNotWhitelistedCodes')) {
+            return false;
+        }
+
+        return in_array($vendorCode, $this->ipNotWhitelistedCodes, true);
+    }
+
+    /**
      * Get the current server's IP address.
      * Used for IP-based rate limiting and ban coordination.
      */

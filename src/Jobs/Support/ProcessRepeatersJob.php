@@ -10,7 +10,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use Martingalian\Core\Models\Repeater;
 
-class ProcessRepeatersJob implements ShouldQueue
+final class ProcessRepeatersJob implements ShouldQueue
 {
     use Dispatchable, Queueable, SerializesModels;
 
@@ -38,7 +38,7 @@ class ProcessRepeatersJob implements ShouldQueue
         }
     }
 
-    protected function processRepeater(Repeater $repeater): void
+    public function processRepeater(Repeater $repeater): void
     {
         $repeater->update([
             'last_run_at' => now(),
@@ -52,6 +52,7 @@ class ProcessRepeatersJob implements ShouldQueue
             $success = $instance();
 
             $repeater->increment('attempts');
+            $repeater->refresh();
 
             if ($success) {
                 // Success path
@@ -80,7 +81,7 @@ class ProcessRepeatersJob implements ShouldQueue
         }
     }
 
-    protected function instantiateRepeater(Repeater $repeater): \Martingalian\Core\Abstracts\BaseRepeater
+    public function instantiateRepeater(Repeater $repeater): \Martingalian\Core\Abstracts\BaseRepeater
     {
         $class = $repeater->class;
         $parameters = $repeater->parameters ?? [];
@@ -97,7 +98,7 @@ class ProcessRepeatersJob implements ShouldQueue
         return $instance;
     }
 
-    protected function resolveParameters(array $parameters): array
+    public function resolveParameters(array $parameters): array
     {
         $resolved = [];
 
