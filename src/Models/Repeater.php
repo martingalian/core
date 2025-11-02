@@ -45,7 +45,6 @@ final class Repeater extends BaseModel
      */
     public static function process(?string $queueName = null): void
     {
-        info('Repeater called');
         ProcessRepeatersJob::dispatch($queueName);
     }
 }

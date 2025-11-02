@@ -78,6 +78,11 @@ final class User extends Authenticatable
         return $this->morphMany(\App\Models\ThrottleLog::class, 'contextable');
     }
 
+    public function notificationLogs()
+    {
+        return $this->morphMany(\App\Models\NotificationLog::class, 'relatable');
+    }
+
     /**
      * Send a notification with optional delivery group routing.
      *

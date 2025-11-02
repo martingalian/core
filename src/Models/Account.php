@@ -95,6 +95,11 @@ final class Account extends BaseModel
         return $this->morphMany(\App\Models\ThrottleLog::class, 'contextable');
     }
 
+    public function notificationLogs(): MorphMany
+    {
+        return $this->morphMany(\App\Models\NotificationLog::class, 'relatable');
+    }
+
     /**
      * @return BelongsTo<User, $this>
      */

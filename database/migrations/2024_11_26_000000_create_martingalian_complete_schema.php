@@ -322,6 +322,35 @@ return new class extends Migration
             $table->index('is_active', 'notifications_is_active_index');
         });
 
+        // notification_logs table - Legal audit trail for all sent notifications
+        Schema::create('notification_logs', function (Blueprint $table) {
+            $table->id();
+            $table->uuid('uuid')->unique()->comment('Unique identifier for backend reference');
+            $table->string('canonical')->comment('Notification canonical used (e.g., ip_not_whitelisted)');
+            $table->nullableMorphs('relatable', 'notification_logs_relatable_index');
+            $table->string('channel')->comment('Delivery channel: mail, pushover');
+            $table->string('recipient')->comment('Email address or Pushover key');
+            $table->string('message_id')->nullable()->comment('Gateway message ID for tracking (Zeptomail request_id, Pushover receipt)');
+            $table->timestamp('sent_at')->comment('When notification was sent');
+            $table->timestamp('confirmed_at')->nullable()->comment('When delivery was confirmed via webhook (generic)');
+            $table->timestamp('opened_at')->nullable()->comment('When email was opened by recipient (mail channel only)');
+            $table->timestamp('bounced_at')->nullable()->comment('When email bounced (mail channel only)');
+            $table->string('status')->default('sent')->comment('Status: sent, delivered, failed, bounced');
+            $table->json('http_headers_sent')->nullable()->comment('HTTP headers sent to gateway');
+            $table->json('http_headers_received')->nullable()->comment('HTTP headers received from gateway');
+            $table->json('gateway_response')->nullable()->comment('Gateway API response');
+            $table->longText('content_dump')->nullable()->comment('Full notification content for legal audit');
+            $table->longText('raw_email_content')->nullable()->comment('Raw email HTML/text content for mail viewers (mail channel only)');
+            $table->text('error_message')->nullable()->comment('Error message if delivery failed');
+            $table->timestamps();
+
+            $table->index('canonical', 'notification_logs_canonical_index');
+            $table->index('channel', 'notification_logs_channel_index');
+            $table->index('status', 'notification_logs_status_index');
+            $table->index('sent_at', 'notification_logs_sent_at_index');
+            $table->index('message_id', 'notification_logs_message_id_index');
+        });
+
         // order_history table
         Schema::create('order_history', function (Blueprint $table) {
             $table->id();
@@ -671,6 +700,7 @@ return new class extends Migration
         Schema::dropIfExists('repeaters');
         Schema::dropIfExists('servers');
         Schema::dropIfExists('forbidden_hostnames');
+        Schema::dropIfExists('notification_logs');
         Schema::dropIfExists('notifications');
         Schema::dropIfExists('martingalian');
         Schema::dropIfExists('trade_configuration');

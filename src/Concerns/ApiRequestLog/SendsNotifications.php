@@ -293,7 +293,6 @@ trait SendsNotifications
         // Binance error codes
         if ($apiSystem === 'binance') {
             return match ($vendorCode) {
-                -2015 => 'invalid_api_credentials',  // Invalid API key / IP not allowed
                 -2017 => 'invalid_api_credentials',  // API keys locked (treat as creds invalid)
                 -2023 => 'account_in_liquidation',   // User in liquidation
                 -4087, -4088 => 'account_reduce_only_mode',  // Reduce-only / no place order permission
@@ -760,7 +759,7 @@ trait SendsNotifications
                         user: $user,
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
-                        deliveryGroup: 'exceptions',
+                        deliveryGroup: null,  // User notifications should NOT use delivery groups (those route to admin group keys)
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
                         actionUrl: $messageData['actionUrl'],

@@ -29,10 +29,6 @@ final class StepDispatcher
      */
     public static function dispatch(?string $group = null): void
     {
-        $startTime = microtime(true);
-        Log::channel('dispatcher')->info('========================================');
-        Log::channel('dispatcher')->info('[TICK START] Group: '.($group ?? 'ALL').' | Time: '.now()->format('H:i:s.u'));
-
         // Acquire the DB lock authoritatively; bail if already running.
         if (! StepsDispatcher::startDispatch($group)) {
             Log::channel('dispatcher')->warning('[TICK SKIPPED] Already running');
@@ -40,14 +36,11 @@ final class StepDispatcher
             return;
         }
 
-        Log::channel('dispatcher')->info('[LOCK ACQUIRED] Starting dispatch cycle');
         $progress = 0;
 
         try {
             // Marks as skipped all children steps on a skipped step.
-            $stepStart = microtime(true);
             $result = self::skipAllChildStepsOnParentAndChildSingleStep($group);
-            Log::channel('dispatcher')->info('[Step 0] skipAllChildStepsOnParentAndChildSingleStep: '.($result ? 'YES (early return)' : 'NO').' | Duration: '.round((microtime(true) - $stepStart) * 1000, 2).'ms');
             if ($result) {
                 info_if('-= TICK ENDED (skipAllChildStepsOnParentAndChildSingleStep = true) =-');
 
@@ -57,9 +50,7 @@ final class StepDispatcher
             $progress = 1;
 
             // Perform cascading cancellation for failed steps and return early if needed
-            $stepStart = microtime(true);
             $result = self::cascadeCancelledSteps($group);
-            Log::channel('dispatcher')->info('[Step 1] cascadeCancelledSteps: '.($result ? 'YES (early return)' : 'NO').' | Duration: '.round((microtime(true) - $stepStart) * 1000, 2).'ms');
             if ($result) {
                 info_if('-= TICK ENDED (cascadeCancelledSteps = true) =-');
 
@@ -68,9 +59,7 @@ final class StepDispatcher
 
             $progress = 2;
 
-            $stepStart = microtime(true);
             $result = self::promoteResolveExceptionSteps($group);
-            Log::channel('dispatcher')->info('[Step 2] promoteResolveExceptionSteps: '.($result ? 'YES (early return)' : 'NO').' | Duration: '.round((microtime(true) - $stepStart) * 1000, 2).'ms');
             if ($result) {
                 info_if('-= TICK ENDED (promoteResolveExceptionSteps = true) =-');
 
@@ -80,9 +69,7 @@ final class StepDispatcher
             $progress = 3;
 
             // Check if we need to transition parent steps to Failed first, but only if no cancellations occurred
-            $stepStart = microtime(true);
             $result = self::transitionParentsToFailed($group);
-            Log::channel('dispatcher')->info('[Step 3] transitionParentsToFailed: '.($result ? 'YES (early return)' : 'NO').' | Duration: '.round((microtime(true) - $stepStart) * 1000, 2).'ms');
             if ($result) {
                 info_if('-= TICK ENDED (transitionParentsToFailed = true) =-');
 
@@ -91,9 +78,7 @@ final class StepDispatcher
 
             $progress = 4;
 
-            $stepStart = microtime(true);
             $result = self::cascadeFailureToChildren($group);
-            Log::channel('dispatcher')->info('[Step 4] cascadeFailureToChildren: '.($result ? 'YES (early return)' : 'NO').' | Duration: '.round((microtime(true) - $stepStart) * 1000, 2).'ms');
             if ($result) {
                 info_if('-= TICK ENDED (cascadeFailureToChildren = true) =-');
 
@@ -103,9 +88,7 @@ final class StepDispatcher
             $progress = 5;
 
             // Check if we need to transition parent steps to Completed
-            $stepStart = microtime(true);
             $result = self::transitionParentsToComplete($group);
-            Log::channel('dispatcher')->info('[Step 5] transitionParentsToComplete: '.($result ? 'YES (early return)' : 'NO').' | Duration: '.round((microtime(true) - $stepStart) * 1000, 2).'ms');
             if ($result) {
                 info_if('-= TICK ENDED (transitionParentsToComplete = true) =-');
 
@@ -117,7 +100,6 @@ final class StepDispatcher
             // Distribute the steps to be dispatched (only if no cancellations or failures happened)
             $dispatchedSteps = collect();
 
-            $stepStart = microtime(true);
             $pendingQuery = Step::pending()
                 ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
                 ->where(function ($q) {
@@ -126,10 +108,7 @@ final class StepDispatcher
                 });
 
             $pendingSteps = $pendingQuery->get();
-            $queryTime = round((microtime(true) - $stepStart) * 1000, 2);
-            Log::channel('dispatcher')->info('[Step 6] Query pending steps: Found '.$pendingSteps->count().' | Duration: '.$queryTime.'ms');
 
-            $evalStart = microtime(true);
             $canTransitionCount = 0;
             $cannotTransitionCount = 0;
 
@@ -148,23 +127,13 @@ final class StepDispatcher
                 }
             });
 
-            $evalTime = round((microtime(true) - $evalStart) * 1000, 2);
-            Log::channel('dispatcher')->info('[Step 6] Evaluated transitions: Can='.$canTransitionCount.' Cannot='.$cannotTransitionCount.' | Duration: '.$evalTime.'ms');
-
             // Dispatch all steps that are ready
-            $dispatchStart = microtime(true);
             $dispatchedSteps->each(fn ($step) => (new self)->dispatchSingleStep($step));
-            $dispatchTime = round((microtime(true) - $dispatchStart) * 1000, 2);
-            Log::channel('dispatcher')->info('[Step 6] Dispatched '.$dispatchedSteps->count().' steps to queue | Duration: '.$dispatchTime.'ms');
 
             info_if('Total steps dispatched: '.$dispatchedSteps->count().($group ? " [group={$group}]" : ''));
             info_if('-= TICK ENDED (full cycle) =-');
 
             $progress = 7;
-
-            $totalTime = round((microtime(true) - $startTime) * 1000, 2);
-            Log::channel('dispatcher')->info('[TICK END] Total duration: '.$totalTime.'ms');
-            Log::channel('dispatcher')->info('========================================');
         } finally {
             StepsDispatcher::endDispatch($progress, $group);
         }
