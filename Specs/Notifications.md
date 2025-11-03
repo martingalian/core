@@ -157,6 +157,14 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 **Context**: Exchange passed separately for interpolation (e.g., `{exchange: 'binance'}`)
 **Templates**: 30+ predefined message templates covering API errors, system alerts, trading events
 
+**Context Variables** (passed via `$context` array):
+- `exchange` (string) - Exchange identifier ('binance', 'bybit') for dynamic message interpolation
+- `ip` (string) - Server IP address (only included in email body for server-related issues)
+- `exception` (string) - Exception message for WebSocket/system errors
+- `account_info` (string) - Account name/identifier
+- `hostname` (string) - Server hostname
+- `wallet_balance`, `unrealized_pnl` - Trading metrics
+
 ### AlertMail
 **Location**: `packages/martingalian/core/src/Mail/AlertMail.php`
 **Namespace**: `Martingalian\Core\Mail\AlertMail`
@@ -470,12 +478,14 @@ Throttler::using(NotificationService::class)
 ## Message Patterns
 
 ### Design Principles
-1. **Audience-appropriate**: Admin messages are technical and direct; user messages are clear and actionable
+1. **Audience-appropriate**: Admin messages are technical and direct with executable commands; user messages are clear and actionable
 2. **No tutorials**: State what needs to be done, not why or how in detail
 3. **Direct language**: Remove jargon like "optimization needed", avoid hedging like "no rush"
-4. **Copy-paste friendly**: Important data (IPs, account names) on separate lines with minimal padding
+4. **Copy-paste friendly**: Important data (IPs, account names, commands) on separate lines using `[COPY]` and `[CMD]` markers
 5. **Context-aware**: Only include relevant information (e.g., no server IP for account-level issues)
 6. **Personalized**: Template handles "Hello {name}," salutation
+7. **Actionable commands**: Admin notifications include specific supervisor/system commands using `[CMD]` markers
+8. **Exception context**: WebSocket errors and system failures include exception messages for debugging
 
 ### Account Info Format
 For rate limits and errors: `Account ID: 5 (John Trader / Binance)` - includes exchange
@@ -690,6 +700,16 @@ $processedMessage = preg_replace_callback(
     },
     $notificationMessage
 );
+
+// [CMD]command[/CMD] converts to styled command blocks
+$processedMessage = preg_replace_callback(
+    '/\[CMD\](.*?)\[\/CMD\]/s',
+    function($matches) {
+        $text = trim($matches[1]);
+        return '<div class="command-block">' . e($text) . '</div>';
+    },
+    $processedMessage
+);
 ```
 
 **CSS Styling**:
@@ -698,6 +718,17 @@ $processedMessage = preg_replace_callback(
     font-family: 'Courier New', Courier, monospace;
     font-size: 20px;
     font-weight: 700;
+    user-select: all;  /* Easy to select/copy */
+}
+
+.command-block {
+    font-family: 'Courier New', Courier, Consolas, Monaco, monospace;
+    font-size: 14px;
+    font-weight: 700;
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-left: 4px solid #3b82f6;
+    padding: 12px 16px;
     user-select: all;  /* Easy to select/copy */
 }
 ```
@@ -715,11 +746,15 @@ $processedMessage = preg_replace_callback(
 1. **Email title**: NO hostname prefix
 2. **Email footer**: NO hostname (security - removed to avoid exposing infrastructure)
 3. **Pushover title**: WITH hostname `[hostname] Title`
-4. **Salutation**: Template handles "Hello {name}," (not in NotificationMessageBuilder)
-5. **Data formatting**: Important data on separate lines with minimal padding
-6. **Server IP context**: Only include for server-related issues (rate limits, network), not account issues
-7. **Priority headers**: Critical/High severity get email priority headers
-8. **Delivery**: Immediate (NOT queued) for routing access
-9. **Testing**: Real rendering via log driver (not `Mail::fake()`)
-10. **Routing**: Operational errors to admin, actionable errors to user
-11. **IP highlighting**: Use `[COPY]IP[/COPY]` for IP addresses to make them prominent and easy to copy
+4. **Pushover message**: NO server IPs (cleaner mobile alerts - IPs only in email body)
+5. **Salutation**: Template handles "Hello {name}," (not in NotificationMessageBuilder)
+6. **Data formatting**: Important data on separate lines with minimal padding
+7. **Server IP context**: Only include in EMAIL body for server-related issues (rate limits, network), not account issues
+8. **Priority headers**: Critical/High severity get email priority headers
+9. **Delivery**: Immediate (NOT queued) for routing access
+10. **Testing**: Real rendering via log driver (not `Mail::fake()`)
+11. **Routing**: Operational errors to admin, actionable errors to user
+12. **IP highlighting**: Use `[COPY]IP[/COPY]` for IP addresses to make them prominent and easy to copy in emails
+13. **Command display**: Use `[CMD]command[/CMD]` for system commands (supervisor, SQL queries, bash) in admin emails
+14. **Supervisor processes**: Reference correct process names: `update-binance-prices`, `update-bybit-prices`
+15. **Exception context**: Pass exception messages via context array for WebSocket/system errors

@@ -193,6 +193,29 @@
             line-height: 1.5;
         }
 
+        /* Command block display */
+        .command-block {
+            font-family: 'Courier New', Courier, Consolas, Monaco, monospace;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+            background-color: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-left: 4px solid #3b82f6;
+            padding: 12px 16px;
+            margin: 8px 0;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            cursor: text;
+            user-select: all;
+            -webkit-user-select: all;
+            -moz-user-select: all;
+            -ms-user-select: all;
+            line-height: 1.6;
+        }
+
         /* Responsive */
         @media only screen and (max-width: 600px) {
             .email-container {
@@ -207,6 +230,10 @@
             .ip-address {
                 font-size: 18px;
                 padding: 16px 0;
+            }
+            .command-block {
+                font-size: 12px;
+                padding: 10px 12px;
             }
         }
     </style>
@@ -244,28 +271,41 @@
                             <!-- Message with proper paragraph formatting -->
                             <div class="message">
                                 @php
-                                    // Parse [COPY]text[/COPY] markers and convert to prominent IP display
-                                    // Use a unique placeholder to avoid escaping issues
-                                    $ipItems = [];
-                                    $placeholder = '___IP_ITEM_%d___';
+                                    // Parse [COPY]text[/COPY] and [CMD]text[/CMD] markers
+                                    // Use unique placeholders to avoid escaping issues
+                                    $specialItems = [];
+                                    $placeholder = '___SPECIAL_ITEM_%d___';
                                     $index = 0;
 
+                                    // Process [COPY] markers for IP addresses
                                     $processedMessage = preg_replace_callback(
                                         '/\[COPY\](.*?)\[\/COPY\]/s',
-                                        function($matches) use (&$ipItems, &$index, $placeholder) {
+                                        function($matches) use (&$specialItems, &$index, $placeholder) {
                                             $text = trim($matches[1]);
                                             $html = '<div class="ip-address">' . e($text) . '</div>';
-                                            $ipItems[$index] = $html;
+                                            $specialItems[$index] = $html;
                                             return sprintf($placeholder, $index++);
                                         },
                                         $notificationMessage
+                                    );
+
+                                    // Process [CMD] markers for commands
+                                    $processedMessage = preg_replace_callback(
+                                        '/\[CMD\](.*?)\[\/CMD\]/s',
+                                        function($matches) use (&$specialItems, &$index, $placeholder) {
+                                            $text = trim($matches[1]);
+                                            $html = '<div class="command-block">' . e($text) . '</div>';
+                                            $specialItems[$index] = $html;
+                                            return sprintf($placeholder, $index++);
+                                        },
+                                        $processedMessage
                                     );
 
                                     // Escape and add line breaks to the remaining text
                                     $processedMessage = nl2br(e($processedMessage));
 
                                     // Replace placeholders with actual HTML
-                                    foreach ($ipItems as $idx => $html) {
+                                    foreach ($specialItems as $idx => $html) {
                                         $processedMessage = str_replace(
                                             e(sprintf($placeholder, $idx)),
                                             $html,

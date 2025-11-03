@@ -28,6 +28,7 @@ final class AlertNotification extends Notification
      *
      * @param  string  $message  The notification message body
      * @param  string  $title  The notification title
+     * @param  string|null  $canonical  Notification canonical identifier (e.g., 'ip_not_whitelisted', 'api_rate_limit_exceeded')
      * @param  string|null  $deliveryGroup  Delivery group name (exceptions, default, indicators) or null for individual user
      * @param  array  $additionalParameters  Extra parameters (sound, priority, url, etc.)
      * @param  \Martingalian\Core\Enums\NotificationSeverity|null  $severity  Severity level for visual styling
@@ -38,6 +39,7 @@ final class AlertNotification extends Notification
     public function __construct(
         public string $message,
         public string $title = 'Alert',
+        public ?string $canonical = null,
         public ?string $deliveryGroup = null,
         public array $additionalParameters = [],
         public ?\Martingalian\Core\Enums\NotificationSeverity $severity = null,

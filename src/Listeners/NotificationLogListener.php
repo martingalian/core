@@ -9,6 +9,7 @@ use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\Notification;
 use Martingalian\Core\Models\User;
 use ReflectionClass;
 use ReflectionProperty;
@@ -102,8 +103,12 @@ final class NotificationLogListener
         // Build content dump for legal audit
         $contentDump = $this->buildContentDump($notification, $notifiable);
 
+        // Lookup notification definition by canonical
+        $notificationId = Notification::where('canonical', $canonical)->value('id');
+
         // Create log entry
         NotificationLog::create([
+            'notification_id' => $notificationId,
             'canonical' => $canonical,
             'relatable_type' => $relatableType,
             'relatable_id' => $relatableId,

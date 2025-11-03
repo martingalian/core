@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Mail;
 
-use Martingalian\Core\Enums\NotificationSeverity;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Martingalian\Core\Enums\NotificationSeverity;
 
 final class AlertMail extends Mailable
 {
@@ -44,13 +44,13 @@ final class AlertMail extends Mailable
         if ($this->serverIp || $this->exchange) {
             // Add "- Server IP xxx.xxx.xxx.xxx on Exchange" if both serverIp and exchange are provided
             if ($this->serverIp && $this->exchange) {
-                $subject .= ' - Server '.$this->serverIp.' on '.ucfirst($this->exchange);
+                $subject .= ' - Server '.$this->serverIp.' on '.$this->exchange;
             } elseif ($this->serverIp) {
                 // Just server IP if no exchange
                 $subject .= ' - Server '.$this->serverIp;
             } elseif ($this->hostname && $this->exchange) {
                 // Legacy fallback: use hostname if IP not provided but exchange is
-                $subject .= ' - Server '.$this->hostname.' on '.ucfirst($this->exchange);
+                $subject .= ' - Server '.$this->hostname.' on '.$this->exchange;
             } elseif ($this->hostname) {
                 // Legacy fallback: just hostname if exchange provided without IP
                 $subject .= ' - Server '.$this->hostname;

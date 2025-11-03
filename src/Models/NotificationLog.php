@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  *
  * @property int $id
  * @property string $uuid
+ * @property int|null $notification_id
  * @property string $canonical
  * @property string|null $relatable_type
  * @property int|null $relatable_id
@@ -40,6 +42,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string|null $error_message
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
+ * @property-read Notification|null $notification
  * @property-read \Illuminate\Database\Eloquent\Model|null $relatable
  */
 final class NotificationLog extends Model
@@ -76,6 +79,16 @@ final class NotificationLog extends Model
     public function uniqueIds(): array
     {
         return ['uuid'];
+    }
+
+    /**
+     * The notification definition used for this log entry.
+     *
+     * @return BelongsTo<Notification, $this>
+     */
+    public function notification(): BelongsTo
+    {
+        return $this->belongsTo(Notification::class);
     }
 
     /**

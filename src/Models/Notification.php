@@ -8,6 +8,7 @@ use Martingalian\Core\Concerns\Notification\HasGetters;
 use Martingalian\Core\Concerns\Notification\HasScopes;
 use Martingalian\Core\Enums\NotificationSeverity;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Notification
@@ -21,11 +22,12 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $canonical
  * @property string $title
  * @property string|null $description
+ * @property string|null $detailed_description
  * @property NotificationSeverity|null $default_severity
- * @property bool $is_active
  * @property array<int, string> $user_types
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, NotificationLog> $logs
  */
 final class Notification extends Model
 {
@@ -35,8 +37,17 @@ final class Notification extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'is_active' => 'boolean',
         'default_severity' => NotificationSeverity::class,
         'user_types' => 'array',
     ];
+
+    /**
+     * Get all notification logs that used this notification definition.
+     *
+     * @return HasMany<NotificationLog, $this>
+     */
+    public function logs(): HasMany
+    {
+        return $this->hasMany(NotificationLog::class);
+    }
 }

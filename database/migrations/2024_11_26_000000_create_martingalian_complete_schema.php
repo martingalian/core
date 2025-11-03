@@ -313,19 +313,19 @@ return new class extends Migration
             $table->string('canonical')->unique()->comment('Base message canonical identifier (e.g., ip_not_whitelisted)');
             $table->string('title')->comment('Human-readable notification title');
             $table->text('description')->nullable()->comment('Description of when this notification is sent');
+            $table->text('detailed_description')->nullable()->comment('Comprehensive technical details: HTTP codes, vendor error codes, error messages, and triggering conditions from exchange APIs');
             $table->string('default_severity')->nullable()->comment('Default severity level (Critical, High, Medium, Info)');
             $table->json('user_types')->nullable()->comment('Target recipient types: admin, user, or both (defaults to ["user"] if null)');
-            $table->boolean('is_active')->default(true)->comment('Whether this notification can be sent');
             $table->timestamps();
 
             $table->index('canonical', 'notifications_canonical_index');
-            $table->index('is_active', 'notifications_is_active_index');
         });
 
         // notification_logs table - Legal audit trail for all sent notifications
         Schema::create('notification_logs', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique()->comment('Unique identifier for backend reference');
+            $table->unsignedBigInteger('notification_id')->nullable()->comment('FK to notifications table - which notification definition was used');
             $table->string('canonical')->comment('Notification canonical used (e.g., ip_not_whitelisted)');
             $table->nullableMorphs('relatable', 'notification_logs_relatable_index');
             $table->string('channel')->comment('Delivery channel: mail, pushover');
@@ -344,6 +344,7 @@ return new class extends Migration
             $table->text('error_message')->nullable()->comment('Error message if delivery failed');
             $table->timestamps();
 
+            $table->index('notification_id', 'notification_logs_notification_id_index');
             $table->index('canonical', 'notification_logs_canonical_index');
             $table->index('channel', 'notification_logs_channel_index');
             $table->index('status', 'notification_logs_status_index');

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\ApiRequestLog;
 
+use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\Notification;
+use Martingalian\Core\Models\Repeater;
+use Martingalian\Core\Models\Server;
 use Martingalian\Core\Repeaters\ServerIpNotWhitelistedRepeater;
 use Martingalian\Core\Support\NotificationMessageBuilder;
 use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Support\Throttler;
-use Martingalian\Core\Abstracts\BaseExceptionHandler;
-use Martingalian\Core\Models\Account;
-use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Models\Repeater;
-use Martingalian\Core\Models\Server;
 
 /**
  * SendsNotifications
@@ -352,6 +352,7 @@ trait SendsNotifications
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: 'api_credentials_or_ip',
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
@@ -383,6 +384,7 @@ trait SendsNotifications
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: 'invalid_api_key',
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
@@ -414,6 +416,7 @@ trait SendsNotifications
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: 'invalid_signature',
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
@@ -445,6 +448,7 @@ trait SendsNotifications
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: 'insufficient_permissions',
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
@@ -479,6 +483,7 @@ trait SendsNotifications
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: 'ip_not_whitelisted',
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
@@ -524,6 +529,7 @@ trait SendsNotifications
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: 'api_rate_limit_exceeded',
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
@@ -557,6 +563,7 @@ trait SendsNotifications
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: 'api_access_denied',
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
@@ -590,6 +597,7 @@ trait SendsNotifications
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: 'api_access_denied',
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
@@ -623,6 +631,7 @@ trait SendsNotifications
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: 'exchange_maintenance',
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
@@ -655,6 +664,7 @@ trait SendsNotifications
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: 'api_connection_failed',
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
@@ -702,8 +712,12 @@ trait SendsNotifications
         // Throttle canonical: Prefixed with API system to segregate throttle windows per API
         $throttleCanonical = $handler->getApiSystem().'_'.$messageCanonical;
 
+        // Fetch API system model to get the proper name
+        $exchangeCanonical = $handler->getApiSystem();
+        $apiSystem = ApiSystem::where('canonical', $exchangeCanonical)->first();
+        $exchange = $apiSystem ? $apiSystem->name : ucfirst($exchangeCanonical);
+
         // Build account info string
-        $exchange = ucfirst($handler->getApiSystem());
         $accountInfo = "Account ID: {$account->id}";
         if ($account->user) {
             $accountInfo = "Account ID: {$account->id} ({$account->user->name} / {$exchange})";
@@ -729,8 +743,8 @@ trait SendsNotifications
 
         // Build context - only include server info for server-related notifications
         $context = [
-            'exchange' => $handler->getApiSystem(),
-            'account_name' => ucfirst($handler->getApiSystem()).' Account #'.$account->id,
+            'exchange' => $exchangeCanonical,
+            'account_name' => $exchange.' Account #'.$account->id,
             'account_info' => $accountInfo,
         ];
 
@@ -749,16 +763,19 @@ trait SendsNotifications
         // Send to user if appropriate
         if ($shouldSendToUser && $hasSpecificUser) {
             $user = $account->user;
-            $exchangeName = $handler->getApiSystem();
+            $exchangeCanonical = $handler->getApiSystem();
+            $apiSystem = ApiSystem::where('canonical', $exchangeCanonical)->first();
+            $exchangeName = $apiSystem ? $apiSystem->name : ucfirst($exchangeCanonical);
             $serverIp = $isServerRelated ? gethostbyname(gethostname()) : null;
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->for($user)
-                ->execute(function () use ($user, $messageData, $exchangeName, $serverIp) {
+                ->execute(function () use ($user, $messageData, $messageCanonical, $exchangeName, $serverIp) {
                     NotificationService::sendToUser(
                         user: $user,
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: $messageCanonical,
                         deliveryGroup: null,  // User notifications should NOT use delivery groups (those route to admin group keys)
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
@@ -771,22 +788,22 @@ trait SendsNotifications
         }
 
         // Send to admin if appropriate
-        if ($shouldSendToAdmin && (! $hasSpecificUser || ! $shouldSendToUser)) {
-            $exchangeName = $handler->getApiSystem();
-            $serverIp = $isServerRelated ? gethostbyname(gethostname()) : null;
+        // Note: Admin notifications do NOT include exchange/serverIp parameters to keep email subjects clean
+        // Send to admin independently of whether we sent to user (both can receive notifications)
+        // Use separate throttle key to avoid throttling admin notification when user notification was just sent
+        if ($shouldSendToAdmin) {
             Throttler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($messageData, $exchangeName, $serverIp) {
+                ->withCanonical($throttleCanonical.'_admin')
+                ->execute(function () use ($messageData, $messageCanonical) {
                     NotificationService::sendToAdmin(
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
+                        canonical: $messageCanonical,
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
                         actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $exchangeName,
-                        serverIp: $serverIp
+                        actionLabel: $messageData['actionLabel']
                     );
                 });
         }

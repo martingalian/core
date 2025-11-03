@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Support;
 
-use Martingalian\Core\Enums\NotificationSeverity;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Martingalian\Core\Enums\NotificationSeverity;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\User;
 use Martingalian\Core\Notifications\AlertNotification;
@@ -45,6 +45,7 @@ final class NotificationService
      * @param  User  $user  The user to notify
      * @param  string  $message  The notification message body
      * @param  string  $title  The notification title (hostname will be prepended automatically)
+     * @param  string|null  $canonical  Notification canonical identifier (e.g., 'ip_not_whitelisted', 'api_rate_limit_exceeded')
      * @param  string|null  $deliveryGroup  Delivery group name (exceptions, default, indicators)
      * @param  array<string, mixed>  $additionalParameters  Extra parameters (sound, priority, url, etc.)
      * @param  NotificationSeverity|null  $severity  Severity level for visual styling
@@ -59,6 +60,7 @@ final class NotificationService
         User $user,
         string $message,
         string $title = 'Alert',
+        ?string $canonical = null,
         ?string $deliveryGroup = 'default',
         array $additionalParameters = [],
         ?NotificationSeverity $severity = null,
@@ -92,6 +94,7 @@ final class NotificationService
             new AlertNotification(
                 message: $message,
                 title: $title,
+                canonical: $canonical,
                 deliveryGroup: $deliveryGroup,
                 additionalParameters: $params,
                 severity: $severity,
@@ -114,6 +117,7 @@ final class NotificationService
      *
      * @param  string  $message  The notification message body
      * @param  string  $title  The notification title (hostname will be prepended automatically)
+     * @param  string|null  $canonical  Notification canonical identifier (e.g., 'ip_not_whitelisted', 'api_rate_limit_exceeded')
      * @param  string|null  $deliveryGroup  Delivery group name (exceptions, default, indicators)
      * @param  array<string, mixed>  $additionalParameters  Extra parameters (sound, priority, url, etc.)
      * @param  NotificationSeverity|null  $severity  Severity level for visual styling
@@ -127,6 +131,7 @@ final class NotificationService
     public static function sendToAdmin(
         string $message,
         string $title = 'Alert',
+        ?string $canonical = null,
         ?string $deliveryGroup = 'default',
         array $additionalParameters = [],
         ?NotificationSeverity $severity = null,
@@ -157,6 +162,7 @@ final class NotificationService
                     user: $adminUser,
                     message: $message,
                     title: $title,
+                    canonical: $canonical,
                     deliveryGroup: $deliveryGroup,
                     additionalParameters: $additionalParameters,
                     severity: $severity,
@@ -228,6 +234,44 @@ final class NotificationService
         }
 
         return true;
+    }
+
+    /**
+     * Send a notification to the admin using a canonical notification template.
+     * Looks up the notification template from NotificationMessageBuilder and interpolates context variables.
+     *
+     * This method does NOT pass exchange or serverIp parameters to prevent them from appearing
+     * in email subjects. All server context should be included in the message content via templates.
+     *
+     * @param  string  $canonical  Notification canonical identifier (e.g., 'binance_websocket_error')
+     * @param  array<string, mixed>  $context  Context variables for template interpolation (e.g., ['exchange' => 'binance', 'exception' => '...'])
+     * @param  string|null  $deliveryGroup  Delivery group name (exceptions, default, indicators)
+     * @return bool True if notification was sent, false otherwise
+     */
+    public static function sendToAdminByCanonical(
+        string $canonical,
+        array $context = [],
+        ?string $deliveryGroup = 'default'
+    ): bool {
+        // Get notification message data from builder
+        $messageData = NotificationMessageBuilder::getMessage($canonical, $context);
+
+        if (! $messageData) {
+            return false;
+        }
+
+        // Send to admin WITHOUT exchange or serverIp parameters
+        // This ensures email subjects don't include server context
+        return self::sendToAdmin(
+            message: $messageData['emailMessage'],
+            title: $messageData['title'],
+            canonical: $canonical,
+            deliveryGroup: $deliveryGroup,
+            severity: $messageData['severity'],
+            pushoverMessage: $messageData['pushoverMessage'],
+            actionUrl: $messageData['actionUrl'],
+            actionLabel: $messageData['actionLabel']
+        );
     }
 
     /**

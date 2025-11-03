@@ -309,6 +309,50 @@ Line 2<br/>
 Line 3
 ```
 
+### Special Markup
+
+#### [COPY] Marker - Prominent IP Addresses
+Use `[COPY]text[/COPY]` to render IP addresses prominently with large, bold, monospace font:
+
+```php
+$message = "Server IP Address:\n[COPY]192.168.1.1[/COPY]\n\nPlease whitelist this IP.";
+
+// Renders as prominent, user-selectable monospace text (20px, Courier New)
+```
+
+**CSS Styling**:
+```css
+.ip-address {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 20px;
+    font-weight: 700;
+    user-select: all; /* Easy to select/copy */
+}
+```
+
+#### [CMD] Marker - Command Blocks
+Use `[CMD]command[/CMD]` to render system commands with monospace font and distinctive styling:
+
+```php
+$message = "Check supervisor status:\n[CMD]supervisorctl status update-binance-prices[/CMD]\n\nReview logs:\n[CMD]tail -100 storage/logs/laravel.log[/CMD]";
+
+// Renders as bold monospace command blocks with blue left border
+```
+
+**CSS Styling**:
+```css
+.command-block {
+    font-family: 'Courier New', Courier, Consolas, Monaco, monospace;
+    font-size: 14px;
+    font-weight: 700;
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-left: 4px solid #3b82f6;
+    padding: 12px 16px;
+    user-select: all; /* Easy to select/copy */
+}
+```
+
 ### Copy-Paste Friendly
 Important data on separate lines:
 
