@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Observers;
 
-use App\Support\NotificationService;
-use App\Support\Throttler;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ExchangeSymbol;
 

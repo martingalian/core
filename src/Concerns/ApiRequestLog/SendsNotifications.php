@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\ApiRequestLog;
 
-use App\Models\Notification;
-use App\Repeaters\ServerIpNotWhitelistedRepeater;
-use App\Support\NotificationMessageBuilder;
-use App\Support\NotificationService;
-use App\Support\Throttler;
+use Martingalian\Core\Models\Notification;
+use Martingalian\Core\Repeaters\ServerIpNotWhitelistedRepeater;
+use Martingalian\Core\Support\NotificationMessageBuilder;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;

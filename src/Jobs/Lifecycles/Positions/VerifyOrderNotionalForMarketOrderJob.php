@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
-use App\Support\NotificationService;
-use App\Support\Throttler;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Exception;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;

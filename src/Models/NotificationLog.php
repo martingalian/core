@@ -4,48 +4,164 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use Database\Factories\NotificationLogFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * NotificationLog
  *
- * Tracks when each user last received each notification type.
- * Used for per-user throttling to prevent notification spam.
+ * Legal audit trail for ALL notifications sent through the platform.
+ * Logs notification delivery attempts, confirmations, and failures across all channels.
+ *
+ * One log entry per channel per notification sent.
+ *
+ * @property int $id
+ * @property string $uuid
+ * @property string $canonical
+ * @property string|null $relatable_type
+ * @property int|null $relatable_id
+ * @property string $channel
+ * @property string $recipient
+ * @property string|null $message_id
+ * @property \Illuminate\Support\Carbon $sent_at
+ * @property \Illuminate\Support\Carbon|null $confirmed_at
+ * @property \Illuminate\Support\Carbon|null $opened_at
+ * @property \Illuminate\Support\Carbon|null $bounced_at
+ * @property string $status
+ * @property array<string, mixed>|null $http_headers_sent
+ * @property array<string, mixed>|null $http_headers_received
+ * @property array<string, mixed>|null $gateway_response
+ * @property string|null $content_dump
+ * @property string|null $raw_email_content
+ * @property string|null $error_message
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property \Illuminate\Support\Carbon $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Model|null $relatable
  */
 final class NotificationLog extends Model
 {
-    protected $fillable = [
-        'user_id',
-        'message_canonical',
-        'last_sent_at',
+    /** @use HasFactory<\Database\Factories\NotificationLogFactory> */
+    use HasFactory;
+    use HasUuids;
+
+    protected $guarded = [];
+
+    protected $casts = [
+        'sent_at' => 'datetime',
+        'confirmed_at' => 'datetime',
+        'opened_at' => 'datetime',
+        'bounced_at' => 'datetime',
+        'http_headers_sent' => 'array',
+        'http_headers_received' => 'array',
+        'gateway_response' => 'array',
     ];
 
-    public function user(): BelongsTo
+    /**
+     * Create a new factory instance for the model.
+     */
+    protected static function newFactory(): Factory
     {
-        return $this->belongsTo(User::class);
+        return NotificationLogFactory::new();
     }
 
     /**
-     * Check if enough time has passed since the last notification of this type to this user.
+     * Get the columns that should receive a unique identifier.
+     *
+     * @return array<int, string>
      */
-    public function canSendAgain(int $throttleSeconds): bool
+    public function uniqueIds(): array
     {
-        return $this->last_sent_at->diffInSeconds(now()) >= $throttleSeconds;
+        return ['uuid'];
     }
 
     /**
-     * Update the last_sent_at timestamp to now.
+     * The relatable model (usually Account, sometimes User, null for admin notifications).
+     *
+     * @return MorphTo<\Illuminate\Database\Eloquent\Model, $this>
      */
-    public function markAsSent(): void
+    public function relatable(): MorphTo
     {
-        $this->update(['last_sent_at' => now()]);
+        return $this->morphTo();
     }
 
-    public function casts(): array
+    /**
+     * Scope query to specific canonical.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public function scopeByCanonical(\Illuminate\Database\Eloquent\Builder $query, string $canonical): \Illuminate\Database\Eloquent\Builder
     {
-        return [
-            'last_sent_at' => 'datetime',
-        ];
+        return $query->where('canonical', $canonical);
+    }
+
+    /**
+     * Scope query to specific channel.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public function scopeByChannel(\Illuminate\Database\Eloquent\Builder $query, string $channel): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('channel', $channel);
+    }
+
+    /**
+     * Scope query to specific status.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public function scopeByStatus(\Illuminate\Database\Eloquent\Builder $query, string $status): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('status', $status);
+    }
+
+    /**
+     * Scope query to confirmed notifications.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public function scopeConfirmed(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereNotNull('confirmed_at');
+    }
+
+    /**
+     * Scope query to unconfirmed notifications.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public function scopeUnconfirmed(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereNull('confirmed_at');
+    }
+
+    /**
+     * Scope query to failed notifications.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public function scopeFailed(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('status', 'failed');
+    }
+
+    /**
+     * Scope query to delivered notifications.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public function scopeDelivered(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('status', 'delivered');
     }
 }

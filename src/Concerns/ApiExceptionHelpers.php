@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns;
 
-use App\Support\NotificationService;
-use App\Support\Throttler;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;

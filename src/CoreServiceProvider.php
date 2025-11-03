@@ -8,9 +8,11 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Martingalian\Core\Commands\DispatchStepsCommand;
+use Martingalian\Core\Listeners\NotificationLogListener;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\AccountBalanceHistory;
 use Martingalian\Core\Models\ApiRequestLog;
@@ -58,12 +60,23 @@ final class CoreServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'martingalian');
 
+        // Load API routes with /api prefix
+        $this->app->router->group([
+            'prefix' => 'api',
+            'middleware' => 'api',
+        ], function ($router) {
+            require __DIR__.'/../routes/api.php';
+        });
+
         $this->publishes([
             __DIR__.'/../config/martingalian.php' => config_path('martingalian.php'),
         ]);
 
         Model::automaticallyEagerLoadRelationships();
         Model::unguard();
+
+        // Register NotificationLogListener as event subscriber
+        Event::subscribe(NotificationLogListener::class);
 
         AccountBalanceHistory::observe(AccountBalanceHistoryObserver::class);
         Account::observe(AccountObserver::class);

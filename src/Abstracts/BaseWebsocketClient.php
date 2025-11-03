@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Abstracts;
 
-use App\Support\NotificationService;
-use App\Support\Throttler;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Exception;
 use Ratchet\Client\Connector;
 use Ratchet\Client\WebSocket;

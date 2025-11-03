@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Notifications;
 
-use App\Mail\AlertMail;
+use Martingalian\Core\Mail\AlertMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Notifications\Notification;
@@ -30,7 +30,7 @@ final class AlertNotification extends Notification
      * @param  string  $title  The notification title
      * @param  string|null  $deliveryGroup  Delivery group name (exceptions, default, indicators) or null for individual user
      * @param  array  $additionalParameters  Extra parameters (sound, priority, url, etc.)
-     * @param  \App\Enums\NotificationSeverity|null  $severity  Severity level for visual styling
+     * @param  \Martingalian\Core\Enums\NotificationSeverity|null  $severity  Severity level for visual styling
      * @param  string|null  $pushoverMessage  Override message for Pushover (defaults to $message)
      * @param  string|null  $exchange  Exchange name for email subject (e.g., 'binance', 'bybit')
      * @param  string|null  $serverIp  Server IP address for email subject (e.g., '192.168.1.100')
@@ -40,7 +40,7 @@ final class AlertNotification extends Notification
         public string $title = 'Alert',
         public ?string $deliveryGroup = null,
         public array $additionalParameters = [],
-        public ?\App\Enums\NotificationSeverity $severity = null,
+        public ?\Martingalian\Core\Enums\NotificationSeverity $severity = null,
         public ?string $pushoverMessage = null,
         public ?string $exchange = null,
         public ?string $serverIp = null

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Support\ApiClients\Websocket;
 
-use App\Support\NotificationService;
-use App\Support\Throttler;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseWebsocketClient;
 
 final class BybitApiClient extends BaseWebsocketClient

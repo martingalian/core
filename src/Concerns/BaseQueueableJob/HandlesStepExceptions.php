@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\BaseQueueableJob;
 
-use App\Support\NotificationService;
-use App\Support\Throttler;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Exceptions\JustEndException;
 use Martingalian\Core\Exceptions\JustResolveException;
