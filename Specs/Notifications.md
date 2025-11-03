@@ -112,19 +112,96 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 **Namespace**: `Martingalian\Core\Support\NotificationService`
 **Methods**: `sendToUser()`, `sendToAdmin()`, `sendToAdminByCanonical()`, `sendDirectToEmail()`, `sendDirectToPushover()`
 
-**Admin Notification Flow**: `sendToAdmin()` uses two-tier lookup:
-1. **First**: Attempts to find admin User by email (`config('martingalian.admin_user_email')`)
-   - If found, uses standard `sendToUser()` flow (respects User's channels/preferences)
-2. **Fallback**: Uses direct sending with credentials from `Martingalian` model:
+**CRITICAL: Admin Notification Flow** - `sendToAdmin()` ALWAYS uses direct sending (NO User model):
+1. **No User lookup**: Admin notifications never lookup User records by email
+2. **Direct sending only**: Uses credentials from `Martingalian` model:
    - `admin_pushover_user_key` (encrypted admin Pushover key)
    - `admin_user_email` (admin email address)
    - `notification_channels` (admin notification channels)
+3. **Manual event firing**: After direct sending, manually fires `NotificationSent` events
+   - This allows `NotificationLogListener` to create audit log entries
+   - Without firing events, notifications won't be logged in `notification_logs` table
+4. **Pseudo-notifiable object**: Creates temporary object for event dispatching
+   - Contains email and pushover_key for NotificationLogListener
+
+**Why**: Admin is a virtual account concept. There is no User model for admin. All admin notifications use direct HTTP/SMTP sending.
 
 **sendToAdminByCanonical()**: Convenience method for canonical-based admin notifications
 - Fetches message template from NotificationMessageBuilder
 - Automatically sends to admin WITHOUT serverIp/exchange parameters
 - Keeps email subjects clean and focused on issue type
 - Usage: `NotificationService::sendToAdminByCanonical('api_rate_limit_exceeded', ['exchange' => 'binance'])`
+
+## Critical Developer Requirements
+
+### ALWAYS Pass Canonical Parameter
+**RULE**: Every call to `sendToUser()` or `sendToAdmin()` MUST include the `canonical` parameter.
+
+**Why**: Without a canonical:
+- `NotificationLogListener` falls back to class name `"AlertNotification"`
+- `notification_logs.notification_id` will be NULL (can't lookup Notification record)
+- Notifications become untrackable and unidentifiable
+- Audit trail is incomplete
+
+**Correct**:
+```php
+NotificationService::sendToAdmin(
+    message: 'Rate limit exceeded',
+    title: 'API Rate Limit',
+    canonical: 'api_rate_limit_exceeded',  // ✅ REQUIRED
+    deliveryGroup: 'exceptions'
+);
+```
+
+**Incorrect** (will log as "AlertNotification" with null notification_id):
+```php
+NotificationService::sendToAdmin(
+    message: 'Rate limit exceeded',
+    title: 'API Rate Limit',
+    deliveryGroup: 'exceptions'  // ❌ Missing canonical
+);
+```
+
+### ALWAYS Use IP Addresses, Not Hostnames
+**RULE**: The `'ip'` context key MUST contain an IP address (IPv4/IPv6), NEVER a hostname.
+
+**Why**: Users need IP addresses to:
+- Whitelist on exchange APIs
+- Troubleshoot network connectivity
+- Identify which specific server has issues
+
+**Correct**:
+```php
+$serverIp = gethostbyname(gethostname());  // Converts hostname to IP
+NotificationMessageBuilder::build('ip_not_whitelisted', [
+    'ip' => $serverIp,          // ✅ IP: "91.84.82.171"
+    'hostname' => gethostname(), // Optional: "server-name"
+]);
+```
+
+**Incorrect** (shows hostname instead of IP):
+```php
+NotificationMessageBuilder::build('ip_not_whitelisted', [
+    'ip' => gethostname(),  // ❌ Hostname: "DELLXPS15" (useless for whitelisting)
+]);
+```
+
+**Implementation Note**: In `SendsNotifications.php`, always calculate `$serverIp = gethostbyname($hostname)` early and use it for all `'ip'` context keys.
+
+### NotificationLogListener Requires Canonical
+**RULE**: `NotificationLogListener::extractCanonical()` extracts canonical from notification object properties.
+
+**Extraction Order**:
+1. `$notification->canonical` (if non-empty string)
+2. `$notification->messageCanonical` (if non-empty string)
+3. Fallback: `class_basename($notification)` → `"AlertNotification"`
+
+**notification_id Lookup**:
+- If canonical found: Looks up `Notification::where('canonical', $canonical)->value('id')`
+- If canonical is NULL or doesn't exist in DB: `notification_id` remains NULL
+- Always create Notification records first via seeder before using canonicals
+
+**Best Practice**: Create all canonicals in `NotificationsTableSeeder.php` before using them in code.
 
 ### Notification Model
 **Location**: `packages/martingalian/core/src/Models/Notification.php`
@@ -158,11 +235,13 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 
 **Context Variables** (passed via `$context` array):
 - `exchange` (string) - Exchange canonical identifier ('binance', 'bybit') for dynamic message interpolation
-- `ip` (string) - Server IP address (only included in email body for server-related issues)
+- `ip` (string) - **MUST be IP address** (IPv4/IPv6), NEVER hostname. Use `gethostbyname(gethostname())` to convert. Included in email body for server-related issues.
 - `exception` (string) - Exception message for WebSocket/system errors
 - `account_info` (string) - Account name/identifier
-- `hostname` (string) - Server hostname
+- `hostname` (string) - Server hostname (display only, NOT for whitelisting)
 - `wallet_balance`, `unrealized_pnl` - Trading metrics
+
+**CRITICAL**: The `'ip'` key MUST contain an actual IP address. Users need this for exchange API whitelisting. Hostnames are useless for this purpose.
 
 **Exchange Name Display**: Templates receive exchange canonical (e.g., 'binance'), but when building notifications:
 - Fetch `ApiSystem` model: `ApiSystem::where('canonical', $exchangeCanonical)->first()`
@@ -194,6 +273,7 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 
 **Schema** (`notification_logs` table):
 - `id`, `uuid` - Unique identifiers
+- `notification_id` - Foreign key to `notifications.id` (NULL if canonical not found)
 - `canonical` - Message template identifier (e.g., 'api_rate_limit_exceeded')
 - `relatable_type`, `relatable_id` - Polymorphic relation (Account, User, or null for admin)
 - `channel` - Delivery channel ('mail', 'pushover')
@@ -211,8 +291,17 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 - `raw_email_content` (TEXT) - HTML/text email body for mail viewers
 - `error_message` - Error details if failed
 
+**notification_id Foreign Key**:
+- Populated by `NotificationLogListener` when creating log entry
+- Lookup: `Notification::where('canonical', $canonical)->value('id')`
+- Will be NULL if:
+  - Canonical parameter not passed to `sendToUser()`/`sendToAdmin()`
+  - Canonical doesn't exist in `notifications` table
+  - Canonical is NULL on AlertNotification object
+- Used for: Linking notification logs to notification definitions for analytics/reporting
+
 **Indexes**:
-- `canonical`, `channel`, `message_id`, `status`, `sent_at`
+- `canonical`, `channel`, `message_id`, `status`, `sent_at`, `notification_id`
 - `relatable_type` + `relatable_id` (composite)
 - `uuid` (unique)
 
@@ -231,6 +320,7 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 
 **Logged Data**:
 - Canonical extracted from notification object
+- **notification_id** looked up from `notifications` table using canonical
 - Relatable model (Account, User, or null)
 - Recipient based on channel
 - Gateway response (extracted from `SentMessage`)
@@ -248,6 +338,12 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 - `extractMessageId()` - Extracts tracking ID (Zeptomail `request_id`, Pushover `receipt`)
 - `extractRawEmailContent()` - Gets HTML/text body from original message
 - `buildContentDump()` - Serializes all notification data to JSON
+
+**notification_id Lookup Process**:
+1. Extract canonical from notification object (`extractCanonical()`)
+2. Lookup notification: `Notification::where('canonical', $canonical)->value('id')`
+3. Store in `notification_logs.notification_id` (NULL if not found)
+4. This links log entries to notification definitions for analytics
 
 **How It Works**:
 1. Laravel dispatches notification via `AlertNotification`

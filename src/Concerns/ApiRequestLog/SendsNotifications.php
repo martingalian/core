@@ -337,7 +337,7 @@ trait SendsNotifications
                 canonical: 'api_credentials_or_ip',
                 context: [
                     'exchange' => $apiSystem,
-                    'ip' => $hostname,
+                    'ip' => $serverIp,
                     'hostname' => $hostname,
                     'account_info' => 'System-level API call (admin account)',
                     'account_name' => 'Admin Account',
@@ -468,7 +468,7 @@ trait SendsNotifications
                 canonical: 'ip_not_whitelisted',
                 context: [
                     'exchange' => $apiSystem,
-                    'ip' => $hostname,
+                    'ip' => $serverIp,
                     'hostname' => $hostname,
                     'account_info' => 'System-level API call (admin account)',
                     'account_name' => 'Admin Account',
@@ -517,7 +517,7 @@ trait SendsNotifications
                 canonical: 'api_rate_limit_exceeded',
                 context: [
                     'exchange' => $apiSystem,
-                    'ip' => $hostname,
+                    'ip' => $serverIp,
                     'hostname' => $hostname,
                     'account_info' => $accountInfo,
                 ]
@@ -549,7 +549,7 @@ trait SendsNotifications
                 canonical: 'api_access_denied',
                 context: [
                     'exchange' => $apiSystem,
-                    'ip' => $hostname,
+                    'ip' => $serverIp,
                     'hostname' => $hostname,
                     'account_info' => 'System-level API call (admin account)',
                 ]
@@ -583,7 +583,7 @@ trait SendsNotifications
                 canonical: 'api_access_denied',
                 context: [
                     'exchange' => $apiSystem,
-                    'ip' => $hostname,
+                    'ip' => $serverIp,
                     'hostname' => $hostname,
                     'account_info' => 'System-level API call (admin account)',
                 ]
@@ -618,7 +618,7 @@ trait SendsNotifications
                 canonical: 'exchange_maintenance',
                 context: [
                     'exchange' => $apiSystem,
-                    'ip' => $hostname,
+                    'ip' => $serverIp,
                     'hostname' => $hostname,
                 ]
             );
@@ -651,7 +651,7 @@ trait SendsNotifications
                 canonical: 'api_connection_failed',
                 context: [
                     'exchange' => $apiSystem,
-                    'ip' => $hostname,
+                    'ip' => $serverIp,
                     'hostname' => $hostname,
                 ]
             );
@@ -749,7 +749,7 @@ trait SendsNotifications
         ];
 
         if ($isServerRelated) {
-            $context['ip'] = $hostname;
+            $context['ip'] = gethostbyname($hostname);
             $context['hostname'] = $hostname;
         }
 

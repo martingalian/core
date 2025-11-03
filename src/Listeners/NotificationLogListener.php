@@ -134,13 +134,13 @@ final class NotificationLogListener
      */
     private function extractCanonical(object $notification): string
     {
-        // Check if notification has canonical property
-        if (property_exists($notification, 'canonical') && is_string($notification->canonical)) {
+        // Check if notification has canonical property with a non-empty value
+        if (property_exists($notification, 'canonical') && is_string($notification->canonical) && $notification->canonical !== '') {
             return $notification->canonical;
         }
 
         // Check if notification has messageCanonical property (used in AlertNotification)
-        if (property_exists($notification, 'messageCanonical') && is_string($notification->messageCanonical)) {
+        if (property_exists($notification, 'messageCanonical') && is_string($notification->messageCanonical) && $notification->messageCanonical !== '') {
             return $notification->messageCanonical;
         }
 

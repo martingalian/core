@@ -6,6 +6,7 @@ namespace Martingalian\Core\Support;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Notifications\Events\NotificationSent;
 use Martingalian\Core\Enums\NotificationSeverity;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\User;
@@ -153,29 +154,8 @@ final class NotificationService
             return false;
         }
 
-        // First, try to find admin User and send via User model (for testability)
-        $adminEmail = config('martingalian.admin_user_email') ?? $martingalian->admin_user_email;
-        if ($adminEmail) {
-            $adminUser = User::where('email', $adminEmail)->first();
-            if ($adminUser) {
-                return self::sendToUser(
-                    user: $adminUser,
-                    message: $message,
-                    title: $title,
-                    canonical: $canonical,
-                    deliveryGroup: $deliveryGroup,
-                    additionalParameters: $additionalParameters,
-                    severity: $severity,
-                    pushoverMessage: $pushoverMessage,
-                    actionUrl: $actionUrl,
-                    actionLabel: $actionLabel,
-                    exchange: $exchange,
-                    serverIp: $serverIp
-                );
-            }
-        }
-
-        // Fallback: Use admin credentials from Martingalian model for direct sending
+        // Admin notifications ALWAYS use direct sending (no User model)
+        // We fire NotificationSent events manually so NotificationLogListener can log them
 
         // Get notification channels from Martingalian model (defaults to Pushover only if not set)
         // Database stores simple strings: ['pushover', 'mail']
@@ -183,6 +163,35 @@ final class NotificationService
         /** @var array<int, string> $channels */
         // @phpstan-ignore-next-line - PHPDoc type is certain from model cast
         $channels = is_array($channelsRaw) ? $channelsRaw : ['pushover'];
+
+        // Build additional parameters with action URL and label
+        $params = $additionalParameters;
+        if ($actionUrl) {
+            $params['url'] = $actionUrl;
+        }
+        if ($actionLabel) {
+            $params['url_title'] = $actionLabel;
+        }
+
+        // Create pseudo-notifiable object for admin
+        $adminNotifiable = (object) [
+            'email' => $martingalian->admin_user_email,
+            'pushover_key' => $martingalian->admin_pushover_user_key,
+            'is_active' => true,
+        ];
+
+        // Create the AlertNotification instance
+        $notification = new AlertNotification(
+            message: $message,
+            title: $title,
+            canonical: $canonical,
+            deliveryGroup: $deliveryGroup,
+            additionalParameters: $params,
+            severity: $severity,
+            pushoverMessage: $pushoverMessage,
+            exchange: $exchange,
+            serverIp: $serverIp
+        );
 
         // Send to configured channels
         foreach ($channels as $channel) {
@@ -193,33 +202,32 @@ final class NotificationService
                 default => null,
             };
 
-            // Build additional parameters with action URL and label
-            $params = $additionalParameters;
-            if ($actionUrl) {
-                $params['url'] = $actionUrl;
-            }
-            if ($actionLabel) {
-                $params['url_title'] = $actionLabel;
-            }
-
             if ($normalizedChannel === 'pushover') {
                 // Get admin Pushover key from database (not config)
                 if ($martingalian->admin_pushover_user_key) {
-                    self::sendDirectToPushover(
+                    $sent = self::sendDirectToPushover(
                         pushoverKey: $martingalian->admin_pushover_user_key,
                         message: $pushoverMessage ?? $message,
                         title: '['.gethostname().'] '.$title, // Hostname prefix for Pushover
                         deliveryGroup: $deliveryGroup,
                         additionalParameters: $params
                     );
+
+                    // Fire NotificationSent event so NotificationLogListener logs it
+                    if ($sent) {
+                        event(new NotificationSent(
+                            notifiable: $adminNotifiable,
+                            notification: $notification,
+                            channel: 'pushover',
+                            response: null
+                        ));
+                    }
                 }
             } elseif ($normalizedChannel === 'mail') {
                 if ($martingalian->admin_user_email) {
-                    // Try to get admin user's name from database
-                    $adminUser = User::where('email', $martingalian->admin_user_email)->first();
-                    $userName = $adminUser ? $adminUser->name : 'System Administrator';
+                    $userName = 'System Administrator';
 
-                    self::sendDirectToEmail(
+                    $sent = self::sendDirectToEmail(
                         email: $martingalian->admin_user_email,
                         message: $message,
                         title: $title, // No hostname prefix for email (goes in footer)
@@ -229,6 +237,16 @@ final class NotificationService
                         exchange: $exchange,
                         serverIp: $serverIp
                     );
+
+                    // Fire NotificationSent event so NotificationLogListener logs it
+                    if ($sent) {
+                        event(new NotificationSent(
+                            notifiable: $adminNotifiable,
+                            notification: $notification,
+                            channel: 'mail',
+                            response: null
+                        ));
+                    }
                 }
             }
         }
@@ -323,6 +341,7 @@ final class NotificationService
      * @param  string  $title  The notification title
      * @param  string|null  $deliveryGroup  Delivery group name for priority lookup
      * @param  array<string, mixed>  $additionalParameters  Extra parameters (sound, priority, url, etc.)
+     * @return bool True if notification was sent successfully
      */
     private static function sendDirectToPushover(
         string $pushoverKey,
@@ -330,12 +349,12 @@ final class NotificationService
         string $title,
         ?string $deliveryGroup = null,
         array $additionalParameters = []
-    ): void {
+    ): bool {
         // Get Pushover application token from Martingalian model
         $martingalian = Martingalian::find(1);
 
         if (! $martingalian || ! $martingalian->admin_pushover_application_key) {
-            return;
+            return false;
         }
 
         $appToken = $martingalian->admin_pushover_application_key;
@@ -377,7 +396,9 @@ final class NotificationService
         }
 
         // Send to Pushover API
-        Http::asForm()->post('https://api.pushover.net/1/messages.json', $payload);
+        $response = Http::asForm()->post('https://api.pushover.net/1/messages.json', $payload);
+
+        return $response->successful();
     }
 
     /**
@@ -391,6 +412,7 @@ final class NotificationService
      * @param  string|null  $userName  User name for personalization
      * @param  string|null  $exchange  Exchange name for email subject
      * @param  string|null  $serverIp  Server IP address for email subject
+     * @return bool True if notification was sent successfully
      */
     private static function sendDirectToEmail(
         string $email,
@@ -401,7 +423,7 @@ final class NotificationService
         ?string $userName = null,
         ?string $exchange = null,
         ?string $serverIp = null
-    ): void {
+    ): bool {
         $htmlMessage = view('martingalian::emails.notification', [
             'notificationTitle' => $title,
             'notificationMessage' => $message,
@@ -437,6 +459,10 @@ final class NotificationService
                 $mail->to($email)
                     ->subject($subject);
             });
+
+            return true;
         }
+
+        return false;
     }
 }
