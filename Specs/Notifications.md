@@ -86,27 +86,20 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 **Analyzes**: HTTP codes (401, 403, 429, 503), vendor codes, connection failures
 **Routes**: Based on `user_types` JSON field
 
-#### Server-Related vs Account-Related Notifications
-**Architectural Rule**: Only include server IP/hostname for server-related issues
+#### Server Context in Notifications
+**Architectural Rule**: Admin notifications do NOT include server IP/exchange in email subjects
 
-**Server-related** (include IP/hostname):
-- `api_rate_limit_exceeded` - Rate limiting is server-specific
-- `api_connection_failed` - Network connectivity from server
-- `api_system_error` - Server-side timeout/system error
-- `api_network_error` - Network issues from server
-- `ip_not_whitelisted` - Server IP needs whitelisting
-- `api_access_denied` - May be IP-related
-- `exchange_maintenance` - Server detected maintenance
+**User Notifications** (MAY include server IP/exchange in email subject):
+- Server-specific issues where context helps user understand (e.g., `ip_not_whitelisted`)
+- Email subject shows: `"Title - Server IP on Exchange"` when serverIp and exchange provided
 
-**Account-related** (NO server IP):
-- `invalid_api_credentials` - Credentials are universal, not server-specific
-- `account_in_liquidation` - Exchange account status
-- `account_reduce_only_mode` - Exchange account restriction
-- `account_trading_banned` - Exchange account ban
-- `kyc_verification_required` - Exchange account verification
-- `account_unauthorized` - Exchange permission issue
+**Admin Notifications** (NO server IP/exchange in email subject):
+- All admin notifications send WITHOUT serverIp/exchange parameters
+- Server context (if relevant) is included ONLY in email message body
+- This keeps email subjects clean and focused on the issue, not the infrastructure
+- Admin knows which server from hostname in email footer
 
-**Why**: Account-level restrictions are exchange-side decisions unrelated to which server detected them. Including server IP in these contexts is confusing and irrelevant.
+**Why**: Admin email subjects should focus on the problem type, not which server detected it. Server context (when relevant) goes in the email body. This prevents subject line clutter and makes email filtering/searching easier.
 
 ### AlertNotification
 **Location**: `packages/martingalian/core/src/Notifications/AlertNotification.php`
@@ -117,7 +110,7 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 ### NotificationService
 **Location**: `packages/martingalian/core/src/Support/NotificationService.php`
 **Namespace**: `Martingalian\Core\Support\NotificationService`
-**Methods**: `sendToUser()`, `sendToAdmin()`, `sendDirectToEmail()`, `sendDirectToPushover()`
+**Methods**: `sendToUser()`, `sendToAdmin()`, `sendToAdminByCanonical()`, `sendDirectToEmail()`, `sendDirectToPushover()`
 
 **Admin Notification Flow**: `sendToAdmin()` uses two-tier lookup:
 1. **First**: Attempts to find admin User by email (`config('martingalian.admin_user_email')`)
@@ -126,6 +119,12 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
    - `admin_pushover_user_key` (encrypted admin Pushover key)
    - `admin_user_email` (admin email address)
    - `notification_channels` (admin notification channels)
+
+**sendToAdminByCanonical()**: Convenience method for canonical-based admin notifications
+- Fetches message template from NotificationMessageBuilder
+- Automatically sends to admin WITHOUT serverIp/exchange parameters
+- Keeps email subjects clean and focused on issue type
+- Usage: `NotificationService::sendToAdminByCanonical('api_rate_limit_exceeded', ['exchange' => 'binance'])`
 
 ### Notification Model
 **Location**: `packages/martingalian/core/src/Models/Notification.php`
@@ -158,12 +157,18 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 **Templates**: 30+ predefined message templates covering API errors, system alerts, trading events
 
 **Context Variables** (passed via `$context` array):
-- `exchange` (string) - Exchange identifier ('binance', 'bybit') for dynamic message interpolation
+- `exchange` (string) - Exchange canonical identifier ('binance', 'bybit') for dynamic message interpolation
 - `ip` (string) - Server IP address (only included in email body for server-related issues)
 - `exception` (string) - Exception message for WebSocket/system errors
 - `account_info` (string) - Account name/identifier
 - `hostname` (string) - Server hostname
 - `wallet_balance`, `unrealized_pnl` - Trading metrics
+
+**Exchange Name Display**: Templates receive exchange canonical (e.g., 'binance'), but when building notifications:
+- Fetch `ApiSystem` model: `ApiSystem::where('canonical', $exchangeCanonical)->first()`
+- Use `$apiSystem->name` for display (e.g., "Binance" not "binance")
+- Fallback to `ucfirst($canonical)` only if model not found
+- Applied in: SendsNotifications trait, NotificationService
 
 ### AlertMail
 **Location**: `packages/martingalian/core/src/Mail/AlertMail.php`
@@ -173,10 +178,14 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 
 **Email Subject Construction**:
 - Base: Notification title
-- If `serverIp` and `exchange`: `"Title - Server IP on Exchange"`
-- If only `serverIp`: `"Title - Server IP"`
-- If `hostname` and `exchange`: `"Title - Server hostname on Exchange"`
-- Example: `"API Rate Limit Exceeded - Server 1.2.3.4 on Binance"`
+- **User notifications only** (admin notifications omit server context):
+  - If `serverIp` and `exchange`: `"Title - Server IP on Exchange"`
+  - If only `serverIp`: `"Title - Server IP"`
+  - If `hostname` and `exchange`: `"Title - Server hostname on Exchange"`
+  - Example: `"IP Whitelist Required - Server 1.2.3.4 on Binance"`
+- **Admin notifications**: No server IP/exchange appended (clean subject)
+  - Example: `"API Rate Limit Exceeded"` (not `"... - Server 1.2.3.4 on Binance"`)
+- **Exchange name display**: Uses `ApiSystem->name` (e.g., "Binance") not `ucfirst(canonical)` (e.g., "Binance")
 
 ### NotificationLog Model
 **Location**: `packages/martingalian/core/src/Models/NotificationLog.php`
@@ -437,7 +446,14 @@ Config: `config('martingalian.api.pushover.delivery_groups')`
 ### Routing Logic
 - If `user_types=['admin']` → admin ONLY (even if account has user)
 - If `user_types=['user']` → user ONLY (if account has user)
+- If `user_types=['admin', 'user']` → BOTH admin AND user receive notification
 - If account has no user → all notifications default to admin
+
+**Throttle Key Segregation**: Admin and user notifications use separate throttle keys
+- User notification throttle key: `{canonical}` (e.g., `binance_rate_limit_exceeded`)
+- Admin notification throttle key: `{canonical}_admin` (e.g., `binance_rate_limit_exceeded_admin`)
+- This prevents admin notifications from being throttled when user just received same canonical
+- Ensures both recipients get notified when `user_types=['admin', 'user']`
 
 ### Examples
 - `api_rate_limit_exceeded`: ['admin'] - Operational, auto-handled
@@ -451,6 +467,27 @@ Config: `config('martingalian.api.pushover.delivery_groups')`
 ### Two Canonical Types
 **Throttle Canonical**: `{system}_{error_type}` (e.g., `binance_rate_limit_exceeded`) - For throttle rule lookup
 **Message Canonical**: `{error_type}` (e.g., `api_rate_limit_exceeded`) - For message template
+
+### Admin Throttle Key Suffix
+**Rule**: Admin notifications append `_admin` suffix to throttle canonical
+- User throttle key: `binance_rate_limit_exceeded`
+- Admin throttle key: `binance_rate_limit_exceeded_admin`
+- Prevents admin from being throttled when user just received notification
+- Allows both user and admin to receive when `user_types=['admin', 'user']`
+
+**Implementation**: Applied in SendsNotifications trait (line 796)
+```php
+// User notification
+Throttler::using(NotificationService::class)
+    ->withCanonical('binance_rate_limit_exceeded')
+    ->for($user)
+    ->execute(function () { ... });
+
+// Admin notification (separate throttle key)
+Throttler::using(NotificationService::class)
+    ->withCanonical('binance_rate_limit_exceeded_admin')
+    ->execute(function () { ... });
+```
 
 ### Usage
 ```php
@@ -639,9 +676,26 @@ protected $subscribe = [
 ## Testing
 
 ### Integration Tests
-**Location**: `tests/Integration/Mail/AlertNotificationEmailTest.php`
+**Notification Behavior Tests**:
+- `tests/Integration/Observers/ApiRequestLogObserverNotificationTest.php` - API error notification flow
+- `tests/Integration/Mail/AlertNotificationEmailTest.php` - Email rendering and components
+
+**Throttling Tests**:
+- `tests/Feature/Support/NotificationThrottlerTest.php` - Comprehensive throttling behavior (18 tests)
+  - Throttle window enforcement
+  - Per-user throttling independence
+  - Admin throttling segregation (separate throttle keys)
+  - Auto-create throttle rules
+  - User activation and config checks
+
+**Key Test Coverage**:
+- ✅ Dual user type notifications (both admin and user receive when `user_types=['admin', 'user']`)
+- ✅ Admin throttle key segregation (admin not throttled when user just received notification)
+- ✅ Email components, security (HTML escaping), formatting
+- ✅ Server IP removal from admin email subjects
+- ✅ Exchange name display using ApiSystem->name
+
 **Driver**: Log mail driver (validates rendering without sending)
-**Tests**: Email components, security (HTML escaping), formatting, user preferences
 
 ### Preventing Real Pushover
 `IntegrationTestCase` prevents real Pushover via:
@@ -743,18 +797,23 @@ $processedMessage = preg_replace_callback(
 
 ## Design Rules
 
-1. **Email title**: NO hostname prefix
-2. **Email footer**: NO hostname (security - removed to avoid exposing infrastructure)
-3. **Pushover title**: WITH hostname `[hostname] Title`
-4. **Pushover message**: NO server IPs (cleaner mobile alerts - IPs only in email body)
-5. **Salutation**: Template handles "Hello {name}," (not in NotificationMessageBuilder)
-6. **Data formatting**: Important data on separate lines with minimal padding
-7. **Server IP context**: Only include in EMAIL body for server-related issues (rate limits, network), not account issues
-8. **Priority headers**: Critical/High severity get email priority headers
-9. **Delivery**: Immediate (NOT queued) for routing access
-10. **Testing**: Real rendering via log driver (not `Mail::fake()`)
-11. **Routing**: Operational errors to admin, actionable errors to user
-12. **IP highlighting**: Use `[COPY]IP[/COPY]` for IP addresses to make them prominent and easy to copy in emails
-13. **Command display**: Use `[CMD]command[/CMD]` for system commands (supervisor, SQL queries, bash) in admin emails
-14. **Supervisor processes**: Reference correct process names: `update-binance-prices`, `update-bybit-prices`
-15. **Exception context**: Pass exception messages via context array for WebSocket/system errors
+1. **Email subject (user notifications)**: NO hostname prefix, MAY include server IP/exchange for server-specific issues
+2. **Email subject (admin notifications)**: NO hostname prefix, NO server IP/exchange (clean, focused subjects)
+3. **Email footer**: Includes hostname and timestamp
+4. **Pushover title**: WITH hostname `[hostname] Title`
+5. **Pushover message**: NO server IPs (cleaner mobile alerts - IPs only in email body)
+6. **Salutation**: Template handles "Hello {name}," (not in NotificationMessageBuilder)
+7. **Data formatting**: Important data on separate lines with minimal padding
+8. **Server IP context (admin)**: Never in email subject, included in email body when relevant
+9. **Server IP context (user)**: May appear in email subject for server-specific issues (e.g., IP whitelisting)
+10. **Exchange name display**: Use `ApiSystem->name` from database, not `ucfirst(canonical)`
+11. **Priority headers**: Critical/High severity get email priority headers
+12. **Delivery**: Immediate (NOT queued) for routing access
+13. **Testing**: Real rendering via log driver (not `Mail::fake()`)
+14. **Routing**: Operational errors to admin, actionable errors to user
+15. **Dual user types**: When `user_types=['admin', 'user']`, both receive notification (separate throttle keys)
+16. **Throttle key segregation**: Admin uses `{canonical}_admin` to prevent cross-throttling with user
+17. **IP highlighting**: Use `[COPY]IP[/COPY]` for IP addresses to make them prominent and easy to copy in emails
+18. **Command display**: Use `[CMD]command[/CMD]` for system commands (supervisor, SQL queries, bash) in admin emails
+19. **Supervisor processes**: Reference correct process names: `update-binance-prices`, `update-bybit-prices`
+20. **Exception context**: Pass exception messages via context array for WebSocket/system errors

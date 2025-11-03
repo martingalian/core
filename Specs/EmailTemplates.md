@@ -36,8 +36,23 @@ Professional HTML email templates for alert notifications. Fully responsive, mul
 ### 4. Footer
 - Support email link (info@martingalian.com)
 - Timestamp with timezone (Europe/Zurich)
-- Server hostname
+- Server hostname (for identifying which server sent the notification)
 - Light gray background
+
+## Email Subject Construction
+
+**User Notifications** (MAY include server context):
+- Base: Notification title
+- If serverIp and exchange provided: `"Title - Server IP on Exchange"`
+- Example: `"IP Whitelist Required - Server 1.2.3.4 on Binance"`
+
+**Admin Notifications** (NO server context):
+- Base: Notification title only
+- No server IP or exchange appended
+- Example: `"API Rate Limit Exceeded"` (clean and focused)
+- Server context (when relevant) appears in email body, not subject
+
+**Rationale**: Admin email subjects stay clean and focused on issue type, not infrastructure. This makes email filtering, searching, and inbox management easier. Server context (when relevant) goes in the email body.
 
 ## Template Code
 
