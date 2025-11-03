@@ -1,0 +1,724 @@
+# Database Schema
+
+## Overview
+MySQL 8.0+ database schema for cryptocurrency trading automation. Schema focuses on multi-user, multi-exchange account management with position tracking, order history, and balance snapshots.
+
+## Important Notes
+
+- **ALL migrations live in**: `packages/martingalian/core/database/migrations/`
+- **NEVER create migrations** in main Laravel project
+- Use `php artisan make:migration` which respects package configuration
+- Always use `DB::transaction()` for related operations
+- Always use pessimistic locking for concurrent updates: `->lockForUpdate()`
+
+## Core Tables
+
+### users
+
+User accounts with notification preferences.
+
+```sql
+CREATE TABLE users (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    email_verified_at TIMESTAMP NULL,
+    password VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_admin BOOLEAN DEFAULT FALSE,
+    notification_channels JSON NULL COMMENT '["mail", "pushover"]',
+    pushover_user_key VARCHAR(255) NULL,
+    remember_token VARCHAR(100) NULL,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+
+    INDEX idx_is_active (is_active),
+    INDEX idx_is_admin (is_admin)
+);
+```
+
+**Key Fields**:
+- `is_active`: Controls notification delivery (false = no notifications)
+- `is_admin`: Receives admin notifications (exceptions, alerts)
+- `notification_channels`: JSON array of enabled channels (mail, pushover)
+- `pushover_user_key`: For individual Pushover notifications (not delivery groups)
+
+**Relationships**:
+- Has many `exchange_accounts`
+- Has many `positions` (through exchange_accounts)
+- Has many `orders` (through exchange_accounts)
+
+### exchange_accounts
+
+Exchange API credentials and account configuration.
+
+```sql
+CREATE TABLE exchange_accounts (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    exchange_name VARCHAR(50) NOT NULL COMMENT 'binance, bybit',
+    account_name VARCHAR(255) NOT NULL COMMENT 'User-friendly name',
+    account_type VARCHAR(50) NOT NULL COMMENT 'spot, margin, futures',
+    api_key TEXT NOT NULL COMMENT 'Encrypted',
+    api_secret TEXT NOT NULL COMMENT 'Encrypted',
+    is_active BOOLEAN DEFAULT TRUE,
+    testnet BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_exchange_name (exchange_name),
+    INDEX idx_is_active (is_active)
+);
+```
+
+**Key Fields**:
+- `exchange_name`: 'binance' or 'bybit'
+- `account_type`: 'spot', 'margin', or 'futures'
+- `api_key`/`api_secret`: Encrypted credentials (Laravel encryption)
+- `is_active`: Account enabled for trading
+- `testnet`: Using testnet API endpoints
+
+**Relationships**:
+- Belongs to `user`
+- Has many `positions`
+- Has many `orders`
+- Has many `account_balances`
+
+**Encryption**:
+```php
+// Stored encrypted
+$account->api_key = encrypt($apiKey);
+
+// Retrieved decrypted
+$apiKey = decrypt($account->api_key);
+```
+
+### positions
+
+Open and closed trading positions.
+
+```sql
+CREATE TABLE positions (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    exchange_account_id BIGINT UNSIGNED NOT NULL,
+    symbol VARCHAR(50) NOT NULL COMMENT 'BTCUSDT, ETHUSDT',
+    side VARCHAR(10) NOT NULL COMMENT 'long, short',
+    entry_price DECIMAL(20, 8) NOT NULL,
+    current_price DECIMAL(20, 8) NOT NULL,
+    quantity DECIMAL(20, 8) NOT NULL,
+    leverage INT DEFAULT 1,
+    unrealized_pnl DECIMAL(20, 8) NULL,
+    realized_pnl DECIMAL(20, 8) NULL,
+    status VARCHAR(20) NOT NULL COMMENT 'open, closed',
+    opened_at TIMESTAMP NOT NULL,
+    closed_at TIMESTAMP NULL,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+
+    FOREIGN KEY (exchange_account_id) REFERENCES exchange_accounts(id),
+    INDEX idx_exchange_account_id (exchange_account_id),
+    INDEX idx_symbol (symbol),
+    INDEX idx_status (status),
+    INDEX idx_opened_at (opened_at)
+);
+```
+
+**Key Fields**:
+- `symbol`: Trading pair (e.g., BTCUSDT)
+- `side`: 'long' (buy) or 'short' (sell)
+- `entry_price`: Average entry price
+- `current_price`: Last known price
+- `quantity`: Position size
+- `leverage`: Leverage multiplier (1 = no leverage)
+- `unrealized_pnl`: Current profit/loss (open positions)
+- `realized_pnl`: Final profit/loss (closed positions)
+- `status`: 'open' or 'closed'
+
+**Relationships**:
+- Belongs to `exchange_account`
+- Has many `orders`
+
+**PnL Calculation**:
+```php
+// Long position
+$unrealizedPnl = ($currentPrice - $entryPrice) * $quantity * $leverage;
+
+// Short position
+$unrealizedPnl = ($entryPrice - $currentPrice) * $quantity * $leverage;
+```
+
+### orders
+
+Individual buy/sell orders.
+
+```sql
+CREATE TABLE orders (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    position_id BIGINT UNSIGNED NULL COMMENT 'NULL if not part of position',
+    exchange_account_id BIGINT UNSIGNED NOT NULL,
+    exchange_order_id VARCHAR(255) NOT NULL COMMENT 'Exchange-provided ID',
+    symbol VARCHAR(50) NOT NULL,
+    side VARCHAR(10) NOT NULL COMMENT 'buy, sell',
+    type VARCHAR(20) NOT NULL COMMENT 'market, limit, stop_loss',
+    price DECIMAL(20, 8) NULL COMMENT 'NULL for market orders',
+    quantity DECIMAL(20, 8) NOT NULL,
+    filled_quantity DECIMAL(20, 8) DEFAULT 0,
+    status VARCHAR(20) NOT NULL COMMENT 'pending, filled, cancelled, rejected',
+    time_in_force VARCHAR(10) DEFAULT 'GTC' COMMENT 'GTC, IOC, FOK',
+    placed_at TIMESTAMP NOT NULL,
+    filled_at TIMESTAMP NULL,
+    cancelled_at TIMESTAMP NULL,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+
+    FOREIGN KEY (position_id) REFERENCES positions(id),
+    FOREIGN KEY (exchange_account_id) REFERENCES exchange_accounts(id),
+    INDEX idx_position_id (position_id),
+    INDEX idx_exchange_account_id (exchange_account_id),
+    INDEX idx_exchange_order_id (exchange_order_id),
+    INDEX idx_symbol (symbol),
+    INDEX idx_status (status),
+    INDEX idx_placed_at (placed_at)
+);
+```
+
+**Key Fields**:
+- `position_id`: Links to position (NULL if standalone order)
+- `exchange_order_id`: Exchange's internal order ID
+- `side`: 'buy' or 'sell'
+- `type`: 'market', 'limit', 'stop_loss', 'take_profit'
+- `price`: Limit price (NULL for market orders)
+- `filled_quantity`: Partial fill support
+- `status`: 'pending', 'filled', 'cancelled', 'rejected'
+- `time_in_force`: 'GTC' (good till cancelled), 'IOC' (immediate or cancel), 'FOK' (fill or kill)
+
+**Relationships**:
+- Belongs to `position` (optional)
+- Belongs to `exchange_account`
+
+### account_balances
+
+Periodic snapshots of account balances.
+
+```sql
+CREATE TABLE account_balances (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    exchange_account_id BIGINT UNSIGNED NOT NULL,
+    asset VARCHAR(20) NOT NULL COMMENT 'USDT, BTC, ETH',
+    free DECIMAL(20, 8) NOT NULL COMMENT 'Available balance',
+    locked DECIMAL(20, 8) NOT NULL COMMENT 'Locked in orders',
+    total DECIMAL(20, 8) NOT NULL COMMENT 'free + locked',
+    snapshot_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NULL,
+
+    FOREIGN KEY (exchange_account_id) REFERENCES exchange_accounts(id),
+    INDEX idx_exchange_account_id (exchange_account_id),
+    INDEX idx_asset (asset),
+    INDEX idx_snapshot_at (snapshot_at)
+);
+```
+
+**Purpose**: Historical balance tracking for analysis and reporting
+
+**Key Fields**:
+- `asset`: Currency/token symbol (USDT, BTC, ETH, etc.)
+- `free`: Available for trading
+- `locked`: Reserved in open orders
+- `total`: free + locked
+- `snapshot_at`: When snapshot was taken
+
+**Relationships**:
+- Belongs to `exchange_account`
+
+**Usage**:
+```php
+// Store snapshot every 15 minutes
+AccountBalance::create([
+    'exchange_account_id' => $account->id,
+    'asset' => 'USDT',
+    'free' => $balance['free'],
+    'locked' => $balance['locked'],
+    'total' => $balance['total'],
+    'snapshot_at' => now(),
+]);
+```
+
+### throttle_logs
+
+Notification throttling to prevent spam.
+
+```sql
+CREATE TABLE throttle_logs (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    canonical VARCHAR(255) NOT NULL UNIQUE COMMENT 'Unique identifier',
+    last_executed_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+
+    UNIQUE KEY unique_canonical (canonical),
+    INDEX idx_last_executed_at (last_executed_at)
+);
+```
+
+**Purpose**: Prevents duplicate notifications within throttle window (default 30 minutes)
+
+**Key Fields**:
+- `canonical`: Unique identifier (e.g., 'binance_ip_not_whitelisted')
+- `last_executed_at`: Timestamp of last notification
+
+**Usage**:
+```php
+Throttler::using(NotificationService::class)
+    ->withCanonical('binance_ip_not_whitelisted')
+    ->execute(function () {
+        NotificationService::sendToAdmin(...);
+    });
+```
+
+**Cleanup**: Old entries can be periodically deleted (e.g., older than 24 hours)
+
+## Migration Patterns
+
+### Creating Migrations
+
+```bash
+# NEVER use --path flag
+php artisan make:migration create_positions_table
+
+# This respects package configuration and creates in:
+# packages/martingalian/core/database/migrations/
+```
+
+### Migration Template
+
+```php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('positions', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('exchange_account_id')->constrained();
+            $table->string('symbol', 50);
+            $table->enum('side', ['long', 'short']);
+            $table->decimal('entry_price', 20, 8);
+            $table->decimal('current_price', 20, 8);
+            $table->decimal('quantity', 20, 8);
+            $table->integer('leverage')->default(1);
+            $table->decimal('unrealized_pnl', 20, 8)->nullable();
+            $table->decimal('realized_pnl', 20, 8)->nullable();
+            $table->enum('status', ['open', 'closed']);
+            $table->timestamp('opened_at');
+            $table->timestamp('closed_at')->nullable();
+            $table->timestamps();
+
+            // Indexes
+            $table->index('exchange_account_id');
+            $table->index('symbol');
+            $table->index('status');
+            $table->index('opened_at');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('positions');
+    }
+};
+```
+
+### Modifying Columns
+
+**IMPORTANT**: When modifying a column, you MUST include ALL attributes:
+
+```php
+public function up(): void
+{
+    Schema::table('users', function (Blueprint $table) {
+        // BAD: Will lose NOT NULL constraint
+        $table->string('email')->unique()->change();
+
+        // GOOD: Preserves all attributes
+        $table->string('email')->nullable(false)->unique()->change();
+    });
+}
+```
+
+### Foreign Keys
+
+```php
+// Shorthand (recommended)
+$table->foreignId('user_id')->constrained();
+
+// Explicit
+$table->foreignId('user_id')->constrained('users', 'id');
+
+// Custom action
+$table->foreignId('user_id')
+    ->constrained()
+    ->onUpdate('cascade')
+    ->onDelete('restrict'); // NEVER use 'cascade' for deletes
+```
+
+**IMPORTANT**: Never use `->onDelete('cascade')` - handle deletions explicitly in application code.
+
+## Database Transactions
+
+### Always Use Transactions
+
+For related database operations:
+
+```php
+use Illuminate\Support\Facades\DB;
+
+DB::transaction(function () {
+    $position = Position::create([...]);
+
+    Order::create([
+        'position_id' => $position->id,
+        ...
+    ]);
+
+    AccountBalance::create([...]);
+});
+```
+
+### Pessimistic Locking
+
+For concurrent updates:
+
+```php
+DB::transaction(function () {
+    $position = Position::where('id', $id)
+        ->lockForUpdate() // Prevents race conditions
+        ->first();
+
+    $position->current_price = $newPrice;
+    $position->unrealized_pnl = $calculatedPnl;
+    $position->save();
+});
+```
+
+## Eloquent Models
+
+### Model Location
+- Core models: `packages/martingalian/core/src/Models/`
+- App-specific models: `app/Models/`
+
+### Model Conventions
+
+```php
+namespace Martingalian\Core\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class Position extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'exchange_account_id',
+        'symbol',
+        'side',
+        'entry_price',
+        'current_price',
+        'quantity',
+        'leverage',
+        'unrealized_pnl',
+        'realized_pnl',
+        'status',
+        'opened_at',
+        'closed_at',
+    ];
+
+    // Use casts() method (Laravel 12)
+    protected function casts(): array
+    {
+        return [
+            'entry_price' => 'decimal:8',
+            'current_price' => 'decimal:8',
+            'quantity' => 'decimal:8',
+            'unrealized_pnl' => 'decimal:8',
+            'realized_pnl' => 'decimal:8',
+            'opened_at' => 'datetime',
+            'closed_at' => 'datetime',
+        ];
+    }
+
+    // Relationships
+    public function exchangeAccount(): BelongsTo
+    {
+        return $this->belongsTo(ExchangeAccount::class);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    // Scopes
+    public function scopeOpen(Builder $query): void
+    {
+        $query->where('status', 'open');
+    }
+
+    public function scopeForSymbol(Builder $query, string $symbol): void
+    {
+        $query->where('symbol', $symbol);
+    }
+}
+```
+
+### Factory Definitions
+
+Located: `packages/martingalian/core/database/factories/`
+
+```php
+namespace Martingalian\Core\Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class PositionFactory extends Factory
+{
+    protected $model = Position::class;
+
+    public function definition(): array
+    {
+        return [
+            'exchange_account_id' => ExchangeAccount::factory(),
+            'symbol' => 'BTCUSDT',
+            'side' => 'long',
+            'entry_price' => $this->faker->randomFloat(8, 30000, 70000),
+            'current_price' => $this->faker->randomFloat(8, 30000, 70000),
+            'quantity' => $this->faker->randomFloat(8, 0.001, 1),
+            'leverage' => 1,
+            'status' => 'open',
+            'opened_at' => now(),
+        ];
+    }
+
+    public function closed(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'closed',
+            'closed_at' => now(),
+            'realized_pnl' => $this->faker->randomFloat(8, -1000, 1000),
+        ]);
+    }
+
+    public function withLeverage(int $leverage): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'leverage' => $leverage,
+        ]);
+    }
+}
+```
+
+## Query Best Practices
+
+### Prevent N+1 Queries
+
+```php
+// BAD: N+1 problem
+$accounts = ExchangeAccount::all();
+foreach ($accounts as $account) {
+    echo $account->user->name; // Query per account
+}
+
+// GOOD: Eager loading
+$accounts = ExchangeAccount::with('user')->get();
+foreach ($accounts as $account) {
+    echo $account->user->name; // No additional queries
+}
+```
+
+### Use Query Scopes
+
+```php
+// BAD: Raw WHERE clauses
+Position::where('status', 'open')
+    ->where('symbol', 'BTCUSDT')
+    ->get();
+
+// GOOD: Scopes
+Position::open()
+    ->forSymbol('BTCUSDT')
+    ->get();
+```
+
+### Chunk Large Datasets
+
+```php
+// BAD: Load all into memory
+$positions = Position::all(); // Could be millions
+
+// GOOD: Process in chunks
+Position::chunk(100, function ($positions) {
+    foreach ($positions as $position) {
+        // Process position
+    }
+});
+```
+
+### Use DB::transaction()
+
+```php
+// BAD: No transaction
+$position = Position::create([...]);
+Order::create(['position_id' => $position->id, ...]);
+
+// GOOD: Wrapped in transaction
+DB::transaction(function () {
+    $position = Position::create([...]);
+    Order::create(['position_id' => $position->id, ...]);
+});
+```
+
+### Always Use Model::create()
+
+```php
+// BAD: Skips observers
+DB::table('users')->insert(['name' => 'John', 'email' => 'john@example.com']);
+User::insert(['name' => 'John', 'email' => 'john@example.com']);
+
+// GOOD: Triggers observers
+User::create(['name' => 'John', 'email' => 'john@example.com']);
+```
+
+## Database Testing
+
+### RefreshDatabase Trait
+
+```php
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
+
+it('creates position', function () {
+    $position = Position::factory()->create();
+
+    expect(Position::count())->toBe(1);
+    // Database automatically reset after test
+});
+```
+
+### Database Transactions in Tests
+
+```php
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+
+uses(DatabaseTransactions::class);
+
+it('updates position', function () {
+    $position = Position::factory()->create();
+    $position->update(['status' => 'closed']);
+
+    expect($position->status)->toBe('closed');
+    // Changes rolled back after test
+});
+```
+
+### Test Database Configuration
+
+```php
+// config/database.php
+'connections' => [
+    'testing' => [
+        'driver' => 'mysql',
+        'host' => env('DB_HOST', '127.0.0.1'),
+        'port' => env('DB_PORT', '3306'),
+        'database' => 'martingalian_test',
+        'username' => env('DB_USERNAME', 'root'),
+        'password' => env('DB_PASSWORD', 'password'),
+    ],
+],
+```
+
+## Common Queries
+
+### Get open positions with account info
+```php
+Position::with('exchangeAccount.user')
+    ->open()
+    ->get();
+```
+
+### Get recent orders for account
+```php
+Order::where('exchange_account_id', $accountId)
+    ->orderBy('placed_at', 'desc')
+    ->limit(10)
+    ->get();
+```
+
+### Get balance history for account
+```php
+AccountBalance::where('exchange_account_id', $accountId)
+    ->where('asset', 'USDT')
+    ->orderBy('snapshot_at', 'desc')
+    ->get();
+```
+
+### Get admin users
+```php
+User::where('is_admin', true)
+    ->where('is_active', true)
+    ->get();
+```
+
+### Get users with email notifications enabled
+```php
+User::whereJsonContains('notification_channels', 'mail')
+    ->where('is_active', true)
+    ->get();
+```
+
+## Performance Considerations
+
+### Indexes
+- Always index foreign keys
+- Index columns used in WHERE clauses
+- Index columns used in ORDER BY
+- Composite indexes for multi-column queries
+
+### Decimals
+- Use DECIMAL(20, 8) for financial data
+- Never use FLOAT for money/prices
+- Precision: 20 digits total, 8 after decimal
+
+### Timestamps
+- Use TIMESTAMP for specific points in time
+- TIMESTAMP supports timezones
+- Indexed for range queries
+
+### JSON Columns
+- Use for flexible, non-relational data
+- Index with virtual columns if needed
+- Query with `whereJsonContains()`
+
+## Backup & Maintenance
+
+### Backup Strategy
+- Daily full backups
+- Point-in-time recovery enabled
+- Retain backups for 30 days
+- Test restore procedures monthly
+
+### Maintenance
+- Optimize tables monthly
+- Analyze tables for query optimization
+- Archive old data (closed positions, old balances)
+- Monitor slow queries
+
+### Cleanup Tasks
+- Delete old throttle_logs (>24 hours)
+- Archive closed positions (>90 days)
+- Archive balance snapshots (>365 days)
