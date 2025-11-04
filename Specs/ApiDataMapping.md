@@ -263,22 +263,35 @@ public function resolveXXXResponse(Response $response): array
 ```php
 public function resolvePositionsQueryResponse(Response $response): array
 {
-    $data = json_decode((string) $response->getBody(), true);
+    $positions = collect(json_decode((string) $response->getBody(), true))
+        ->map(function ($position) {
+            // Normalize symbol from raw 'BTCUSDT' to internal 'BTC/USDT' format
+            if (isset($position['symbol'])) {
+                $parts = $this->identifyBaseAndQuote($position['symbol']);
+                $position['symbol'] = $parts['base'].'/'.$parts['quote'];
+            }
 
-    return array_map(function ($position) {
-        return [
-            'symbol' => $position['symbol'],
-            'side' => $position['positionSide'], // LONG/SHORT
-            'quantity' => (float) $position['positionAmt'],
-            'entry_price' => (float) $position['entryPrice'],
-            'unrealized_pnl' => (float) $position['unRealizedProfit'],
-            'leverage' => (int) $position['leverage'],
-            'liquidation_price' => (float) $position['liquidationPrice'],
-            'margin_type' => $position['marginType'], // isolated/cross
-        ];
-    }, $data);
+            return $position;
+        })
+        ->keyBy('symbol')
+        ->toArray();
+
+    // Remove false positive positions (positionAmt = 0.0)
+    $positions = array_filter($positions, function ($position) {
+        return (float) $position['positionAmt'] !== 0.0;
+    });
+
+    return $positions;
 }
 ```
+
+**Symbol Normalization**: The mapper transforms raw exchange format to internal format:
+- **Input** (Binance raw): `'BTCUSDT'`
+- **Output** (Internal): `'BTC/USDT'`
+
+This ensures consistency with `Position::parsed_trading_pair` and enables symbol comparison in `Position::apiClose()`.
+
+**CRITICAL**: All response mappers must normalize symbols using `identifyBaseAndQuote()`. This was a production bug - `MapsPositionsQuery` initially didn't normalize symbols, causing `apiClose()` to fail position matching.
 
 ---
 

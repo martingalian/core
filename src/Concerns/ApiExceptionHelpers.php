@@ -205,7 +205,7 @@ trait ApiExceptionHelpers
      * NOTE: Also supports CoinMarketCap style payloads:
      *   { "status": { "error_code": 1008, "error_message": "...", ... }, "data": ... }
      */
-    protected function extractHttpErrorCodes(Throwable|ResponseInterface $input): array
+    public function extractHttpErrorCodes(Throwable|ResponseInterface $input): array
     {
         $httpCode = null;
         $statusCode = null;

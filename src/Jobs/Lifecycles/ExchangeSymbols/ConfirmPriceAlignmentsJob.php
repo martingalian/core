@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Exception;
-use Martingalian\Core\Models\Martingalian;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Models\Indicator\QueryIndicatorsByChunkJob;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 /**

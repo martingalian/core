@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Martingalian\Core\Concerns\Notification\HasGetters;
 use Martingalian\Core\Concerns\Notification\HasScopes;
 use Martingalian\Core\Enums\NotificationSeverity;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Notification

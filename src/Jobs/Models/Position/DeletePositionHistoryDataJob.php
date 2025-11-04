@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Position;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 final class DeletePositionHistoryDataJob extends BaseQueueableJob

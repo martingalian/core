@@ -10,6 +10,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use NotificationChannels\Pushover\PushoverChannel;
 use NotificationChannels\Pushover\PushoverReceiver;
+use RuntimeException;
 
 /**
  * @property int $id
@@ -82,12 +83,12 @@ final class User extends Authenticatable
 
     public function throttleLogs()
     {
-        return $this->morphMany(\Martingalian\Core\Models\ThrottleLog::class, 'contextable');
+        return $this->morphMany(ThrottleLog::class, 'contextable');
     }
 
     public function notificationLogs()
     {
-        return $this->morphMany(\Martingalian\Core\Models\NotificationLog::class, 'relatable');
+        return $this->morphMany(NotificationLog::class, 'relatable');
     }
 
     /**
@@ -191,14 +192,13 @@ final class User extends Authenticatable
      * Override save() to prevent virtual users from being persisted.
      *
      * @param  array<string, mixed>  $options
-     * @return bool
      *
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
     public function save(array $options = []): bool
     {
         if ($this->is_virtual) {
-            throw new \RuntimeException('Cannot save virtual admin user to database');
+            throw new RuntimeException('Cannot save virtual admin user to database');
         }
 
         return parent::save($options);

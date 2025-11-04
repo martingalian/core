@@ -7,7 +7,6 @@ namespace Martingalian\Core\Support\ApiExceptionHandlers;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Log;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
 use Martingalian\Core\Support\Throttlers\BybitThrottler;
@@ -220,18 +219,17 @@ final class BybitExceptionHandler extends BaseExceptionHandler
      */
     public function rateLimitUntil(RequestException $exception): Carbon
     {
-        $now = Carbon::now();
+        // 1) Check if there's a retry-after header first
+        $meta = $this->extractHttpMeta($exception);
+        $retryAfter = mb_trim((string) ($meta['retry_after'] ?? ''));
 
-        // 1) Use base logic first (honors Retry-After or falls back)
-        $baseUntil = $this->baseRateLimitUntil($exception);
-
-        // If base already derived a future time (e.g., via Retry-After), keep it.
-        if ($baseUntil->greaterThan($now)) {
-            return $baseUntil;
+        // If Retry-After is present, use base logic
+        if ($retryAfter !== '') {
+            return $this->baseRateLimitUntil($exception);
         }
 
-        // 2) No usable Retry-After: check Bybit-specific rate limit headers
-        $headers = $this->normalizeHeaders($exception->getResponse());
+        // 2) No Retry-After: check Bybit-specific rate limit headers
+        $headers = $meta['headers'] ?? [];
 
         // X-Bapi-Limit-Reset-Timestamp (millisecond timestamp when rate limit resets)
         if (isset($headers['x-bapi-limit-reset-timestamp'])) {
@@ -244,8 +242,8 @@ final class BybitExceptionHandler extends BaseExceptionHandler
             }
         }
 
-        // 3) Last resort: use the base backoff result
-        return $baseUntil;
+        // 3) Last resort: use the base backoff
+        return $this->baseRateLimitUntil($exception);
     }
 
     /**

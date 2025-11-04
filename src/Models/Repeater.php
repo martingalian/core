@@ -41,7 +41,7 @@ final class Repeater extends BaseModel
     /**
      * Process all pending repeaters ready to run
      *
-     * @param string|null $queueName Filter by specific queue name
+     * @param  string|null  $queueName  Filter by specific queue name
      */
     public static function process(?string $queueName = null): void
     {

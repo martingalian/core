@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\BaseQueueableJob;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Exceptions\JustEndException;
 use Martingalian\Core\Exceptions\JustResolveException;
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
 use Martingalian\Core\Exceptions\NonNotifiableException;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 /**
@@ -41,7 +41,7 @@ trait HandlesStepExceptions
                 ->withCanonical('step_error')
                 ->execute(function () use ($parser) {
                     NotificationService::send(
-                    user: Martingalian::admin(),
+                        user: Martingalian::admin(),
                         message: 'Step error - '.$parser->friendlyMessage(),
                         title: "[S:{$this->step->id} ".class_basename(static::class).'] - Error',
                         deliveryGroup: 'exceptions'

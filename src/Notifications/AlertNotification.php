@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Notifications;
 
-use Martingalian\Core\Mail\AlertMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Notifications\Notification;
+use Martingalian\Core\Mail\AlertMail;
 use NotificationChannels\Pushover\PushoverChannel;
 use NotificationChannels\Pushover\PushoverMessage;
 

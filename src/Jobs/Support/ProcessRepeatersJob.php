@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use Martingalian\Core\Models\Repeater;
+use Throwable;
 
 final class ProcessRepeatersJob implements ShouldQueue
 {
@@ -72,7 +73,7 @@ final class ProcessRepeatersJob implements ShouldQueue
                 ]);
             }
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Log error and delete repeater on unexpected exception
             $repeater->update([
                 'last_error' => $e->getMessage(),

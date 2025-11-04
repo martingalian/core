@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Models\ExchangeSymbol;
+use Martingalian\Core\Models\ExchangeSymbol;
 use Illuminate\Database\Eloquent\Model;
 
 /**

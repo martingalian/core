@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Order;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Support\Throttler;
 use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 final class PlaceProfitOrderJob extends BaseApiableJob
@@ -56,7 +56,7 @@ final class PlaceProfitOrderJob extends BaseApiableJob
                 ->withCanonical('place_profit_order')
                 ->execute(function () {
                     NotificationService::send(
-                    user: Martingalian::admin(),
+                        user: Martingalian::admin(),
                         message: "{$this->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
                         title: '['.class_basename(self::class).'] - startOrFail() returned false',
                         deliveryGroup: 'exceptions'

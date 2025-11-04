@@ -6,6 +6,7 @@ namespace Martingalian\Core\Abstracts;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use Martingalian\Core\Models\ApiRequestLog;
 use Martingalian\Core\Models\ApiSystem;
@@ -86,14 +87,20 @@ abstract class BaseApiClient
 
     protected function buildClient()
     {
-        $this->httpRequest = new Client([
-            'base_uri' => $this->baseURL,
-            'headers' => [
-                'Content-Type' => 'application/json',
-                'Accept-Encoding' => 'application/json',
-                'User-Agent' => 'api-client-php',
-            ],
-        ]);
+        // Use Laravel's service container to resolve Guzzle client if available
+        // This allows tests to inject mock clients
+        if (app()->bound(Client::class)) {
+            $this->httpRequest = app(Client::class);
+        } else {
+            $this->httpRequest = new Client([
+                'base_uri' => $this->baseURL,
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'Accept-Encoding' => 'application/json',
+                    'User-Agent' => 'api-client-php',
+                ],
+            ]);
+        }
     }
 
     protected function updateRequestLogData(array $logData)
@@ -172,6 +179,25 @@ abstract class BaseApiClient
 
     protected function executeHttpRequest(string $method, string $path, array $options)
     {
+        if (app()->environment('testing')) {
+            $url = $this->baseURL.'/'.$path;
+            $headers = $options['headers'] ?? [];
+
+            if ($method === 'GET') {
+                return Http::withHeaders($headers)->get($url, $options['query'] ?? [])->throw()->toPsrResponse();
+            } elseif ($method === 'POST') {
+                $body = $options['json'] ?? $options['query'] ?? [];
+
+                return Http::withHeaders($headers)->post($url, $body)->throw()->toPsrResponse();
+            } elseif ($method === 'PUT') {
+                $body = $options['json'] ?? $options['query'] ?? [];
+
+                return Http::withHeaders($headers)->put($url, $body)->throw()->toPsrResponse();
+            } elseif ($method === 'DELETE') {
+                return Http::withHeaders($headers)->delete($url, $options['query'] ?? [])->throw()->toPsrResponse();
+            }
+        }
+
         return $this->httpRequest->request($method, $path, $options);
     }
 

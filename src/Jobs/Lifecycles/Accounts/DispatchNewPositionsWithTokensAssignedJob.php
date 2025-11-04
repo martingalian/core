@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Accounts;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
-use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Jobs\Lifecycles\Positions\DispatchPositionJob;
 use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 final class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob

@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Orders;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
-use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Jobs\Models\Order\PlaceOrderJob;
 use Martingalian\Core\Jobs\Models\Order\SyncReferenceDataJob;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 final class ResettleOrderJob extends BaseQueueableJob

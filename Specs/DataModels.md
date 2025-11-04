@@ -47,7 +47,7 @@ Comprehensive catalog of all Eloquent models in the Martingalian Core package. D
 - `id`, `uuid` - Identifiers
 - `user_id` - FK to users
 - `api_system_id` - FK to api_systems (Binance, Bybit)
-- `trade_configuration_id` - FK to trade_configuration
+- `trade_configuration_id` - FK to trade_configuration - **REQUIRED**
 - `portfolio_quote_id` - FK to quotes (portfolio valuation currency)
 - `trading_quote_id` - FK to quotes (trading pair quote currency)
 - `margin` - Available margin
@@ -56,6 +56,22 @@ Comprehensive catalog of all Eloquent models in the Martingalian Core package. D
 - `credentials` (JSON, encrypted) - API credentials
 - `credentials_testing` (JSON, encrypted) - Testnet credentials
 - `created_at`, `updated_at`, `deleted_at` (soft delete)
+
+**CRITICAL**: `trade_configuration_id` is **REQUIRED** when creating accounts:
+```php
+// ❌ WRONG: Missing trade_configuration_id
+$account = Account::factory()->create([
+    'user_id' => $user->id,
+    'api_system_id' => $apiSystem->id,
+]);
+
+// ✓ CORRECT: Include trade_configuration_id
+$account = Account::factory()->create([
+    'user_id' => $user->id,
+    'api_system_id' => $apiSystem->id,
+    'trade_configuration_id' => 1,  // Required!
+]);
+```
 
 **Encrypted Columns**:
 - `binance_api_key`, `binance_api_secret`
@@ -146,9 +162,20 @@ Comprehensive catalog of all Eloquent models in the Martingalian Core package. D
 
 **Schema**:
 - `id` - Identifier
-- `canonical` - Unique name (btc, eth)
-- `name` - Display name (Bitcoin, Ethereum)
+- `token` - Unique identifier (BTC, ETH, DOGE) - **NOT 'canonical'**
+- `name` - Display name (Bitcoin, Ethereum, Dogecoin)
+- `cmc_id` - CoinMarketCap ID
 - `created_at`, `updated_at`
+
+**IMPORTANT**: Symbols use `token` field, NOT `canonical`:
+```php
+// ✓ CORRECT
+$symbol = Symbol::where('token', 'BTC')->first();
+$symbol = Symbol::firstOrCreate(['token' => 'BTC'], ['name' => 'Bitcoin', 'cmc_id' => 1]);
+
+// ❌ WRONG
+$symbol = Symbol::where('canonical', 'btc')->first();  // Field doesn't exist!
+```
 
 **Relationships**:
 - `hasMany(ExchangeSymbol)` - Symbol on different exchanges
@@ -168,9 +195,25 @@ Comprehensive catalog of all Eloquent models in the Martingalian Core package. D
 
 **Schema**:
 - `id` - Identifier
-- `canonical` - Unique name (usdt, usd)
-- `name` - Display name
+- `canonical` - Unique identifier (usdt, usd, btc) - **NOT 'token'**
+- `name` - Display name (Tether, US Dollar, Bitcoin)
 - `created_at`, `updated_at`
+
+**IMPORTANT**: Quotes use `canonical` field, NOT `token`:
+```php
+// ✓ CORRECT
+$quote = Quote::where('canonical', 'usdt')->first();
+$quote = Quote::firstOrCreate(['canonical' => 'usdt'], ['name' => 'Tether']);
+
+// ❌ WRONG
+$quote = Quote::where('token', 'USDT')->first();  // Field doesn't exist!
+```
+
+**Critical Distinction**:
+- **Symbol** (base assets like BTC, ETH) uses `token` field
+- **Quote** (quote assets like USDT, USD) uses `canonical` field
+- They are **separate models** with **separate tables**
+- ExchangeSymbol links both: `symbol_id` + `quote_id`
 
 **Relationships**:
 - `hasMany(ExchangeSymbol)` - Symbols quoted in this currency
@@ -227,6 +270,18 @@ Comprehensive catalog of all Eloquent models in the Martingalian Core package. D
 - `HasStatuses` - Status checks
 - `HasTradingComputations` - Position sizing, risk calculations
 - `InteractsWithApis` - Exchange API interactions
+
+**Critical HasAccessors Pattern**:
+The `HasAccessors` trait provides the `parsed_trading_pair` accessor which accesses:
+```php
+// ✓ CORRECT: Access quote->canonical and symbol->token
+$exchangeSymbol->quote->canonical  // Quote uses 'canonical'
+$exchangeSymbol->symbol->token     // Symbol uses 'token'
+
+// ❌ WRONG: These fields don't exist
+$exchangeSymbol->quote->token      // Quote doesn't have 'token'!
+$exchangeSymbol->symbol->canonical // Symbol doesn't have 'canonical'!
+```
 
 **Observer**: `ExchangeSymbolObserver`
 

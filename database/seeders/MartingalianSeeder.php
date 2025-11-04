@@ -399,37 +399,46 @@ final class MartingalianSeeder extends Seeder
      */
     public function seedApiSystems(): array
     {
-        $binance = ApiSystem::create([
-            'name' => 'Binance',
-            'canonical' => 'binance',
-            'is_exchange' => true,
-            'taapi_canonical' => 'binancefutures',
-        ]);
+        $binance = ApiSystem::firstOrCreate(
+            ['canonical' => 'binance'],
+            [
+                'name' => 'Binance',
+                'is_exchange' => true,
+                'taapi_canonical' => 'binancefutures',
+            ]
+        );
 
-        $bybit = ApiSystem::create([
-            'name' => 'Bybit',
-            'canonical' => 'bybit',
-            'is_exchange' => true,
-            'taapi_canonical' => 'bybit',
-        ]);
+        $bybit = ApiSystem::firstOrCreate(
+            ['canonical' => 'bybit'],
+            [
+                'name' => 'Bybit',
+                'is_exchange' => true,
+                'taapi_canonical' => 'bybit',
+            ]
+        );
 
-        $coinmarketcap = ApiSystem::create([
-            'name' => 'CoinmarketCap',
-            'canonical' => 'coinmarketcap',
-            'is_exchange' => false,
-        ]);
+        $coinmarketcap = ApiSystem::firstOrCreate(
+            ['canonical' => 'coinmarketcap'],
+            [
+                'name' => 'CoinmarketCap',
+                'is_exchange' => false,
+            ]);
 
-        $alternativeMe = ApiSystem::create([
-            'name' => 'AlternativeMe',
-            'canonical' => 'alternativeme',
-            'is_exchange' => false,
-        ]);
+        $alternativeMe = ApiSystem::firstOrCreate(
+            ['canonical' => 'alternativeme'],
+            [
+                'name' => 'AlternativeMe',
+                'is_exchange' => false,
+            ]
+        );
 
-        $taapi = ApiSystem::create([
-            'name' => 'Taapi',
-            'canonical' => 'taapi',
-            'is_exchange' => false,
-        ]);
+        $taapi = ApiSystem::firstOrCreate(
+            ['canonical' => 'taapi'],
+            [
+                'name' => 'Taapi',
+                'is_exchange' => false,
+            ]
+        );
 
         return [
             'binance' => $binance,
@@ -865,13 +874,13 @@ final class MartingalianSeeder extends Seeder
                 'user_types' => ['admin'],
                 'is_active' => true,
             ],
-            // User-facing notifications (sent to user and admin)
+            // User-facing notifications (sent to user only - user needs to take action)
             [
                 'canonical' => 'ip_not_whitelisted',
                 'title' => 'IP Not Whitelisted',
                 'description' => 'Sent when server IP is not whitelisted on exchange API for user account',
                 'default_severity' => 'critical',
-                'user_types' => ['user', 'admin'],
+                'user_types' => ['user'],
                 'is_active' => true,
             ],
             [
@@ -879,7 +888,7 @@ final class MartingalianSeeder extends Seeder
                 'title' => 'Invalid API Credentials',
                 'description' => 'Sent when API credentials are invalid or API keys are locked',
                 'default_severity' => 'critical',
-                'user_types' => ['user', 'admin'],
+                'user_types' => ['user'],
                 'is_active' => true,
             ],
             [
@@ -887,7 +896,7 @@ final class MartingalianSeeder extends Seeder
                 'title' => 'Account in Liquidation',
                 'description' => 'Sent when user account is in liquidation mode',
                 'default_severity' => 'critical',
-                'user_types' => ['user', 'admin'],
+                'user_types' => ['user'],
                 'is_active' => true,
             ],
             [
@@ -895,7 +904,7 @@ final class MartingalianSeeder extends Seeder
                 'title' => 'Account in Reduce-Only Mode',
                 'description' => 'Sent when account is in reduce-only mode - cannot open new positions',
                 'default_severity' => 'high',
-                'user_types' => ['user', 'admin'],
+                'user_types' => ['user'],
                 'is_active' => true,
             ],
             [
@@ -903,7 +912,7 @@ final class MartingalianSeeder extends Seeder
                 'title' => 'Account Trading Banned',
                 'description' => 'Sent when account trading is banned due to risk control or compliance',
                 'default_severity' => 'critical',
-                'user_types' => ['user', 'admin'],
+                'user_types' => ['user'],
                 'is_active' => true,
             ],
             [
@@ -911,7 +920,7 @@ final class MartingalianSeeder extends Seeder
                 'title' => 'Account Unauthorized',
                 'description' => 'Sent when account authentication fails or is unauthorized',
                 'default_severity' => 'critical',
-                'user_types' => ['user', 'admin'],
+                'user_types' => ['user'],
                 'is_active' => true,
             ],
             [
@@ -919,7 +928,39 @@ final class MartingalianSeeder extends Seeder
                 'title' => 'API Key Expired',
                 'description' => 'Sent when API key has expired and needs renewal',
                 'default_severity' => 'critical',
-                'user_types' => ['user', 'admin'],
+                'user_types' => ['user'],
+                'is_active' => true,
+            ],
+            [
+                'canonical' => 'api_credentials_or_ip',
+                'title' => 'API Credentials or IP Issue',
+                'description' => 'Sent when API call fails with ambiguous error (could be credentials, IP, or permissions)',
+                'default_severity' => 'critical',
+                'user_types' => ['user'],
+                'is_active' => true,
+            ],
+            [
+                'canonical' => 'invalid_api_key',
+                'title' => 'Invalid API Key',
+                'description' => 'Sent when API key is invalid (Bybit specific)',
+                'default_severity' => 'critical',
+                'user_types' => ['user'],
+                'is_active' => true,
+            ],
+            [
+                'canonical' => 'invalid_signature',
+                'title' => 'Invalid API Signature',
+                'description' => 'Sent when API signature is invalid (Bybit specific)',
+                'default_severity' => 'critical',
+                'user_types' => ['user'],
+                'is_active' => true,
+            ],
+            [
+                'canonical' => 'insufficient_permissions',
+                'title' => 'Insufficient API Permissions',
+                'description' => 'Sent when API key lacks required permissions (Bybit specific)',
+                'default_severity' => 'critical',
+                'user_types' => ['user'],
                 'is_active' => true,
             ],
             [
@@ -927,7 +968,7 @@ final class MartingalianSeeder extends Seeder
                 'title' => 'Insufficient Balance/Margin',
                 'description' => 'Sent when account has insufficient balance or margin for operations',
                 'default_severity' => 'high',
-                'user_types' => ['user', 'admin'],
+                'user_types' => ['user'],
                 'is_active' => true,
             ],
             [
@@ -935,7 +976,7 @@ final class MartingalianSeeder extends Seeder
                 'title' => 'KYC Verification Required',
                 'description' => 'Sent when KYC verification is required to continue trading',
                 'default_severity' => 'medium',
-                'user_types' => ['user', 'admin'],
+                'user_types' => ['user'],
                 'is_active' => true,
             ],
 
@@ -953,7 +994,7 @@ final class MartingalianSeeder extends Seeder
                 'title' => 'API Access Denied',
                 'description' => 'Sent when API access is denied (ambiguous 401/403)',
                 'default_severity' => 'critical',
-                'user_types' => ['admin'],
+                'user_types' => ['user'],
                 'is_active' => true,
             ],
             [
@@ -977,7 +1018,7 @@ final class MartingalianSeeder extends Seeder
                 'title' => 'Exchange Maintenance',
                 'description' => 'Sent when exchange is under maintenance or overloaded',
                 'default_severity' => 'high',
-                'user_types' => ['admin'],
+                'user_types' => ['user'],
                 'is_active' => true,
             ],
             [
@@ -1020,6 +1061,14 @@ final class MartingalianSeeder extends Seeder
                 'user_types' => ['admin'],
                 'is_active' => true,
             ],
+            [
+                'canonical' => 'uncategorized_notification',
+                'title' => 'Uncategorized Notification',
+                'description' => 'Fallback notification type for messages without a specific canonical identifier',
+                'default_severity' => 'info',
+                'user_types' => ['admin'],
+                'is_active' => true,
+            ],
         ];
 
         foreach ($notifications as $notification) {
@@ -1027,6 +1076,7 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => $notification['canonical'],
                 'title' => $notification['title'],
                 'description' => $notification['description'],
+                'detailed_description' => $notification['detailed_description'] ?? $notification['description'],
                 'default_severity' => $notification['default_severity'],
                 'user_types' => json_encode($notification['user_types']),
                 'created_at' => now(),

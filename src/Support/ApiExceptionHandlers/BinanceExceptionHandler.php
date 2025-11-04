@@ -293,41 +293,6 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     }
 
     /**
-     * Parse Binance interval headers (e.g., X-MBX-USED-WEIGHT-1M, X-MBX-ORDER-COUNT-10S).
-     * Used internally by rateLimitUntil() to calculate retry times.
-     *
-     * @param  array  $headers  Normalized headers (lowercase keys)
-     * @param  string  $prefix  Header prefix to match (e.g., 'x-mbx-used-weight-')
-     * @return array Array of ['intervalNum' => int, 'intervalLetter' => string, 'value' => int, 'interval' => string]
-     */
-    protected function parseIntervalHeaders(array $headers, string $prefix): array
-    {
-        $result = [];
-
-        foreach ($headers as $key => $value) {
-            // Match headers like: x-mbx-used-weight-1m => 50
-            if (! Str::startsWith($key, $prefix)) {
-                continue;
-            }
-
-            // Extract interval part (e.g., "1m" from "x-mbx-used-weight-1m")
-            $interval = Str::after($key, $prefix);
-
-            // Parse intervalNum and intervalLetter (e.g., "1m" => num=1, letter=m)
-            if (preg_match('/^(\d+)([smhd])$/i', $interval, $matches)) {
-                $result[$interval] = [
-                    'intervalNum' => (int) $matches[1],
-                    'intervalLetter' => mb_strtolower($matches[2]),
-                    'value' => (int) $value,
-                    'interval' => $interval,
-                ];
-            }
-        }
-
-        return $result;
-    }
-
-    /**
      * Record response headers for IP-based rate limiting coordination.
      * Delegates to BinanceThrottler to parse and cache rate limit headers.
      */
@@ -363,5 +328,40 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     {
         // If IP is banned or approaching rate limits, return false
         return BinanceThrottler::isSafeToDispatch() === 0;
+    }
+
+    /**
+     * Parse Binance interval headers (e.g., X-MBX-USED-WEIGHT-1M, X-MBX-ORDER-COUNT-10S).
+     * Used internally by rateLimitUntil() to calculate retry times.
+     *
+     * @param  array  $headers  Normalized headers (lowercase keys)
+     * @param  string  $prefix  Header prefix to match (e.g., 'x-mbx-used-weight-')
+     * @return array Array of ['intervalNum' => int, 'intervalLetter' => string, 'value' => int, 'interval' => string]
+     */
+    protected function parseIntervalHeaders(array $headers, string $prefix): array
+    {
+        $result = [];
+
+        foreach ($headers as $key => $value) {
+            // Match headers like: x-mbx-used-weight-1m => 50
+            if (! Str::startsWith($key, $prefix)) {
+                continue;
+            }
+
+            // Extract interval part (e.g., "1m" from "x-mbx-used-weight-1m")
+            $interval = Str::after($key, $prefix);
+
+            // Parse intervalNum and intervalLetter (e.g., "1m" => num=1, letter=m)
+            if (preg_match('/^(\d+)([smhd])$/i', $interval, $matches)) {
+                $result[$interval] = [
+                    'intervalNum' => (int) $matches[1],
+                    'intervalLetter' => mb_strtolower($matches[2]),
+                    'value' => (int) $value,
+                    'interval' => $interval,
+                ];
+            }
+        }
+
+        return $result;
     }
 }

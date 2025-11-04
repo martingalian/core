@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Str;
-use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Models\Order\PlaceMarketOrderJob;
@@ -16,8 +13,11 @@ use Martingalian\Core\Jobs\Models\Position\UpdatePositionLeverageJob;
 use Martingalian\Core\Jobs\Models\Position\UpdatePositionMarginJob;
 use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
 use Martingalian\Core\Models\ExchangeSymbol;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 /**

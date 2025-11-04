@@ -96,7 +96,7 @@ trait SendsNotifications
                 handler: $handler,
                 account: $account,
                 hasSpecificUser: $hasSpecificUser,
-                messageCanonical: 'api_credentials_or_ip',
+                messageCanonical: 'invalid_api_credentials',
                 hostname: $hostname,
                 disableAccount: true  // Disable trading - cannot access account
             );
@@ -335,7 +335,7 @@ trait SendsNotifications
         // Binance ambiguous error -2015 (could be credentials, IP, or permissions)
         if ($handler->isCredentialsOrIpErrorFromLog($vendorCode)) {
             $messageData = NotificationMessageBuilder::build(
-                canonical: 'api_credentials_or_ip',
+                canonical: 'invalid_api_credentials',
                 context: [
                     'exchange' => $apiSystem,
                     'ip' => $serverIp,
@@ -345,7 +345,7 @@ trait SendsNotifications
                 ]
             );
 
-            $throttleCanonical = $apiSystem.'_api_credentials_or_ip';
+            $throttleCanonical = $apiSystem.'_invalid_api_credentials';
 
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
@@ -354,7 +354,7 @@ trait SendsNotifications
                         user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
-                        canonical: 'api_credentials_or_ip',
+                        canonical: 'invalid_api_credentials',
                         deliveryGroup: 'exceptions',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],

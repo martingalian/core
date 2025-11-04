@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
+use Martingalian\Core\Models\Martingalian;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 /**

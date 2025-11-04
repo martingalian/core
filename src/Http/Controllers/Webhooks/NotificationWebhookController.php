@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Http\Controllers\Webhooks;
 
-use Martingalian\Core\Models\NotificationLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Log;
+use Martingalian\Core\Models\NotificationLog;
 use Throwable;
 
 /**

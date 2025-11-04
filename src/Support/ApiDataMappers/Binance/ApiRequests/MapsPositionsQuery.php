@@ -20,7 +20,18 @@ trait MapsPositionsQuery
 
     public function resolveQueryPositionsResponse(Response $response): array
     {
-        $positions = collect(json_decode((string) $response->getBody(), true))->keyBy('symbol')->toArray();
+        $positions = collect(json_decode((string) $response->getBody(), true))
+            ->map(function ($position) {
+                // Normalize symbol from 'BTCUSDT' to 'BTC/USDT' format
+                if (isset($position['symbol'])) {
+                    $parts = $this->identifyBaseAndQuote($position['symbol']);
+                    $position['symbol'] = $parts['base'].'/'.$parts['quote'];
+                }
+
+                return $position;
+            })
+            ->keyBy('symbol')
+            ->toArray();
 
         // Remove false positive positions (positionAmt = 0.0)
         $positions = array_filter($positions, function ($position) {

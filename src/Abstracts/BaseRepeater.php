@@ -14,18 +14,18 @@ abstract class BaseRepeater
     public function __construct(...$parameters) {}
 
     /**
-     * Set the repeater instance (called by ProcessRepeatersJob)
-     */
-    public function setRepeater(Repeater $repeater): void
-    {
-        $this->repeater = $repeater;
-    }
-
-    /**
      * Execute the repeater logic
      * Return true on success, false on failure
      */
     abstract public function __invoke(): bool;
+
+    /**
+     * Set the repeater instance (called by ProcessRepeatersJob)
+     */
+    final public function setRepeater(Repeater $repeater): void
+    {
+        $this->repeater = $repeater;
+    }
 
     /**
      * Called when repeater execution succeeds
@@ -58,6 +58,24 @@ abstract class BaseRepeater
     }
 
     /**
+     * Calculate next retry interval based on strategy
+     * Can be overridden for custom strategies
+     */
+    final public function calculateNextRetryAt(): Carbon
+    {
+        $baseInterval = $this->repeater->retry_interval_minutes;
+        $attempts = $this->repeater->attempts;
+
+        $minutes = match ($this->repeater->retry_strategy) {
+            'exponential' => $baseInterval * pow(2, $attempts - 1),
+            'proportional' => $baseInterval,
+            default => $baseInterval,
+        };
+
+        return Carbon::now()->addMinutes((int) $minutes);
+    }
+
+    /**
      * Hook: Called when repeater execution succeeds
      * Override in child class to add custom success logic
      */
@@ -82,23 +100,5 @@ abstract class BaseRepeater
     protected function onMaxAttemptsReached(): void
     {
         // Override in child class if needed
-    }
-
-    /**
-     * Calculate next retry interval based on strategy
-     * Can be overridden for custom strategies
-     */
-    public function calculateNextRetryAt(): Carbon
-    {
-        $baseInterval = $this->repeater->retry_interval_minutes;
-        $attempts = $this->repeater->attempts;
-
-        $minutes = match ($this->repeater->retry_strategy) {
-            'exponential' => $baseInterval * pow(2, $attempts - 1),
-            'proportional' => $baseInterval,
-            default => $baseInterval,
-        };
-
-        return Carbon::now()->addMinutes((int) $minutes);
     }
 }

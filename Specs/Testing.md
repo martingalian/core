@@ -451,6 +451,427 @@ it('updates user', function () {
 });
 ```
 
+## Integration Test Best Practices & Common Patterns
+
+### Helper Functions in Pest Tests
+
+**CRITICAL**: Helper functions in Pest tests **CANNOT** access `test()` context. They must create their own dependencies:
+
+```php
+// BAD: Will fail with "Undefined property test::$user"
+function createTestData(): array
+{
+    $account = Account::factory()->create([
+        'user_id' => test()->user->id,  // ❌ WRONG
+    ]);
+    return [$account];
+}
+
+// GOOD: Helper creates its own user
+function createTestData(): array
+{
+    $user = User::factory()->create();  // ✓ CORRECT
+
+    $account = Account::factory()->create([
+        'user_id' => $user->id,  // ✓ CORRECT
+    ]);
+
+    return [$account];
+}
+```
+
+### Quote vs Symbol Models
+
+**IMPORTANT**: `quotes` and `symbols` are **different tables** with different fields:
+
+```php
+// quotes table has 'canonical' and 'name' fields
+$quote = Quote::firstOrCreate([
+    'canonical' => 'usdt',  // Unique identifier
+], [
+    'name' => 'Tether',     // Display name
+]);
+
+// symbols table has 'token', 'name', and 'cmc_id' fields
+$symbol = Symbol::firstOrCreate([
+    'token' => 'BTC',       // Unique identifier
+], [
+    'name' => 'Bitcoin',    // Display name
+    'cmc_id' => 1,         // CoinMarketCap ID
+]);
+
+// ExchangeSymbol links BOTH
+$exchangeSymbol = ExchangeSymbol::create([
+    'symbol_id' => $symbol->id,  // Base asset (Symbol)
+    'quote_id' => $quote->id,    // Quote asset (Quote)
+    'api_system_id' => $apiSystem->id,
+    // ...
+]);
+```
+
+**Common Mistake**: Creating Symbol when you need Quote:
+```php
+// ❌ WRONG: Creates Symbol instead of Quote
+$quote = Symbol::create(['canonical' => 'usdt']);
+
+// ✓ CORRECT: Use Quote model for quote assets
+$quote = Quote::firstOrCreate(['canonical' => 'usdt'], ['name' => 'Tether']);
+```
+
+### Using firstOrCreate() to Avoid Duplicates
+
+**ALWAYS** use `firstOrCreate()` in test helpers to prevent duplicate constraint violations:
+
+```php
+// ❌ BAD: Will fail on second test run with duplicate entry error
+function createTestData(): array
+{
+    $apiSystem = ApiSystem::create(['canonical' => 'binance']);
+    $quote = Quote::create(['canonical' => 'usdt', 'name' => 'Tether']);
+    // ...
+}
+
+// ✓ GOOD: Reuses existing or creates new
+function createTestData(): array
+{
+    $apiSystem = ApiSystem::firstOrCreate(
+        ['canonical' => 'binance'],
+        []  // No additional fields needed
+    );
+
+    $quote = Quote::firstOrCreate(
+        ['canonical' => 'usdt'],
+        ['name' => 'Tether']
+    );
+
+    $symbol = Symbol::firstOrCreate(
+        ['token' => 'BTC'],
+        ['name' => 'Bitcoin', 'cmc_id' => 1]
+    );
+    // ...
+}
+```
+
+### Required Model Fields
+
+#### Account Model
+**CRITICAL**: Account requires `trade_configuration_id`:
+
+```php
+// ❌ WRONG: Missing required field
+$account = Account::factory()->create([
+    'api_system_id' => $apiSystem->id,
+    'user_id' => $user->id,
+]);
+
+// ✓ CORRECT: Include trade_configuration_id
+$account = Account::factory()->create([
+    'api_system_id' => $apiSystem->id,
+    'user_id' => $user->id,
+    'trade_configuration_id' => 1,  // Required!
+    'is_active' => true,
+    'can_trade' => true,
+]);
+```
+
+### Decimal Precision in Assertions
+
+**Database stores financial fields with 8 decimal places**:
+
+```php
+// ❌ WRONG: Will fail - precision mismatch
+expect($position->closing_price)->toBe('51000');
+
+// ✓ CORRECT: Match database precision
+expect($position->closing_price)->toBe('51000.00000000');
+
+// Also applies to all financial fields:
+// - opening_price, closing_price
+// - entry_price, current_price
+// - quantity, filled_quantity
+// - price, stop_price
+// - All decimal(20,8) columns
+```
+
+### HTTP Mocking Patterns
+
+#### Integration Test API Mocking Architecture
+
+**CRITICAL**: Integration tests must mock **raw API responses** and let **ApiDataMappers** handle transformations:
+
+```
+HTTP Mock (Raw Binance/Bybit Format)
+    ↓
+ApiDataMapper (Transform & Normalize)
+    ↓
+Internal Format (Business Logic Uses This)
+```
+
+**Example Data Flow:**
+```php
+// Mock returns RAW format
+Http::fake([
+    '*//fapi/*/positionRisk*' => Http::response([
+        ['symbol' => 'BTCUSDT', 'positionAmt' => '0.1', ...],  // Raw
+    ], 200),
+]);
+
+// MapsPositionsQuery transforms
+// 'BTCUSDT' → 'BTC/USDT'
+
+// Business logic receives internal format
+$position->apiClose();  // Uses 'BTC/USDT'
+```
+
+#### URL Pattern Requirements
+
+**BaseApiClient** generates URLs with double slashes in testing mode. Http::fake() patterns MUST account for this:
+
+```php
+// ❌ WRONG: Single slash pattern won't match
+Http::fake([
+    '*/fapi/v1/order' => Http::response([...], 200),
+]);
+// Attempting: https://fapi.binance.com//fapi/v1/order
+// Pattern expects: https://fapi.binance.com/fapi/v1/order
+// Result: StrayRequestException
+
+// ✓ CORRECT: Double slash pattern
+Http::fake([
+    '*//fapi/v1/order*' => Http::response([...], 200),
+]);
+// Matches: https://fapi.binance.com//fapi/v1/order?param=value
+
+// ✓ ALSO CORRECT: Wildcard for version changes
+Http::fake([
+    '*//fapi/*/positionRisk*' => Http::response([...], 200),
+]);
+// Matches both v2 and v3: /fapi/v2/positionRisk, /fapi/v3/positionRisk
+```
+
+#### HTTP Method Support
+
+BaseApiClient in testing mode supports GET, POST, **PUT**, and DELETE. All throw exceptions for error responses:
+
+```php
+// Testing mode implementation (BaseApiClient.php):
+if ($method === 'GET') {
+    return Http::withHeaders($headers)->get($url, $options['query'] ?? [])->throw()->toPsrResponse();
+} elseif ($method === 'POST') {
+    $body = $options['json'] ?? $options['query'] ?? [];
+    return Http::withHeaders($headers)->post($url, $body)->throw()->toPsrResponse();
+} elseif ($method === 'PUT') {  // Required for order modification
+    $body = $options['json'] ?? $options['query'] ?? [];
+    return Http::withHeaders($headers)->put($url, $body)->throw()->toPsrResponse();
+} elseif ($method === 'DELETE') {
+    return Http::withHeaders($headers)->delete($url, $options['query'] ?? [])->throw()->toPsrResponse();
+}
+```
+
+#### Complete Response Fields
+Mock responses must include **ALL** fields the application expects:
+
+```php
+// ❌ INCOMPLETE: Missing fields will cause errors
+Http::fake([
+    '*//fapi/v1/order*' => Http::response([
+        'orderId' => 123,
+        'status' => 'NEW',
+    ], 200),
+]);
+
+// ✓ COMPLETE: All required fields included
+Http::fake([
+    '*//fapi/v1/order*' => Http::response([
+        'orderId' => 123,
+        'symbol' => 'BTCUSDT',        // Raw format, NOT 'BTC/USDT'
+        'status' => 'NEW',
+        'type' => 'LIMIT',
+        'side' => 'BUY',
+        'positionSide' => 'LONG',
+        'price' => '50000.00',
+        'origQty' => '0.1',
+        'executedQty' => '0',         // Required by MapsOrderModify
+        'avgPrice' => '0',             // Required by MapsOrderModify
+        'origType' => 'LIMIT',         // Required by MapsOrderModify
+    ], 200),
+]);
+```
+
+**Required Fields by Endpoint:**
+
+**Order Placement/Query (`/fapi/v1/order`):**
+- `orderId`, `symbol`, `status`, `type`, `side`, `positionSide`
+- `price`, `origQty`, `executedQty`, `avgPrice`, `origType`
+
+**Position Query (`/fapi/*/positionRisk`):**
+- `symbol` (raw format: `'BTCUSDT'`)
+- `positionAmt`, `positionSide`, `entryPrice`
+- `marginType`, `leverage`, `markPrice`
+
+**User Trades (`/fapi/v1/userTrades`):**
+- `symbol`, `id`, `orderId`, `price`, `qty`
+- `quoteQty`, `commission`, `commissionAsset`
+
+#### Symbol Format in Mocks
+
+**CRITICAL**: Always use **raw exchange format** in HTTP mocks:
+
+```php
+// ✓ CORRECT: Raw Binance format
+Http::fake([
+    '*//fapi/*/positionRisk*' => Http::response([
+        [
+            'symbol' => 'BTCUSDT',  // Raw format
+            'positionAmt' => '0.1',
+            'positionSide' => 'LONG',
+        ],
+    ], 200),
+]);
+
+// ❌ WRONG: Internal format will bypass mapper
+Http::fake([
+    '*//fapi/*/positionRisk*' => Http::response([
+        [
+            'symbol' => 'BTC/USDT',  // Internal format - WRONG!
+            // ...
+        ],
+    ], 200),
+]);
+
+// ApiDataMapper transforms raw to internal:
+// MapsPositionsQuery: 'BTCUSDT' → 'BTC/USDT'
+// MapsOrderQuery: 'BTCUSDT' → ['base' => 'BTC', 'quote' => 'USDT']
+```
+
+#### Wildcard Patterns for Multiple Endpoints
+Use `'*'` when a test calls multiple endpoints:
+
+```php
+// ❌ SPECIFIC: Only matches exact pattern, will miss GET/POST variations
+Http::fake([
+    '*/fapi/v1/order' => Http::response([...], 200),
+]);
+
+// ✓ WILDCARD: Matches all endpoints
+Http::fake([
+    '*' => Http::response([...], 200),
+]);
+```
+
+#### Response Sequences with Fallback
+For tests that make multiple API calls:
+
+```php
+Http::fake([
+    '*' => Http::sequence()
+        ->push(['orderId' => 111, 'status' => 'NEW', ...], 200)  // 1st call
+        ->push(['orderId' => 111, 'status' => 'NEW', ...], 200)  // 2nd call
+        ->push(['orderId' => 111, 'status' => 'FILLED', ...], 200)  // 3rd call
+        ->whenEmpty(Http::response([  // Fallback for additional calls
+            'orderId' => 111,
+            'status' => 'FILLED',
+            ...
+        ], 200)),
+]);
+```
+
+### Namespace Consistency
+
+**ALWAYS** use `Martingalian\Core\Models` namespace for Core models:
+
+```php
+// ❌ WRONG: Old namespace
+use App\Models\ExchangeSymbol;
+
+// ✓ CORRECT: Core namespace
+use Martingalian\Core\Models\ExchangeSymbol;
+use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\Position;
+use Martingalian\Core\Models\Order;
+use Martingalian\Core\Models\Symbol;
+use Martingalian\Core\Models\Quote;
+```
+
+### ExchangeSymbol Accessor Pattern
+
+The `HasAccessors` trait in ExchangeSymbol provides `parsed_trading_pair`:
+
+```php
+// Correct field access
+$exchangeSymbol->quote->canonical  // ✓ 'canonical' field on Quote model
+$exchangeSymbol->symbol->token     // ✓ 'token' field on Symbol model
+
+// Common mistakes caught during testing
+$exchangeSymbol->quote->token      // ❌ Quote doesn't have 'token'
+$exchangeSymbol->symbol->canonical // ❌ Symbol doesn't have 'canonical'
+```
+
+### Complete Helper Function Template
+
+```php
+/**
+ * Helper function for integration tests.
+ * Creates all required models with proper relationships.
+ */
+function createTestAccountAndSymbol(): array
+{
+    // 1. Create user (can't use test()->user)
+    $user = User::factory()->create();
+
+    // 2. Use firstOrCreate for shared data
+    $apiSystem = ApiSystem::firstOrCreate([
+        'canonical' => 'binance',
+    ], []);
+
+    // 3. Create Quote (not Symbol!)
+    $quote = Quote::firstOrCreate([
+        'canonical' => 'usdt',
+    ], [
+        'name' => 'Tether',
+    ]);
+
+    // 4. Create Symbol
+    $base = Symbol::firstOrCreate([
+        'token' => 'BTC',
+    ], [
+        'name' => 'Bitcoin',
+        'cmc_id' => 1,
+    ]);
+
+    // 5. Create Account with required fields
+    $account = Account::factory()->create([
+        'api_system_id' => $apiSystem->id,
+        'user_id' => $user->id,
+        'trade_configuration_id' => 1,  // Required!
+        'is_active' => true,
+        'can_trade' => true,
+        'binance_api_key' => 'test-key',
+        'binance_api_secret' => 'test-secret',
+    ]);
+
+    // 6. Create ExchangeSymbol with both symbol_id and quote_id
+    $exchangeSymbol = ExchangeSymbol::create([
+        'api_system_id' => $apiSystem->id,
+        'symbol_id' => $base->id,        // Base asset
+        'quote_id' => $quote->id,        // Quote asset
+        'price_precision' => 2,
+        'quantity_precision' => 3,
+        'min_notional' => '5.00',
+        'tick_size' => '0.01',
+        'min_price' => '0.01',
+        'max_price' => '999999.00',
+        'symbol_information' => ['pair' => 'BTCUSDT'],
+        'total_limit_orders' => 4,
+        'mark_price' => '50000.00',
+        'percentage_gap_long' => '8.50',
+        'percentage_gap_short' => '9.50',
+    ]);
+
+    return [$account, $exchangeSymbol];
+}
+```
+
 ## Best Practices
 
 ### 1. Test Names

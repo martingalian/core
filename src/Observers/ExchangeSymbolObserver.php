@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Observers;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Martingalian;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 
 final class ExchangeSymbolObserver
 {

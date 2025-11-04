@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Exception;
-use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Exceptions\ExceptionParser;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob

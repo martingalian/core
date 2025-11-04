@@ -25,11 +25,11 @@ trait HasGetters
             return tap(new User, function (User $user) use ($martingalian) {
                 $user->exists = false;
                 $user->is_virtual = true;
-                $user->name = 'System Administrator';
-                $user->email = $martingalian->admin_user_email;
-                $user->pushover_key = $martingalian->admin_pushover_user_key;
-                $user->notification_channels = $martingalian->notification_channels ?? ['pushover'];
-                $user->is_active = true;
+                $user->setAttribute('name', 'System Administrator');
+                $user->setAttribute('email', $martingalian->admin_user_email);
+                $user->setAttribute('pushover_key', $martingalian->admin_pushover_user_key);
+                $user->setAttribute('notification_channels', $martingalian->notification_channels ?? ['pushover']);
+                $user->setAttribute('is_active', true);
             });
         });
     }

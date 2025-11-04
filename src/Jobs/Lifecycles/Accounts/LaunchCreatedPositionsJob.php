@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Accounts;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Str;
-use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Models\Account\AssignTokensToNewPositionsJob;
@@ -15,7 +12,10 @@ use Martingalian\Core\Jobs\Models\Account\QueryAccountBalanceJob;
 use Martingalian\Core\Jobs\Models\Account\QueryOpenOrdersJob;
 use Martingalian\Core\Jobs\Models\Account\QueryPositionsJob;
 use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 final class LaunchCreatedPositionsJob extends BaseQueueableJob

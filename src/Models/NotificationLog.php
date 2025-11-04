@@ -43,12 +43,13 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property-read Notification|null $notification
- * @property-read \Illuminate\Database\Eloquent\Model|null $relatable
+ * @property-read Model|null $relatable
  */
 final class NotificationLog extends Model
 {
     /** @use HasFactory<\Database\Factories\NotificationLogFactory> */
     use HasFactory;
+
     use HasUuids;
 
     protected $guarded = [];
@@ -62,14 +63,6 @@ final class NotificationLog extends Model
         'http_headers_received' => 'array',
         'gateway_response' => 'array',
     ];
-
-    /**
-     * Create a new factory instance for the model.
-     */
-    protected static function newFactory(): Factory
-    {
-        return NotificationLogFactory::new();
-    }
 
     /**
      * Get the columns that should receive a unique identifier.
@@ -94,7 +87,7 @@ final class NotificationLog extends Model
     /**
      * The relatable model (usually Account, sometimes User, null for admin notifications).
      *
-     * @return MorphTo<\Illuminate\Database\Eloquent\Model, $this>
+     * @return MorphTo<Model, $this>
      */
     public function relatable(): MorphTo
     {
@@ -176,5 +169,13 @@ final class NotificationLog extends Model
     public function scopeDelivered(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('status', 'delivered');
+    }
+
+    /**
+     * Create a new factory instance for the model.
+     */
+    protected static function newFactory(): Factory
+    {
+        return NotificationLogFactory::new();
     }
 }

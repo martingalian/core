@@ -92,12 +92,12 @@ final class Account extends BaseModel
 
     public function throttleLogs(): MorphMany
     {
-        return $this->morphMany(\Martingalian\Core\Models\ThrottleLog::class, 'contextable');
+        return $this->morphMany(ThrottleLog::class, 'contextable');
     }
 
     public function notificationLogs(): MorphMany
     {
-        return $this->morphMany(\Martingalian\Core\Models\NotificationLog::class, 'relatable');
+        return $this->morphMany(NotificationLog::class, 'relatable');
     }
 
     /**

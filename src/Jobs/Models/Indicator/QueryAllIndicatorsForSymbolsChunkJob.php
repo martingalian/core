@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Indicator;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Support\Throttler;
 use Exception;
 use Illuminate\Support\Collection;
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -15,6 +12,9 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
+use Martingalian\Core\Models\Martingalian;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Throwable;
 

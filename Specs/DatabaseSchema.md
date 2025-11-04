@@ -693,6 +693,25 @@ User::whereJsonContains('notification_channels', 'mail')
 - Use DECIMAL(20, 8) for financial data
 - Never use FLOAT for money/prices
 - Precision: 20 digits total, 8 after decimal
+- **CRITICAL**: Database stores ALL financial values with 8 decimal places
+
+**Testing Implications**:
+```php
+// ❌ WRONG: Will fail assertion - precision mismatch
+$position->update(['closing_price' => '51000']);
+expect($position->closing_price)->toBe('51000');  // Fails!
+
+// ✓ CORRECT: Match database precision
+$position->update(['closing_price' => '51000.00000000']);
+expect($position->closing_price)->toBe('51000.00000000');  // Passes!
+
+// Applies to ALL financial fields:
+// - Prices: opening_price, closing_price, entry_price, current_price, mark_price
+// - Quantities: quantity, filled_quantity, executed_qty
+// - Order fields: price, stop_price, average_fill_price
+// - Position fields: liquidation_price
+// - All DECIMAL(20, 8) columns
+```
 
 ### Timestamps
 - Use TIMESTAMP for specific points in time

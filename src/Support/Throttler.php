@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Support;
 
-use Martingalian\Core\Models\ThrottleLog;
-use Martingalian\Core\Models\ThrottleRule;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
+use Martingalian\Core\Models\ThrottleLog;
+use Martingalian\Core\Models\ThrottleRule;
 
 /**
  * Throttler
