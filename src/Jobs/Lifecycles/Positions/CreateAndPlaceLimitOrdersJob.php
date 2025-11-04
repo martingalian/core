@@ -7,6 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Str;
+use Martingalian\Core\Models\Martingalian;
 use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
@@ -146,8 +147,9 @@ final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
     {
         Throttler::using(NotificationService::class)
             ->withCanonical('create_place_limit_orders')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
+            ->execute(function () use ($e) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "[{$this->position->id}] Placing limit orders for {$this->position->parsed_trading_pair} failed - ".ExceptionParser::with($e)->friendlyMessage(),
                     title: '['.class_basename(self::class).'] - Error',
                     deliveryGroup: 'exceptions'

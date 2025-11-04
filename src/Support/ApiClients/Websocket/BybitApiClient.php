@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\ApiClients\Websocket;
 
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseWebsocketClient;
 
@@ -95,7 +96,8 @@ final class BybitApiClient extends BaseWebsocketClient
                     Throttler::using(NotificationService::class)
                         ->withCanonical('bybit_subscription_failed')
                         ->execute(function () {
-                            NotificationService::sendToAdmin(
+                            NotificationService::send(
+                    user: Martingalian::admin(),
                                 message: 'Bybit subscription failed: '.json_encode($decoded),
                                 title: 'Bybit WebSocket Subscription Error',
                                 deliveryGroup: 'exceptions'

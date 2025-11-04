@@ -7,6 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Str;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Models\Order\PlaceMarketOrderJob;
@@ -284,8 +285,9 @@ final class DispatchPositionJob extends BaseQueueableJob
     {
         Throttler::using(NotificationService::class)
             ->withCanonical('dispatch_position')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
+            ->execute(function () use ($e) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
                     title: '['.class_basename(self::class).'] - Error',
                     deliveryGroup: 'exceptions'

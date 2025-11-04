@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Listeners;
 
-use Martingalian\Core\Models\NotificationLog;
 use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Notification;
+use Martingalian\Core\Models\NotificationLog;
 use Martingalian\Core\Models\User;
 use ReflectionClass;
 use ReflectionProperty;
@@ -129,8 +129,6 @@ final class NotificationLogListener
 
     /**
      * Extract canonical from notification object.
-     *
-     * @param  object  $notification
      */
     private function extractCanonical(object $notification): string
     {
@@ -144,14 +142,13 @@ final class NotificationLogListener
             return $notification->messageCanonical;
         }
 
-        // Fallback: use notification class name
-        return class_basename($notification);
+        // Fallback: use descriptive uncategorized canonical instead of class name
+        return 'uncategorized_notification';
     }
 
     /**
      * Extract relatable model (Account or User or null).
      *
-     * @param  object  $notifiable
      * @return array{string|null, int|null}
      */
     private function extractRelatable(object $notifiable): array
@@ -166,14 +163,23 @@ final class NotificationLogListener
             return [User::class, $notifiable->id];
         }
 
+        // Check if pseudo-notifiable has a relatable property (admin notifications)
+        if (property_exists($notifiable, 'relatable') && is_object($notifiable->relatable)) {
+            $relatable = $notifiable->relatable;
+            if (method_exists($relatable, 'getMorphClass')) {
+                return [$relatable->getMorphClass(), $relatable->getKey()];
+            }
+            if (property_exists($relatable, 'id')) {
+                return [get_class($relatable), $relatable->id];
+            }
+        }
+
         // Admin notifications have no relatable model
         return [null, null];
     }
 
     /**
      * Extract recipient (email or Pushover key) based on channel.
-     *
-     * @param  object  $notifiable
      */
     private function extractRecipient(object $notifiable, string $channel): string
     {
@@ -230,13 +236,13 @@ final class NotificationLogListener
     /**
      * Extract gateway response from event response object.
      *
-     * @param  mixed  $response
      * @return array<string, mixed>|null
      */
     private function extractGatewayResponse(mixed $response): ?array
     {
         // For Zeptomail: check if response has X-Zepto-Response header (added by ZeptoMailTransport)
-        // Laravel wraps Symfony's SentMessage, so we need to unwrap it first
+
+        // Case 1: Laravel wrapped SentMessage (has getSymfonySentMessage method)
         if (is_object($response) && method_exists($response, 'getSymfonySentMessage')) {
             $symfonySentMessage = $response->getSymfonySentMessage();
             if (is_object($symfonySentMessage) && method_exists($symfonySentMessage, 'getOriginalMessage')) {
@@ -254,6 +260,29 @@ final class NotificationLogListener
                                         /** @var array<string, mixed> */
                                         return $decoded;
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Case 2: Direct Symfony SentMessage (from transport->send())
+        if (is_object($response) && method_exists($response, 'getOriginalMessage')) {
+            $originalMessage = $response->getOriginalMessage();
+            if (is_object($originalMessage) && method_exists($originalMessage, 'getHeaders')) {
+                $headers = $originalMessage->getHeaders();
+                if (is_object($headers) && method_exists($headers, 'has') && $headers->has('X-Zepto-Response')) {
+                    if (method_exists($headers, 'get')) {
+                        $header = $headers->get('X-Zepto-Response');
+                        if (is_object($header) && method_exists($header, 'getBodyAsString')) {
+                            $headerValue = $header->getBodyAsString();
+                            if (is_string($headerValue)) {
+                                $decoded = json_decode($headerValue, true);
+                                if (is_array($decoded)) {
+                                    /** @var array<string, mixed> */
+                                    return $decoded;
                                 }
                             }
                         }
@@ -292,7 +321,6 @@ final class NotificationLogListener
     /**
      * Extract HTTP headers from response object.
      *
-     * @param  mixed  $response
      * @return array<string, mixed>|null
      */
     private function extractHttpHeaders(mixed $response): ?array
@@ -357,9 +385,6 @@ final class NotificationLogListener
      * Build content dump for legal audit.
      *
      * Captures the full notification content including title, message, and parameters.
-     *
-     * @param  object  $notification
-     * @param  object  $notifiable
      */
     private function buildContentDump(object $notification, object $notifiable): string
     {
@@ -385,13 +410,13 @@ final class NotificationLogListener
     /**
      * Extract HTTP headers sent to the gateway.
      *
-     * @param  mixed  $response
      * @return array<string, mixed>|null
      */
     private function extractHttpHeadersSent(mixed $response): ?array
     {
         // For Zeptomail: check if response has X-Zepto-Request-Headers header (added by ZeptoMailTransport)
-        // Laravel wraps Symfony's SentMessage, so we need to unwrap it first
+
+        // Case 1: Laravel wrapped SentMessage
         if (is_object($response) && method_exists($response, 'getSymfonySentMessage')) {
             $symfonySentMessage = $response->getSymfonySentMessage();
             if (is_object($symfonySentMessage) && method_exists($symfonySentMessage, 'getOriginalMessage')) {
@@ -417,13 +442,34 @@ final class NotificationLogListener
             }
         }
 
+        // Case 2: Direct Symfony SentMessage
+        if (is_object($response) && method_exists($response, 'getOriginalMessage')) {
+            $originalMessage = $response->getOriginalMessage();
+            if (is_object($originalMessage) && method_exists($originalMessage, 'getHeaders')) {
+                $headers = $originalMessage->getHeaders();
+                if (is_object($headers) && method_exists($headers, 'has') && $headers->has('X-Zepto-Request-Headers')) {
+                    if (method_exists($headers, 'get')) {
+                        $header = $headers->get('X-Zepto-Request-Headers');
+                        if (is_object($header) && method_exists($header, 'getBodyAsString')) {
+                            $headerValue = $header->getBodyAsString();
+                            if (is_string($headerValue)) {
+                                $decoded = json_decode($headerValue, true);
+                                if (is_array($decoded)) {
+                                    /** @var array<string, mixed> */
+                                    return $decoded;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return null;
     }
 
     /**
      * Extract raw email content (HTML/text) for mail viewers.
-     *
-     * @param  mixed  $response
      */
     private function extractRawEmailContent(mixed $response, string $channel): ?string
     {
@@ -434,7 +480,7 @@ final class NotificationLogListener
             return null;
         }
 
-        // Laravel wraps Symfony's SentMessage
+        // Case 1: Laravel wrapped SentMessage
         if (is_object($response) && method_exists($response, 'getSymfonySentMessage')) {
             $symfonySentMessage = $response->getSymfonySentMessage();
             if (is_object($symfonySentMessage) && method_exists($symfonySentMessage, 'getOriginalMessage')) {
@@ -453,6 +499,26 @@ final class NotificationLogListener
                     if (is_string($textBody) && $textBody !== '') {
                         return $textBody;
                     }
+                }
+            }
+        }
+
+        // Case 2: Direct Symfony SentMessage
+        if (is_object($response) && method_exists($response, 'getOriginalMessage')) {
+            $originalMessage = $response->getOriginalMessage();
+
+            // Get HTML body (priority) or text body (fallback)
+            if (is_object($originalMessage) && method_exists($originalMessage, 'getHtmlBody')) {
+                $htmlBody = $originalMessage->getHtmlBody();
+                if (is_string($htmlBody) && $htmlBody !== '') {
+                    return $htmlBody;
+                }
+            }
+
+            if (is_object($originalMessage) && method_exists($originalMessage, 'getTextBody')) {
+                $textBody = $originalMessage->getTextBody();
+                if (is_string($textBody) && $textBody !== '') {
+                    return $textBody;
                 }
             }
         }

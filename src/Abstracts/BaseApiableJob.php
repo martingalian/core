@@ -40,7 +40,7 @@ abstract class BaseApiableJob extends BaseQueueableJob
         $apiSystemCanonical = $this->exceptionHandler->getApiSystem();
         $apiSystem = \Martingalian\Core\Models\ApiSystem::where('canonical', $apiSystemCanonical)->firstOrFail();
         $accountId = $this->exceptionHandler->account->id;
-        $ipAddress = gethostbyname(gethostname());
+        $ipAddress = \Martingalian\Core\Models\Martingalian::ip();
 
         // Check forbidden status based on account type:
         // - Admin accounts (transient, id = NULL): Check system-wide ban only

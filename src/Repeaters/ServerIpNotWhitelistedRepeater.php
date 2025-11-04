@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Repeaters;
 
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Abstracts\BaseRepeater;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Server;
@@ -57,7 +58,8 @@ final class ServerIpNotWhitelistedRepeater extends BaseRepeater
         $hostname = $this->server->hostname;
         $ipAddress = $this->server->ip_address;
 
-        NotificationService::sendToAdmin(
+        NotificationService::send(
+                    user: Martingalian::admin(),
             message: "✅ Server Reconnected\n\nGood news! Server {$hostname} (IP: {$ipAddress}) has been successfully whitelisted on {$exchange}.\n\nAccount: {$accountName} (ID: {$this->account->id})\n\nThe server can now execute API requests and trading operations normally.",
             title: 'Server IP Whitelisted',
             deliveryGroup: 'default',
@@ -89,7 +91,8 @@ final class ServerIpNotWhitelistedRepeater extends BaseRepeater
         $ipAddress = $this->server->ip_address;
         $maxAttempts = $this->repeater->max_attempts;
 
-        NotificationService::sendToAdmin(
+        NotificationService::send(
+                    user: Martingalian::admin(),
             message: "⚠️ Manual Intervention Required\n\nServer {$hostname} (IP: {$ipAddress}) has not been whitelisted on {$exchange} after {$maxAttempts} automatic checks over {$this->getElapsedTime()}.\n\nAccount: {$accountName} (ID: {$this->account->id})\n\nPlease manually whitelist this IP address in your {$exchange} API settings to restore full server access.",
             title: 'Server IP Still Not Whitelisted',
             deliveryGroup: 'exceptions',

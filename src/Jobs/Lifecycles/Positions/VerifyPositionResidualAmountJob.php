@@ -7,6 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
 use Throwable;
@@ -35,11 +36,13 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
             $amount = $positions[$this->position->parsed_trading_pair]['positionAmt'];
 
             Throttler::using(NotificationService::class)
-                ->withCanonical('verify_position_residual')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
+                ->withCanonical('position_residual_amount_detected')
+                ->execute(function () use ($amount) {
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: "Position {$this->position->parsed_trading_pair} with residual amount (Qty:{$amount}). Please close position MANUALLY on exchange",
                         title: "Position {$this->position->parsed_trading_pair} with residual amount",
+                        canonical: 'position_residual_amount_detected',
                         deliveryGroup: 'exceptions'
                     );
                 });
@@ -57,11 +60,13 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
     public function resolveException(Throwable $e)
     {
         Throttler::using(NotificationService::class)
-            ->withCanonical('verify_position_residual_2')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
-                    message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} historical data delete error - {$e->getMessage()}",
+            ->withCanonical('position_residual_verification_error')
+            ->execute(function () use ($e) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
+                    message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} residual verification error - {$e->getMessage()}",
                     title: '['.class_basename(self::class).'] - Error',
+                    canonical: 'position_residual_verification_error',
                     deliveryGroup: 'exceptions'
                 );
             });

@@ -7,6 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Accounts;
 use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Str;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Jobs\Lifecycles\Positions\CheckPositionOrderChangesJob;
@@ -99,8 +100,9 @@ final class LaunchPositionsWatchersJob extends BaseQueueableJob
     {
         Throttler::using(NotificationService::class)
             ->withCanonical('launch_positions_watchers')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
+            ->execute(function () use ($e) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
                     title: "[S:{$this->step->id} ".class_basename(self::class).'] - Error',
                     deliveryGroup: 'exceptions'

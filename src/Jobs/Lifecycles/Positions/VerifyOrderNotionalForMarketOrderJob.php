@@ -7,6 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Support\Throttler;
 use Exception;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Exceptions\ExceptionParser;
@@ -68,8 +69,9 @@ final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
     {
         Throttler::using(NotificationService::class)
             ->withCanonical('verify_order_notional_market')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
+            ->execute(function () use ($e) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
                     title: '['.class_basename(self::class).'] - Error',
                     deliveryGroup: 'exceptions'

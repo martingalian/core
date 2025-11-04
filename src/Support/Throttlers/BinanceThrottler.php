@@ -350,6 +350,6 @@ final class BinanceThrottler extends BaseApiThrottler
      */
     protected static function getCurrentIp(): string
     {
-        return gethostbyname(gethostname());
+        return \Martingalian\Core\Models\Martingalian::ip();
     }
 }

@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ForbiddenHostname;
+use Martingalian\Core\Models\Martingalian;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -58,7 +59,7 @@ trait ApiExceptionHelpers
             [
                 'api_system_id' => $apiSystem->id,
                 'account_id' => $accountId,
-                'ip_address' => gethostbyname(gethostname()),
+                'ip_address' => Martingalian::ip(),
             ],
             [
                 'updated_at' => now(),
@@ -81,7 +82,8 @@ trait ApiExceptionHelpers
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($exchangeName, $hostname, $record, $accountInfo) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: "A hostname has been forbidden from accessing {$exchangeName} API.\n\n".
                          "Hostname: {$hostname}\n".
                          "IP Address: {$record->ip_address}\n".

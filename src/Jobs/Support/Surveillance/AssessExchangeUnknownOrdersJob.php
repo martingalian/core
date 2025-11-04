@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Support\Surveillance;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
+use Martingalian\Core\Models\Martingalian;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 /**
@@ -167,11 +168,13 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
 
             // --- All guards passed: notify admins with context
             Throttler::using(NotificationService::class)
-                ->withCanonical('assess_unknown_orders')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: 'Unknown exchange orders for ['.$symbol.']: '.$unknownOrders->implode(',
-                        title: ').'.',
+                ->withCanonical('unknown_orders_detected')
+                ->execute(function () use ($symbol, $unknownOrders) {
+                    NotificationService::send(
+                        user: Martingalian::admin(),
+                        message: 'Unknown exchange orders for ['.$symbol.']: '.$unknownOrders->implode(', ').'.',
+                        title: 'Unknown Orders Detected',
+                        canonical: 'unknown_orders_detected',
                         deliveryGroup: 'exceptions'
                     );
                 });
@@ -183,16 +186,19 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
      */
     public function resolveException(Throwable $e)
     {
+        $account = $this->account;
         Throttler::using(NotificationService::class)
-            ->withCanonical('assess_unknown_orders_2')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
-                    message: '['.$this->account->id.'] Account '
-            .$this->account->user->name.'/'
-            .$this->account->tradingQuote->canonical
+            ->withCanonical('unknown_orders_assessment_error')
+            ->execute(function () use ($account, $e) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
+                    message: '['.$account->id.'] Account '
+            .$account->user->name.'/'
+            .$account->tradingQuote->canonical
             .' surveillance error - '
             .ExceptionParser::with($e)->friendlyMessage(),
                     title: '['.class_basename(self::class).'] - Error.',
+                    canonical: 'unknown_orders_assessment_error',
                     deliveryGroup: 'exceptions'
                 );
             });

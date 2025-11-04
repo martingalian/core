@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Position;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 
 final class ClosePositionAtomicallyJob extends BaseApiableJob
 {
@@ -57,11 +58,13 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
                 ($this->position->direction === 'LONG' && $this->position->opening_price > $this->position->exchangeSymbol->mark_price)
             ) {
                 Throttler::using(NotificationService::class)
-                    ->withCanonical('close_position_atomically')
+                    ->withCanonical('position_closing_negative_pnl')
                     ->execute(function () {
-                        NotificationService::sendToAdmin(
+                        NotificationService::send(
+                            user: Martingalian::admin(),
                             message: "Position {$this->position->parsed_trading_pair} is possibly closing with a negative PnL. Exchange symbol disabled. Please check!",
                             title: "Position {$this->position->parsed_trading_pair} possible closed with negative PnL",
+                            canonical: 'position_closing_negative_pnl',
                             deliveryGroup: 'exceptions'
                         );
                     });
@@ -122,12 +125,17 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
                         ]);
 
                         // Notify admins so it's visible in ops.
-                        NotificationThrottler::sendToAdmin(
-                            messageCanonical: 'close_position_atomically_2',
-                            message: "Cooldown set for {$this->position->parsed_trading_pair}: +".number_format($pct, 2).'% vs latest 1D close. Tradeable again at '.$until->format('Y-m-d H:i').'.',
-                            title: 'Price Spike Detected',
-                            deliveryGroup: 'nidavellir_warnings'
-                        );
+                        Throttler::using(NotificationService::class)
+                            ->withCanonical('position_price_spike_cooldown_set')
+                            ->execute(function () use ($pct, $until) {
+                                NotificationService::send(
+                                    user: Martingalian::admin(),
+                                    message: "Cooldown set for {$this->position->parsed_trading_pair}: +".number_format($pct, 2).'% vs latest 1D close. Tradeable again at '.$until->format('Y-m-d H:i').'.',
+                                    title: 'Price Spike Detected',
+                                    canonical: 'position_price_spike_cooldown_set',
+                                    deliveryGroup: 'nidavellir_warnings'
+                                );
+                            });
                     }
                 }
             }

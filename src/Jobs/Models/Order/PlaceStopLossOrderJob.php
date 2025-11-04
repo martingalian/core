@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Order;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use RuntimeException;
 use Throwable;
 
@@ -58,11 +59,13 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
         }
 
         Throttler::using(NotificationService::class)
-            ->withCanonical('place_stop_loss_order')
+            ->withCanonical('stop_loss_precondition_failed')
             ->execute(function () {
-                NotificationService::sendToAdmin(
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on a StartOrFail()",
                     title: '['.class_basename(self::class).'] - startOrFail() returned false',
+                    canonical: 'stop_loss_precondition_failed',
                     deliveryGroup: 'exceptions'
                 );
             });
@@ -109,12 +112,17 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
 
         $this->stopLossOrder->apiPlace();
 
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'place_stop_loss_order_2',
-            message: "{$this->position->parsed_trading_pair} Stop Loss Order successfully placed. ID [{$this->stopLossOrder->id}] Qty: {$calc['quantity']}, Price: {$calc['price']}",
-            title: '['.class_basename(self::class).'] - Stop Loss placed',
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+            ->withCanonical('stop_loss_placed_successfully')
+            ->execute(function () use ($calc) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
+                    message: "{$this->position->parsed_trading_pair} Stop Loss Order successfully placed. ID [{$this->stopLossOrder->id}] Qty: {$calc['quantity']}, Price: {$calc['price']}",
+                    title: '['.class_basename(self::class).'] - Stop Loss placed',
+                    canonical: 'stop_loss_placed_successfully',
+                    deliveryGroup: 'exceptions'
+                );
+            });
 
         return ['order' => format_model_attributes($this->stopLossOrder)];
     }
@@ -148,11 +156,13 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
         $id = $this->stopLossOrder?->id ?? 'unknown';
 
         Throttler::using(NotificationService::class)
-            ->withCanonical('place_stop_loss_order_3')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
+            ->withCanonical('stop_loss_placement_error')
+            ->execute(function () use ($e, $id) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "[{$id}] STOP-MARKET order place error - {$e->getMessage()}",
                     title: '['.class_basename(self::class).'] - Error',
+                    canonical: 'stop_loss_placement_error',
                     deliveryGroup: 'exceptions'
                 );
             });

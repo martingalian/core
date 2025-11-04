@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Support\Surveillance;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
+use Martingalian\Core\Models\Martingalian;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 final class MatchOrphanedExchangeOrdersJob extends BaseQueueableJob
@@ -66,11 +67,13 @@ final class MatchOrphanedExchangeOrdersJob extends BaseQueueableJob
 
             // ✅ Alert: Orphaned orders found
             Throttler::using(NotificationService::class)
-                ->withCanonical('match_orphaned_orders')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: 'Orphaned Orders detected: '.$formattedOrphans->implode(',
-                        title: '),
+                ->withCanonical('orphaned_orders_detected')
+                ->execute(function () use ($formattedOrphans) {
+                    NotificationService::send(
+                        user: Martingalian::admin(),
+                        message: 'Orphaned Orders detected: '.$formattedOrphans->implode(', '),
+                        title: 'Orphaned Orders Detected',
+                        canonical: 'orphaned_orders_detected',
                         deliveryGroup: 'exceptions'
                     );
                 });
@@ -79,12 +82,15 @@ final class MatchOrphanedExchangeOrdersJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
+        $account = $this->account;
         Throttler::using(NotificationService::class)
-            ->withCanonical('match_orphaned_orders_2')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
-                    message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} surveillance error - ".ExceptionParser::with($e)->friendlyMessage(),
+            ->withCanonical('orphaned_orders_match_error')
+            ->execute(function () use ($account, $e) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
+                    message: "[{$account->id}] Account {$account->user->name}/{$account->tradingQuote->canonical} surveillance error - ".ExceptionParser::with($e)->friendlyMessage(),
                     title: '['.class_basename(self::class).'] - Error',
+                    canonical: 'orphaned_orders_match_error',
                     deliveryGroup: 'exceptions'
                 );
             });

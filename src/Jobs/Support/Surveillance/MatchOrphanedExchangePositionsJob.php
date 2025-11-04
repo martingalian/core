@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Support\Surveillance;
 
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
+use Martingalian\Core\Models\Martingalian;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 final class MatchOrphanedExchangePositionsJob extends BaseQueueableJob
@@ -52,12 +53,15 @@ final class MatchOrphanedExchangePositionsJob extends BaseQueueableJob
         $missingInDB = $exchangeSymbolDirections->diff($dbSymbolDirections);
 
         if ($missingInDB->isNotEmpty()) {
+            $account = $this->account;
             Throttler::using(NotificationService::class)
-                ->withCanonical('match_orphaned_positions')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
-                        message: "[{$this->account->id}] Monitoring Synced Positions mismatch: ".$missingInDB->implode(',
-                        title: ').' opened in Exchange and not in DB',
+                ->withCanonical('orphaned_positions_detected')
+                ->execute(function () use ($account, $missingInDB) {
+                    NotificationService::send(
+                        user: Martingalian::admin(),
+                        message: "[{$account->id}] Monitoring Synced Positions mismatch: ".$missingInDB->implode(', ').' opened in Exchange and not in DB',
+                        title: 'Orphaned Positions Detected',
+                        canonical: 'orphaned_positions_detected',
                         deliveryGroup: 'exceptions'
                     );
                 });
@@ -66,12 +70,15 @@ final class MatchOrphanedExchangePositionsJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
+        $account = $this->account;
         Throttler::using(NotificationService::class)
-            ->withCanonical('match_orphaned_positions_2')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
-                    message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} surveillance error - ".ExceptionParser::with($e)->friendlyMessage(),
+            ->withCanonical('orphaned_positions_match_error')
+            ->execute(function () use ($account, $e) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
+                    message: "[{$account->id}] Account {$account->user->name}/{$account->tradingQuote->canonical} surveillance error - ".ExceptionParser::with($e)->friendlyMessage(),
                     title: '['.class_basename(self::class).'] - Error',
+                    canonical: 'orphaned_positions_match_error',
                     deliveryGroup: 'exceptions'
                 );
             });

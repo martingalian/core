@@ -9,8 +9,11 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Lifecycles\Positions\ApplyWAPJob;
 use Martingalian\Core\Jobs\Lifecycles\Positions\ClosePositionJob;
 use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 
 final class ProcessOrderChangesJob extends BaseQueueableJob
 {
@@ -92,12 +95,17 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
     {
         info('[ProcessOrderChangesJob] Logging and dispatching ClosePositionJob due to STOP-MARKET filled.');
 
-        NotificationThrottler::sendToAdmin(
-            messageCanonical: 'process_order_changes',
-            message: "Position {$this->order->position->parsed_trading_pair} STOP-MARKET filled. Please monitor!",
-            title: "Position {$this->order->position->parsed_trading_pair} STOP-MARKET filled, closing position",
-            deliveryGroup: 'exceptions'
-        );
+        Throttler::using(NotificationService::class)
+            ->withCanonical('stop_market_filled_closing_position')
+            ->execute(function () {
+                NotificationService::send(
+                    user: Martingalian::admin(),
+                    message: "Position {$this->order->position->parsed_trading_pair} STOP-MARKET filled. Please monitor!",
+                    title: "Position {$this->order->position->parsed_trading_pair} STOP-MARKET filled, closing position",
+                    canonical: 'stop_market_filled_closing_position',
+                    deliveryGroup: 'exceptions'
+                );
+            });
 
         Step::create([
             'class' => ClosePositionJob::class,

@@ -27,11 +27,18 @@ use NotificationChannels\Pushover\PushoverReceiver;
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property string|null $_temp_delivery_group
+ * @property bool $is_virtual
  */
 final class User extends Authenticatable
 {
     use HasFactory;
     use Notifiable;
+
+    /**
+     * Flag to indicate if this is a virtual user (non-persisted admin user).
+     * Virtual users cannot be saved to the database.
+     */
+    public bool $is_virtual = false;
 
     protected $guarded = [];
 
@@ -178,6 +185,23 @@ final class User extends Authenticatable
                 default => $channel
             };
         }, $channels);
+    }
+
+    /**
+     * Override save() to prevent virtual users from being persisted.
+     *
+     * @param  array<string, mixed>  $options
+     * @return bool
+     *
+     * @throws \RuntimeException
+     */
+    public function save(array $options = []): bool
+    {
+        if ($this->is_virtual) {
+            throw new \RuntimeException('Cannot save virtual admin user to database');
+        }
+
+        return parent::save($options);
     }
 
     protected static function newFactory()

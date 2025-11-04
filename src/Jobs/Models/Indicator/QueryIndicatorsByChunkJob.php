@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Models\Indicator;
 
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\Throttler;
 use Exception;
 use Illuminate\Support\Collection;
@@ -118,7 +119,8 @@ final class QueryIndicatorsByChunkJob extends BaseApiableJob
         Throttler::using(NotificationService::class)
             ->withCanonical('query_indicators_chunk')
             ->execute(function () {
-                NotificationService::sendToAdmin(
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "[Indicator:{$this->indicatorId}] Chunk query error - {$e->getMessage()}",
                     title: '['.class_basename(self::class).'] - Error',
                     deliveryGroup: 'exceptions'

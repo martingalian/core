@@ -299,6 +299,6 @@ abstract class BaseExceptionHandler
      */
     protected function getCurrentIp(): string
     {
-        return gethostbyname(gethostname());
+        return \Martingalian\Core\Models\Martingalian::ip();
     }
 }

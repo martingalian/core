@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -202,11 +203,13 @@ final class SyncMarketDataJob extends BaseApiableJob
                         $position->account_id
                     );
                     Throttler::using(NotificationService::class)
-                        ->withCanonical('sync_market_data')
-                        ->execute(function () {
-                            NotificationService::sendToAdmin(
+                        ->withCanonical('symbol_delisting_long_position_close_scheduled')
+                        ->execute(function () use ($adminMsg, $title) {
+                            NotificationService::send(
+                                user: Martingalian::admin(),
                                 message: $adminMsg,
                                 title: $title,
+                                canonical: 'symbol_delisting_long_position_close_scheduled',
                                 deliveryGroup: 'exceptions'
                             );
                         });
@@ -225,11 +228,13 @@ final class SyncMarketDataJob extends BaseApiableJob
                         $position->account_id
                     );
                     Throttler::using(NotificationService::class)
-                        ->withCanonical('sync_market_data_2')
-                        ->execute(function () {
-                            NotificationService::sendToAdmin(
+                        ->withCanonical('symbol_delisting_short_position_alert')
+                        ->execute(function () use ($adminMsg, $title) {
+                            NotificationService::send(
+                                user: Martingalian::admin(),
                                 message: $adminMsg,
                                 title: $title,
+                                canonical: 'symbol_delisting_short_position_alert',
                                 deliveryGroup: 'exceptions'
                             );
                         });
@@ -247,11 +252,13 @@ final class SyncMarketDataJob extends BaseApiableJob
                     $position->account_id
                 );
                 Throttler::using(NotificationService::class)
-                    ->withCanonical('sync_market_data_3')
-                    ->execute(function () {
-                        NotificationService::sendToAdmin(
+                    ->withCanonical('symbol_delisting_unknown_direction')
+                    ->execute(function () use ($adminMsg, $title) {
+                        NotificationService::send(
+                            user: Martingalian::admin(),
                             message: $adminMsg,
                             title: $title,
+                            canonical: 'symbol_delisting_unknown_direction',
                             deliveryGroup: 'exceptions'
                         );
                     });

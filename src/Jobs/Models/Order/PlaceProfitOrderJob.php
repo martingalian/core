@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Models\Order;
 
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\Throttler;
 use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -54,7 +55,8 @@ final class PlaceProfitOrderJob extends BaseApiableJob
             Throttler::using(NotificationService::class)
                 ->withCanonical('place_profit_order')
                 ->execute(function () {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                    user: Martingalian::admin(),
                         message: "{$this->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
                         title: '['.class_basename(self::class).'] - startOrFail() returned false',
                         deliveryGroup: 'exceptions'
@@ -142,21 +144,25 @@ final class PlaceProfitOrderJob extends BaseApiableJob
 
         if ($this->profitOrder) {
             Throttler::using(NotificationService::class)
-                ->withCanonical('place_profit_order_2')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
+                ->withCanonical('profit_order_placement_error')
+                ->execute(function () use ($e) {
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: "[O:{$this->profitOrder->id}] Order {$this->profitOrder->type} {$this->profitOrder->side} PROFIT-LIMIT place error - {$e->getMessage()}",
                         title: '['.class_basename(self::class).'] - Error',
+                        canonical: 'profit_order_placement_error',
                         deliveryGroup: 'exceptions'
                     );
                 });
         } else {
             Throttler::using(NotificationService::class)
-                ->withCanonical('place_profit_order_3')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
+                ->withCanonical('profit_order_placement_error_no_order')
+                ->execute(function () use ($e) {
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: "[P:{$this->position->id}] PROFIT-LIMIT place error before order instance - {$e->getMessage()}",
                         title: '['.class_basename(self::class).'] - Error',
+                        canonical: 'profit_order_placement_error_no_order',
                         deliveryGroup: 'exceptions'
                     );
                 });

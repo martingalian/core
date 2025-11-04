@@ -7,6 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Support\Throttler;
 use Exception;
+use Martingalian\Core\Models\Martingalian;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
@@ -129,8 +130,9 @@ final class ConfirmPriceAlignmentsJob extends BaseQueueableJob
 
         Throttler::using(NotificationService::class)
             ->withCanonical('confirm_price_alignments')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
+            ->execute(function () use ($e, $symbolId) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "[{$symbolId}] - ExchangeSymbol price confirmation lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
                     title: "[S:{$this->step->id}] - ".class_basename(self::class).' - Error',
                     deliveryGroup: 'exceptions'

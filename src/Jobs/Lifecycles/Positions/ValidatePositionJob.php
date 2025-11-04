@@ -7,6 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Positions;
 use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
@@ -32,11 +33,13 @@ final class ValidatePositionJob extends BaseQueueableJob
 
         if (! in_array($this->position->status, $this->position->activeStatuses(), true)) {
             Throttler::using(NotificationService::class)
-                ->withCanonical('validate_position')
+                ->withCanonical('position_validation_inactive_status')
                 ->execute(function () {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} not in an active-related status. Canceling position...",
                         title: '['.class_basename(self::class).'] - Warning',
+                        canonical: 'position_validation_inactive_status',
                         deliveryGroup: 'exceptions'
                     );
                 });
@@ -49,11 +52,13 @@ final class ValidatePositionJob extends BaseQueueableJob
             ->whereNull('orders.exchange_order_id')
             ->count() > 0) {
             Throttler::using(NotificationService::class)
-                ->withCanonical('validate_position_2')
+                ->withCanonical('position_validation_unsynced_orders')
                 ->execute(function () {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have invalid sync'ed orders. Canceling position...",
                         title: '['.class_basename(self::class).'] - Warning',
+                        canonical: 'position_validation_unsynced_orders',
                         deliveryGroup: 'exceptions'
                     );
                 });
@@ -67,11 +72,13 @@ final class ValidatePositionJob extends BaseQueueableJob
             ->active()
             ->count() !== $this->position->total_limit_orders) {
             Throttler::using(NotificationService::class)
-                ->withCanonical('validate_position_3')
+                ->withCanonical('position_validation_incorrect_limit_count')
                 ->execute(function () {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have a different number of total active limit orders. Canceling position...",
                         title: '['.class_basename(self::class).'] - Warning',
+                        canonical: 'position_validation_incorrect_limit_count',
                         deliveryGroup: 'exceptions'
                     );
                 });
@@ -93,11 +100,13 @@ final class ValidatePositionJob extends BaseQueueableJob
     public function resolveException(Throwable $e)
     {
         Throttler::using(NotificationService::class)
-            ->withCanonical('validate_position_4')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
+            ->withCanonical('position_validation_exception')
+            ->execute(function () use ($e) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
                     title: '['.class_basename(self::class).'] - Error',
+                    canonical: 'position_validation_exception',
                     deliveryGroup: 'exceptions'
                 );
             });

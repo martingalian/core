@@ -10,9 +10,12 @@ use Martingalian\Core\Concerns\BaseQueueableJob\FormatsStepResult;
 use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepExceptions;
 use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepLifecycle;
 use Martingalian\Core\Exceptions\NonNotifiableException;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\Running;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 use Throwable;
 
 /*
@@ -101,7 +104,28 @@ abstract class BaseQueueableJob extends BaseJob
     {
         /*
          * Last-resort handler if the Laravel queue system catches an unhandled error.
+         * Notify admins about the failure and update step state.
          */
+
+        // Notify admins about unhandled job exceptions
+        $step = $this->step;
+        $jobClass = class_basename($this);
+        Throttler::using(NotificationService::class)
+            ->withCanonical('job_execution_failed')
+            ->execute(function () use ($step, $jobClass, $e) {
+                $stepId = $step->id ?? 'unknown';
+                $message = "[Step #{$stepId}] Job {$jobClass} failed with unhandled exception: ".$e->getMessage();
+
+                NotificationService::send(
+                    user: Martingalian::admin(),
+                    message: $message,
+                    title: 'Job Execution Failed',
+                    canonical: 'job_execution_failed',
+                    deliveryGroup: 'exceptions'
+                );
+            });
+
+        // Update step state to failed
         $this->step->update(['response' => ['exception' => $e->getMessage()]]);
         $this->step->state->transitionTo(Failed::class);
     }

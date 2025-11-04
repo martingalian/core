@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Model;
  *       ->for($user)
  *       ->throttleFor(300)
  *       ->execute(function () use ($user) {
- *           NotificationService::sendToUser($user, 'Alert message');
+ *           NotificationService::send($user, 'Alert message');
  *       });
  *
  *   Throttler::using(BinanceThrottler::class)

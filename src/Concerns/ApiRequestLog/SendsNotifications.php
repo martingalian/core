@@ -7,6 +7,7 @@ namespace Martingalian\Core\Concerns\ApiRequestLog;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Notification;
 use Martingalian\Core\Models\Repeater;
 use Martingalian\Core\Models\Server;
@@ -329,7 +330,7 @@ trait SendsNotifications
         $hostname = $this->hostname ?? gethostname();
         $httpCode = $this->http_response_code;
         $vendorCode = $this->extractVendorCodeFromResponse();
-        $serverIp = gethostbyname($hostname);
+        $serverIp = Martingalian::ip();
 
         // Binance ambiguous error -2015 (could be credentials, IP, or permissions)
         if ($handler->isCredentialsOrIpErrorFromLog($vendorCode)) {
@@ -349,7 +350,8 @@ trait SendsNotifications
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: 'api_credentials_or_ip',
@@ -381,7 +383,8 @@ trait SendsNotifications
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: 'invalid_api_key',
@@ -413,7 +416,8 @@ trait SendsNotifications
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: 'invalid_signature',
@@ -445,7 +449,8 @@ trait SendsNotifications
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: 'insufficient_permissions',
@@ -480,7 +485,8 @@ trait SendsNotifications
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: 'ip_not_whitelisted',
@@ -526,7 +532,8 @@ trait SendsNotifications
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: 'api_rate_limit_exceeded',
@@ -560,7 +567,8 @@ trait SendsNotifications
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: 'api_access_denied',
@@ -594,7 +602,8 @@ trait SendsNotifications
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: 'api_access_denied',
@@ -628,7 +637,8 @@ trait SendsNotifications
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: 'exchange_maintenance',
@@ -661,7 +671,8 @@ trait SendsNotifications
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: 'api_connection_failed',
@@ -749,7 +760,7 @@ trait SendsNotifications
         ];
 
         if ($isServerRelated) {
-            $context['ip'] = gethostbyname($hostname);
+            $context['ip'] = Martingalian::ip();
             $context['hostname'] = $hostname;
         }
 
@@ -766,12 +777,12 @@ trait SendsNotifications
             $exchangeCanonical = $handler->getApiSystem();
             $apiSystem = ApiSystem::where('canonical', $exchangeCanonical)->first();
             $exchangeName = $apiSystem ? $apiSystem->name : ucfirst($exchangeCanonical);
-            $serverIp = $isServerRelated ? gethostbyname(gethostname()) : null;
+            $serverIp = $isServerRelated ? Martingalian::ip() : null;
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->for($user)
                 ->execute(function () use ($user, $messageData, $messageCanonical, $exchangeName, $serverIp) {
-                    NotificationService::sendToUser(
+                    NotificationService::send(
                         user: $user,
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
@@ -795,7 +806,8 @@ trait SendsNotifications
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical.'_admin')
                 ->execute(function () use ($messageData, $messageCanonical) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: $messageCanonical,
@@ -840,7 +852,7 @@ trait SendsNotifications
             // Create server record if it doesn't exist
             $server = Server::create([
                 'hostname' => $hostname,
-                'ip_address' => gethostbyname($hostname),
+                'ip_address' => Martingalian::ip(),
                 'type' => 'worker',
             ]);
         }

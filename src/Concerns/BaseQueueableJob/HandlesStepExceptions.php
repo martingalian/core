@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Concerns\BaseQueueableJob;
 
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Exceptions\JustEndException;
@@ -39,7 +40,8 @@ trait HandlesStepExceptions
             Throttler::using(NotificationService::class)
                 ->withCanonical('step_error')
                 ->execute(function () use ($parser) {
-                    NotificationService::sendToAdmin(
+                    NotificationService::send(
+                    user: Martingalian::admin(),
                         message: 'Step error - '.$parser->friendlyMessage(),
                         title: "[S:{$this->step->id} ".class_basename(static::class).'] - Error',
                         deliveryGroup: 'exceptions'

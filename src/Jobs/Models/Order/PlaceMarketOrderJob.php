@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Models\Order;
 
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -70,7 +71,8 @@ final class PlaceMarketOrderJob extends BaseApiableJob
         Throttler::using(NotificationService::class)
             ->withCanonical('place_market_order')
             ->execute(function () {
-                NotificationService::sendToAdmin(
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on startOrFail()",
                     title: '['.class_basename(self::class).'] - startOrFail() returned false',
                     deliveryGroup: 'exceptions'
@@ -183,21 +185,25 @@ final class PlaceMarketOrderJob extends BaseApiableJob
 
         if ($this->marketOrder) {
             Throttler::using(NotificationService::class)
-                ->withCanonical('place_market_order_2')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
+                ->withCanonical('market_order_placement_error')
+                ->execute(function () use ($e) {
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: "[{$this->marketOrder->id}] Order {$this->marketOrder->type} {$this->marketOrder->side} MARKET place error - {$e->getMessage()}",
                         title: '['.class_basename(self::class).'] - Error',
+                        canonical: 'market_order_placement_error',
                         deliveryGroup: 'exceptions'
                     );
                 });
         } else {
             Throttler::using(NotificationService::class)
-                ->withCanonical('place_market_order_3')
-                ->execute(function () {
-                    NotificationService::sendToAdmin(
+                ->withCanonical('market_order_placement_error_no_order')
+                ->execute(function () use ($e) {
+                    NotificationService::send(
+                        user: Martingalian::admin(),
                         message: "[{$this->position->id}] MARKET place error before order instance - {$e->getMessage()}",
                         title: '['.class_basename(self::class).'] - Error',
+                        canonical: 'market_order_placement_error_no_order',
                         deliveryGroup: 'exceptions'
                     );
                 });

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Models\Order;
 
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
@@ -54,7 +55,8 @@ final class ModifyOrderJob extends BaseApiableJob
         Throttler::using(NotificationService::class)
             ->withCanonical('modify_order')
             ->execute(function () {
-                NotificationService::sendToAdmin(
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "[{$this->order->id}] Order {$this->order->type} {$this->order->side} modify error - {$e->getMessage()}",
                     title: '['.class_basename(self::class).'] - Error',
                     deliveryGroup: 'exceptions'

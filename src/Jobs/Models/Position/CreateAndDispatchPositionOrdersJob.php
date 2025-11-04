@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Models\Position;
 
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\Throttler;
 use Exception;
 use Illuminate\Support\Str;
@@ -286,7 +287,8 @@ final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
         Throttler::using(NotificationService::class)
             ->withCanonical('create_dispatch_position_orders')
             ->execute(function () {
-                NotificationService::sendToAdmin(
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} creation/dispatch error - {$e->getMessage()}",
                     title: '['.class_basename(self::class).'] - Error',
                     deliveryGroup: 'exceptions'

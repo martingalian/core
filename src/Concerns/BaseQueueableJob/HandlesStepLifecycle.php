@@ -87,7 +87,7 @@ trait HandlesStepLifecycle
                         $this->assignExceptionHandler();
                     }
 
-                    $hostname = gethostbyname(gethostname());
+                    $hostname = \Martingalian\Core\Models\Martingalian::ip();
                     $isForbidden = \Martingalian\Core\Models\ForbiddenHostname::query()
                         ->where('account_id', $this->exceptionHandler->account->id)
                         ->where('ip_address', $hostname)

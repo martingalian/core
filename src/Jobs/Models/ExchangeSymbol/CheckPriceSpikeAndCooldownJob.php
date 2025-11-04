@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\Throttler;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
@@ -89,11 +90,13 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
 
                     // Per your requirement, notify admins on exceptions:
                     Throttler::using(NotificationService::class)
-                        ->withCanonical('check_price_spike_cooldown')
-                        ->execute(function () {
-                            NotificationService::sendToAdmin(
+                        ->withCanonical('price_spike_check_symbol_error')
+                        ->execute(function () use ($ex, $e) {
+                            NotificationService::send(
+                                user: Martingalian::admin(),
                                 message: "[{$ex->id}] - ExchangeSymbol price spike check error - ".ExceptionParser::with($e)->friendlyMessage(),
                                 title: '[Batch: '.class_basename(static::class)."] Symbol {$ex->id} error",
+                                canonical: 'price_spike_check_symbol_error',
                                 deliveryGroup: 'exceptions'
                             );
                         });
@@ -117,11 +120,13 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
     public function resolveException(Throwable $e): void
     {
         Throttler::using(NotificationService::class)
-            ->withCanonical('check_price_spike_cooldown_2')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
+            ->withCanonical('price_spike_check_batch_error')
+            ->execute(function () use ($e) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: 'Batch price spike check error - '.ExceptionParser::with($e)->friendlyMessage(),
                     title: '['.class_basename(self::class).'] Batch error',
+                    canonical: 'price_spike_check_batch_error',
                     deliveryGroup: 'exceptions'
                 );
             });

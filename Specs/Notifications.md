@@ -19,11 +19,11 @@ Multi-channel notifications (Pushover, Email via Zeptomail) with comprehensive l
 1. Error occurs (API failure, system alert, trading event)
 2. `ApiRequestLog` saved → Observer triggers `sendNotificationIfNeeded()`
 3. `NotificationMessageBuilder::build()` creates user-friendly message
-4. `NotificationService::sendToUser()` or `::sendToAdmin()` dispatches notification
-5. `AlertNotification` routes to channels based on user preferences
+4. `NotificationService::send()` dispatches notification (unified for users and admin)
+5. `AlertNotification` routes to channels based on user preferences via Laravel's notification system
 6. **For Email**: `ZeptoMailTransport` sends via Zeptomail API, stores response in message headers
-7. **For Pushover**: Direct HTTP POST to Pushover API
-8. Laravel fires `NotificationSent` event
+7. **For Pushover**: `PushoverChannel` sends via Pushover API
+8. Laravel **automatically** fires `NotificationSent` event
 9. `NotificationLogListener` creates audit log entry in `notification_logs` table
 10. **Later**: Webhook from Zeptomail updates log with delivery confirmation
 
@@ -39,24 +39,27 @@ SendsNotifications::sendNotificationIfNeeded()
   ↓
 NotificationMessageBuilder::build()
   ↓
-NotificationService::sendToUser() / sendToAdmin()
+NotificationService::send(user: $user OR Martingalian::admin())
   ↓
-AlertNotification dispatched
+User->notifyWithGroup(AlertNotification) [Laravel Notification System]
   ↓
-┌─────────────────┬─────────────────┐
-│     Pushover    │      Email      │
-│   (HTTP POST)   │ (ZeptoMailTransport)
-│                 │       ↓         │
-│                 │ POST to Zeptomail API
-│                 │       ↓         │
-│                 │ Store response in headers
-└─────────────────┴─────────────────┘
+AlertNotification->via() determines channels
   ↓
-NotificationSent event fired
+┌──────────────────────┬───────────────────────┐
+│   PushoverChannel    │    Mail Channel       │
+│   (Laravel Package)  │  (ZeptoMailTransport) │
+│         ↓            │         ↓             │
+│   POST Pushover API  │  POST Zeptomail API   │
+│         ↓            │         ↓             │
+│   Returns receipt    │  Store response       │
+│                      │  in message headers   │
+└──────────────────────┴───────────────────────┘
+  ↓
+NotificationSent event AUTOMATICALLY fired by Laravel
   ↓
 NotificationLogListener::handleNotificationSent()
   ↓
-NotificationLog created (audit trail)
+NotificationLog created (audit trail with full gateway data)
   ↓
 [Later] Webhook from Zeptomail
   ↓
@@ -110,32 +113,131 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 ### NotificationService
 **Location**: `packages/martingalian/core/src/Support/NotificationService.php`
 **Namespace**: `Martingalian\Core\Support\NotificationService`
-**Methods**: `sendToUser()`, `sendToAdmin()`, `sendToAdminByCanonical()`, `sendDirectToEmail()`, `sendDirectToPushover()`
+**Methods**: `send()`, `sendToAdminByCanonical()`
 
-**CRITICAL: Admin Notification Flow** - `sendToAdmin()` ALWAYS uses direct sending (NO User model):
-1. **No User lookup**: Admin notifications never lookup User records by email
-2. **Direct sending only**: Uses credentials from `Martingalian` model:
-   - `admin_pushover_user_key` (encrypted admin Pushover key)
-   - `admin_user_email` (admin email address)
-   - `notification_channels` (admin notification channels)
-3. **Manual event firing**: After direct sending, manually fires `NotificationSent` events
-   - This allows `NotificationLogListener` to create audit log entries
-   - Without firing events, notifications won't be logged in `notification_logs` table
-4. **Pseudo-notifiable object**: Creates temporary object for event dispatching
-   - Contains email and pushover_key for NotificationLogListener
+**CRITICAL: Unified Notification Architecture**:
+The notification system has been simplified to use a **single unified method** that leverages Laravel's notification system for both users and admin.
 
-**Why**: Admin is a virtual account concept. There is no User model for admin. All admin notifications use direct HTTP/SMTP sending.
+**Key Architectural Change**:
+- **Before**: Separate `sendToUser()` and `sendToAdmin()` with manual event firing
+- **After**: Single `send()` method using Laravel's notification system for ALL notifications
+- **Admin User**: Virtual User instance via `Martingalian::admin()` (non-persisted, `is_virtual = true`)
 
-**sendToAdminByCanonical()**: Convenience method for canonical-based admin notifications
-- Fetches message template from NotificationMessageBuilder
-- Automatically sends to admin WITHOUT serverIp/exchange parameters
-- Keeps email subjects clean and focused on issue type
-- Usage: `NotificationService::sendToAdminByCanonical('api_rate_limit_exceeded', ['exchange' => 'binance'])`
+**NotificationService::send()**: Unified notification method
+```php
+NotificationService::send(
+    user: $user,               // Real User OR Martingalian::admin()
+    message: 'Alert message',
+    title: 'Alert Title',
+    canonical: 'alert_type',
+    deliveryGroup: 'exceptions',
+    severity: NotificationSeverity::High,
+    relatable: $relatableModel // Optional: ApiSystem, Step, Account, etc.
+)
+```
+
+**How Admin Notifications Work Now**:
+1. `Martingalian::admin()` returns a **virtual User** instance
+2. Virtual user has all notification credentials from `martingalian` table
+3. Laravel's notification system handles sending (channels, routing, events)
+4. `NotificationSent` event **automatically fired** by Laravel
+5. `NotificationLogListener` captures event and logs to `notification_logs`
+6. Virtual user has `is_virtual = true` flag preventing accidental database saves
+
+**NotificationService::sendToAdminByCanonical()**: Convenience method for template-based admin notifications
+```php
+NotificationService::sendToAdminByCanonical(
+    canonical: 'api_rate_limit_exceeded',
+    context: ['exchange' => 'binance'],
+    deliveryGroup: 'exceptions',
+    relatable: $apiSystem
+)
+```
+- Fetches message template from `NotificationMessageBuilder`
+- Automatically uses `Martingalian::admin()` as recipient
+- Keeps email subjects clean (no serverIp/exchange parameters)
+
+### Martingalian::admin() - Virtual Admin User
+**Location**: `packages/martingalian/core/src/Concerns/Martingalian/HasGetters.php`
+**Namespace**: `Martingalian\Core\Concerns\Martingalian\HasGetters`
+**Usage**: `Martingalian::admin()`
+
+**Purpose**: Returns a virtual (non-persisted) User instance configured with admin notification credentials.
+
+**Key Characteristics**:
+- **Non-persisted**: `exists = false`, never touches database
+- **Protected**: `is_virtual = true` flag prevents accidental `save()` calls
+- **Cached**: Uses `once()` helper for singleton behavior per request
+- **Fully functional**: Works seamlessly with Laravel's notification system
+
+**Implementation**:
+```php
+// In HasGetters trait
+public static function admin(): User
+{
+    return once(function () {
+        $martingalian = self::findOrFail(1);
+
+        return tap(new User, function (User $user) use ($martingalian) {
+            $user->exists = false;
+            $user->is_virtual = true;
+            $user->name = 'System Administrator';
+            $user->email = $martingalian->admin_user_email;
+            $user->pushover_key = $martingalian->admin_pushover_user_key;
+            $user->notification_channels = $martingalian->notification_channels ?? ['pushover'];
+            $user->is_active = true;
+        });
+    });
+}
+```
+
+**Safety Guard in User Model**:
+```php
+// In User model
+public bool $is_virtual = false;
+
+public function save(array $options = []): bool
+{
+    if ($this->is_virtual) {
+        throw new \RuntimeException('Cannot save virtual admin user to database');
+    }
+    return parent::save($options);
+}
+```
+
+**Usage Examples**:
+```php
+// Admin notification
+NotificationService::send(
+    user: Martingalian::admin(),
+    message: 'System error detected',
+    title: 'System Alert',
+    canonical: 'api_system_error',
+    relatable: $apiSystem
+);
+
+// User notification (same method!)
+NotificationService::send(
+    user: $user,
+    message: 'Position opened',
+    title: 'Trading Alert',
+    canonical: 'position_opened',
+    relatable: $position
+);
+```
+
+**Why This Design?**:
+1. **Single Code Path**: One notification method for all recipients
+2. **Laravel Native**: Fully leverages Laravel's notification system
+3. **Type Safety**: Same `User` type, no special handling needed
+4. **DRY Principle**: No duplicate notification logic
+5. **Maintainable**: Simpler codebase, easier to understand
+6. **Testable**: Standard Laravel notification testing works
 
 ## Critical Developer Requirements
 
 ### ALWAYS Pass Canonical Parameter
-**RULE**: Every call to `sendToUser()` or `sendToAdmin()` MUST include the `canonical` parameter.
+**RULE**: Every call to `NotificationService::send()` SHOULD include the `canonical` parameter for proper audit tracking.
 
 **Why**: Without a canonical:
 - `NotificationLogListener` falls back to class name `"AlertNotification"`
@@ -145,7 +247,8 @@ NotificationLog updated (confirmed_at, opened_at, bounced_at)
 
 **Correct**:
 ```php
-NotificationService::sendToAdmin(
+NotificationService::send(
+    user: Martingalian::admin(),
     message: 'Rate limit exceeded',
     title: 'API Rate Limit',
     canonical: 'api_rate_limit_exceeded',  // ✅ REQUIRED
@@ -155,7 +258,8 @@ NotificationService::sendToAdmin(
 
 **Incorrect** (will log as "AlertNotification" with null notification_id):
 ```php
-NotificationService::sendToAdmin(
+NotificationService::send(
+    user: Martingalian::admin(),
     message: 'Rate limit exceeded',
     title: 'API Rate Limit',
     deliveryGroup: 'exceptions'  // ❌ Missing canonical
@@ -355,8 +459,21 @@ NotificationMessageBuilder::build('ip_not_whitelisted', [
 ### Throttler
 **Location**: `packages/martingalian/core/src/Support/Throttler.php`
 **Namespace**: `Martingalian\Core\Support\Throttler`
-**Window**: 30 minutes
-**Table**: `throttle_logs`
+**Purpose**: Unified throttling system for any action (notifications, API calls, supervisor restarts)
+**Tables**: `throttle_rules` (configuration), `throttle_logs` (execution history)
+
+**Key Features**:
+- **Database-driven rules**: Throttle configuration stored in `throttle_rules` table with per-canonical timing
+- **Execution tracking**: Every throttled action logged in `throttle_logs` with timestamps
+- **Pessimistic locking**: Prevents race conditions in concurrent environments
+- **Contextual throttling**: Optional `for($model)` allows per-user, per-account, or per-resource throttling
+- **Auto-creation**: Missing throttle rules automatically created if `auto_create_missing_throttle_rules` config enabled
+
+**CRITICAL: Throttler is disaggregated from NotificationService**:
+- Throttler controls WHEN to execute (throttling logic)
+- NotificationService controls WHAT to send (notification delivery)
+- These are separate concerns - Throttler doesn't call NotificationService methods
+- The closure passed to `execute()` contains the notification send call
 
 ## Channels & Configuration
 
@@ -571,29 +688,125 @@ Config: `config('martingalian.api.pushover.delivery_groups')`
 - Prevents admin from being throttled when user just received notification
 - Allows both user and admin to receive when `user_types=['admin', 'user']`
 
-**Implementation**: Applied in SendsNotifications trait (line 796)
+**Implementation**: Correct pattern with separate throttle and notification canonicals
 ```php
 // User notification
 Throttler::using(NotificationService::class)
     ->withCanonical('binance_rate_limit_exceeded')
     ->for($user)
-    ->execute(function () { ... });
+    ->execute(function () use ($user) {
+        NotificationService::send(
+            user: $user,
+            message: 'Rate limit exceeded',
+            title: 'API Rate Limit',
+            canonical: 'api_rate_limit_exceeded',  // Must include canonical in send()
+            deliveryGroup: 'exceptions'
+        );
+    });
 
-// Admin notification (separate throttle key)
+// Admin notification (separate throttle key, no user context)
 Throttler::using(NotificationService::class)
     ->withCanonical('binance_rate_limit_exceeded_admin')
-    ->execute(function () { ... });
-```
-
-### Usage
-```php
-Throttler::using(NotificationService::class)
-    ->withCanonical('binance_rate_limit_exceeded')  // Throttle canonical
     ->execute(function () {
-        $data = NotificationMessageBuilder::build('api_rate_limit_exceeded', ['exchange' => 'binance']);
-        NotificationService::sendToUser(...);
+        NotificationService::send(
+            user: Martingalian::admin(),
+            message: 'Rate limit exceeded',
+            title: 'API Rate Limit',
+            canonical: 'api_rate_limit_exceeded_admin',  // Must include canonical in send()
+            deliveryGroup: 'exceptions'
+        );
     });
 ```
+
+**CRITICAL Pattern Requirements**:
+1. **Throttle canonical** in `withCanonical()` - Controls throttling frequency
+2. **Notification canonical** in `NotificationService::send()` - Required for audit trail and notification_id lookup
+3. **Closure variables** captured via `use ($variable)` - Required to access variables inside throttle closure
+4. **Separate keys for admin** - Prevents cross-throttling between user and admin notifications
+
+### Usage Pattern (Complete Example)
+```php
+// Real-world example from job/observer code
+Throttler::using(NotificationService::class)
+    ->withCanonical('stop_loss_placed_successfully')  // Throttle canonical
+    ->execute(function () use ($position, $stopLossOrder) {
+        NotificationService::send(
+            user: Martingalian::admin(),
+            message: "Stop loss placed for {$position->parsed_trading_pair}: {$stopLossOrder->quantity} @ {$stopLossOrder->price}",
+            title: 'Stop Loss Placed',
+            canonical: 'stop_loss_placed_successfully',  // REQUIRED: notification canonical
+            deliveryGroup: 'default'
+        );
+    });
+```
+
+**Key Points**:
+1. Throttle canonical and notification canonical are typically the same for simple cases
+2. Both MUST be provided (one in `withCanonical()`, one in `send()`)
+3. Variables used inside closure MUST be captured via `use ($var1, $var2)`
+4. NotificationService is completely separate - Throttler only controls execution timing
+
+### Canonical Naming Conventions
+
+**CRITICAL RULE**: Never use numbered suffixes (`_2`, `_3`, `_4`) for canonicals. Use descriptive names.
+
+**Bad Examples** (numbered suffixes - AVOID):
+- ❌ `place_stop_loss_order_2`
+- ❌ `calculate_wap_modify_profit_3`
+- ❌ `websocket_error_3`
+
+**Good Examples** (descriptive names - USE):
+- ✅ `stop_loss_placed_successfully`
+- ✅ `wap_calculation_profit_order_missing`
+- ✅ `websocket_max_reconnect_attempts_reached`
+
+**Naming Pattern by Context**:
+
+**Order Placement** (`{action}_{order_type}_{outcome}`):
+- `profit_order_placement_error`
+- `limit_order_placement_error_no_order`
+- `market_order_placement_error`
+- `stop_loss_precondition_failed`
+- `stop_loss_placed_successfully`
+
+**WAP Calculations** (`wap_{context}_{issue/outcome}`):
+- `wap_calculation_invalid_break_even_price`
+- `wap_calculation_zero_quantity`
+- `wap_calculation_profit_order_missing`
+- `wap_profit_order_updated_successfully`
+- `wap_calculation_error`
+
+**Surveillance** (`{resource}_detected` or `{resource}_{action}_error`):
+- `orphaned_orders_detected`
+- `orphaned_positions_detected`
+- `unknown_orders_detected`
+- `orphaned_orders_match_error`
+- `unknown_orders_assessment_error`
+
+**WebSocket** (`websocket_{context}`):
+- `websocket_max_reconnect_attempts_reached`
+- `websocket_connection_failed`
+- `websocket_closed_with_details`
+
+**Position Lifecycle** (`position_{context}`):
+- `position_closing_negative_pnl`
+- `position_price_spike_cooldown_set`
+- `position_validation_inactive_status`
+- `position_residual_amount_detected`
+
+**Symbol/Market** (`{resource}_{action}_{outcome}`):
+- `symbol_cmc_sync_success`
+- `symbol_delisting_long_position_close_scheduled`
+- `symbol_delisting_short_position_alert`
+
+**General Rules**:
+1. Use snake_case for all canonicals
+2. Be specific about what happened or what needs attention
+3. Include context that distinguishes similar events
+4. Use `_error` suffix for exceptions
+5. Use `_detected` suffix for surveillance findings
+6. Use `_success`/`_successfully` suffix for positive confirmations
+7. Maximum 5 words (use abbreviations like `wap`, `pnl` when appropriate)
 
 ### Throttle Durations
 **Seeder**: `database/seeders/ThrottleRulesSeeder.php`

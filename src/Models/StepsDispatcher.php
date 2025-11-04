@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\Throttler;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
@@ -160,7 +161,8 @@ final class StepsDispatcher extends BaseModel
                         Throttler::using(NotificationService::class)
                             ->withCanonical('steps_dispatcher')
                             ->execute(function () {
-                                NotificationService::sendToAdmin(
+                                NotificationService::send(
+                    user: Martingalian::admin(),
                                     message: "Dispatch took too long: {$durationMs}ms.",
                                     title: 'Step Dispatcher Tick Warning',
                                     deliveryGroup: 'exceptions'

@@ -8,6 +8,7 @@ use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Support\Throttler;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Exceptions\ExceptionParser;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Jobs\Lifecycles\Positions\DispatchPositionJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
@@ -49,8 +50,9 @@ final class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob
     {
         Throttler::using(NotificationService::class)
             ->withCanonical('dispatch_new_positions_tokens_assigned')
-            ->execute(function () {
-                NotificationService::sendToAdmin(
+            ->execute(function () use ($e) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
                     message: "Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
                     title: "[S:{$this->step->id} A:{$this->account->id}] - [".class_basename(self::class).'] - Error',
                     deliveryGroup: 'exceptions'
