@@ -130,7 +130,7 @@ final class NotificationService
         ?object $relatable = null
     ): bool {
         // Get notification message data from builder
-        $messageData = NotificationMessageBuilder::getMessage($canonical, $context);
+        $messageData = NotificationMessageBuilder::build($canonical, $context);
 
         if (! $messageData) {
             return false;

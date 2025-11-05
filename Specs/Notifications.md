@@ -821,6 +821,90 @@ Throttler::using(NotificationService::class)
 
 **Rationale**: Reduced by 50% for faster notification response while still preventing spam
 
+## Supervisor Restart Notifications
+
+### Overview
+WebSocket supervisor processes (`update-binance-prices`, `update-bybit-prices`) automatically detect symbol changes and send notifications when restarting to pick up new trading pairs.
+
+**Process Names**:
+- Binance: `update-binance-prices`
+- Bybit: `update-bybit-prices`
+
+**Supervisor Commands** (UpdatePricesCommand):
+- Location: `app/Console/Commands/Cronjobs/Binance/UpdatePricesCommand.php`
+- Location: `app/Console/Commands/Cronjobs/Bybit/UpdatePricesCommand.php`
+
+### How It Works
+
+1. **Symbol Detection**: Periodic timer (60s) checks for new `exchange_symbols`
+2. **Count Comparison**: Compares current count vs. count at supervisor startup
+3. **Change Detected**: When counts differ, triggers restart sequence
+4. **Notification Sent**: Sends `{exchange}_prices_restart` notification to admin
+5. **Graceful Shutdown**: Stops ReactPHP event loop (supervisor auto-restarts)
+
+### Deadlock Prevention Pattern
+
+**Problem**: When both supervisors detect changes simultaneously (~1 second apart), they compete for database locks when inserting throttle_logs, causing deadlocks.
+
+**Solution**: Random sleep (0-100ms) before sending notification
+
+**Implementation**:
+```php
+Throttler::using(self::class)
+    ->withCanonical('binance_prices_restart')
+    ->execute(function () use ($loop, $initialSymbolCount, $currentCount) {
+        // Random sleep to prevent deadlocks when both supervisors fire simultaneously
+        usleep(random_int(0, 100000)); // 0-100ms random delay
+
+        // Send notification to admin
+        NotificationService::sendToAdminByCanonical(
+            canonical: 'binance_prices_restart',
+            context: [
+                'exchange' => 'binance',
+            ]
+        );
+
+        $this->info("Symbol count changed from {$initialSymbolCount} to {$currentCount}. Restarting to pick up changes...");
+        $loop->stop();
+    });
+```
+
+**Why It Works**:
+- Small random delay (0-100ms) staggers database writes
+- First supervisor acquires lock and completes
+- Second supervisor waits slightly longer, avoiding deadlock
+- 100ms is imperceptible to users but sufficient for lock release
+
+### Notification Details
+
+**Canonicals**:
+- `binance_prices_restart` - Binance supervisor restart
+- `bybit_prices_restart` - Bybit supervisor restart
+
+**Message Template** (from NotificationMessageBuilder):
+- **Title**: "{Exchange} Price Stream Restart"
+- **Pushover**: "{Exchange} price supervisor restarting - new trading pairs detected"
+- **Email**: Technical explanation with supervisor status commands
+- **Severity**: Info
+- **Throttle**: 60 seconds
+
+**Context Variables**:
+- `exchange` (string) - Exchange canonical ('binance', 'bybit')
+
+**Example Usage**:
+```php
+NotificationService::sendToAdminByCanonical(
+    canonical: 'binance_prices_restart',
+    context: ['exchange' => 'binance']
+);
+```
+
+**Supervisor Status Commands** (included in email):
+```bash
+supervisorctl status update-binance-prices
+supervisorctl tail update-binance-prices
+```
+
 ## Message Patterns
 
 ### Design Principles

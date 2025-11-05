@@ -45,6 +45,7 @@ return new class extends Migration
         Schema::create('accounts', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid');
+            $table->string('name')->nullable(false)->comment('Account name for user identification (e.g., "Main Trading Account", "Backup Account")');
             $table->unsignedBigInteger('user_id')->comment('The related user id');
             $table->unsignedBigInteger('api_system_id')->comment('The related api system id');
             $table->unsignedBigInteger('trade_configuration_id')->comment('The related trade configuration id');
@@ -76,6 +77,7 @@ return new class extends Migration
 
             $table->index('can_trade', 'idx_accounts_can_trade');
             $table->index(['user_id', 'can_trade'], 'idx_accounts_user_can_trade');
+            $table->unique(['user_id', 'name'], 'idx_accounts_user_name_unique');
         });
 
         // api_request_logs table

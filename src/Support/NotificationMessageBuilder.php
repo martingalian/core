@@ -183,9 +183,9 @@ final class NotificationMessageBuilder
                 'severity' => NotificationSeverity::Critical,
                 'title' => 'CRITICAL: Account in Liquidation',
                 'emailMessage' => "🚨 CRITICAL ALERT: Account Liquidation in Progress\n\nYour {$exchangeTitle} account is currently undergoing liquidation.\n\nAccount: {$accountName}\n\n⚠️ WHAT'S HAPPENING:\n\n{$exchangeTitle} is automatically closing your positions due to insufficient margin. This is controlled by the exchange, not our platform.\n\n🚨 CRITICAL IMPACT:\n\n- We CANNOT stop the liquidation process\n- We CANNOT execute new trades\n- We CANNOT modify existing orders\n- Account operations are severely restricted\n\n✅ WHAT YOU CAN DO:\n\n1. Log into your {$exchangeTitle} account directly\n2. Add funds immediately if possible to stop further liquidation\n3. Monitor which positions are being liquidated\n4. Review your margin requirements\n5. Consider adjusting leverage settings after liquidation completes\n\nThe liquidation process is automatic and controlled by {$exchangeTitle}. Once complete, you can resume normal trading.",
-                'pushoverMessage' => "🚨 CRITICAL: {$accountName} on {$exchangeTitle} is being liquidated!",
-                'actionUrl' => self::getApiManagementUrl($exchange),
-                'actionLabel' => 'View Account Status',
+                'pushoverMessage' => "CRITICAL: Your {$exchangeTitle} account ({$accountName}) is being liquidated. Please verify!",
+                'actionUrl' => self::getExchangeFuturesUrl($exchange),
+                'actionLabel' => 'Login to Exchange',
             ],
 
             'account_reduce_only_mode' => [
@@ -263,9 +263,9 @@ final class NotificationMessageBuilder
 
             'binance_invalid_json', 'bybit_invalid_json' => [
                 'severity' => NotificationSeverity::Medium,
-                'title' => "{$exchangeTitle} Invalid Data",
-                'emailMessage' => "{$exchangeTitle} WebSocket returned malformed JSON. Data discarded to prevent corruption.\n\nPlatform continues listening for subsequent price updates. Next message should be valid. Raw malformed data logged in application logs. Typically transient network glitch.\n\nResolution steps (if repeated >5 times in 30 minutes):\n\n• Review application logs for raw JSON samples:\n[CMD]tail -100 storage/logs/laravel.log | grep -i \"invalid\\|malformed\\|json\"[/CMD]\n\n• Check {$exchangeTitle} API changelog for WebSocket protocol changes:\nBinance: binance.com/en/support/announcement\nBybit: bybit-exchange.github.io/docs/v5/changelog\n\n• Test network quality:\n[CMD]mtr -c 10 stream.{$exchange}.com[/CMD]\n\n• Check supervisor logs for patterns:\n[CMD]supervisorctl tail update-{$exchange}-prices | grep -i \"json\\|parse\"[/CMD]",
-                'pushoverMessage' => "{$exchangeTitle} invalid JSON received",
+                'title' => "{$exchangeTitle} Price Stream: Invalid Data",
+                'emailMessage' => "{$exchangeTitle} price stream supervisor (update-{$exchange}-prices) received malformed JSON from WebSocket. Data discarded to prevent corruption.\n\nPlatform continues listening for subsequent price updates. Next message should be valid. Raw malformed data logged in application logs. Typically transient network glitch.\n\nResolution steps (if repeated >5 times in 30 minutes):\n\n• Review application logs for raw JSON samples:\n[CMD]tail -100 storage/logs/laravel.log | grep -i \"invalid\\|malformed\\|json\"[/CMD]\n\n• Check {$exchangeTitle} API changelog for WebSocket protocol changes:\nBinance: binance.com/en/support/announcement\nBybit: bybit-exchange.github.io/docs/v5/changelog\n\n• Test network quality:\n[CMD]mtr -c 10 stream.{$exchange}.com[/CMD]\n\n• Check supervisor status and logs:\n[CMD]supervisorctl status update-{$exchange}-prices[/CMD]\n[CMD]supervisorctl tail update-{$exchange}-prices | grep -i \"json\\|parse\"[/CMD]",
+                'pushoverMessage' => "{$exchangeTitle} price stream: invalid JSON received",
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],
@@ -274,16 +274,16 @@ final class NotificationMessageBuilder
                 'severity' => NotificationSeverity::Info,
                 'title' => "{$exchangeTitle} Price Stream Restart",
                 'emailMessage' => "{$exchangeTitle} WebSocket price monitoring restarting due to symbol list changes (new pairs added or removed).\n\nPlatform gracefully closing existing WebSocket connection and reconnecting with updated subscription list. Price streaming resumes within seconds. Normal operational event.\n\nNo action required - fully automated process.\n\n• Monitor supervisor status:\n[CMD]supervisorctl status update-{$exchange}-prices[/CMD]\n\n• Check recent supervisor logs:\n[CMD]supervisorctl tail update-{$exchange}-prices[/CMD]",
-                'pushoverMessage' => "{$exchangeTitle} price stream restarting",
+                'pushoverMessage' => "{$exchangeTitle} price supervisor restarting - new trading pairs detected",
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],
 
             'binance_db_update_error', 'bybit_db_update_error' => [
                 'severity' => NotificationSeverity::Critical,
-                'title' => "{$exchangeTitle} Database Error",
-                'emailMessage' => "Failed to persist {$exchangeTitle} price data to database. Data received from WebSocket but UPDATE to exchange_symbols failed.\n\nPlatform continues receiving prices but cannot persist to mark_price and mark_price_synced_at. Stale price detection may trigger. Trading algorithms using stale data.\n\nResolution steps:\n\n• Check MySQL server status:\n[CMD]systemctl status mysql[/CMD]\n\n• Check disk space on database host:\n[CMD]df -h[/CMD]\n\n• Review MySQL connection pool for locks:\n[CMD]mysql -e \"SHOW PROCESSLIST;\"[/CMD]\n\n• Check for long-running queries:\n[CMD]mysql -e \"SELECT * FROM information_schema.processlist WHERE TIME > 10 ORDER BY TIME DESC;\"[/CMD]\n\n• Check MySQL error logs:\n[CMD]tail -100 /var/log/mysql/error.log[/CMD]\n\n• Test database connectivity:\n[CMD]mysql -e \"SELECT 1;\"[/CMD]\n\n• Check database table status:\n[CMD]mysql -e \"SELECT COUNT(*) as total, MAX(mark_price_synced_at) as latest FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchange}');\"[/CMD]",
-                'pushoverMessage' => "{$exchangeTitle} database error",
+                'title' => "{$exchangeTitle} Price Stream: Database Error",
+                'emailMessage' => "{$exchangeTitle} price stream supervisor (update-{$exchange}-prices) failed to persist price data to database. Data received from WebSocket but UPDATE to exchange_symbols.mark_price failed.\n\nPlatform continues receiving prices but cannot persist to mark_price and mark_price_synced_at. Stale price detection may trigger. Trading algorithms using stale data.\n\nCRITICAL: Immediate action required to prevent trading on stale prices.\n\nResolution steps:\n\n• Check MySQL server status:\n[CMD]systemctl status mysql[/CMD]\n\n• Check disk space on database host:\n[CMD]df -h[/CMD]\n\n• Review MySQL connection pool for locks:\n[CMD]mysql -e \"SHOW PROCESSLIST;\"[/CMD]\n\n• Check for long-running queries:\n[CMD]mysql -e \"SELECT * FROM information_schema.processlist WHERE TIME > 10 ORDER BY TIME DESC;\"[/CMD]\n\n• Check MySQL error logs:\n[CMD]tail -100 /var/log/mysql/error.log[/CMD]\n\n• Test database connectivity:\n[CMD]mysql -e \"SELECT 1;\"[/CMD]\n\n• Check database table status:\n[CMD]mysql -e \"SELECT COUNT(*) as total, MAX(mark_price_synced_at) as latest FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchange}');\"[/CMD]\n\n• Check supervisor status:\n[CMD]supervisorctl status update-{$exchange}-prices[/CMD]",
+                'pushoverMessage' => "{$exchangeTitle} price stream: database error",
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],
@@ -383,6 +383,18 @@ final class NotificationMessageBuilder
         return match (mb_strtolower($exchange)) {
             'binance' => 'https://www.binance.com/en/support/announcement/system',
             'bybit' => 'https://www.bybit.com/en/announcement-info?category=latest_activities',
+            default => null,
+        };
+    }
+
+    /**
+     * Get the exchange futures trading URL (for login/position management).
+     */
+    private static function getExchangeFuturesUrl(string $exchange): ?string
+    {
+        return match (mb_strtolower($exchange)) {
+            'binance' => 'https://www.binance.com/en/futures',
+            'bybit' => 'https://www.bybit.com/trade/usdt',
             default => null,
         };
     }

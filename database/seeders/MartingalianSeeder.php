@@ -513,6 +513,7 @@ final class MartingalianSeeder extends Seeder
     {
         Account::create([
             'uuid' => (string) Str::uuid(),
+            'name' => 'Main Binance Account',
             'user_id' => $trader->id,
             'api_system_id' => $binance->id,
             'portfolio_quote_id' => $usdt->id,
@@ -738,6 +739,7 @@ final class MartingalianSeeder extends Seeder
         if (! $existingBybitAccount) {
             Account::create([
                 'uuid' => (string) Str::uuid(),
+                'name' => 'Main Bybit Account',
                 'user_id' => $trader->id,
                 'api_system_id' => $bybitApiSystem->id,
                 'portfolio_quote_id' => $usdt->id,

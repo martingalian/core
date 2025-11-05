@@ -32,6 +32,15 @@ final class NotificationWebhookController extends Controller
     public function zeptomail(Request $request): JsonResponse
     {
         try {
+            // DEBUG: Log raw webhook received
+            Log::info('[ZEPTOMAIL WEBHOOK] === RAW WEBHOOK RECEIVED ===', [
+                'raw_body' => $request->getContent(),
+                'all_headers' => $request->headers->all(),
+                'ip' => $request->ip(),
+                'method' => $request->method(),
+                'url' => $request->fullUrl(),
+            ]);
+
             // Verify webhook signature for security
             if (! $this->verifyZeptomailSignature($request)) {
                 Log::warning('[ZEPTOMAIL WEBHOOK] Invalid signature', [
@@ -42,8 +51,16 @@ final class NotificationWebhookController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Invalid signature'], 401);
             }
 
+            Log::info('[ZEPTOMAIL WEBHOOK] ✓ Signature verified successfully');
+
             // Zeptomail sends events as JSON
             $payload = $request->json()->all();
+
+            // DEBUG: Log parsed payload
+            Log::info('[ZEPTOMAIL WEBHOOK] Parsed JSON payload', [
+                'payload' => $payload,
+                'payload_keys' => array_keys($payload),
+            ]);
 
             // Log all incoming webhook calls
             Log::info('[ZEPTOMAIL WEBHOOK] Received webhook', [
@@ -255,6 +272,12 @@ final class NotificationWebhookController extends Controller
      */
     private function handleZeptomailOpen(Request $request, array $data): void
     {
+        // DEBUG: Log complete event data structure
+        Log::info('[ZEPTOMAIL WEBHOOK] === PROCESSING OPEN EVENT ===', [
+            'full_data' => $data,
+            'data_keys' => array_keys($data),
+        ]);
+
         // Extract request_id from webhook payload (at root level of event_message object)
         $requestId = is_string($data['request_id'] ?? null) ? $data['request_id'] : null;
 
@@ -267,14 +290,32 @@ final class NotificationWebhookController extends Controller
         // Extract timestamp when user opened the email
         $openedAt = is_string($details['time'] ?? null) ? $details['time'] : null;
 
-        Log::info('[ZEPTOMAIL WEBHOOK] Handling open event', [
+        Log::info('[ZEPTOMAIL WEBHOOK] Extracted open event data', [
             'request_id' => $requestId,
             'opened_at' => $openedAt,
+            'event_data_array' => $eventDataArray,
+            'event_data' => $eventData,
+            'details_array' => $detailsArray,
+            'details' => $details,
         ]);
 
         // Find notification log by message_id (which stores the request_id from API response)
         $notificationLog = null;
         if ($requestId) {
+            // DEBUG: First check if ANY record exists with this message_id
+            $anyRecord = NotificationLog::where('message_id', $requestId)->where('channel', 'mail')->first();
+            Log::info('[ZEPTOMAIL WEBHOOK] Checking for any matching record', [
+                'request_id' => $requestId,
+                'any_record_found' => $anyRecord !== null,
+                'record_data' => $anyRecord ? [
+                    'id' => $anyRecord->id,
+                    'message_id' => $anyRecord->message_id,
+                    'confirmed_at' => $anyRecord->confirmed_at,
+                    'opened_at' => $anyRecord->opened_at,
+                    'status' => $anyRecord->status,
+                ] : null,
+            ]);
+
             $notificationLog = NotificationLog::where('message_id', $requestId)
                 ->where('channel', 'mail')
                 ->whereNull('confirmed_at') // Only update if not already confirmed
@@ -323,6 +364,20 @@ final class NotificationWebhookController extends Controller
             ? \Carbon\Carbon::parse($openedAt)
             : now();
 
+        Log::info('[ZEPTOMAIL WEBHOOK] About to update notification log', [
+            'notification_log_id' => $notificationLog->id,
+            'before_update' => [
+                'confirmed_at' => $notificationLog->confirmed_at,
+                'opened_at' => $notificationLog->opened_at,
+                'status' => $notificationLog->status,
+            ],
+            'update_values' => [
+                'confirmed_at' => $confirmedAt,
+                'opened_at' => $confirmedAt,
+                'status' => 'delivered',
+            ],
+        ]);
+
         $notificationLog->update([
             'confirmed_at' => $confirmedAt,
             'opened_at' => $confirmedAt,
@@ -334,9 +389,14 @@ final class NotificationWebhookController extends Controller
             ),
         ]);
 
-        Log::info('[ZEPTOMAIL WEBHOOK] Open event processed successfully', [
+        Log::info('[ZEPTOMAIL WEBHOOK] ✓ Open event processed successfully', [
             'notification_log_id' => $notificationLog->id,
             'confirmed_at' => $confirmedAt,
+            'after_update' => [
+                'confirmed_at' => $notificationLog->fresh()->confirmed_at,
+                'opened_at' => $notificationLog->fresh()->opened_at,
+                'status' => $notificationLog->fresh()->status,
+            ],
         ]);
     }
 
@@ -425,6 +485,9 @@ final class NotificationWebhookController extends Controller
     /**
      * Verify Zeptomail webhook signature.
      *
+     * Zeptomail uses 'producer-signature' header with format:
+     * ts=<timestamp>;s=<signature>;s-algorithm=HmacSHA256
+     *
      * @see https://www.zoho.com/zeptomail/help/webhooks.html#alink5
      */
     private function verifyZeptomailSignature(Request $request): bool
@@ -438,20 +501,55 @@ final class NotificationWebhookController extends Controller
             return false;
         }
 
-        $signature = $request->header('X-Zeptomail-Signature');
+        // Zeptomail uses 'producer-signature' header (updated webhook format)
+        $signatureHeader = $request->header('producer-signature');
 
-        if (! $signature) {
-            Log::warning('[ZEPTOMAIL WEBHOOK] No signature header present');
+        if (! $signatureHeader) {
+            Log::warning('[ZEPTOMAIL WEBHOOK] No producer-signature header present');
 
             return false;
         }
 
+        // Parse signature header format: ts=<timestamp>;s=<signature>;s-algorithm=HmacSHA256
+        $parts = [];
+        foreach (explode(';', $signatureHeader) as $part) {
+            if (str_contains($part, '=')) {
+                [$key, $value] = explode('=', $part, 2);
+                $parts[mb_trim($key)] = mb_trim($value);
+            }
+        }
+
+        $timestamp = $parts['ts'] ?? null;
+        $signature = $parts['s'] ?? null;
+
+        if (! $timestamp || ! $signature) {
+            Log::warning('[ZEPTOMAIL WEBHOOK] Invalid signature format', [
+                'header' => $signatureHeader,
+                'parsed_parts' => $parts,
+            ]);
+
+            return false;
+        }
+
+        // URL decode the signature
+        $signature = urldecode($signature);
+
         // Get raw request body
         $payload = $request->getContent();
 
-        // Calculate expected signature
+        // Construct message to verify: timestamp + payload
+        $message = $timestamp.$payload;
+
+        // Calculate expected signature using HMAC-SHA256
         /** @var string $secret */
-        $expectedSignature = hash_hmac('sha256', $payload, $secret);
+        $expectedSignature = base64_encode(hash_hmac('sha256', $message, $secret, true));
+
+        Log::info('[ZEPTOMAIL WEBHOOK] Signature verification', [
+            'timestamp' => $timestamp,
+            'signature_received' => $signature,
+            'signature_expected' => $expectedSignature,
+            'match' => hash_equals($expectedSignature, $signature),
+        ]);
 
         // Compare signatures
         return hash_equals($expectedSignature, $signature);

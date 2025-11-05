@@ -47,6 +47,7 @@ Comprehensive catalog of all Eloquent models in the Martingalian Core package. D
 - `id`, `uuid` - Identifiers
 - `user_id` - FK to users
 - `api_system_id` - FK to api_systems (Binance, Bybit)
+- `name` (NOT NULL) - User-friendly account name for identification in notifications (e.g., "Main Binance Account")
 - `trade_configuration_id` - FK to trade_configuration - **REQUIRED**
 - `portfolio_quote_id` - FK to quotes (portfolio valuation currency)
 - `trading_quote_id` - FK to quotes (trading pair quote currency)
@@ -56,6 +57,8 @@ Comprehensive catalog of all Eloquent models in the Martingalian Core package. D
 - `credentials` (JSON, encrypted) - API credentials
 - `credentials_testing` (JSON, encrypted) - Testnet credentials
 - `created_at`, `updated_at`, `deleted_at` (soft delete)
+
+**Unique Constraint**: `(user_id, name)` - Each user must have unique account names
 
 **CRITICAL**: `trade_configuration_id` is **REQUIRED** when creating accounts:
 ```php

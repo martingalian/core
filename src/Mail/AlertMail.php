@@ -36,27 +36,13 @@ final class AlertMail extends Mailable
      */
     public function envelope(): Envelope
     {
-        // Build subject line with optional server IP and exchange context
+        // Build subject line with optional exchange context
         $subject = $this->notificationTitle;
 
-        // Only add server context if exchange or serverIp is explicitly provided
-        // If both are null, the notification doesn't need server context (e.g., credential issues)
-        if ($this->serverIp || $this->exchange) {
-            // Add "- Server IP xxx.xxx.xxx.xxx on Exchange" if both serverIp and exchange are provided
-            if ($this->serverIp && $this->exchange) {
-                $subject .= ' - Server '.$this->serverIp.' on '.$this->exchange;
-            } elseif ($this->serverIp) {
-                // Just server IP if no exchange
-                $subject .= ' - Server '.$this->serverIp;
-            } elseif ($this->hostname && $this->exchange) {
-                // Legacy fallback: use hostname if IP not provided but exchange is
-                $subject .= ' - Server '.$this->hostname.' on '.$this->exchange;
-            } elseif ($this->hostname) {
-                // Legacy fallback: just hostname if exchange provided without IP
-                $subject .= ' - Server '.$this->hostname;
-            }
+        // Add exchange context if provided
+        if ($this->exchange) {
+            $subject .= ' - '.ucfirst($this->exchange);
         }
-        // If both exchange and serverIp are null, don't add any server context
 
         $envelope = new Envelope(
             subject: $subject,
