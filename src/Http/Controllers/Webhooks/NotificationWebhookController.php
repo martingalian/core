@@ -537,49 +537,30 @@ final class NotificationWebhookController extends Controller
         // Get raw request body
         $payload = $request->getContent();
 
-        // Construct message to verify: timestamp + payload
-        $message = $timestamp.$payload;
-
-        // Try verification with configured secret first (for production webhooks)
+        // Zeptomail signs ONLY the payload (not timestamp + payload as documented)
+        // Calculate expected signature using HMAC-SHA256
         /** @var string $configuredSecret */
-        $expectedSignature = base64_encode(hash_hmac('sha256', $message, $configuredSecret, true));
+        $expectedSignature = base64_encode(hash_hmac('sha256', $payload, $configuredSecret, true));
 
+        Log::info('[ZEPTOMAIL WEBHOOK] Signature verification', [
+            'timestamp' => $timestamp,
+            'payload_length' => strlen($payload),
+            'signature_received' => $signature,
+            'signature_expected' => $expectedSignature,
+            'match' => hash_equals($expectedSignature, $signature),
+        ]);
+
+        // Compare signatures
         if (hash_equals($expectedSignature, $signature)) {
-            Log::info('[ZEPTOMAIL WEBHOOK] Signature verified with configured secret');
+            Log::info('[ZEPTOMAIL WEBHOOK] Signature verified successfully');
 
             return true;
         }
 
-        // If configured secret fails, try x-trans-secret header (for test webhooks)
-        $testSecret = $request->header('x-trans-secret');
-        if ($testSecret) {
-            // x-trans-secret is already base64 encoded, decode it first
-            $decodedTestSecret = base64_decode($testSecret, true);
-
-            if ($decodedTestSecret !== false) {
-                $expectedSignatureTest = base64_encode(hash_hmac('sha256', $message, $decodedTestSecret, true));
-
-                Log::info('[ZEPTOMAIL WEBHOOK] Signature verification attempt with x-trans-secret', [
-                    'timestamp' => $timestamp,
-                    'signature_received' => $signature,
-                    'signature_expected_configured' => $expectedSignature,
-                    'signature_expected_test' => $expectedSignatureTest,
-                    'match_configured' => false,
-                    'match_test' => hash_equals($expectedSignatureTest, $signature),
-                ]);
-
-                if (hash_equals($expectedSignatureTest, $signature)) {
-                    Log::info('[ZEPTOMAIL WEBHOOK] Signature verified with x-trans-secret (test webhook)');
-
-                    return true;
-                }
-            }
-        }
-
-        Log::warning('[ZEPTOMAIL WEBHOOK] Invalid signature - neither configured secret nor x-trans-secret matched', [
+        Log::warning('[ZEPTOMAIL WEBHOOK] Invalid signature', [
             'timestamp' => $timestamp,
             'signature_received' => $signature,
-            'signature_expected_configured' => $expectedSignature,
+            'signature_expected' => $expectedSignature,
         ]);
 
         return false;
