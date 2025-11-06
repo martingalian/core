@@ -21,6 +21,7 @@ use RuntimeException;
  * @property string|null $remember_token
  * @property string|null $pushover_key
  * @property array<int, string> $notification_channels
+ * @property array|null $behaviours
  * @property \Illuminate\Support\Carbon|null $last_logged_in_at
  * @property \Illuminate\Support\Carbon|null $previous_logged_in_at
  * @property bool $can_trade
@@ -59,6 +60,7 @@ final class User extends Authenticatable
         'password' => 'hashed',
         'pushover_key' => 'encrypted',
         'notification_channels' => 'array',
+        'behaviours' => 'array',
     ];
 
     public function steps()
@@ -111,6 +113,16 @@ final class User extends Authenticatable
         if ($deliveryGroup) {
             unset($this->_temp_delivery_group);
         }
+    }
+
+    /**
+     * Send the password reset notification.
+     *
+     * @param  string  $token
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPassword($token));
     }
 
     /**

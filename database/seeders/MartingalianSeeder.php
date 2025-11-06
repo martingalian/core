@@ -981,6 +981,14 @@ final class MartingalianSeeder extends Seeder
                 'user_types' => ['user'],
                 'is_active' => true,
             ],
+            [
+                'canonical' => 'bounce_alert_to_pushover',
+                'title' => 'Email Delivery Failed',
+                'description' => 'Sent via Pushover when user email bounces (soft or hard bounce)',
+                'default_severity' => 'critical',
+                'user_types' => ['user'],
+                'is_active' => true,
+            ],
 
             // Admin-only notifications (system-level issues)
             [
@@ -1093,6 +1101,7 @@ final class MartingalianSeeder extends Seeder
     public function seedThrottleRules(): void
     {
         $throttleRules = [
+            // General throttle intervals
             [
                 'canonical' => 'throttle_900',
                 'description' => 'Throttle for 15 minutes (900 seconds)',
@@ -1129,6 +1138,90 @@ final class MartingalianSeeder extends Seeder
                 'throttle_seconds' => 3600,
                 'is_active' => true,
             ],
+
+            // Supervisor restart throttles (1 minute default)
+            ['canonical' => 'binance_prices_restart', 'throttle_seconds' => 60, 'description' => 'Binance: Supervisor restart notification', 'is_active' => true],
+            ['canonical' => 'bybit_prices_restart', 'throttle_seconds' => 60, 'description' => 'Bybit: Supervisor restart notification', 'is_active' => true],
+
+            // WebSocket notification throttles (15 minutes default)
+            ['canonical' => 'websocket_error', 'throttle_seconds' => 900, 'description' => 'WebSocket: Generic error occurred', 'is_active' => true],
+            ['canonical' => 'websocket_reconnected', 'throttle_seconds' => 900, 'description' => 'WebSocket: Successfully reconnected', 'is_active' => true],
+            ['canonical' => 'websocket_connection_failed', 'throttle_seconds' => 900, 'description' => 'WebSocket: Connection failed', 'is_active' => true],
+            ['canonical' => 'websocket_closed_with_details', 'throttle_seconds' => 900, 'description' => 'WebSocket: Connection closed with details', 'is_active' => true],
+            ['canonical' => 'websocket_reconnect_attempt', 'throttle_seconds' => 900, 'description' => 'WebSocket: Reconnection attempt', 'is_active' => true],
+            ['canonical' => 'websocket_error_3', 'throttle_seconds' => 900, 'description' => 'WebSocket: Error code 3', 'is_active' => true],
+            ['canonical' => 'binance_no_symbols', 'throttle_seconds' => 900, 'description' => 'Binance: No symbols available', 'is_active' => true],
+            ['canonical' => 'bybit_no_symbols', 'throttle_seconds' => 900, 'description' => 'Bybit: No symbols available', 'is_active' => true],
+            ['canonical' => 'binance_websocket_error', 'throttle_seconds' => 900, 'description' => 'Binance: WebSocket error', 'is_active' => true],
+            ['canonical' => 'bybit_websocket_error', 'throttle_seconds' => 900, 'description' => 'Bybit: WebSocket error', 'is_active' => true],
+            ['canonical' => 'binance_invalid_json', 'throttle_seconds' => 900, 'description' => 'Binance: Invalid JSON received', 'is_active' => true],
+            ['canonical' => 'bybit_invalid_json', 'throttle_seconds' => 900, 'description' => 'Bybit: Invalid JSON received', 'is_active' => true],
+            ['canonical' => 'binance_db_update_error', 'throttle_seconds' => 900, 'description' => 'Binance: Database update error', 'is_active' => true],
+            ['canonical' => 'bybit_db_update_error', 'throttle_seconds' => 900, 'description' => 'Bybit: Database update error', 'is_active' => true],
+            ['canonical' => 'binance_db_insert_error', 'throttle_seconds' => 900, 'description' => 'Binance: Database insert error', 'is_active' => true],
+            ['canonical' => 'bybit_db_insert_error', 'throttle_seconds' => 900, 'description' => 'Bybit: Database insert error', 'is_active' => true],
+
+            // API Exception Handler throttles (API-system-specific to prevent cross-API throttling)
+            // Binance
+            ['canonical' => 'binance_ip_not_whitelisted', 'throttle_seconds' => 900, 'description' => 'Binance: Worker IP is not whitelisted on API', 'is_active' => true],
+            ['canonical' => 'binance_api_rate_limit_exceeded', 'throttle_seconds' => 1800, 'description' => 'Binance: API rate limit exceeded', 'is_active' => true],
+            ['canonical' => 'binance_api_connection_failed', 'throttle_seconds' => 900, 'description' => 'Binance: Unable to connect to API', 'is_active' => true],
+            ['canonical' => 'binance_invalid_api_credentials', 'throttle_seconds' => 1800, 'description' => 'Binance: Invalid API credentials for account', 'is_active' => true],
+            ['canonical' => 'binance_exchange_maintenance', 'throttle_seconds' => 3600, 'description' => 'Binance: API is under maintenance or unavailable', 'is_active' => true],
+
+            // Bybit
+            ['canonical' => 'bybit_ip_not_whitelisted', 'throttle_seconds' => 900, 'description' => 'Bybit: Worker IP is not whitelisted on API', 'is_active' => true],
+            ['canonical' => 'bybit_api_rate_limit_exceeded', 'throttle_seconds' => 1800, 'description' => 'Bybit: API rate limit exceeded', 'is_active' => true],
+            ['canonical' => 'bybit_api_connection_failed', 'throttle_seconds' => 900, 'description' => 'Bybit: Unable to connect to API', 'is_active' => true],
+            ['canonical' => 'bybit_invalid_api_credentials', 'throttle_seconds' => 1800, 'description' => 'Bybit: Invalid API credentials for account', 'is_active' => true],
+            ['canonical' => 'bybit_exchange_maintenance', 'throttle_seconds' => 3600, 'description' => 'Bybit: API is under maintenance or unavailable', 'is_active' => true],
+
+            // Taapi
+            ['canonical' => 'taapi_ip_not_whitelisted', 'throttle_seconds' => 900, 'description' => 'Taapi: Worker IP is not whitelisted on API', 'is_active' => true],
+            ['canonical' => 'taapi_api_rate_limit_exceeded', 'throttle_seconds' => 1800, 'description' => 'Taapi: API rate limit exceeded', 'is_active' => true],
+            ['canonical' => 'taapi_api_connection_failed', 'throttle_seconds' => 900, 'description' => 'Taapi: Unable to connect to API', 'is_active' => true],
+            ['canonical' => 'taapi_invalid_api_credentials', 'throttle_seconds' => 1800, 'description' => 'Taapi: Invalid API credentials for account', 'is_active' => true],
+            ['canonical' => 'taapi_exchange_maintenance', 'throttle_seconds' => 3600, 'description' => 'Taapi: API is under maintenance or unavailable', 'is_active' => true],
+
+            // AlternativeMe
+            ['canonical' => 'alternativeme_ip_not_whitelisted', 'throttle_seconds' => 900, 'description' => 'Alternativeme: Worker IP is not whitelisted on API', 'is_active' => true],
+            ['canonical' => 'alternativeme_api_rate_limit_exceeded', 'throttle_seconds' => 1800, 'description' => 'Alternativeme: API rate limit exceeded', 'is_active' => true],
+            ['canonical' => 'alternativeme_api_connection_failed', 'throttle_seconds' => 900, 'description' => 'Alternativeme: Unable to connect to API', 'is_active' => true],
+            ['canonical' => 'alternativeme_invalid_api_credentials', 'throttle_seconds' => 1800, 'description' => 'Alternativeme: Invalid API credentials for account', 'is_active' => true],
+            ['canonical' => 'alternativeme_exchange_maintenance', 'throttle_seconds' => 3600, 'description' => 'Alternativeme: API is under maintenance or unavailable', 'is_active' => true],
+
+            // CoinMarketCap
+            ['canonical' => 'coinmarketcap_ip_not_whitelisted', 'throttle_seconds' => 900, 'description' => 'Coinmarketcap: Worker IP is not whitelisted on API', 'is_active' => true],
+            ['canonical' => 'coinmarketcap_api_rate_limit_exceeded', 'throttle_seconds' => 1800, 'description' => 'Coinmarketcap: API rate limit exceeded', 'is_active' => true],
+            ['canonical' => 'coinmarketcap_api_connection_failed', 'throttle_seconds' => 900, 'description' => 'Coinmarketcap: Unable to connect to API', 'is_active' => true],
+            ['canonical' => 'coinmarketcap_invalid_api_credentials', 'throttle_seconds' => 1800, 'description' => 'Coinmarketcap: Invalid API credentials for account', 'is_active' => true],
+            ['canonical' => 'coinmarketcap_exchange_maintenance', 'throttle_seconds' => 3600, 'description' => 'Coinmarketcap: API is under maintenance or unavailable', 'is_active' => true],
+
+            // Critical account status notifications (exchange-specific)
+            // Binance
+            ['canonical' => 'binance_api_key_expired', 'throttle_seconds' => 1800, 'description' => 'Binance: API key has expired', 'is_active' => true],
+            ['canonical' => 'binance_account_in_liquidation', 'throttle_seconds' => 900, 'description' => 'Binance: Account undergoing liquidation', 'is_active' => true],
+            ['canonical' => 'binance_account_reduce_only_mode', 'throttle_seconds' => 900, 'description' => 'Binance: Account restricted to reduce-only', 'is_active' => true],
+            ['canonical' => 'binance_account_trading_banned', 'throttle_seconds' => 1800, 'description' => 'Binance: Trading banned on account', 'is_active' => true],
+            ['canonical' => 'binance_insufficient_balance_margin', 'throttle_seconds' => 900, 'description' => 'Binance: Insufficient balance or margin', 'is_active' => true],
+            ['canonical' => 'binance_kyc_verification_required', 'throttle_seconds' => 1800, 'description' => 'Binance: KYC verification required', 'is_active' => true],
+            ['canonical' => 'binance_account_unauthorized', 'throttle_seconds' => 900, 'description' => 'Binance: Unauthorized operation attempted', 'is_active' => true],
+            ['canonical' => 'binance_api_system_error', 'throttle_seconds' => 900, 'description' => 'Binance: System error or timeout occurred', 'is_active' => true],
+            ['canonical' => 'binance_api_network_error', 'throttle_seconds' => 900, 'description' => 'Binance: Network connectivity error', 'is_active' => true],
+
+            // Bybit
+            ['canonical' => 'bybit_api_key_expired', 'throttle_seconds' => 1800, 'description' => 'Bybit: API key has expired', 'is_active' => true],
+            ['canonical' => 'bybit_account_in_liquidation', 'throttle_seconds' => 900, 'description' => 'Bybit: Account undergoing liquidation', 'is_active' => true],
+            ['canonical' => 'bybit_account_reduce_only_mode', 'throttle_seconds' => 900, 'description' => 'Bybit: Account restricted to reduce-only', 'is_active' => true],
+            ['canonical' => 'bybit_account_trading_banned', 'throttle_seconds' => 1800, 'description' => 'Bybit: Trading banned on account', 'is_active' => true],
+            ['canonical' => 'bybit_insufficient_balance_margin', 'throttle_seconds' => 900, 'description' => 'Bybit: Insufficient balance or margin', 'is_active' => true],
+            ['canonical' => 'bybit_kyc_verification_required', 'throttle_seconds' => 1800, 'description' => 'Bybit: KYC verification required', 'is_active' => true],
+            ['canonical' => 'bybit_account_unauthorized', 'throttle_seconds' => 900, 'description' => 'Bybit: Unauthorized operation attempted', 'is_active' => true],
+            ['canonical' => 'bybit_api_system_error', 'throttle_seconds' => 900, 'description' => 'Bybit: System error or timeout occurred', 'is_active' => true],
+            ['canonical' => 'bybit_api_network_error', 'throttle_seconds' => 900, 'description' => 'Bybit: Network connectivity error', 'is_active' => true],
+
+            // User notification system throttles
+            ['canonical' => 'bounce_alert_to_pushover', 'throttle_seconds' => 3600, 'description' => 'Email bounce alert notification (sent via Pushover)', 'is_active' => true],
         ];
 
         foreach ($throttleRules as $rule) {

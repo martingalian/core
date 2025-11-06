@@ -30,9 +30,9 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string $recipient
  * @property string|null $message_id
  * @property \Illuminate\Support\Carbon $sent_at
- * @property \Illuminate\Support\Carbon|null $confirmed_at
  * @property \Illuminate\Support\Carbon|null $opened_at
- * @property \Illuminate\Support\Carbon|null $bounced_at
+ * @property \Illuminate\Support\Carbon|null $soft_bounced_at
+ * @property \Illuminate\Support\Carbon|null $hard_bounced_at
  * @property string $status
  * @property array<string, mixed>|null $http_headers_sent
  * @property array<string, mixed>|null $http_headers_received
@@ -56,9 +56,9 @@ final class NotificationLog extends Model
 
     protected $casts = [
         'sent_at' => 'datetime',
-        'confirmed_at' => 'datetime',
         'opened_at' => 'datetime',
-        'bounced_at' => 'datetime',
+        'soft_bounced_at' => 'datetime',
+        'hard_bounced_at' => 'datetime',
         'http_headers_sent' => 'array',
         'http_headers_received' => 'array',
         'gateway_response' => 'array',
@@ -125,28 +125,6 @@ final class NotificationLog extends Model
     public function scopeByStatus(\Illuminate\Database\Eloquent\Builder $query, string $status): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('status', $status);
-    }
-
-    /**
-     * Scope query to confirmed notifications.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<static>
-     */
-    public function scopeConfirmed(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
-    {
-        return $query->whereNotNull('confirmed_at');
-    }
-
-    /**
-     * Scope query to unconfirmed notifications.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<static>
-     */
-    public function scopeUnconfirmed(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
-    {
-        return $query->whereNull('confirmed_at');
     }
 
     /**

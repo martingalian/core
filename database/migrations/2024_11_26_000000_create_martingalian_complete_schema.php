@@ -334,10 +334,10 @@ return new class extends Migration
             $table->string('recipient')->comment('Email address or Pushover key');
             $table->string('message_id')->nullable()->comment('Gateway message ID for tracking (Zeptomail request_id, Pushover receipt)');
             $table->timestamp('sent_at')->comment('When notification was sent');
-            $table->timestamp('confirmed_at')->nullable()->comment('When delivery was confirmed via webhook (generic)');
             $table->timestamp('opened_at')->nullable()->comment('When email was opened by recipient (mail channel only)');
-            $table->timestamp('bounced_at')->nullable()->comment('When email bounced (mail channel only)');
-            $table->string('status')->default('sent')->comment('Status: sent, delivered, failed, bounced');
+            $table->timestamp('soft_bounced_at')->nullable()->comment('When email soft bounced (mail channel only)');
+            $table->timestamp('hard_bounced_at')->nullable()->comment('When email hard bounced (mail channel only)');
+            $table->string('status')->default('delivered')->comment('Status: delivered, opened, soft bounced, hard bounced');
             $table->json('http_headers_sent')->nullable()->comment('HTTP headers sent to gateway');
             $table->json('http_headers_received')->nullable()->comment('HTTP headers received from gateway');
             $table->json('gateway_response')->nullable()->comment('Gateway API response');
@@ -662,6 +662,7 @@ return new class extends Migration
             $table->timestamp('two_factor_confirmed_at')->nullable()->after('two_factor_recovery_codes');
             $table->text('pushover_key')->nullable()->after('two_factor_confirmed_at');
             $table->json('notification_channels')->nullable()->after('pushover_key');
+            $table->json('behaviours')->nullable()->after('notification_channels')->comment('User behavior flags (e.g., should_announce_bounced_email)');
             $table->timestamp('previous_logged_in_at')->nullable()->after('remember_token');
             $table->timestamp('last_logged_in_at')->nullable()->after('previous_logged_in_at');
             $table->boolean('is_active')->default(false)->after('last_logged_in_at');

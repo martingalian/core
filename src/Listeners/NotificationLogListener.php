@@ -28,12 +28,12 @@ final class NotificationLogListener
     /**
      * Handle the NotificationSent event.
      *
-     * Logs successful notification delivery attempts.
-     * Webhook confirmations will update confirmed_at later.
+     * Logs successful notification delivery attempts with 'delivered' status.
+     * Webhook events will update to 'opened' or bounce statuses later (mail channel only).
      */
     public function handleNotificationSent(NotificationSent $event): void
     {
-        $this->createLog($event, 'sent');
+        $this->createLog($event, 'delivered');
     }
 
     /**
@@ -116,7 +116,6 @@ final class NotificationLogListener
             'recipient' => $recipient,
             'message_id' => $messageId,
             'sent_at' => now(),
-            'confirmed_at' => null, // Will be updated via webhook
             'status' => $status,
             'http_headers_sent' => $httpHeadersSent,
             'http_headers_received' => $httpHeadersReceived,
@@ -200,10 +199,20 @@ final class NotificationLogListener
             // For Pushover, try to get key from notifiable
             if (method_exists($notifiable, 'routeNotificationFor')) {
                 $receiver = $notifiable->routeNotificationFor('pushover', null);
-                if (is_object($receiver) && method_exists($receiver, 'getUserKey')) {
-                    $key = $receiver->getUserKey();
-                    if (is_string($key)) {
-                        return $key;
+                if (is_object($receiver)) {
+                    // PushoverReceiver uses toArray()['user'] to get the key
+                    if (method_exists($receiver, 'toArray')) {
+                        $data = $receiver->toArray();
+                        if (isset($data['user']) && is_string($data['user'])) {
+                            return $data['user'];
+                        }
+                    }
+                    // Fallback to getUserKey() method if it exists
+                    if (method_exists($receiver, 'getUserKey')) {
+                        $key = $receiver->getUserKey();
+                        if (is_string($key)) {
+                            return $key;
+                        }
                     }
                 }
             }

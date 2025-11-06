@@ -154,7 +154,6 @@ final class NotificationWebhookController extends Controller
             // Update with acknowledgment timestamp
             if ($acknowledged && $acknowledgedAt !== null && is_numeric($acknowledgedAt)) {
                 $notificationLog->update([
-                    'confirmed_at' => \Carbon\Carbon::createFromTimestamp((int) $acknowledgedAt),
                     'status' => 'delivered',
                 ]);
             }
@@ -245,12 +244,14 @@ final class NotificationWebhookController extends Controller
             return;
         }
 
-        // Update status based on bounce type
-        $status = $bounceType === 'hard_bounce' ? 'failed' : 'bounced';
+        // Update status and bounce timestamp based on bounce type
+        $status = $bounceType === 'hard_bounce' ? 'hard bounced' : 'soft bounced';
+        $bounceTimestamp = $bounceTime ? \Carbon\Carbon::parse($bounceTime) : now();
+        $bounceField = $bounceType === 'hard_bounce' ? 'hard_bounced_at' : 'soft_bounced_at';
 
         $notificationLog->update([
             'status' => $status,
-            'bounced_at' => $bounceTime ? \Carbon\Carbon::parse($bounceTime) : now(),
+            $bounceField => $bounceTimestamp,
             'error_message' => $errorMessage,
             'http_headers_received' => $request->headers->all(),
             'gateway_response' => array_merge(
@@ -310,7 +311,6 @@ final class NotificationWebhookController extends Controller
                 'record_data' => $anyRecord ? [
                     'id' => $anyRecord->id,
                     'message_id' => $anyRecord->message_id,
-                    'confirmed_at' => $anyRecord->confirmed_at,
                     'opened_at' => $anyRecord->opened_at,
                     'status' => $anyRecord->status,
                 ] : null,
@@ -318,13 +318,13 @@ final class NotificationWebhookController extends Controller
 
             $notificationLog = NotificationLog::where('message_id', $requestId)
                 ->where('channel', 'mail')
-                ->whereNull('confirmed_at') // Only update if not already confirmed
+                ->whereNull('opened_at') // Only update if not already opened
                 ->first();
 
             Log::info('[ZEPTOMAIL WEBHOOK] Searched by request_id (open)', [
                 'request_id' => $requestId,
                 'found' => $notificationLog !== null,
-                'query' => "message_id={$requestId}, channel=mail, confirmed_at IS NULL",
+                'query' => "message_id={$requestId}, channel=mail, opened_at IS NULL",
             ]);
         }
 
@@ -339,7 +339,7 @@ final class NotificationWebhookController extends Controller
             if ($recipientEmail !== null) {
                 $notificationLog = NotificationLog::where('channel', 'mail')
                     ->where('recipient', $recipientEmail)
-                    ->whereNull('confirmed_at') // Only update if not already confirmed
+                    ->whereNull('opened_at') // Only update if not already opened
                     ->orderBy('sent_at', 'desc')
                     ->first();
 
@@ -360,28 +360,25 @@ final class NotificationWebhookController extends Controller
         }
 
         // Use timestamp from webhook payload, or fallback to when we received the webhook
-        $confirmedAt = $openedAt !== null
+        $openedAtTimestamp = $openedAt !== null
             ? \Carbon\Carbon::parse($openedAt)
             : now();
 
         Log::info('[ZEPTOMAIL WEBHOOK] About to update notification log', [
             'notification_log_id' => $notificationLog->id,
             'before_update' => [
-                'confirmed_at' => $notificationLog->confirmed_at,
                 'opened_at' => $notificationLog->opened_at,
                 'status' => $notificationLog->status,
             ],
             'update_values' => [
-                'confirmed_at' => $confirmedAt,
-                'opened_at' => $confirmedAt,
-                'status' => 'delivered',
+                'opened_at' => $openedAtTimestamp,
+                'status' => 'opened',
             ],
         ]);
 
         $notificationLog->update([
-            'confirmed_at' => $confirmedAt,
-            'opened_at' => $confirmedAt,
-            'status' => 'delivered',
+            'opened_at' => $openedAtTimestamp,
+            'status' => 'opened',
             'http_headers_received' => $request->headers->all(),
             'gateway_response' => array_merge(
                 $notificationLog->gateway_response ?? [],
@@ -391,9 +388,8 @@ final class NotificationWebhookController extends Controller
 
         Log::info('[ZEPTOMAIL WEBHOOK] ✓ Open event processed successfully', [
             'notification_log_id' => $notificationLog->id,
-            'confirmed_at' => $confirmedAt,
+            'opened_at' => $openedAtTimestamp,
             'after_update' => [
-                'confirmed_at' => $notificationLog->fresh()->confirmed_at,
                 'opened_at' => $notificationLog->fresh()->opened_at,
                 'status' => $notificationLog->fresh()->status,
             ],
