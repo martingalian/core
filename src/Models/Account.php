@@ -21,6 +21,7 @@ use Martingalian\Core\Concerns\Account\InteractsWithApis;
  * @property string $uuid
  * @property int $user_id
  * @property int $api_system_id
+ * @property string $name
  * @property int $trade_configuration_id
  * @property int|null $portfolio_quote_id
  * @property int|null $trading_quote_id

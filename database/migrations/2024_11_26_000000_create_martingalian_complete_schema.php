@@ -124,6 +124,7 @@ return new class extends Migration
             $table->id();
             $table->boolean('is_exchange')->default(true);
             $table->string('name');
+            $table->string('logo_url')->nullable();
             $table->unsignedInteger('recvwindow_margin')->default(10000)->comment('The miliseconds margin so we dont get errors due to server time vs exchange time desynchronizations');
             $table->string('canonical')->unique();
             $table->string('websocket_class')->nullable();

@@ -81,11 +81,8 @@ final class AlertNotification extends Notification
         // Use pushoverMessage if provided, otherwise use the main message
         $pushoverText = $this->pushoverMessage ?? $this->message;
 
-        // Add hostname prefix for Pushover notifications only
-        $pushoverTitle = '['.gethostname().'] '.$this->title;
-
         $message = PushoverMessage::create($pushoverText)
-            ->title($pushoverTitle);
+            ->title($this->title);
 
         // Get priority from delivery group config, or use additionalParameters
         $priority = $this->getDeliveryGroupPriority() ?? $this->additionalParameters['priority'] ?? 0;

@@ -170,11 +170,14 @@ final class User extends Authenticatable
         }
 
         // Otherwise, route to user's individual pushover_key
-        if (! $this->pushover_key) {
+        // Check for temporary key first (used for testing without saving to database)
+        $pushoverKey = $this->_temp_pushover_key ?? $this->pushover_key;
+
+        if (! $pushoverKey) {
             return null;
         }
 
-        return PushoverReceiver::withUserKey($this->pushover_key)
+        return PushoverReceiver::withUserKey($pushoverKey)
             ->withApplicationToken($appToken);
     }
 

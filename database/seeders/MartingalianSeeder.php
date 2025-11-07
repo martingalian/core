@@ -403,6 +403,7 @@ final class MartingalianSeeder extends Seeder
             ['canonical' => 'binance'],
             [
                 'name' => 'Binance',
+                'logo_url' => 'https://public.bnbstatic.com/static/images/common/favicon.ico',
                 'is_exchange' => true,
                 'taapi_canonical' => 'binancefutures',
             ]
@@ -412,6 +413,7 @@ final class MartingalianSeeder extends Seeder
             ['canonical' => 'bybit'],
             [
                 'name' => 'Bybit',
+                'logo_url' => 'https://www.bybit.com/favicon.ico',
                 'is_exchange' => true,
                 'taapi_canonical' => 'bybit',
             ]

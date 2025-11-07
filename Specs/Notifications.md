@@ -477,9 +477,10 @@ NotificationMessageBuilder::build('ip_not_whitelisted', [
 ## Channels & Configuration
 
 ### Pushover
-- Title: `[hostname] Title`
+- Title: No prefix (clean title for mobile devices)
 - Priorities: -2 (lowest), -1, 0 (normal), 1 (high), 2 (emergency/siren)
 - URL support
+- Test notifications: `_temp_pushover_key` property allows testing with different keys without saving to database
 
 ### Email (via Zeptomail)
 **Provider**: Zeptomail (Zoho transactional email service)
@@ -641,6 +642,64 @@ $response = $http
 
 ### User Preferences
 `notification_channels` JSON: `['mail', 'pushover']`, `['pushover']`, or `null` (defaults to Pushover)
+
+### Testing Notifications (Test Pushover Feature)
+**Purpose**: Allow users to test Pushover notifications with different keys before saving to database
+
+**Implementation Pattern**:
+```php
+// In controller (ProfileController::testPushover)
+$testUser = User::find($user->id);
+$testUser->_temp_pushover_key = $pushoverKeyFromForm;
+$testUser->notification_channels = [PushoverChannel::class];
+
+NotificationService::send(
+    user: $testUser,
+    message: "Test notification...",
+    title: 'Pushover Test',
+    canonical: null,
+    deliveryGroup: null  // null = use individual user key, not group
+);
+```
+
+**How It Works**:
+1. User enters pushover_key in profile form (not yet saved)
+2. Frontend sends AJAX POST to `/profile/test-pushover` with key
+3. Controller creates fresh User instance from database
+4. Sets `_temp_pushover_key` property (not persisted, bypasses encryption)
+5. Notification sent using temporary key instead of encrypted database value
+6. Temporary property discarded after request (never saved)
+
+**Key Implementation Details**:
+- `User::routeNotificationForPushover()` checks `_temp_pushover_key` first before `pushover_key`
+- Pattern mirrors existing `_temp_delivery_group` for delivery group testing
+- Bypasses encryption issues with in-memory testing
+- Frontend validates pushover_key field and enables/disables test button dynamically
+
+**Error Handling**:
+```php
+// Friendly error for invalid Pushover key
+if (str_contains($e->getMessage(), 'user identifier is not a valid user')) {
+    return response()->json([
+        'success' => false,
+        'message' => 'Invalid Pushover key. Please check that you entered the correct User Key from your Pushover account.',
+    ], 422);
+}
+```
+
+**User Model Implementation**:
+```php
+// In User::routeNotificationForPushover()
+// Check for temporary key first (used for testing without saving to database)
+$pushoverKey = $this->_temp_pushover_key ?? $this->pushover_key;
+
+if (! $pushoverKey) {
+    return null;
+}
+
+return PushoverReceiver::withUserKey($pushoverKey)
+    ->withApplicationToken($appToken);
+```
 
 ### Delivery Groups
 Config: `config('martingalian.api.pushover.delivery_groups')`
@@ -1192,7 +1251,7 @@ $processedMessage = preg_replace_callback(
 1. **Email subject (user notifications)**: NO hostname prefix, MAY include server IP/exchange for server-specific issues
 2. **Email subject (admin notifications)**: NO hostname prefix, NO server IP/exchange (clean, focused subjects)
 3. **Email footer**: Includes hostname and timestamp
-4. **Pushover title**: WITH hostname `[hostname] Title`
+4. **Pushover title**: NO hostname prefix (clean titles for mobile devices)
 5. **Pushover message**: NO server IPs (cleaner mobile alerts - IPs only in email body)
 6. **Salutation**: Template handles "Hello {name}," (not in NotificationMessageBuilder)
 7. **Data formatting**: Important data on separate lines with minimal padding
