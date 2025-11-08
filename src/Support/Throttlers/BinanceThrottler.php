@@ -45,9 +45,10 @@ final class BinanceThrottler extends BaseApiThrottler
      * Pre-flight safety check called before canDispatch().
      * Checks IP ban status and rate limit proximity.
      *
+     * @param  int|null  $accountId  Optional account ID for UID-based ORDER limits
      * @return int Seconds to wait, or 0 if safe to proceed
      */
-    public static function isSafeToDispatch(): int
+    public static function isSafeToDispatch(?int $accountId = null): int
     {
         $prefix = self::getCacheKeyPrefix();
 
@@ -80,7 +81,7 @@ final class BinanceThrottler extends BaseApiThrottler
         }
 
         // 3. Check if approaching any rate limit (>80% threshold)
-        $secondsToWait = self::checkRateLimitProximity();
+        $secondsToWait = self::checkRateLimitProximity($accountId);
         if ($secondsToWait > 0) {
             Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by rate limit proximity: {$secondsToWait}s");
 
@@ -94,8 +95,11 @@ final class BinanceThrottler extends BaseApiThrottler
      * Record Binance response headers after EVERY API request.
      * Parses X-MBX-USED-WEIGHT-* and X-MBX-ORDER-COUNT-* headers and stores them
      * so all workers on the same IP can coordinate.
+     *
+     * @param  ResponseInterface  $response  The API response
+     * @param  int|null  $accountId  Optional account ID for UID-based ORDER limits
      */
-    public static function recordResponseHeaders(ResponseInterface $response): void
+    public static function recordResponseHeaders(ResponseInterface $response, ?int $accountId = null): void
     {
         try {
             $ip = self::getCurrentIp();
@@ -114,17 +118,18 @@ final class BinanceThrottler extends BaseApiThrottler
                 );
             }
 
-            // Parse and store order count headers
+            // Parse and store order count headers (UID-based, per account)
             $orders = self::parseIntervalHeaders($headers, 'x-mbx-order-count-');
             foreach ($orders as $data) {
                 $interval = $data['interval'];
                 $ttl = self::getIntervalTTL($data['intervalNum'], $data['intervalLetter']);
 
-                Cache::put(
-                    "binance:{$ip}:orders:{$interval}",
-                    $data['value'],
-                    $ttl
-                );
+                // ORDER limits are per UID (account), so include account ID in cache key
+                $key = $accountId !== null
+                    ? "binance:{$ip}:uid:{$accountId}:orders:{$interval}"
+                    : "binance:{$ip}:orders:{$interval}"; // Fallback for backward compatibility
+
+                Cache::put($key, $data['value'], $ttl);
             }
 
             // Record timestamp of last request
@@ -216,8 +221,10 @@ final class BinanceThrottler extends BaseApiThrottler
     /**
      * Check if approaching any rate limit (>80% threshold).
      * Returns seconds to wait if too close to limits.
+     *
+     * @param  int|null  $accountId  Optional account ID for UID-based ORDER limits
      */
-    protected static function checkRateLimitProximity(): int
+    protected static function checkRateLimitProximity(?int $accountId = null): int
     {
         try {
             $ip = self::getCurrentIp();
@@ -235,9 +242,14 @@ final class BinanceThrottler extends BaseApiThrottler
                 $limit = $rateLimit['limit'];
                 $type = $rateLimit['type'];
 
-                $key = $type === 'ORDERS'
-                    ? "binance:{$ip}:orders:{$interval}"
-                    : "binance:{$ip}:weight:{$interval}";
+                // ORDER limits are per UID (account), WEIGHT limits are per IP
+                if ($type === 'ORDERS' && $accountId !== null) {
+                    $key = "binance:{$ip}:uid:{$accountId}:orders:{$interval}";
+                } elseif ($type === 'ORDERS') {
+                    $key = "binance:{$ip}:orders:{$interval}"; // Fallback
+                } else {
+                    $key = "binance:{$ip}:weight:{$interval}";
+                }
 
                 $current = Cache::get($key) ?? 0;
 

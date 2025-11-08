@@ -114,9 +114,12 @@ abstract class BaseApiableJob extends BaseQueueableJob
             return true; // No throttler = proceed
         }
 
+        // Extract account ID for per-account rate limit tracking (e.g., Binance ORDER limits)
+        $accountId = $this->exceptionHandler->account?->id;
+
         // 1. First check IP-based safety (bans, rate limit proximity) if throttler supports it
         if (method_exists($throttler, 'isSafeToDispatch')) {
-            $secondsToWait = $throttler::isSafeToDispatch();
+            $secondsToWait = $throttler::isSafeToDispatch($accountId);
             if ($secondsToWait > 0) {
                 $this->jobBackoffSeconds = $secondsToWait;
 
@@ -126,7 +129,7 @@ abstract class BaseApiableJob extends BaseQueueableJob
 
         // 2. Then check standard throttling (rate limits, min delays, etc.)
         $retryCount = $this->step->retries ?? 0;
-        $secondsToWait = $throttler::canDispatch($retryCount);
+        $secondsToWait = $throttler::canDispatch($retryCount, $accountId);
 
         if ($secondsToWait > 0) {
             $this->jobBackoffSeconds = $secondsToWait;
@@ -162,7 +165,9 @@ abstract class BaseApiableJob extends BaseQueueableJob
             $throttler = $this->getThrottlerForApiSystem();
 
             if ($throttler) {
-                $throttler::recordDispatch();
+                // Extract account ID for per-account rate limit tracking
+                $accountId = $this->exceptionHandler->account?->id;
+                $throttler::recordDispatch($accountId);
             }
 
             // Now call the parent implementation

@@ -44,9 +44,10 @@ final class BybitThrottler extends BaseApiThrottler
      * Pre-flight safety check called before canDispatch().
      * Checks IP ban status, minimum delay, and rate limit threshold.
      *
+     * @param  int|null  $accountId  Optional account ID (not used by Bybit - all limits are IP-based)
      * @return int Seconds to wait, or 0 if safe to proceed
      */
-    public static function isSafeToDispatch(): int
+    public static function isSafeToDispatch(?int $accountId = null): int
     {
         $prefix = self::getCacheKeyPrefix();
 
@@ -115,8 +116,11 @@ final class BybitThrottler extends BaseApiThrottler
     /**
      * Record Bybit response headers.
      * Bybit provides X-Bapi-Limit-Status and X-Bapi-Limit headers for rate limiting.
+     *
+     * @param  ResponseInterface  $response  The API response
+     * @param  int|null  $accountId  Optional account ID (not used by Bybit - all limits are IP-based)
      */
-    public static function recordResponseHeaders(ResponseInterface $response): void
+    public static function recordResponseHeaders(ResponseInterface $response, ?int $accountId = null): void
     {
         try {
             $ip = self::getCurrentIp();
@@ -190,22 +194,22 @@ final class BybitThrottler extends BaseApiThrottler
     /**
      * Bybit Rate Limits (configurable via config/martingalian.php)
      *
-     * Default configuration: Conservative settings to avoid 403 ban
+     * Default configuration: Balanced settings to avoid 403 ban
      * - HTTP limit: 600 requests per 5 seconds
-     * - We use 500/5s to stay safe (83% of limit)
-     * - 100ms minimum delay between requests (prevents bursts)
+     * - We use 550/5s to stay safe (92% of limit)
+     * - 200ms minimum delay between requests (prevents bursts)
      *
      * To adjust, update config/martingalian.php:
      * 'throttlers.bybit.requests_per_window'
      * 'throttlers.bybit.window_seconds'
-     * 'throttlers.bybit.min_delay_between_requests_ms'
+     * 'throttlers.bybit.min_delay_ms'
      */
     protected static function getRateLimitConfig(): array
     {
         return [
-            'requests_per_window' => config('martingalian.throttlers.bybit.requests_per_window', 500), // 83% of 600
+            'requests_per_window' => config('martingalian.throttlers.bybit.requests_per_window', 550), // 92% of 600
             'window_seconds' => config('martingalian.throttlers.bybit.window_seconds', 5),
-            'min_delay_between_requests_ms' => config('martingalian.throttlers.bybit.min_delay_between_requests_ms', 100),
+            'min_delay_between_requests_ms' => config('martingalian.throttlers.bybit.min_delay_ms', 200),
         ];
     }
 

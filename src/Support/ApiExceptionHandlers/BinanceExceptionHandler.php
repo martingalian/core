@@ -293,12 +293,14 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     }
 
     /**
-     * Record response headers for IP-based rate limiting coordination.
+     * Record response headers for rate limiting coordination.
      * Delegates to BinanceThrottler to parse and cache rate limit headers.
+     * Passes account ID for per-account ORDER limit tracking.
      */
     public function recordResponseHeaders(ResponseInterface $response): void
     {
-        BinanceThrottler::recordResponseHeaders($response);
+        $accountId = $this->account?->id;
+        BinanceThrottler::recordResponseHeaders($response, $accountId);
     }
 
     /**

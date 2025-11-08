@@ -41,8 +41,9 @@ abstract class BaseApiThrottler
      * Returns number of seconds to wait if we need to throttle.
      *
      * @param  int  $retryCount  Number of retries already attempted (for exponential backoff)
+     * @param  int|null  $accountId  Optional account ID for UID-based rate limits (e.g., ORDER limits)
      */
-    final public static function canDispatch(int $retryCount = 0): int
+    final public static function canDispatch(int $retryCount = 0, ?int $accountId = null): int
     {
         $config = static::getRateLimitConfig();
         $prefix = static::getCacheKeyPrefix();
@@ -84,8 +85,10 @@ abstract class BaseApiThrottler
 
     /**
      * Record that a dispatch happened right now
+     *
+     * @param  int|null  $accountId  Optional account ID for UID-based rate limits (e.g., ORDER limits)
      */
-    final public static function recordDispatch(): void
+    final public static function recordDispatch(?int $accountId = null): void
     {
         $prefix = static::getCacheKeyPrefix();
         $config = static::getRateLimitConfig();
