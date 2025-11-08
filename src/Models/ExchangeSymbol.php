@@ -13,6 +13,7 @@ use Martingalian\Core\Concerns\ExchangeSymbol\HasScopes;
 use Martingalian\Core\Concerns\ExchangeSymbol\HasStatuses;
 use Martingalian\Core\Concerns\ExchangeSymbol\HasTradingComputations;
 use Martingalian\Core\Concerns\ExchangeSymbol\InteractsWithApis;
+use Martingalian\Core\Concerns\ExchangeSymbol\SendsNotifications;
 
 /**
  * @property int $id
@@ -49,6 +50,7 @@ final class ExchangeSymbol extends BaseModel
     use HasStatuses;
     use HasTradingComputations;
     use InteractsWithApis;
+    use SendsNotifications;
 
     protected $casts = [
         'is_tradeable' => 'boolean',

@@ -1,503 +1,8 @@
-# Notifications System
+# Notifications System (Part 2)
 
-## Overview
-Multi-channel notifications (Pushover, Email via Zeptomail) with comprehensive legal audit trail. User preferences, throttling, user-friendly messages, delivery tracking via webhooks, and full request/response logging for compliance.
+## Throttling (continued from Part 1)
 
-### Key Features
-- **Multi-channel delivery**: Pushover (push notifications) and Email (via Zeptomail transactional email service)
-- **Legal audit trail**: Every notification logged in `notification_logs` table with full content dump
-- **Delivery tracking**: Webhook integration for email opens, clicks, bounces, and emergency acknowledgments
-- **Request/response logging**: Full HTTP headers and gateway responses stored for debugging
-- **User preferences**: Per-user channel selection (`notification_channels` JSON field)
-- **Throttling**: Per-canonical throttling to prevent notification spam
-- **Severity levels**: Critical, High, Medium, Info with appropriate priority headers
-- **User-friendly messages**: Template-based message builder with exchange/context interpolation
-
-### Architecture Overview
-
-**Notification Flow**:
-1. Error occurs (API failure, system alert, trading event)
-2. `ApiRequestLog` saved → Observer triggers `sendNotificationIfNeeded()`
-3. `NotificationMessageBuilder::build()` creates user-friendly message
-4. `NotificationService::send()` dispatches notification (unified for users and admin)
-5. `AlertNotification` routes to channels based on user preferences via Laravel's notification system
-6. **For Email**: `ZeptoMailTransport` sends via Zeptomail API, stores response in message headers
-7. **For Pushover**: `PushoverChannel` sends via Pushover API
-8. Laravel **automatically** fires `NotificationSent` event
-9. `NotificationLogListener` creates audit log entry in `notification_logs` table
-10. **Later**: Webhook from Zeptomail updates log with delivery confirmation
-
-**Complete Data Flow**:
-```
-API Error
-  ↓
-ApiRequestLog (saved)
-  ↓
-ApiRequestLogObserver::saved()
-  ↓
-SendsNotifications::sendNotificationIfNeeded()
-  ↓
-NotificationMessageBuilder::build()
-  ↓
-NotificationService::send(user: $user OR Martingalian::admin())
-  ↓
-User->notifyWithGroup(AlertNotification) [Laravel Notification System]
-  ↓
-AlertNotification->via() determines channels
-  ↓
-┌──────────────────────┬───────────────────────┐
-│   PushoverChannel    │    Mail Channel       │
-│   (Laravel Package)  │  (ZeptoMailTransport) │
-│         ↓            │         ↓             │
-│   POST Pushover API  │  POST Zeptomail API   │
-│         ↓            │         ↓             │
-│   Returns receipt    │  Store response       │
-│                      │  in message headers   │
-└──────────────────────┴───────────────────────┘
-  ↓
-NotificationSent event AUTOMATICALLY fired by Laravel
-  ↓
-NotificationLogListener::handleNotificationSent()
-  ↓
-NotificationLog created (audit trail with full gateway data)
-  ↓
-[Later] Webhook from Zeptomail
-  ↓
-NotificationWebhookController::zeptomail()
-  ↓
-NotificationLog updated (opened_at, bounced_at)
-```
-
-## Single Source of Truth
-
-**RULE**: All API error notifications originate from `ApiRequestLog` model (via `SendsNotifications` trait).
-
-**Flow**: API fails → Log created → Observer → `sendNotificationIfNeeded()` → Analyzes HTTP codes → Sends
-
-**BaseExceptionHandler**: ONLY HTTP code analysis (`isRateLimitedFromLog()`, `isForbiddenFromLog()`), NOT notifications
-
-## Core Classes
-
-### ApiRequestLog Model
-**Location**: `packages/martingalian/core/src/Models/ApiRequestLog.php`
-**Trait**: `SendsNotifications` - Contains ALL notification logic
-**Method**: `sendNotificationIfNeeded()` - Single source of truth
-
-### SendsNotifications Trait
-**Location**: `packages/martingalian/core/src/Concerns/ApiRequestLog/SendsNotifications.php`
-**Methods**: `sendNotificationIfNeeded()`, `sendUserNotification()`, `sendAdminNotification()`, `sendThrottledNotification()`
-**Analyzes**: HTTP codes (401, 403, 429, 503), vendor codes, connection failures
-**Routes**: Based on `user_types` JSON field
-
-#### Server Context in Notifications
-**Architectural Rule**: Admin notifications do NOT include server IP/exchange in email subjects
-
-**User Notifications** (MAY include server IP/exchange in email subject):
-- Server-specific issues where context helps user understand (e.g., `ip_not_whitelisted`)
-- Email subject shows: `"Title - Server IP on Exchange"` when serverIp and exchange provided
-
-**Admin Notifications** (NO server IP/exchange in email subject):
-- All admin notifications send WITHOUT serverIp/exchange parameters
-- Server context (if relevant) is included ONLY in email message body
-- This keeps email subjects clean and focused on the issue, not the infrastructure
-- Admin knows which server from hostname in email footer
-
-**Why**: Admin email subjects should focus on the problem type, not which server detected it. Server context (when relevant) goes in the email body. This prevents subject line clutter and makes email filtering/searching easier.
-
-### AlertNotification
-**Location**: `packages/martingalian/core/src/Notifications/AlertNotification.php`
-**Extends**: Laravel `Notification`
-**Channels**: Pushover, Email (respects `user->notification_channels`)
-**Rule**: Only sends to active users (`is_active = true`)
-
-### NotificationService
-**Location**: `packages/martingalian/core/src/Support/NotificationService.php`
-**Namespace**: `Martingalian\Core\Support\NotificationService`
-**Methods**: `send()`, `sendToAdminByCanonical()`
-
-**CRITICAL: Unified Notification Architecture**:
-The notification system has been simplified to use a **single unified method** that leverages Laravel's notification system for both users and admin.
-
-**Key Architectural Change**:
-- **Before**: Separate `sendToUser()` and `sendToAdmin()` with manual event firing
-- **After**: Single `send()` method using Laravel's notification system for ALL notifications
-- **Admin User**: Virtual User instance via `Martingalian::admin()` (non-persisted, `is_virtual = true`)
-
-**NotificationService::send()**: Unified notification method
-```php
-NotificationService::send(
-    user: $user,               // Real User OR Martingalian::admin()
-    message: 'Alert message',
-    title: 'Alert Title',
-    canonical: 'alert_type',
-    deliveryGroup: 'exceptions',
-    severity: NotificationSeverity::High,
-    relatable: $relatableModel // Optional: ApiSystem, Step, Account, etc.
-)
-```
-
-**How Admin Notifications Work Now**:
-1. `Martingalian::admin()` returns a **virtual User** instance
-2. Virtual user has all notification credentials from `martingalian` table
-3. Laravel's notification system handles sending (channels, routing, events)
-4. `NotificationSent` event **automatically fired** by Laravel
-5. `NotificationLogListener` captures event and logs to `notification_logs`
-6. Virtual user has `is_virtual = true` flag preventing accidental database saves
-
-**NotificationService::sendToAdminByCanonical()**: Convenience method for template-based admin notifications
-```php
-NotificationService::sendToAdminByCanonical(
-    canonical: 'api_rate_limit_exceeded',
-    context: ['exchange' => 'binance'],
-    deliveryGroup: 'exceptions',
-    relatable: $apiSystem
-)
-```
-- Fetches message template from `NotificationMessageBuilder`
-- Automatically uses `Martingalian::admin()` as recipient
-- Keeps email subjects clean (no serverIp/exchange parameters)
-
-### Martingalian::admin() - Virtual Admin User
-**Location**: `packages/martingalian/core/src/Concerns/Martingalian/HasGetters.php`
-**Namespace**: `Martingalian\Core\Concerns\Martingalian\HasGetters`
-**Usage**: `Martingalian::admin()`
-
-**Purpose**: Returns a virtual (non-persisted) User instance configured with admin notification credentials.
-
-**Key Characteristics**:
-- **Non-persisted**: `exists = false`, never touches database
-- **Protected**: `is_virtual = true` flag prevents accidental `save()` calls
-- **Cached**: Uses `once()` helper for singleton behavior per request
-- **Fully functional**: Works seamlessly with Laravel's notification system
-
-**Implementation**:
-```php
-// In HasGetters trait
-public static function admin(): User
-{
-    return once(function () {
-        $martingalian = self::findOrFail(1);
-
-        return tap(new User, function (User $user) use ($martingalian) {
-            $user->exists = false;
-            $user->is_virtual = true;
-            $user->name = 'System Administrator';
-            $user->email = $martingalian->admin_user_email;
-            $user->pushover_key = $martingalian->admin_pushover_user_key;
-            $user->notification_channels = $martingalian->notification_channels ?? ['pushover'];
-            $user->is_active = true;
-        });
-    });
-}
-```
-
-**Safety Guard in User Model**:
-```php
-// In User model
-public bool $is_virtual = false;
-
-public function save(array $options = []): bool
-{
-    if ($this->is_virtual) {
-        throw new \RuntimeException('Cannot save virtual admin user to database');
-    }
-    return parent::save($options);
-}
-```
-
-**Usage Examples**:
-```php
-// Admin notification
-NotificationService::send(
-    user: Martingalian::admin(),
-    message: 'System error detected',
-    title: 'System Alert',
-    canonical: 'api_system_error',
-    relatable: $apiSystem
-);
-
-// User notification (same method!)
-NotificationService::send(
-    user: $user,
-    message: 'Position opened',
-    title: 'Trading Alert',
-    canonical: 'position_opened',
-    relatable: $position
-);
-```
-
-**Why This Design?**:
-1. **Single Code Path**: One notification method for all recipients
-2. **Laravel Native**: Fully leverages Laravel's notification system
-3. **Type Safety**: Same `User` type, no special handling needed
-4. **DRY Principle**: No duplicate notification logic
-5. **Maintainable**: Simpler codebase, easier to understand
-6. **Testable**: Standard Laravel notification testing works
-
-## Critical Developer Requirements
-
-### ALWAYS Pass Canonical Parameter
-**RULE**: Every call to `NotificationService::send()` SHOULD include the `canonical` parameter for proper audit tracking.
-
-**Why**: Without a canonical:
-- `NotificationLogListener` falls back to class name `"AlertNotification"`
-- `notification_logs.notification_id` will be NULL (can't lookup Notification record)
-- Notifications become untrackable and unidentifiable
-- Audit trail is incomplete
-
-**Correct**:
-```php
-NotificationService::send(
-    user: Martingalian::admin(),
-    message: 'Rate limit exceeded',
-    title: 'API Rate Limit',
-    canonical: 'api_rate_limit_exceeded',  // ✅ REQUIRED
-    deliveryGroup: 'exceptions'
-);
-```
-
-**Incorrect** (will log as "AlertNotification" with null notification_id):
-```php
-NotificationService::send(
-    user: Martingalian::admin(),
-    message: 'Rate limit exceeded',
-    title: 'API Rate Limit',
-    deliveryGroup: 'exceptions'  // ❌ Missing canonical
-);
-```
-
-### ALWAYS Use IP Addresses, Not Hostnames
-**RULE**: The `'ip'` context key MUST contain an IP address (IPv4/IPv6), NEVER a hostname.
-
-**Why**: Users need IP addresses to:
-- Whitelist on exchange APIs
-- Troubleshoot network connectivity
-- Identify which specific server has issues
-
-**Correct**:
-```php
-$serverIp = gethostbyname(gethostname());  // Converts hostname to IP
-NotificationMessageBuilder::build('ip_not_whitelisted', [
-    'ip' => $serverIp,          // ✅ IP: "91.84.82.171"
-    'hostname' => gethostname(), // Optional: "server-name"
-]);
-```
-
-**Incorrect** (shows hostname instead of IP):
-```php
-NotificationMessageBuilder::build('ip_not_whitelisted', [
-    'ip' => gethostname(),  // ❌ Hostname: "DELLXPS15" (useless for whitelisting)
-]);
-```
-
-**Implementation Note**: In `SendsNotifications.php`, always calculate `$serverIp = gethostbyname($hostname)` early and use it for all `'ip'` context keys.
-
-### NotificationLogListener Requires Canonical
-**RULE**: `NotificationLogListener::extractCanonical()` extracts canonical from notification object properties.
-
-**Extraction Order**:
-1. `$notification->canonical` (if non-empty string)
-2. `$notification->messageCanonical` (if non-empty string)
-3. Fallback: `class_basename($notification)` → `"AlertNotification"`
-
-**notification_id Lookup**:
-- If canonical found: Looks up `Notification::where('canonical', $canonical)->value('id')`
-- If canonical is NULL or doesn't exist in DB: `notification_id` remains NULL
-- Always create Notification records first via seeder before using canonicals
-
-**Best Practice**: Create all canonicals in `NotificationsTableSeeder.php` before using them in code.
-
-### Notification Model
-**Location**: `packages/martingalian/core/src/Models/Notification.php`
-**Namespace**: `Martingalian\Core\Models\Notification`
-**Purpose**: Registry of notification message templates (canonicals) available in the system
-
-**Schema**:
-- `canonical`: Unique identifier (e.g., 'ip_not_whitelisted')
-- `title`: Default title for the notification
-- `description`: Optional description of the canonical's purpose
-- `default_severity`: Default severity level (Info, Medium, High, Critical)
-- `is_active`: Whether the canonical can be used
-- `user_types`: Array of ['user', 'admin'] indicating target audience
-
-**Helper Methods**:
-- `Notification::exists($canonical)`: Check if canonical exists and is active
-- `Notification::findByCanonical($canonical)`: Get notification record by canonical
-- `Notification::activeCanonicals()`: Get all active canonical strings as array
-- `->active()`: Query scope for active notifications
-- `->byCanonical($canonical)`: Query scope by canonical
-
-**Separation**: Canonicals control WHAT to say; ThrottleRules control HOW OFTEN
-
-### NotificationMessageBuilder
-**Location**: `packages/martingalian/core/src/Support/NotificationMessageBuilder.php`
-**Namespace**: `Martingalian\Core\Support\NotificationMessageBuilder`
-**Accepts**: Base canonicals (e.g., `api_access_denied`) without exchange prefix
-**Returns**: severity, title, emailMessage, pushoverMessage, actionUrl, actionLabel
-**Context**: Exchange passed separately for interpolation (e.g., `{exchange: 'binance'}`)
-**Templates**: 30+ predefined message templates covering API errors, system alerts, trading events
-
-**Context Variables** (passed via `$context` array):
-- `exchange` (string) - Exchange canonical identifier ('binance', 'bybit') for dynamic message interpolation
-- `ip` (string) - **MUST be IP address** (IPv4/IPv6), NEVER hostname. Use `gethostbyname(gethostname())` to convert. Included in email body for server-related issues.
-- `exception` (string) - Exception message for WebSocket/system errors
-- `account_info` (string) - Account name/identifier
-- `hostname` (string) - Server hostname (display only, NOT for whitelisting)
-- `wallet_balance`, `unrealized_pnl` - Trading metrics
-
-**CRITICAL**: The `'ip'` key MUST contain an actual IP address. Users need this for exchange API whitelisting. Hostnames are useless for this purpose.
-
-**Exchange Name Display**: Templates receive exchange canonical (e.g., 'binance'), but when building notifications:
-- Fetch `ApiSystem` model: `ApiSystem::where('canonical', $exchangeCanonical)->first()`
-- Use `$apiSystem->name` for display (e.g., "Binance" not "binance")
-- Fallback to `ucfirst($canonical)` only if model not found
-- Applied in: SendsNotifications trait, NotificationService
-
-### AlertMail
-**Location**: `packages/martingalian/core/src/Mail/AlertMail.php`
-**Namespace**: `Martingalian\Core\Mail\AlertMail`
-**Template**: `resources/views/emails/notification.blade.php`
-**Headers**: High-priority for Critical/High severity
-
-**Email Subject Construction**:
-- Base: Notification title
-- **User notifications only** (admin notifications omit server context):
-  - If `serverIp` and `exchange`: `"Title - Server IP on Exchange"`
-  - If only `serverIp`: `"Title - Server IP"`
-  - If `hostname` and `exchange`: `"Title - Server hostname on Exchange"`
-  - Example: `"IP Whitelist Required - Server 1.2.3.4 on Binance"`
-- **Admin notifications**: No server IP/exchange appended (clean subject)
-  - Example: `"API Rate Limit Exceeded"` (not `"... - Server 1.2.3.4 on Binance"`)
-- **Exchange name display**: Uses `ApiSystem->name` (e.g., "Binance") not `ucfirst(canonical)` (e.g., "Binance")
-
-### NotificationLog Model
-**Location**: `packages/martingalian/core/src/Models/NotificationLog.php`
-**Namespace**: `Martingalian\Core\Models\NotificationLog`
-**Purpose**: Legal audit trail for ALL notifications sent through the platform
-
-**Schema** (`notification_logs` table):
-- `id`, `uuid` - Unique identifiers
-- `notification_id` - Foreign key to `notifications.id` (NULL if canonical not found)
-- `canonical` - Message template identifier (e.g., 'api_rate_limit_exceeded')
-- `relatable_type`, `relatable_id` - Polymorphic relation (Account, User, or null for admin)
-- `channel` - Delivery channel ('mail', 'pushover')
-- `recipient` - Email address or Pushover key
-- `message_id` - Gateway message ID (Zeptomail `request_id`, Pushover `receipt`)
-- `sent_at` - When notification was dispatched
-- `opened_at` - When email was opened (from Zeptomail webhook, mail channel only)
-- `bounced_at` - When email bounced (from Zeptomail webhook, mail channel only)
-- `status` - Current status ('sent', 'delivered', 'failed', 'bounced')
-- `http_headers_sent` (JSON) - Request headers sent to gateway
-- `http_headers_received` (JSON) - Response headers from gateway
-- `gateway_response` (JSON) - Full API response from gateway
-- `content_dump` (TEXT) - Full notification content for legal audit
-- `raw_email_content` (TEXT) - HTML/text email body for mail viewers
-- `error_message` - Error details if failed
-
-**notification_id Foreign Key**:
-- Populated by `NotificationLogListener` when creating log entry
-- Lookup: `Notification::where('canonical', $canonical)->value('id')`
-- Will be NULL if:
-  - Canonical parameter not passed to `sendToUser()`/`sendToAdmin()`
-  - Canonical doesn't exist in `notifications` table
-  - Canonical is NULL on AlertNotification object
-- Used for: Linking notification logs to notification definitions for analytics/reporting
-
-**Indexes**:
-- `canonical`, `channel`, `message_id`, `status`, `sent_at`, `notification_id`
-- `relatable_type` + `relatable_id` (composite)
-- `uuid` (unique)
-
-**Scopes**:
-- `byCanonical($canonical)`, `byChannel($channel)`, `byStatus($status)`
-- `confirmed()`, `unconfirmed()`, `failed()`, `delivered()`
-
-### NotificationLogListener
-**Location**: `packages/martingalian/core/src/Listeners/NotificationLogListener.php`
-**Namespace**: `Martingalian\Core\Listeners\NotificationLogListener`
-**Purpose**: Automatic audit logging for all notifications
-
-**Events Listened**:
-- `NotificationSent` - Logs successful dispatch
-- `NotificationFailed` - Logs failures with error message
-
-**Logged Data**:
-- Canonical extracted from notification object
-- **notification_id** looked up from `notifications` table using canonical
-- Relatable model (Account, User, or null)
-- Recipient based on channel
-- Gateway response (extracted from `SentMessage`)
-- HTTP headers (sent and received)
-- Message ID for tracking (Zeptomail `request_id`, Pushover `receipt`)
-- Raw email content (HTML/text) for mail channel
-- Content dump (all notification properties for legal audit)
-
-**Key Methods**:
-- `extractCanonical()` - Gets canonical from notification (`canonical` or `messageCanonical` property)
-- `extractRelatable()` - Determines Account/User/null
-- `extractRecipient()` - Gets email or Pushover key based on channel
-- `extractGatewayResponse()` - Parses API response from headers (Zeptomail uses `X-Zepto-Response` header)
-- `extractHttpHeadersSent()` - Gets request headers from `X-Zepto-Request-Headers` header
-- `extractMessageId()` - Extracts tracking ID (Zeptomail `request_id`, Pushover `receipt`)
-- `extractRawEmailContent()` - Gets HTML/text body from original message
-- `buildContentDump()` - Serializes all notification data to JSON
-
-**notification_id Lookup Process**:
-1. Extract canonical from notification object (`extractCanonical()`)
-2. Lookup notification: `Notification::where('canonical', $canonical)->value('id')`
-3. Store in `notification_logs.notification_id` (NULL if not found)
-4. This links log entries to notification definitions for analytics
-
-**How It Works**:
-1. Laravel dispatches notification via `AlertNotification`
-2. ZeptoMailTransport sends email, stores response/headers in message
-3. Laravel fires `NotificationSent` event
-4. NotificationLogListener captures event and creates `NotificationLog` entry
-5. Webhooks later update the log with delivery confirmation
-
-### Throttler
-**Location**: `packages/martingalian/core/src/Support/Throttler.php`
-**Namespace**: `Martingalian\Core\Support\Throttler`
-**Purpose**: Unified throttling system for any action (notifications, API calls, supervisor restarts)
-**Tables**: `throttle_rules` (configuration), `throttle_logs` (execution history)
-
-**Key Features**:
-- **Database-driven rules**: Throttle configuration stored in `throttle_rules` table with per-canonical timing
-- **Execution tracking**: Every throttled action logged in `throttle_logs` with timestamps
-- **Pessimistic locking**: Prevents race conditions in concurrent environments
-- **Contextual throttling**: Optional `for($model)` allows per-user, per-account, or per-resource throttling
-- **Auto-creation**: Missing throttle rules automatically created if `auto_create_missing_throttle_rules` config enabled
-
-**CRITICAL: Throttler is disaggregated from NotificationService**:
-- Throttler controls WHEN to execute (throttling logic)
-- NotificationService controls WHAT to send (notification delivery)
-- These are separate concerns - Throttler doesn't call NotificationService methods
-- The closure passed to `execute()` contains the notification send call
-
-## Channels & Configuration
-
-### Pushover
-- Title: No prefix (clean title for mobile devices)
-- Priorities: -2 (lowest), -1, 0 (normal), 1 (high), 2 (emergency/siren)
-- URL support
-- Test notifications: `_temp_pushover_key` property allows testing with different keys without saving to database
-
-### Email (via Zeptomail)
-**Provider**: Zeptomail (Zoho transactional email service)
-**Package**: `brunocfalcao/laravel-zepto-mail-api-driver` (custom Symfony Mailer transport)
-**Location**: `/packages/brunocfalcao/laravel-zepto-mail-api-driver`
-**Configuration**: `config/services.php` → `zeptomail` key
-
-- Template: `resources/views/emails/notification.blade.php`
-- Title: NO hostname prefix
-- Salutation: "Hello {User Name},"
-- Message: `nl2br(e())` for newlines
-- **Special Markup**: `[COPY]text[/COPY]` renders as prominent, selectable monospace text (used for IP addresses)
-- Footer: Support email, timestamp (Europe/Zurich) - **NO hostname** (security)
-- **Headers**: Critical/High get `Priority: 1`, `X-Priority: 1`, `Importance: high`
-- **Design**: Responsive HTML with severity badges, action buttons, mobile-friendly CSS
-
-#### Zeptomail Integration Details
+### Zeptomail Integration Details
 
 **Transport Driver**: Custom Symfony Mailer transport implementing `AbstractTransport`
 **API Endpoint**: `https://api.zeptomail.com/v1.1/email`
@@ -1268,6 +773,440 @@ $processedMessage = preg_replace_callback(
 18. **Command display**: Use `[CMD]command[/CMD]` for system commands (supervisor, SQL queries, bash) in admin emails
 19. **Supervisor processes**: Reference correct process names: `update-binance-prices`, `update-bybit-prices`
 20. **Exception context**: Pass exception messages via context array for WebSocket/system errors
+
+## Symbol Delisting Notifications
+
+### Overview
+Automatic detection and notification system for cryptocurrency symbol delistings. When an exchange symbol's delivery date changes in a way that indicates delisting, the system notifies the admin with details about affected positions.
+
+**Key Features**:
+- **Exchange-specific logic**: Binance and Bybit handle delisting differently
+- **Observer pattern**: Uses ExchangeSymbolObserver to detect delivery date changes
+- **Position tracking**: Lists all open positions affected by the delisting
+- **No auto-close**: Positions are NOT automatically closed - admin reviews manually
+
+### Architecture
+
+**Single Source of Truth**: All delisting notifications originate from `ExchangeSymbol` model (via `SendsNotifications` trait).
+
+**Flow**: Delivery date changes → ExchangeSymbolObserver → `sendDelistingNotificationIfNeeded()` → Admin notification
+
+**SyncMarketDataJob**: Updates delivery dates from exchange API, but does NOT send notifications. Observer handles all notifications.
+
+**Delisting Detection Flow**:
+```
+SyncMarketDataJob fetches market data from exchange API
+  ↓
+ExchangeSymbol delivery_ts_ms updated
+  ↓
+ExchangeSymbolObserver::saved()
+  ↓
+SendsNotifications::sendDelistingNotificationIfNeeded()
+  ↓
+Check wasChanged('delivery_ts_ms')
+  ↓
+Apply exchange-specific logic:
+  - Binance: value → different value = notify
+  - Bybit: null → value = notify
+  ↓
+Find all open positions for this symbol
+  ↓
+Build notification message with position details
+  ↓
+Send throttled notification to admin
+```
+
+### Exchange-Specific Logic
+
+#### Binance (Fixed-term Futures)
+**Rule**: Notify when delivery date **changes** from one value to a different value
+
+**Logic**:
+- `null → value` = **DO NOT NOTIFY** (initial sync, normal for fixed-term contracts)
+- `value → different value` = **NOTIFY** (contract rollover or delisting reschedule)
+
+**Example**:
+```php
+// Initial sync - NO notification
+$exchangeSymbol->update(['delivery_ts_ms' => 1704067200000]); // Jan 1, 2024
+
+// Later change - SEND notification
+$exchangeSymbol->update(['delivery_ts_ms' => 1735689600000]); // Jan 1, 2025
+```
+
+**Why**: Binance fixed-term futures always have delivery dates. The first time we see it is just data sync. Changes indicate contract lifecycle events requiring attention.
+
+#### Bybit (Perpetual Futures Only)
+**Rule**: Notify when delivery date **set for first time** (null → value)
+
+**Logic**:
+- `null → value` = **NOTIFY** (perpetual being delisted - rare event)
+- `value → different value` = **NOT TESTED** (we don't use Bybit fixed-term futures)
+
+**Example**:
+```php
+// Initially null (perpetual)
+$exchangeSymbol->delivery_ts_ms; // null
+
+// Delivery date set - SEND notification
+$exchangeSymbol->update(['delivery_ts_ms' => 1746057600000]); // May 1, 2025
+```
+
+**Why**: Bybit perpetual futures normally have NULL delivery dates (they don't expire). If a delivery date appears, it means the perpetual is being delisted - a critical event.
+
+### Core Implementation
+
+#### ExchangeSymbol Model
+**Location**: `packages/martingalian/core/src/Models/ExchangeSymbol.php`
+**Trait**: `SendsNotifications` - Contains ALL delisting notification logic
+
+#### SendsNotifications Trait
+**Location**: `packages/martingalian/core/src/Concerns/ExchangeSymbol/SendsNotifications.php`
+
+**Methods**:
+- `sendDelistingNotificationIfNeeded()` - Entry point, checks if notification should be sent
+- `sendDelistingNotification(int $deliveryTimestampMs)` - Builds and sends the notification
+
+**Critical Logic**:
+```php
+public function sendDelistingNotificationIfNeeded(): void
+{
+    // Check if delivery_ts_ms changed - this works for both creates and updates
+    if (! $this->wasChanged('delivery_ts_ms')) {
+        return;
+    }
+
+    $oldValue = $this->getOriginal('delivery_ts_ms');
+    $newValue = $this->delivery_ts_ms;
+
+    // Get exchange to determine notification logic
+    $exchange = $this->apiSystem->canonical ?? null;
+    if (! $exchange) {
+        return;
+    }
+
+    $shouldNotify = false;
+
+    // Binance: Delivery date changed (value → different value)
+    if ($exchange === 'binance') {
+        if ($oldValue !== null && $newValue !== null && $oldValue !== $newValue) {
+            $shouldNotify = true;
+        }
+    }
+
+    // Bybit: Delivery date set for first time (null → value)
+    if ($exchange === 'bybit') {
+        if (($oldValue === null && $newValue !== null) ||
+            ($oldValue !== null && $newValue !== null && $oldValue !== $newValue)) {
+            $shouldNotify = true;
+        }
+    }
+
+    if ($shouldNotify) {
+        $this->sendDelistingNotification($newValue);
+    }
+}
+```
+
+**Why wasChanged() Instead of wasRecentlyCreated?**:
+- Initial implementation tried to use `wasRecentlyCreated` to handle create vs update
+- Problem: `saved()` event fires on BOTH create and update, and `wasRecentlyCreated` stays true during same test execution
+- Solution: Use only `wasChanged('delivery_ts_ms')` which correctly detects changes in both scenarios
+
+#### ExchangeSymbolObserver
+**Location**: `packages/martingalian/core/src/Observers/ExchangeSymbolObserver.php`
+
+**Implementation**:
+```php
+public function saved(ExchangeSymbol $model): void
+{
+    // Delegate to model trait for delisting notification logic
+    $model->sendDelistingNotificationIfNeeded();
+}
+```
+
+**Why saved() Event?**:
+- Fires after BOTH create and update operations
+- `wasChanged()` works correctly in `saved()` event
+- More reliable than `updated()` event with `isDirty()`
+
+#### SyncMarketDataJob
+**Location**: `packages/martingalian/core/src/Jobs/Models/ApiSystem/SyncMarketDataJob.php`
+
+**Responsibility**: Updates delivery date data ONLY, does NOT send notifications
+
+**Implementation**:
+```php
+// Update delivery date when changed
+if ($currentMs !== null && $incomingMs > 0 && $incomingMs !== $currentMs) {
+    $exchangeSymbol->forceFill([
+        'delivery_ts_ms' => $incomingMs,
+        'delivery_at' => Carbon::createFromTimestampMs($incomingMs)->utc(),
+        'is_tradeable' => 0, // immediately stop trading this pair
+    ])->save();
+
+    // Note: Admin notification is handled by ExchangeSymbolObserver when delivery_ts_ms changes
+}
+```
+
+### Notification Details
+
+#### Canonical
+**Name**: `symbol_delisting_positions_detected`
+**Severity**: High
+**User Types**: `['admin']` (admin-only notification)
+**Throttle**: 1800 seconds (30 minutes)
+
+#### Message Template
+**Location**: `packages/martingalian/core/src/Support/NotificationMessageBuilder.php`
+
+**Configuration**:
+```php
+'symbol_delisting_positions_detected' => [
+    'severity' => NotificationSeverity::High,
+    'title' => 'Token Delisting Detected',
+    'emailMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'A symbol delivery date has changed, indicating potential delisting.',
+    'pushoverMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'Token delisting detected',
+    'actionUrl' => null,
+    'actionLabel' => null,
+],
+```
+
+**Why Custom Message?**: The trait builds a custom message with position details, passed via `$context['message']`. The fallback message is only used if something goes wrong.
+
+#### Message Format
+
+**With Open Positions**:
+```
+Token delisting detected: BTCUSDT on Binance
+
+Delivery Date: 1 Jan 2025 00:00 UTC
+
+Open positions requiring manual review:
+
+• Position #123 (LONG)
+  Account: Main Trading Account
+  User: John Trader
+
+• Position #124 (SHORT)
+  Account: Secondary Account
+  User: Jane Investor
+
+Total positions requiring attention: 2
+```
+
+**Without Open Positions**:
+```
+Token delisting detected: SOLUSDT on Bybit
+
+Delivery Date: 1 May 2025 00:00 UTC
+
+No open positions for this symbol.
+```
+
+#### Position Query
+**Logic**: Finds all open positions for the delisting symbol
+
+```php
+$positions = Position::query()
+    ->opened()
+    ->where('exchange_symbol_id', $this->id)
+    ->whereHas('account', function ($q) {
+        $q->where('api_system_id', $this->api_system_id);
+    })
+    ->get();
+```
+
+**Includes**:
+- Position ID and direction (LONG/SHORT)
+- Account name
+- User name (or "No User Assigned" if account has no user)
+
+### Testing
+
+#### Test Suite
+**Location**: `tests/Unit/Observers/ExchangeSymbolObserverDelistingTest.php`
+**Test Count**: 5 comprehensive tests
+**Strategy**: RefreshDatabase with Pest
+
+**Test Coverage**:
+1. ✅ Binance delivery date changes (value → different value) - SENDS notification
+2. ✅ Bybit delivery date set for first time (null → value) - SENDS notification
+3. ✅ Binance delivery date set for first time (null → value) - DOES NOT send notification
+4. ✅ Notification message includes position details when positions exist
+5. ✅ Notification message indicates no positions when none exist
+
+**Test Setup**:
+```php
+beforeEach(function (): void {
+    // Seed Martingalian admin
+    Martingalian::create([
+        'id' => 1,
+        'admin_user_email' => 'admin@test.com',
+        'admin_pushover_user_key' => 'test_pushover_key',
+        'admin_pushover_application_key' => 'test_app_key',
+        'notification_channels' => ['pushover'],
+    ]);
+
+    // Create throttle rule with zero throttling for tests
+    ThrottleRule::create([
+        'canonical' => 'symbol_delisting_positions_detected',
+        'throttle_seconds' => 0,
+        'is_active' => true,
+    ]);
+
+    // Enable notifications
+    config(['martingalian.notifications_enabled' => true]);
+});
+```
+
+**Test Example**:
+```php
+it('sends notification when Binance delivery date changes (value to different value)', function (): void {
+    NotificationFacade::fake();
+
+    $binance = ApiSystem::create(['canonical' => 'binance', 'name' => 'Binance', 'is_exchange' => true]);
+    $symbol = Symbol::create(['token' => 'BTC', 'name' => 'Bitcoin', 'cmc_id' => 1]);
+    $quote = Quote::create(['canonical' => 'USDT', 'name' => 'Tether']);
+
+    // Create with initial delivery date
+    $exchangeSymbol = ExchangeSymbol::create([
+        'api_system_id' => $binance->id,
+        'symbol_id' => $symbol->id,
+        'quote_id' => $quote->id,
+        'delivery_ts_ms' => 1704067200000, // Jan 1, 2024
+        // ... other fields
+    ]);
+
+    // Change delivery date - should trigger notification
+    $exchangeSymbol->update([
+        'delivery_ts_ms' => 1735689600000, // Jan 1, 2025
+        'delivery_at' => now()->addYear(),
+    ]);
+
+    // Assert notification was sent
+    NotificationFacade::assertSentTo(
+        Martingalian::admin(),
+        AlertNotification::class
+    );
+});
+```
+
+### Configuration
+
+#### Seeder Registration
+**Location**: `packages/martingalian/core/database/seeders/MartingalianSeeder.php`
+
+**Notification Canonical** (line ~1084):
+```php
+[
+    'canonical' => 'symbol_delisting_positions_detected',
+    'title' => 'Token Delisting - Open Positions Detected',
+    'description' => 'Sent when a symbol delivery date changes indicating delisting, and open positions exist requiring manual review',
+    'default_severity' => 'high',
+    'user_types' => ['admin'],
+    'is_active' => true,
+],
+```
+
+**Throttle Rule** (line ~1236):
+```php
+[
+    'canonical' => 'symbol_delisting_positions_detected',
+    'throttle_seconds' => 1800, // 30 minutes
+    'description' => 'Symbol delisting with open positions notification',
+    'is_active' => true,
+],
+```
+
+### Usage Example
+
+**Manual Trigger (Testing)**:
+```php
+// Get an exchange symbol
+$exchangeSymbol = ExchangeSymbol::find(1);
+
+// Update delivery date to trigger notification
+$exchangeSymbol->update([
+    'delivery_ts_ms' => 1735689600000,
+    'delivery_at' => Carbon::createFromTimestampMs(1735689600000)->utc(),
+]);
+
+// Observer automatically detects change and sends notification
+// Check notification_logs table to verify
+```
+
+### Troubleshooting
+
+#### Notification Not Sent
+
+**Check 1**: Verify exchange-specific logic conditions
+```php
+$exchangeSymbol = ExchangeSymbol::find(1);
+$oldValue = $exchangeSymbol->getOriginal('delivery_ts_ms');
+$newValue = $exchangeSymbol->delivery_ts_ms;
+$exchange = $exchangeSymbol->apiSystem->canonical;
+
+// For Binance: both values must be non-null and different
+// For Bybit: old must be null, new must be non-null
+```
+
+**Check 2**: Verify observer is registered
+```bash
+php artisan tinker
+>>> Martingalian\Core\Models\ExchangeSymbol::getObservableEvents()
+# Should include 'saved'
+```
+
+**Check 3**: Verify canonical exists in NotificationMessageBuilder
+```bash
+grep -n "symbol_delisting_positions_detected" packages/martingalian/core/src/Support/NotificationMessageBuilder.php
+```
+
+**Check 4**: Check throttle logs
+```sql
+SELECT * FROM throttle_logs
+WHERE canonical = 'symbol_delisting_positions_detected'
+ORDER BY id DESC LIMIT 1;
+```
+
+**Check 5**: Check notification logs
+```sql
+SELECT * FROM notification_logs
+WHERE canonical = 'symbol_delisting_positions_detected'
+ORDER BY id DESC LIMIT 5;
+```
+
+#### Wrong Exchange Logic Applied
+
+**Symptom**: Bybit symbols using Binance logic or vice versa
+
+**Check**:
+```php
+$exchangeSymbol = ExchangeSymbol::find(1);
+dump($exchangeSymbol->apiSystem->canonical); // Should be 'binance' or 'bybit'
+```
+
+**Fix**: Ensure ApiSystem canonical is correctly set in database.
+
+#### Generic "System Event" Message
+
+**Symptom**: Email body shows "A system event occurred that requires your attention"
+
+**Cause**: Canonical not registered in NotificationMessageBuilder
+
+**Fix**: Ensure `symbol_delisting_positions_detected` exists in NotificationMessageBuilder match statement (added in implementation).
+
+### Design Rules
+
+1. **Single responsibility**: Observer detects changes, trait handles notification logic
+2. **Exchange-specific**: Different logic for Binance vs Bybit based on trading strategy
+3. **No auto-close**: Positions are NOT automatically closed - admin reviews manually
+4. **Position details**: All open positions listed in notification for manual review
+5. **Throttled**: 30-minute throttle prevents spam when multiple symbols delist
+6. **Admin-only**: Only admin receives notification (user doesn't need this operational info)
+7. **Clean title**: "Token Delisting Detected" without exchange/server prefix
+8. **Used observer pattern**: Follows ApiRequestLogObserver pattern for consistency
 
 ## Email Bounce Alert Workflow
 

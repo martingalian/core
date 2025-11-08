@@ -7,17 +7,11 @@ namespace Martingalian\Core\Jobs\Models\ApiSystem;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
-use Martingalian\Core\Jobs\Lifecycles\Positions\ClosePositionJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Quote;
-use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\Symbol;
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 
 /*
  * SyncMarketDataJob
@@ -27,10 +21,10 @@ use Martingalian\Core\Support\Throttler;
  * • Skips symbols with underscores (likely test or synthetic pairs).
  * • Maps token pairs into Symbol and Quote models.
  * • Creates or updates matching ExchangeSymbol records.
- * • Persists Binance delivery (delisting) info and reacts to changes.
+ * • Persists delivery (delisting) info and reacts to changes.
  * • When a delivery (delisting) change is detected, disables trading and:
- *     - LONG positions → immediately schedule ClosePositionJob (as a Step)
- *     - SHORT positions → DO NOT close; notify admins to verify price action
+ *     - Notifies admin with list of all open positions (users + accounts)
+ *     - Does NOT automatically close positions - admin reviews manually
  */
 final class SyncMarketDataJob extends BaseApiableJob
 {
@@ -148,120 +142,10 @@ final class SyncMarketDataJob extends BaseApiableJob
                 ])->save();
 
                 // Note: Admin notification is handled by ExchangeSymbolObserver when delivery_ts_ms changes
-
-                // Apply directional policy:
-                // LONG → schedule ClosePositionJob immediately
-                // SHORT → notify only (do not close)
-                $this->handleOpenPositionsPerDirection($exchangeSymbol);
             }
             // --------------------------------------------------------------------------------
         }
 
         return $apiResponse->result;
-    }
-
-    /**
-     * Directional policy on delisting:
-     *  - LONG  → schedule ClosePositionJob immediately.
-     *  - SHORT → do NOT close; notify admins for manual verification of price action.
-     */
-    public function handleOpenPositionsPerDirection(ExchangeSymbol $exchangeSymbol): void
-    {
-        $closingNote = "Forcing LONG position closing due to a token delisting from {$this->apiSystem->name}.";
-        $shortNote = "Position NOT closed because it's a short, please verify price action!";
-
-        Position::query()
-            ->opened()
-            ->where('exchange_symbol_id', $exchangeSymbol->id)
-            ->whereHas('account', function ($q) {
-                $q->where('api_system_id', $this->apiSystem->id);
-            })
-            ->each(function (Position $position) use ($closingNote, $shortNote) {
-
-                $direction = mb_strtoupper((string) $position->direction);
-                $pairText = $position->parsed_trading_pair ?? 'N/A';
-
-                if ($direction === 'LONG') {
-                    // Schedule immediate close for LONG positions (no duplicate guard per request).
-                    /*
-                    Step::create([
-                        'class'     => ClosePositionJob::class,
-                        'queue'     => 'positions',
-                        'arguments' => [
-                            'positionId' => $position->id,
-                            'message'    => $closingNote,
-                        ],
-                    ]);
-                    */
-
-                    $title = '['.class_basename(static::class).'] Close LONG position scheduled';
-                    $adminMsg = sprintf(
-                        '%s Position #%d (%s, Account #%d).',
-                        $closingNote,
-                        $position->id,
-                        $pairText,
-                        $position->account_id
-                    );
-                    Throttler::using(NotificationService::class)
-                        ->withCanonical('symbol_delisting_long_position_close_scheduled')
-                        ->execute(function () use ($adminMsg, $title) {
-                            NotificationService::send(
-                                user: Martingalian::admin(),
-                                message: $adminMsg,
-                                title: $title,
-                                canonical: 'symbol_delisting_long_position_close_scheduled',
-                                deliveryGroup: 'exceptions'
-                            );
-                        });
-
-                    return;
-                }
-
-                if ($direction === 'SHORT') {
-                    // Do NOT close; just alert.
-                    $title = '['.class_basename(static::class).'] SHORT left open on delisting';
-                    $adminMsg = sprintf(
-                        '%s Position #%d (%s, Account #%d).',
-                        $shortNote,
-                        $position->id,
-                        $pairText,
-                        $position->account_id
-                    );
-                    Throttler::using(NotificationService::class)
-                        ->withCanonical('symbol_delisting_short_position_alert')
-                        ->execute(function () use ($adminMsg, $title) {
-                            NotificationService::send(
-                                user: Martingalian::admin(),
-                                message: $adminMsg,
-                                title: $title,
-                                canonical: 'symbol_delisting_short_position_alert',
-                                deliveryGroup: 'exceptions'
-                            );
-                        });
-
-                    return;
-                }
-
-                // Unknown direction: notify only.
-                $title = '['.class_basename(static::class).'] Unknown direction on delisting';
-                $adminMsg = sprintf(
-                    'Unknown direction "%s" — no automatic action taken for Position #%d (%s, Account #%d).',
-                    $position->direction,
-                    $position->id,
-                    $pairText,
-                    $position->account_id
-                );
-                Throttler::using(NotificationService::class)
-                    ->withCanonical('symbol_delisting_unknown_direction')
-                    ->execute(function () use ($adminMsg, $title) {
-                        NotificationService::send(
-                            user: Martingalian::admin(),
-                            message: $adminMsg,
-                            title: $title,
-                            canonical: 'symbol_delisting_unknown_direction',
-                            deliveryGroup: 'exceptions'
-                        );
-                    });
-            });
     }
 }

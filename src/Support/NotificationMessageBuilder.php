@@ -351,6 +351,15 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
+            'symbol_delisting_positions_detected' => [
+                'severity' => NotificationSeverity::High,
+                'title' => 'Token Delisting Detected',
+                'emailMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'A symbol delivery date has changed, indicating potential delisting.',
+                'pushoverMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'Token delisting detected',
+                'actionUrl' => null,
+                'actionLabel' => null,
+            ],
+
             // Default fallback for unknown canonicals
             default => [
                 'severity' => NotificationSeverity::Info,

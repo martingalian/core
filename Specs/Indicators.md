@@ -7,6 +7,8 @@ Comprehensive technical analysis system using 12+ indicators to generate trading
 
 ### Indicator Types
 
+#### By Category
+
 **RefreshData Indicators** - Live indicators refreshed periodically:
 - **RSI** (Relative Strength Index) - Momentum oscillator (0-100)
 - **MACD** (Moving Average Convergence Divergence) - Trend following
@@ -17,13 +19,43 @@ Comprehensive technical analysis system using 12+ indicators to generate trading
 - **EMAsConvergence** - Multiple EMA alignment analysis
 - **EMAsSameDirection** - EMA trend consistency
 - **AmplitudeThresholdIndicator** - Price volatility detection
-- **CandleComparisonIndicator** - Candle pattern analysis
+- **CandleComparisonIndicator** - Price action confirmation
 
 **History Indicators** - Historical data storage:
 - **CandleIndicator** - OHLCV candle storage and retrieval
 
 **Reports Indicators** - Analytics and monitoring:
 - **PriceVolatilityIndicator** - Price movement analysis
+
+#### By Interface/Role
+
+Indicators implement specific interfaces to define their role in direction conclusion:
+
+**DirectionIndicator** - Determines market direction (LONG/SHORT):
+- **EMAsSameDirection** - Computed indicator analyzing all EMA trends
+- **CandleComparisonIndicator** - Price action validation
+- **OBV** - Volume-based direction
+- **EMA-40, EMA-80, EMA-120** - Individual EMA trend directions
+
+**ValidationIndicator** - Validates market conditions (true/false):
+- **ADX** - Confirms sufficient trend strength for trading
+
+**Non-Conclusive Indicators** - Store data without providing direction/validation:
+- **CandleIndicator** (History) - Stores raw candle data
+- **PriceVolatilityIndicator** (Reports) - Analytics only
+
+#### Computed vs API-Queried
+
+**API-Queried Indicators** (`is_computed = false`):
+- Query TAAPI.io directly for indicator values
+- Examples: ADX, OBV, EMA-40, EMA-80, EMA-120, CandleComparisonIndicator
+- Stored first in QuerySymbolIndicatorsJob
+
+**Computed Indicators** (`is_computed = true`):
+- Calculated from other indicators' results
+- Do NOT query TAAPI - receive indicator data as input
+- Examples: EMAsSameDirection (analyzes EMA-40, EMA-80, EMA-120)
+- Processed after API-queried indicators in QuerySymbolIndicatorsJob
 
 ### Data Flow
 
@@ -196,14 +228,22 @@ abstract class BaseIndicator
 
 #### CandleComparisonIndicator
 **File**: `RefreshData/CandleComparisonIndicator.php`
-**Purpose**: Pattern recognition across candles
-**Logic**: Compares current candle to previous candles for patterns
+**Type**: DirectionIndicator
+**Purpose**: Price action confirmation - ensures price movement agrees with other indicators
+**Logic**: Compares close prices between older and newer candles
 
-**Patterns Detected**:
-- Engulfing patterns
-- Doji formations
-- Hammer/Shooting star
-- Long-body candles
+**Implementation**:
+- Queries TAAPI `candle` endpoint with `results=2` parameter
+- Receives columnar format: `{"close": [older, newer], "open": [older, newer], ...}`
+- Compares `close[0]` (older) vs `close[1]` (newer)
+- Returns LONG if price increased, SHORT if price decreased
+
+**Role in Direction Conclusion**:
+Acts as final validation that price action aligns with other directional indicators. If all other indicators say LONG but price is falling (SHORT), the symbol becomes INCONCLUSIVE, preventing trades against actual price movement.
+
+**Configuration**:
+- `is_computed`: false (queries TAAPI directly, not computed from other indicators)
+- `parameters`: `{"results": 2}` (fetch 2 most recent candles)
 
 ### History Indicators
 

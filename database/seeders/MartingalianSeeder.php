@@ -288,14 +288,14 @@ final class MartingalianSeeder extends Seeder
             'canonical' => 'emas-same-direction',
             'is_active' => true,
             'class' => "Martingalian\Core\Indicators\RefreshData\EMAsSameDirection",
-            'is_computed' => false,
+            'is_computed' => true,
         ]);
 
         Indicator::create([
             'canonical' => 'candle-comparison',
             'type' => 'refresh-data',
             'is_active' => true,
-            'is_computed' => true,
+            'is_computed' => false,
             'class' => "Martingalian\Core\Indicators\Ongoing\CandleComparisonIndicator",
             'parameters' => [
                 'results' => 2,
@@ -317,6 +317,7 @@ final class MartingalianSeeder extends Seeder
 
         Indicator::create([
             'canonical' => 'obv',
+            'is_active' => false, // For now, this indicator is causing issues.
             'class' => "Martingalian\Core\Indicators\RefreshData\OBVIndicator",
             'parameters' => [
                 'results' => 2,
@@ -424,7 +425,8 @@ final class MartingalianSeeder extends Seeder
             [
                 'name' => 'CoinmarketCap',
                 'is_exchange' => false,
-            ]);
+            ]
+        );
 
         $alternativeMe = ApiSystem::firstOrCreate(
             ['canonical' => 'alternativeme'],
@@ -1081,6 +1083,14 @@ final class MartingalianSeeder extends Seeder
                 'user_types' => ['admin'],
                 'is_active' => true,
             ],
+            [
+                'canonical' => 'symbol_delisting_positions_detected',
+                'title' => 'Symbol Delisting - Open Positions Detected',
+                'description' => 'Sent when a symbol delivery date changes indicating delisting, and open positions exist requiring manual review',
+                'default_severity' => 'high',
+                'user_types' => ['admin'],
+                'is_active' => true,
+            ],
         ];
 
         foreach ($notifications as $notification) {
@@ -1224,6 +1234,9 @@ final class MartingalianSeeder extends Seeder
 
             // User notification system throttles
             ['canonical' => 'bounce_alert_to_pushover', 'throttle_seconds' => 3600, 'description' => 'Email bounce alert notification (sent via Pushover)', 'is_active' => true],
+
+            // Symbol delisting throttles
+            ['canonical' => 'symbol_delisting_positions_detected', 'throttle_seconds' => 1800, 'description' => 'Symbol delisting with open positions notification', 'is_active' => true],
         ];
 
         foreach ($throttleRules as $rule) {

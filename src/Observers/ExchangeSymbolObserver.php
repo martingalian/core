@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Observers;
 
-use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 
 final class ExchangeSymbolObserver
 {
@@ -24,47 +20,13 @@ final class ExchangeSymbolObserver
 
     public function created(ExchangeSymbol $model): void {}
 
-    public function updated(ExchangeSymbol $model): void
+    public function saved(ExchangeSymbol $model): void
     {
-
-        // Notify admins when delivery date changes (delisting schedule update)
-        // Only notify when both old and new values are non-null (actual change in schedule)
-        if ($model->isDirty('delivery_ts_ms')) {
-            $oldValue = $model->getOriginal('delivery_ts_ms');
-            $newValue = $model->delivery_ts_ms;
-
-            // Only notify when both values are non-null and different
-            if ($oldValue !== null && $newValue !== null && $oldValue !== $newValue) {
-                // Prepare human-friendly UTC date
-                $when = Carbon::createFromTimestampMs((int) $newValue)->utc()->format('j M Y H:i');
-
-                // Use parsed_trading_pair accessor for display (e.g., BTC/USDT)
-                $pairLabel = $model->parsed_trading_pair ?? 'N/A';
-
-                // Get exchange name
-                $exchangeName = $model->apiSystem->name ?? 'Unknown Exchange';
-
-                // Notify admins about the delisting schedule update
-                $msg = sprintf(
-                    'Delisting schedule updated: %s on %s set to %s UTC. Trading disabled for this symbol.',
-                    $pairLabel,
-                    $exchangeName,
-                    $when
-                );
-                $title = '[ExchangeSymbolObserver] Futures delisting detected';
-                Throttler::using(NotificationService::class)
-                    ->withCanonical('futures_delisting_detected')
-                    ->execute(function () use ($msg, $title) {
-                        NotificationService::send(
-                            user: Martingalian::admin(),
-                            message: $msg,
-                            title: $title,
-                            deliveryGroup: 'exceptions'
-                        );
-                    });
-            }
-        }
+        // Delegate to model trait for delisting notification logic
+        $model->sendDelistingNotificationIfNeeded();
     }
+
+    public function updated(ExchangeSymbol $model): void {}
 
     public function deleted(ExchangeSymbol $model): void {}
 
