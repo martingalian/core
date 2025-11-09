@@ -22,15 +22,15 @@ app/
 └── Support/                 # Helper classes
 
 packages/martingalian/core/src/
-├── Abstracts/               # BaseQueueableJob, BaseApiableJob, BaseApiClient, BaseWebsocketClient, BaseExceptionHandler
+├── Abstracts/               # BaseQueueableJob, BaseApiableJob, BaseApiClient, BaseWebsocketClient, BaseExceptionHandler, BaseModel
 ├── Models/                  # User, Account, Position, Order, Step, ApiRequestLog, Notification, NotificationLog, ThrottleLog, ThrottleRule
 ├── Notifications/           # AlertNotification
 ├── Mail/                    # AlertMail
 ├── Enums/                   # NotificationSeverity
 ├── Listeners/               # NotificationLogListener
-├── Concerns/                # Traits for models (ApiRequestLog/SendsNotifications, Step/HasActions, etc.)
+├── Concerns/                # Traits for models (HasModelCache, ApiRequestLog/SendsNotifications, Step/HasActions, etc.)
 ├── States/                  # Step states (Pending, Running, Completed, Failed, etc.)
-├── Support/                 # ApiClients, ExceptionHandlers, StepDispatcher, NotificationService, NotificationMessageBuilder, Throttler
+├── Support/                 # ApiClients, ExceptionHandlers, StepDispatcher, NotificationService, ModelCache, Throttler
 └── database/                # migrations/, factories/, seeders/ (ALL HERE, not in main app)
 ```
 

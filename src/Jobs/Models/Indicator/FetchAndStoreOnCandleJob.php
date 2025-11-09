@@ -24,9 +24,6 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
     /** e.g. 'candles' */
     public string $canonical;
 
-    /** Maps to your Indicator row */
-    public string $type;
-
     /** '1h' | '2h' | '4h' | '1d' */
     public string $timeframe;
 
@@ -35,13 +32,11 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
     public function __construct(
         int $exchangeSymbolId,
         string $canonical,
-        string $type,
         string $timeframe,
         array $params = []
     ) {
         $this->exchangeSymbol = ExchangeSymbol::findOrFail($exchangeSymbolId);
         $this->canonical = $canonical;
-        $this->type = $type;
         $this->timeframe = $timeframe;
         $this->params = $params;
         $this->retries = 150;
@@ -63,7 +58,6 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
         // Resolve indicator implementation
         $indicatorModel = Indicator::query()
             ->where('canonical', $this->canonical)
-            ->where('type', $this->type)
             ->where('is_active', 1)
             ->firstOrFail();
 

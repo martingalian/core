@@ -29,7 +29,7 @@ abstract class BaseExceptionHandler
 {
     public int $backoffSeconds = 10;
 
-    public ?Account $account;
+    public ?Account $account = null;
 
     // Just to confirm it's being used by a child class. Should return true.
     abstract public function ping(): bool;

@@ -332,18 +332,51 @@ NotificationMessageBuilder::build('ip_not_whitelisted', [
 ### NotificationMessageBuilder
 **Location**: `packages/martingalian/core/src/Support/NotificationMessageBuilder.php`
 **Namespace**: `Martingalian\Core\Support\NotificationMessageBuilder`
-**Accepts**: Base canonicals (e.g., `api_access_denied`) without exchange prefix
-**Returns**: severity, title, emailMessage, pushoverMessage, actionUrl, actionLabel
-**Context**: Exchange passed separately for interpolation (e.g., `{exchange: 'binance'}`)
-**Templates**: 30+ predefined message templates covering API errors, system alerts, trading events
+**Purpose**: Transforms notification message canonicals into user-friendly content with appropriate severity levels, action items, and exchange-specific URLs
+
+**Method Signature**:
+```php
+public static function build(
+    string|Notification $canonical,
+    array $context = [],
+    ?User $user = null
+): array
+```
+
+**Parameters**:
+- `$canonical` (string|Notification) - The base message canonical (e.g., 'api_access_denied') or Notification model instance
+- `$context` (array) - Additional context data for message interpolation
+- `$user` (User|null) - The user receiving the notification (for personalization)
+
+**Returns**: Array with structure:
+```php
+[
+    'severity' => NotificationSeverity,      // enum: Info, Low, Medium, High, Critical
+    'title' => string,                       // notification title
+    'emailMessage' => string,                // full email body with formatting
+    'pushoverMessage' => string,             // short mobile-optimized message
+    'actionUrl' => string|null,              // URL for call-to-action button
+    'actionLabel' => string|null,            // label for action button
+]
+```
+
+**Design Pattern**:
+- **Base Canonicals Only**: Accepts canonicals without exchange prefixes (e.g., `api_access_denied` not `binance_api_access_denied`)
+- **Context Interpolation**: Exchange-specific data passed via `$context` array, allowing message templates to be reusable across different API systems
+- **Template Library**: 30+ predefined message templates covering API errors, system alerts, trading events
+- **Match Statement**: Templates defined in single match expression for clarity and type safety
+- **Type Safety**: All context variables extracted with type checking before interpolation
 
 **Context Variables** (passed via `$context` array):
 - `exchange` (string) - Exchange canonical identifier ('binance', 'bybit') for dynamic message interpolation
 - `ip` (string) - **MUST be IP address** (IPv4/IPv6), NEVER hostname. Use `gethostbyname(gethostname())` to convert. Included in email body for server-related issues.
 - `exception` (string) - Exception message for WebSocket/system errors
 - `account_info` (string) - Account name/identifier
+- `account_name` (string) - Account display name
 - `hostname` (string) - Server hostname (display only, NOT for whitelisting)
-- `wallet_balance`, `unrealized_pnl` - Trading metrics
+- `wallet_balance` (string) - Wallet balance for trading metrics
+- `unrealized_pnl` (string) - Unrealized PnL for trading metrics
+- `message` (string) - Custom message content (used by many templates as fallback)
 
 **CRITICAL**: The `'ip'` key MUST contain an actual IP address. Users need this for exchange API whitelisting. Hostnames are useless for this purpose.
 
@@ -352,6 +385,93 @@ NotificationMessageBuilder::build('ip_not_whitelisted', [
 - Use `$apiSystem->name` for display (e.g., "Binance" not "binance")
 - Fallback to `ucfirst($canonical)` only if model not found
 - Applied in: SendsNotifications trait, NotificationService
+
+**Template Structure Example**:
+```php
+return match ($canonicalString) {
+    'price_spike_check_symbol_error' => [
+        'severity' => NotificationSeverity::Medium,
+        'title' => 'Price Spike Check Error',
+        'emailMessage' => is_string($context['message'] ?? null)
+            ? $context['message']
+            : 'An error occurred during batch price spike detection. The symbol may be missing required candle data or there was a calculation error.',
+        'pushoverMessage' => is_string($context['message'] ?? null)
+            ? $context['message']
+            : 'Price spike check failed for symbol',
+        'actionUrl' => null,
+        'actionLabel' => null,
+    ],
+
+    // ... 30+ more templates ...
+
+    default => [
+        'severity' => NotificationSeverity::Info,
+        'title' => 'System Notification',
+        'emailMessage' => is_string($context['message'] ?? null)
+            ? $context['message']
+            : 'A system event occurred that requires your attention.',
+        'pushoverMessage' => is_string($context['message'] ?? null)
+            ? $context['message']
+            : 'System notification',
+        'actionUrl' => null,
+        'actionLabel' => null,
+    ],
+};
+```
+
+**Usage Examples**:
+```php
+// Basic usage with minimal context
+$messageData = NotificationMessageBuilder::build('api_rate_limit_exceeded', [
+    'exchange' => 'binance',
+]);
+
+// Full context for IP whitelisting notification
+$messageData = NotificationMessageBuilder::build('ip_not_whitelisted', [
+    'exchange' => 'binance',
+    'ip' => gethostbyname(gethostname()),
+    'hostname' => gethostname(),
+], $user);
+
+// Using Notification model instance
+$notification = Notification::where('canonical', 'api_access_denied')->first();
+$messageData = NotificationMessageBuilder::build($notification, [
+    'exchange' => 'bybit',
+    'account_info' => 'Trading Account #1',
+]);
+
+// Custom message fallback
+$messageData = NotificationMessageBuilder::build('price_spike_check_symbol_error', [
+    'message' => "[{$symbol->id}] - ExchangeSymbol price spike check error - {$errorMessage}",
+]);
+```
+
+**Helper Methods**:
+- `getApiManagementUrl(string $exchange): ?string` - Returns exchange-specific API management URL
+- `getExchangeStatusUrl(string $exchange): ?string` - Returns exchange-specific status/announcement URL
+
+**Adding New Templates**:
+1. Add notification canonical to `notifications` table via seeder
+2. Add throttle rule to `throttle_rules` table via seeder
+3. Add template to NotificationMessageBuilder match statement (before `default` case)
+4. Include all required context variables with type-safe extraction
+5. Set appropriate severity level based on user impact
+6. Provide actionable emailMessage with clear next steps
+7. Provide concise pushoverMessage optimized for mobile
+8. Add actionUrl and actionLabel if user action required
+
+**Type Safety Pattern**:
+```php
+// Extract and validate context variables before match
+$exchangeRaw = $context['exchange'] ?? 'exchange';
+$exchange = is_string($exchangeRaw) ? $exchangeRaw : 'exchange';
+$exchangeTitle = ucfirst($exchange);
+
+$ipRaw = $context['ip'] ?? 'unknown';
+$ip = is_string($ipRaw) ? $ipRaw : 'unknown';
+
+// Then use $exchange, $exchangeTitle, $ip in templates
+```
 
 ### AlertMail
 **Location**: `packages/martingalian/core/src/Mail/AlertMail.php`

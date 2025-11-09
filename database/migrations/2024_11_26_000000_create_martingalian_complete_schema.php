@@ -668,9 +668,11 @@ return new class extends Migration
             $table->timestamp('last_logged_in_at')->nullable()->after('previous_logged_in_at');
             $table->boolean('is_active')->default(false)->after('last_logged_in_at');
             $table->boolean('can_trade')->default(true)->after('is_active');
+            $table->boolean('is_admin')->default(false)->after('can_trade');
 
             $table->index('is_active', 'idx_users_is_active');
             $table->index('can_trade', 'idx_users_can_trade');
+            $table->index('is_admin', 'idx_users_is_admin');
         });
     }
 

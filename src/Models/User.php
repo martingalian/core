@@ -26,6 +26,7 @@ use RuntimeException;
  * @property \Illuminate\Support\Carbon|null $previous_logged_in_at
  * @property bool $can_trade
  * @property bool $is_active
+ * @property bool $is_admin
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property string|null $_temp_delivery_group
@@ -56,6 +57,7 @@ final class User extends Authenticatable
 
         'can_trade' => 'boolean',
         'is_active' => 'boolean',
+        'is_admin' => 'boolean',
 
         'password' => 'hashed',
         'pushover_key' => 'encrypted',

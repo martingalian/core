@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Martingalian\Core\Abstracts;
 
 use Illuminate\Database\Eloquent\Model;
+use Martingalian\Core\Concerns\HasModelCache;
 
 abstract class BaseModel extends Model
 {
+    use HasModelCache;
+
     // Internal only; not persisted
     protected array $attributeChangesCache = [];
 

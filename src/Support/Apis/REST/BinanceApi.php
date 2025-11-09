@@ -179,6 +179,17 @@ final class BinanceApi
         return $this->client->signRequest($apiRequest);
     }
 
+    // https://developers.binance.com/docs/binance-spot-api-docs/rest-api/public-api-endpoints#account-information-user_data
+    public function getSpotAccountBalance()
+    {
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v3/account'
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
     // https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/Change-Initial-Leverage
     public function changeInitialLeverage(ApiProperties $properties)
     {

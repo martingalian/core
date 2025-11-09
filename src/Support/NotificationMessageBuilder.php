@@ -360,6 +360,15 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
+            'price_spike_check_symbol_error' => [
+                'severity' => NotificationSeverity::Medium,
+                'title' => 'Price Spike Check Error',
+                'emailMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'An error occurred during batch price spike detection. The symbol may be missing required candle data or there was a calculation error.',
+                'pushoverMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'Price spike check failed for symbol',
+                'actionUrl' => null,
+                'actionLabel' => null,
+            ],
+
             // Default fallback for unknown canonicals
             default => [
                 'severity' => NotificationSeverity::Info,

@@ -288,67 +288,96 @@ Clients parse response headers:
 
 **Purpose**: Coordinate rate limiting across workers using Redis cache to prevent IP bans
 
+**Design Pattern**: Exception handlers delegate to throttlers for all rate limiting operations
+
 ### BinanceThrottler
 
 **Features**:
 - Parses response headers (`X-MBX-USED-WEIGHT-*`, `X-MBX-ORDER-COUNT-*`)
 - Tracks IP ban state in cache with expiry
-- Rate limit proximity detection (>80% threshold triggers `isSafeToDispatch() > 0`)
-- Two-phase throttling: pre-flight safety + standard throttling
+- Tracks per-account ORDER limits using account_id (passed from exception handler)
+- Rate limit proximity detection (>80% threshold)
+- Returns delay in seconds for pre-flight safety checks
 
 **Cache Keys**:
 - `binance:ip_ban:{hostname}` - IP ban state with retry-after TTL
-- `binance:rate_limits:{hostname}` - Current rate limit usage
+- `binance:weight:{hostname}:1m` - IP-based weight consumption per minute
+- `binance:orders:{hostname}:{account_id}:10s` - Per-account order limits
 
 **Methods**:
-- `recordResponseHeaders()` - Parse and cache rate limit headers
-- `isCurrentlyBanned()` - Check if IP is banned
-- `recordIpBan()` - Record ban with retry-after TTL
-- `isSafeToDispatch()` - Returns delay in seconds (0 = safe, >0 = wait)
-- `canDispatch()` - Standard throttling (window limits, backoff)
+- `recordResponseHeaders(ResponseInterface $response, ?int $accountId = null)` - Parse and cache headers
+- `isCurrentlyBanned()` - Check if IP is banned (returns bool)
+- `recordIpBan(int $retryAfterSeconds)` - Record ban with retry-after TTL
+- `isSafeToMakeRequest()` - Pre-flight check, returns delay in seconds (0 = safe, >0 = wait)
+
+**Usage Flow**:
+```php
+// 1. ExceptionHandler receives response from BaseApiClient
+$accountId = $this->account?->id;
+BinanceThrottler::recordResponseHeaders($response, $accountId);
+
+// 2. Pre-flight check before making request
+$delay = BinanceThrottler::isSafeToMakeRequest();
+if ($delay > 0) {
+    // Wait before making request
+}
+```
 
 ### BybitThrottler
 
 **Features**:
-- Conservative limits (500 req/5s = 83% of Bybit's 600 req/5s limit)
 - IP ban tracking via cache
 - Pre-flight safety checks
-- Two-phase throttling
+- Rate limit proximity detection
 
 **Cache Keys**:
-- `bybit:ip_ban:{hostname}` - IP ban state
-- Request tracking via `BaseApiThrottler`
+- `bybit:ip_ban:{hostname}` - IP ban state with retry-after TTL
 
-**Methods**: Same interface as BinanceThrottler
+**Methods**:
+- `recordResponseHeaders(ResponseInterface $response, ?int $accountId = null)` - Parse Bybit headers
+- `isCurrentlyBanned()` - Check if IP is banned
+- `recordIpBan(int $retryAfterSeconds)` - Record ban with TTL
+- `isSafeToMakeRequest()` - Pre-flight check, returns delay in seconds (0 = safe, >0 = wait)
 
-### Two-Phase Throttling Pattern
+### Simple Throttlers (TAAPI, CoinMarketCap, Alternative.me)
 
-**Phase 1** - Pre-flight Safety (`isSafeToDispatch()`):
-- Check IP ban status (immediate rejection if banned)
-- Check rate limit proximity (reject if >80% capacity)
-- Returns delay in seconds (0 = safe, >0 = wait time)
+**Pattern**: No-op implementations (no IP ban tracking, no response header parsing)
 
-**Phase 2** - Standard Throttling (`canDispatch()`):
-- Window-based limits (requests per interval)
-- Minimum delay between requests
-- Exponential backoff on errors
+**Methods**:
+- `recordResponseHeaders()` - No-op (does nothing)
+- `isCurrentlyBanned()` - Always returns false
+- `recordIpBan()` - No-op (does nothing)
+- `isSafeToMakeRequest()` - Always returns 0 (safe)
 
-**Usage in Jobs**:
+### Throttling Flow in Jobs
+
+**Usage in BaseApiableJob**:
 ```php
-// Phase 1: Pre-flight check
-$delay = BinanceThrottler::isSafeToDispatch();
-if ($delay > 0) {
-    $this->release($delay); // Postpone job
-    return;
+public function handle()
+{
+    $handler = BaseExceptionHandler::make($this->apiSystem)
+        ->withAccount($this->account);
+
+    // Pre-flight check (delegates to Throttler)
+    $delaySeconds = $this->shouldStartOrThrottle($handler);
+    if ($delaySeconds > 0) {
+        $this->release($delaySeconds); // Postpone job
+        return;
+    }
+
+    // Safe to proceed with API call
+    $response = $this->apiClient->makeRequest();
+
+    // BaseApiClient automatically calls handler->recordResponseHeaders($response)
 }
 
-// Phase 2: Standard throttling
-if (!BinanceThrottler::canDispatch()) {
-    $this->release(5); // Brief delay
-    return;
+// In BaseApiableJob
+protected function shouldStartOrThrottle(BaseExceptionHandler $handler): int
+{
+    // Delegates to handler->isSafeToMakeRequest()
+    // Which delegates to Throttler->isSafeToMakeRequest()
+    return $handler->isSafeToMakeRequest() ? 0 : 60;
 }
-
-// Safe to proceed with API call
 ```
 
 ## WebSocket Architecture

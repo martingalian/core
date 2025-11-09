@@ -490,6 +490,7 @@ final class MartingalianSeeder extends Seeder
             'email' => env('TRADER_EMAIL'),
             'password' => bcrypt('password'),
             'is_active' => true,
+            'is_admin' => true,
             'pushover_key' => env('PUSHOVER_USER_KEY'),
             'notification_channels' => ['mail', 'pushover'],
         ];
@@ -1091,6 +1092,14 @@ final class MartingalianSeeder extends Seeder
                 'user_types' => ['admin'],
                 'is_active' => true,
             ],
+            [
+                'canonical' => 'price_spike_check_symbol_error',
+                'title' => 'Price Spike Check - Symbol Error',
+                'description' => 'Sent when price spike check fails due to missing symbol data or calculation errors',
+                'default_severity' => 'medium',
+                'user_types' => ['admin'],
+                'is_active' => true,
+            ],
         ];
 
         foreach ($notifications as $notification) {
@@ -1237,6 +1246,9 @@ final class MartingalianSeeder extends Seeder
 
             // Symbol delisting throttles
             ['canonical' => 'symbol_delisting_positions_detected', 'throttle_seconds' => 1800, 'description' => 'Symbol delisting with open positions notification', 'is_active' => true],
+
+            // Price spike check throttles
+            ['canonical' => 'price_spike_check_symbol_error', 'throttle_seconds' => 900, 'description' => 'Price spike check symbol error notification', 'is_active' => true],
         ];
 
         foreach ($throttleRules as $rule) {

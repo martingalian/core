@@ -72,15 +72,20 @@ $parser->errorMsg(); // "Too many requests"
 **Location**: `Martingalian\Core\Abstracts\BaseExceptionHandler`
 **Purpose**: Abstract base class for API-specific exception handlers
 
+**Properties**:
+- `public int $backoffSeconds = 10` - Default backoff duration
+- `public ?Account $account = null` - Optional account for per-account rate limiting (set via `withAccount()`)
+
 **Key Methods**:
 - `isRateLimited(Throwable $e): bool` - Detect rate limit errors
 - `isForbidden(Throwable $e): bool` - Detect auth/permission errors
 - `isRecvWindowMismatch(Throwable $e): bool` - Detect timestamp errors
 - `rateLimitUntil(RequestException $e): Carbon` - Calculate retry time
-- `backoffSeconds(Throwable $e): int` - Calculate backoff duration
-- `recordResponseHeaders(Response $r): void` - Track rate limit state
-- `isCurrentlyBanned(): bool` - Check if IP is banned
-- `isSafeToMakeRequest(): bool` - Pre-flight safety check
+- `recordResponseHeaders(ResponseInterface $r): void` - Track rate limit state (delegates to Throttlers)
+- `isCurrentlyBanned(): bool` - Check if IP is banned (delegates to Throttlers)
+- `isSafeToMakeRequest(): bool` - Pre-flight safety check (delegates to Throttlers)
+- `recordIpBan(int $retryAfterSeconds): void` - Record IP ban (delegates to Throttlers)
+- `withAccount(Account $account)` - Eager load account for per-account rate limiting
 
 **Factory Pattern**:
 ```php
@@ -89,6 +94,9 @@ $handler = BaseExceptionHandler::make('binance');
 
 $handler = BaseExceptionHandler::make('bybit');
 // Returns BybitExceptionHandler instance
+
+// With account for per-account ORDER limits (Binance)
+$handler = BaseExceptionHandler::make('binance')->withAccount($account);
 ```
 
 **Error Code Classification**:
@@ -147,7 +155,14 @@ $retryTime = now()->startOfMinute()->addMinute();
 if ($handler->isIpBanned($exception)) {
     $retryAfter = 60; // seconds
     $handler->recordIpBan($retryAfter);
+    // Delegates to BinanceThrottler which stores in cache: binance:ip_ban:{hostname}
     // All jobs on this IP will pause for 60 seconds
+}
+
+// Check if currently banned
+if ($handler->isCurrentlyBanned()) {
+    // Delegates to BinanceThrottler->isCurrentlyBanned()
+    // Returns true if cache key exists and hasn't expired
 }
 ```
 
@@ -390,35 +405,36 @@ protected function handleException(Throwable $e)
 
 ### BaseApiableJob Exception Handling
 API-specific jobs extend BaseApiableJob which includes:
-- Pre-flight safety checks (`isSafeToMakeRequest()`)
-- Response header recording (`recordResponseHeaders()`)
-- IP ban coordination
+- Pre-flight safety checks (`shouldStartOrThrottle()` - delegates to exception handler)
+- Response header recording (`recordResponseHeaders()` - called by BaseApiClient)
+- IP ban coordination (via Throttlers)
 - Throttle rule integration
+- **Model caching** - Prevents duplicate operations on retry
 
 ```php
 public function handle()
 {
-    $handler = BaseExceptionHandler::make($this->apiSystem);
+    $handler = BaseExceptionHandler::make($this->apiSystem)
+        ->withAccount($this->account); // For per-account rate limiting
 
-    // Pre-flight check
-    if (!$handler->isSafeToMakeRequest()) {
+    // Pre-flight check (delegates to Throttler via isSafeToMakeRequest())
+    $delaySeconds = $this->shouldStartOrThrottle($handler);
+    if ($delaySeconds > 0) {
         // IP banned or rate limit approaching
-        $this->release(60); // Wait 1 minute
+        $this->release($delaySeconds);
         return;
     }
 
     try {
+        // BaseApiClient calls recordResponseHeaders() automatically after successful requests
         $response = $this->makeApiRequest();
-
-        // Record response headers for rate limit tracking
-        $handler->recordResponseHeaders($response);
 
         $this->process($response);
     } catch (RequestException $e) {
         // Check for IP ban
         if ($handler->isIpBanned($e)) {
             $retryAfter = $handler->backoffSeconds($e);
-            $handler->recordIpBan($retryAfter);
+            $handler->recordIpBan($retryAfter); // Delegates to Throttler
 
             // Notify about IP ban
             NotificationService::critical("IP banned on {$this->apiSystem} for {$retryAfter}s");
@@ -430,6 +446,24 @@ public function handle()
         // Handle other exception types...
         $this->handleException($e);
     }
+}
+
+// Example with caching to prevent duplicate operations on retry
+public function computeApiable()
+{
+    return $this->step->cache()->getOr('place_market_order', function() {
+        $order = $this->position->orders()->create([...]);
+        $order->apiPlace(); // If this rate limits, job retries
+        return ['order' => format_model_attributes($order)];
+    });
+    // On retry: Cache hit, no duplicate order created!
+}
+
+// shouldStartOrThrottle() implementation in BaseApiableJob
+protected function shouldStartOrThrottle(BaseExceptionHandler $handler): int
+{
+    // Returns delay in seconds (0 = safe to proceed, >0 = wait)
+    return $handler->isSafeToMakeRequest() ? 0 : 60;
 }
 ```
 

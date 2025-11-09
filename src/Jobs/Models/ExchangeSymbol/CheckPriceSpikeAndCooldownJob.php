@@ -10,6 +10,8 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Martingalian;
+use Martingalian\Core\Support\Math;
+use Martingalian\Core\Support\NotificationMessageBuilder;
 use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Support\Throttler;
 use Throwable;
@@ -22,7 +24,7 @@ use Throwable;
  *
  * Rules:
  * - Threshold: per symbol, ExchangeSymbol::disable_on_price_spike_percentage (percent).
- * - Cooldown hours: per symbol, ExchangeSymbol::price_spike_cooldown_hours (int, fallback 72).
+ * - Cooldown hours: per symbol, ExchangeSymbol::price_spike_cooldown_hours (int, required).
  * - Current price: prefer ExchangeSymbol::mark_price; fallback to the 1D close.
  * - Spike condition: ((current - close1d) / close1d) * 100 >= threshold (upside only).
  * - tradeable_at: set to max(existing tradeable_at, now + cooldown_hours). Never set to null.
@@ -89,15 +91,26 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
                     $summary['errors']++;
 
                     // Per your requirement, notify admins on exceptions:
+                    $messageData = NotificationMessageBuilder::build(
+                        canonical: 'price_spike_check_symbol_error',
+                        context: [
+                            'message' => "[{$ex->id}] {$ex->parsed_trading_pair} - ".ExceptionParser::with($e)->friendlyMessage(),
+                        ]
+                    );
+
                     Throttler::using(NotificationService::class)
                         ->withCanonical('price_spike_check_symbol_error')
-                        ->execute(function () use ($ex, $e) {
+                        ->execute(function () use ($messageData) {
                             NotificationService::send(
                                 user: Martingalian::admin(),
-                                message: "[{$ex->id}] - ExchangeSymbol price spike check error - ".ExceptionParser::with($e)->friendlyMessage(),
-                                title: '[Batch: '.class_basename(static::class)."] Symbol {$ex->id} error",
+                                message: $messageData['emailMessage'],
+                                title: $messageData['title'],
                                 canonical: 'price_spike_check_symbol_error',
-                                deliveryGroup: 'exceptions'
+                                deliveryGroup: 'exceptions',
+                                severity: $messageData['severity'],
+                                pushoverMessage: $messageData['pushoverMessage'],
+                                actionUrl: $messageData['actionUrl'],
+                                actionLabel: $messageData['actionLabel']
                             );
                         });
 
@@ -135,13 +148,13 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
     /**
      * Process one symbol: compute spike and apply cooldown if needed.
      *
-     * @return array{status:string, spike_pct?:float, cooldown_h?:int, cooled_until?:string}
+     * @return array{status:string, spike_pct?:string, cooldown_h?:int, cooled_until?:string}
      */
     public function processSymbol(ExchangeSymbol $ex): array
     {
-        // 1) Read per-symbol spike threshold (percent). If not set or <= 0, skip.
-        $thresholdPct = (float) ($ex->disable_on_price_spike_percentage ?? 0.0);
-        if (! is_finite($thresholdPct) || $thresholdPct <= 0.0) {
+        // 1) Read per-symbol spike threshold (percent). If not set, skip.
+        $thresholdPct = $ex->disable_on_price_spike_percentage;
+        if ($thresholdPct === null) {
             return ['status' => 'skipped'];
         }
 
@@ -164,30 +177,32 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
         }
 
         // Reference CLOSE from the latest 1D candle.
-        $refClose = (float) $latest1d->close;
-        if (! is_finite($refClose) || $refClose <= 0.0) {
+        $refClose = $latest1d->close;
+        if ($refClose === null) {
             return ['status' => 'skipped'];
         }
 
         // 3) Resolve current price: prefer live mark price; fallback to the 1D close.
         $current = ($ex->mark_price !== null && $ex->mark_price !== '')
-            ? (float) $ex->mark_price
+            ? $ex->mark_price
             : $refClose;
 
-        if (! is_finite($current) || $current <= 0.0) {
+        if ($current === null) {
             return ['status' => 'skipped'];
         }
 
-        // 4) Compute upside percent change vs latest 1D close.
-        $pct = (($current - $refClose) / $refClose) * 100.0;
+        // 4) Compute upside percent change vs latest 1D close using Math class.
+        // Formula: ((current - close) / close) * 100
+        $diff = Math::sub($current, $refClose);
+        $ratio = Math::div($diff, $refClose);
+        $pct = Math::mul($ratio, '100');
 
         // 5) If spike >= threshold, apply or extend cool-down window by symbol attribute.
-        if (is_finite($pct) && $pct >= $thresholdPct) {
-            // Read symbol-specific cooldown hours; fallback to 72 if null/invalid.
-            $cooldownHoursRaw = $ex->price_spike_cooldown_hours;
-            $cooldownHours = (int) (is_numeric($cooldownHoursRaw) ? $cooldownHoursRaw : 72);
-            if ($cooldownHours <= 0) {
-                $cooldownHours = 72; // guardrail against bad data
+        if (Math::gte($pct, (string) $thresholdPct)) {
+            // Read symbol-specific cooldown hours.
+            $cooldownHours = $ex->price_spike_cooldown_hours;
+            if ($cooldownHours === null) {
+                return ['status' => 'skipped', 'reason' => 'no_cooldown_configured'];
             }
 
             $proposedUntil = Carbon::now()->addHours($cooldownHours);
@@ -211,9 +226,9 @@ final class CheckPriceSpikeAndCooldownJob extends BaseQueueableJob
             $refCloseF = api_format_price($refClose, $ex);
             $currentF = api_format_price($current, $ex);
             $msg = sprintf(
-                'Cooldown applied for %s: change +%.2f%% vs latest 1D close (ref=%s, cur=%s, threshold=%.2f%%). Cooldown %dh. Tradeable at %s.',
+                'Cooldown applied for %s: change +%s%% vs latest 1D close (ref=%s, cur=%s, threshold=%d%%). Cooldown %dh. Tradeable at %s.',
                 (string) $ex->parsed_trading_pair,
-                $pct,
+                number_format((float) $pct, 2),
                 $refCloseF,
                 $currentF,
                 $thresholdPct,
