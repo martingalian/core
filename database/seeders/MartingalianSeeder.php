@@ -109,7 +109,6 @@ final class MartingalianSeeder extends Seeder
             52,    // XRP
             1839,  // BNB
             5426,  // SOL
-            /*
             74,    // DOGE
             2010,  // ADA
             1975,  // LINK
@@ -274,7 +273,6 @@ final class MartingalianSeeder extends Seeder
             3217,  // ONG
             11294, // RARE
             30372, // SAGA
-            */
         ]);
     }
 
