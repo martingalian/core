@@ -33,20 +33,37 @@ final class ThrottleLog extends Model
      */
     public static function recordExecution(string $canonical, ?Model $contextable = null): void
     {
-        $attributes = ['canonical' => $canonical];
+        $contextableType = $contextable ? $contextable::class : null;
+        $contextableId = $contextable ? $contextable->getKey() : null;
 
-        if ($contextable) {
-            $attributes['contextable_type'] = $contextable::class;
-            $attributes['contextable_id'] = $contextable->getKey();
+        // Query for existing record with NULL-safe comparison
+        $query = self::query()
+            ->where('canonical', $canonical);
+
+        if ($contextableType !== null) {
+            $query->where('contextable_type', $contextableType)
+                ->where('contextable_id', $contextableId);
         } else {
-            $attributes['contextable_type'] = null;
-            $attributes['contextable_id'] = null;
+            $query->whereNull('contextable_type')
+                ->whereNull('contextable_id');
         }
 
-        self::updateOrCreate(
-            $attributes,
-            ['last_executed_at' => now()]
-        );
+        $existing = $query->first();
+
+        if ($existing) {
+            // Update existing record
+            $existing->update([
+                'last_executed_at' => now(),
+            ]);
+        } else {
+            // Create new record
+            self::create([
+                'canonical' => $canonical,
+                'contextable_type' => $contextableType,
+                'contextable_id' => $contextableId,
+                'last_executed_at' => now(),
+            ]);
+        }
     }
 
     /**

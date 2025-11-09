@@ -817,6 +817,28 @@ The system handles leverage bracket updates automatically:
 - Changes from exchange (new brackets, modified values, removed brackets) are reflected immediately
 - Idempotent: Same data overwrites itself with no side effects
 
+**RefreshDataCommand Modes**:
+
+1. **Full Refresh** (`--clean` flag):
+   - Truncates all related tables (candles, exchange_symbols, notification_logs)
+   - Rebuilds entire dataset from scratch
+   - Use for database resets or major schema changes
+
+2. **Incremental Update** (default, no flags):
+   - Syncs new symbols added to the `symbols` table (by cmc_id only)
+   - Updates existing exchange_symbols with latest API data
+   - Corrects any manually modified leverage brackets
+   - Creates new exchange_symbols for newly synced symbols
+   - Preserves existing data, only updates what changed
+   - Use for regular cron runs and continuous operation
+
+**Incremental Update Behavior**:
+- New symbols with only `cmc_id` populated are synced from CoinMarketCap API
+- SyncExchangeInformationJob creates exchange_symbols for newly synced symbols
+- Existing exchange_symbols are updated with latest API data (leverage brackets, min_notional, tick_size, etc.)
+- Any corrupted or manually modified data is automatically corrected from exchange APIs
+- No data loss - existing exchange_symbols remain intact
+
 ### Data Mapper Responsibilities
 
 **Binance** (`MapsLeverageBracketsQuery`):

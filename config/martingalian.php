@@ -66,8 +66,15 @@ return [
     | Each throttler enforces requests per window and minimum delays between requests.
     |
     | TAAPI.IO Throttler:
-    | - Expert Plan: 75 requests per 15 seconds
+    | - Expert Plan: 75 requests per 15 seconds (300/min, 18,000/hour)
+    | - Advanced Plan: 60 requests per 15 seconds (240/min, 14,400/hour)
+    | - Basic Plan: 30 requests per 15 seconds (120/min, 7,200/hour)
     | - Adjust based on your plan tier
+    |
+    | PROFILE GUIDE (Expert Plan examples):
+    | Conservative (80% capacity): 60 req/15s, 250ms delay
+    | Balanced (90% capacity): 68 req/15s, 225ms delay
+    | Aggressive (95% capacity): 71 req/15s, 200ms delay
     |
     | CoinMarketCap Throttler:
     | - Free/Hobbyist: 30 requests per minute
@@ -86,9 +93,20 @@ return [
     */
     'throttlers' => [
         'taapi' => [
+            // Maximum requests allowed per window (based on your TAAPI plan)
             'requests_per_window' => (int) env('TAAPI_THROTTLER_REQUESTS_PER_WINDOW', 75),
+
+            // Window size in seconds (TAAPI uses 15-second windows)
             'window_seconds' => (int) env('TAAPI_THROTTLER_WINDOW_SECONDS', 15),
-            'min_delay_between_requests_ms' => (int) env('TAAPI_THROTTLER_MIN_DELAY_MS', 200),
+
+            // Minimum delay between consecutive requests in milliseconds
+            'min_delay_between_requests_ms' => (int) env('TAAPI_THROTTLER_MIN_DELAY_MS', 225),
+
+            // Safety threshold: stop at this percentage of limit (0.0-1.0)
+            // 0.90 = stop at 90% (68/75 requests) to leave 10% buffer
+            // Higher values = more aggressive (use more capacity)
+            // Lower values = more conservative (larger safety buffer)
+            'safety_threshold' => (float) env('TAAPI_THROTTLER_SAFETY_THRESHOLD', 0.90),
         ],
 
         'coinmarketcap' => [

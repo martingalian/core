@@ -25,7 +25,8 @@ abstract class BaseApiThrottler
      * @return array{
      *     requests_per_window: int,
      *     window_seconds: int,
-     *     min_delay_between_requests_ms?: int
+     *     min_delay_between_requests_ms?: int,
+     *     safety_threshold?: float
      * }
      */
     abstract protected static function getRateLimitConfig(): array;
@@ -63,9 +64,11 @@ abstract class BaseApiThrottler
         // Check requests per window limit
         $windowKey = static::getCurrentWindowKey($prefix, $config['window_seconds']);
         $currentCount = Cache::get($windowKey, 0);
-        Log::channel('jobs')->info("[THROTTLER] {$prefix} | Window: {$windowKey} | Count: {$currentCount}/{$config['requests_per_window']}");
+        $safetyThreshold = $config['safety_threshold'] ?? 1.0;
+        $effectiveLimit = (int) floor($config['requests_per_window'] * $safetyThreshold);
+        Log::channel('jobs')->info("[THROTTLER] {$prefix} | Window: {$windowKey} | Count: {$currentCount}/{$effectiveLimit} (safety: ".($safetyThreshold * 100)."%)");
 
-        $secondsToWait = static::checkWindowLimit($prefix, $config['requests_per_window'], $config['window_seconds']);
+        $secondsToWait = static::checkWindowLimit($prefix, $config['requests_per_window'], $config['window_seconds'], $safetyThreshold);
 
         if ($secondsToWait > 0) {
             Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by window limit: {$secondsToWait}s");
@@ -163,18 +166,23 @@ abstract class BaseApiThrottler
 
     /**
      * Check if we're within the requests-per-window limit
+     *
+     * @param  float  $safetyThreshold  Percentage of limit to enforce (0.0-1.0). Default 1.0 = 100%
      */
-    protected static function checkWindowLimit(string $prefix, int $maxRequests, int $windowSeconds): int
+    protected static function checkWindowLimit(string $prefix, int $maxRequests, int $windowSeconds, float $safetyThreshold = 1.0): int
     {
         // Guard against division by zero - default to 1 second window
         if ($windowSeconds <= 0) {
             $windowSeconds = 1;
         }
 
+        // Apply safety threshold to create buffer
+        $effectiveLimit = (int) floor($maxRequests * $safetyThreshold);
+
         $windowKey = static::getCurrentWindowKey($prefix, $windowSeconds);
         $currentCount = Cache::get($windowKey, 0);
 
-        if ($currentCount >= $maxRequests) {
+        if ($currentCount >= $effectiveLimit) {
             // Calculate how long until this window expires
             $currentWindow = floor(Carbon::now()->timestamp / $windowSeconds);
             $windowStartTime = $currentWindow * $windowSeconds;
