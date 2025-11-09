@@ -27,43 +27,29 @@ final class ThrottleLog extends Model
 
     /**
      * Record that an action was executed now.
+     * Used by executeNow() method - does not prevent race conditions.
      *
      * @param  string  $canonical  Throttle rule canonical identifier
      * @param  Model|null  $contextable  The model this throttle applies to (User, Account, etc)
      */
     public static function recordExecution(string $canonical, ?Model $contextable = null): void
     {
-        $contextableType = $contextable ? $contextable::class : null;
-        $contextableId = $contextable ? $contextable->getKey() : null;
+        $data = [
+            'canonical' => $canonical,
+            'contextable_type' => $contextable ? $contextable::class : null,
+            'contextable_id' => $contextable ? $contextable->getKey() : null,
+            'last_executed_at' => now(),
+        ];
 
-        // Query for existing record with NULL-safe comparison
-        $query = self::query()
-            ->where('canonical', $canonical);
-
-        if ($contextableType !== null) {
-            $query->where('contextable_type', $contextableType)
-                ->where('contextable_id', $contextableId);
-        } else {
-            $query->whereNull('contextable_type')
-                ->whereNull('contextable_id');
-        }
-
-        $existing = $query->first();
-
-        if ($existing) {
-            // Update existing record
-            $existing->update([
-                'last_executed_at' => now(),
-            ]);
-        } else {
-            // Create new record
-            self::create([
-                'canonical' => $canonical,
-                'contextable_type' => $contextableType,
-                'contextable_id' => $contextableId,
-                'last_executed_at' => now(),
-            ]);
-        }
+        // Use updateOrCreate for executeNow() - not for race-critical execute()
+        self::updateOrCreate(
+            [
+                'canonical' => $data['canonical'],
+                'contextable_type' => $data['contextable_type'],
+                'contextable_id' => $data['contextable_id'],
+            ],
+            $data
+        );
     }
 
     /**

@@ -98,6 +98,7 @@ final class SyncLeverageBracketsJob extends BaseApiableJob
     /**
      * Dispatch child jobs for each Bybit exchange symbol.
      * Each child job queries leverage brackets for one specific symbol.
+     * Jobs run in parallel (no index) since they are independent.
      */
     public function dispatchBybitChildJobs(): array
     {
@@ -116,14 +117,12 @@ final class SyncLeverageBracketsJob extends BaseApiableJob
         // Set child_block_uuid on the current step so it waits for children
         $this->step->update(['child_block_uuid' => $childBlockUuid]);
 
-        $index = 1;
-
         foreach ($exchangeSymbols as $exchangeSymbol) {
             Step::query()->create([
                 'class' => BybitSyncLeverageBracketsJob::class,
                 'queue' => 'cronjobs',
                 'block_uuid' => $childBlockUuid,
-                'index' => $index++,
+                // No index - allows parallel execution of all leverage bracket syncs
                 'arguments' => [
                     'exchangeSymbolId' => $exchangeSymbol->id,
                 ],

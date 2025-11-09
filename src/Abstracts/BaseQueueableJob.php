@@ -47,6 +47,16 @@ abstract class BaseQueueableJob extends BaseJob
     // Must be implemented by subclasses to define the compute logic.
     abstract protected function compute();
 
+    /**
+     * Determine if this step should be escalated to high priority.
+     * Default: escalate when step has reached 50% of max retries.
+     * Override in child jobs for custom priority escalation logic.
+     */
+    protected function shouldChangeToHighPriority(): bool
+    {
+        return $this->step->retries >= ($this->retries / 2);
+    }
+
     final public function handle(): void
     {
         $startTime = microtime(true);

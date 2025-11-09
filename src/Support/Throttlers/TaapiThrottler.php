@@ -30,10 +30,10 @@ final class TaapiThrottler extends BaseApiThrottler
     /**
      * TAAPI Rate Limits (configurable via config/martingalian.php)
      *
-     * Default configuration: Expert Plan (Balanced profile)
+     * Default configuration: Expert Plan (Conservative profile)
      * - 75 requests per 15 seconds (300/min, 18,000/hour)
-     * - 225ms minimum delay between requests
-     * - 90% safety threshold (stops at 68/75 requests)
+     * - 250ms minimum delay between requests
+     * - 80% safety threshold (stops at 60/75 requests)
      *
      * To adjust, update config/martingalian.php:
      * 'throttlers.taapi.requests_per_window'
@@ -46,8 +46,8 @@ final class TaapiThrottler extends BaseApiThrottler
         return [
             'requests_per_window' => config('martingalian.throttlers.taapi.requests_per_window', 75),
             'window_seconds' => config('martingalian.throttlers.taapi.window_seconds', 15),
-            'min_delay_between_requests_ms' => config('martingalian.throttlers.taapi.min_delay_between_requests_ms', 225),
-            'safety_threshold' => config('martingalian.throttlers.taapi.safety_threshold', 0.90),
+            'min_delay_between_requests_ms' => config('martingalian.throttlers.taapi.min_delay_between_requests_ms', 250),
+            'safety_threshold' => config('martingalian.throttlers.taapi.safety_threshold', 0.80),
         ];
     }
 

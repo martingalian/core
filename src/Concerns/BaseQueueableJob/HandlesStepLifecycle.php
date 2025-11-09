@@ -43,6 +43,11 @@ trait HandlesStepLifecycle
 
     public function retryJob(Carbon|CarbonImmutable|null $dispatchAfter = null): void
     {
+        // Check if step should be escalated to high priority
+        if (method_exists($this, 'shouldChangeToHighPriority') && $this->shouldChangeToHighPriority() === true) {
+            $this->step->update(['priority' => 'high']);
+        }
+
         $this->step->update([
             'dispatch_after' => $dispatchAfter ?? now()->addSeconds($this->jobBackoffSeconds),
         ]);

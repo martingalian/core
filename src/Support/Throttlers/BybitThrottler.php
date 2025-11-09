@@ -51,10 +51,12 @@ final class BybitThrottler extends BaseApiThrottler
     {
         $prefix = self::getCacheKeyPrefix();
 
+        Log::channel('jobs')->info("[BYBIT-THROTTLER] isSafeToDispatch() called");
+
         // Check if IP is currently banned (403 response)
         if (self::isCurrentlyBanned()) {
             $secondsRemaining = self::getSecondsUntilBanLifts();
-            Log::channel('jobs')->info("[THROTTLER] {$prefix} | IP currently banned | Wait: {$secondsRemaining}s");
+            Log::channel('jobs')->info("[BYBIT-THROTTLER] IP currently banned | Wait: {$secondsRemaining}s");
 
             return $secondsRemaining;
         }
@@ -62,47 +64,42 @@ final class BybitThrottler extends BaseApiThrottler
         try {
             $ip = self::getCurrentIp();
 
-            // Check minimum delay since last request
-            $minDelayMs = config('martingalian.throttlers.bybit.min_delay_ms', 0);
-            if ($minDelayMs > 0) {
-                $lastRequest = Cache::get("bybit:{$ip}:last_request");
-                if ($lastRequest) {
-                    $elapsedMs = (now()->timestamp - $lastRequest) * 1000;
-                    if ($elapsedMs < $minDelayMs) {
-                        $waitSeconds = (int) ceil(($minDelayMs - $elapsedMs) / 1000);
-
-                        return $waitSeconds > 0 ? $waitSeconds : 1;
-                    }
-                }
-            }
-
             // Check rate limit threshold
             $safetyThreshold = config('martingalian.throttlers.bybit.safety_threshold', 0.1);
             $limitStatus = Cache::get("bybit:{$ip}:limit:status");
             $limitMax = Cache::get("bybit:{$ip}:limit:max");
 
+            Log::channel('jobs')->info("[BYBIT-THROTTLER] Rate limit headers | Status: ".($limitStatus ?? 'NULL')." | Max: ".($limitMax ?? 'NULL')." | Safety threshold: {$safetyThreshold}");
+
             // If no rate limit data exists, allow request (fail-safe)
             if ($limitStatus === null || $limitMax === null) {
+                Log::channel('jobs')->info("[BYBIT-THROTTLER] No rate limit data - allowing request");
                 return 0;
             }
 
             // If max is 0, allow request (avoid division by zero)
             if ($limitMax === 0) {
+                Log::channel('jobs')->info("[BYBIT-THROTTLER] Max is 0 - allowing request");
                 return 0;
             }
 
             // If status is 0 or negative, we're at or over limit
             if ($limitStatus <= 0) {
+                Log::channel('jobs')->info("[BYBIT-THROTTLER] STATUS THROTTLE! Status <= 0");
                 return 1; // Wait at least 1 second
             }
 
             // Calculate remaining percentage
             $remainingPercentage = $limitStatus / $limitMax;
+            Log::channel('jobs')->info("[BYBIT-THROTTLER] Remaining percentage: ".round($remainingPercentage * 100, 2)."%");
 
             // If below safety threshold, wait
             if ($remainingPercentage < $safetyThreshold) {
+                Log::channel('jobs')->info("[BYBIT-THROTTLER] SAFETY THRESHOLD THROTTLE! {$remainingPercentage} < {$safetyThreshold}");
                 return 1; // Wait at least 1 second
             }
+
+            Log::channel('jobs')->info("[BYBIT-THROTTLER] isSafeToDispatch() = OK (0 seconds wait)");
         } catch (Throwable $e) {
             // Fail-safe: allow request on error
             Log::warning("Failed to check Bybit safety: {$e->getMessage()}");
@@ -125,11 +122,8 @@ final class BybitThrottler extends BaseApiThrottler
         try {
             $ip = self::getCurrentIp();
 
-            // Record timestamp of last request
-            Cache::put("bybit:{$ip}:last_request", now()->timestamp, 60);
-
             // Parse Bybit rate limit headers
-            // X-Bapi-Limit-Status: Current usage count
+            // X-Bapi-Limit-Status: Current usage count (remaining requests)
             if ($response->hasHeader('X-Bapi-Limit-Status')) {
                 $statusHeader = $response->getHeader('X-Bapi-Limit-Status');
                 $status = (int) ($statusHeader[0] ?? 0);
@@ -197,19 +191,17 @@ final class BybitThrottler extends BaseApiThrottler
      * Default configuration: Balanced settings to avoid 403 ban
      * - HTTP limit: 600 requests per 5 seconds
      * - We use 550/5s to stay safe (92% of limit)
-     * - 200ms minimum delay between requests (prevents bursts)
+     * - Uses sliding window algorithm for burst protection
      *
      * To adjust, update config/martingalian.php:
      * 'throttlers.bybit.requests_per_window'
      * 'throttlers.bybit.window_seconds'
-     * 'throttlers.bybit.min_delay_ms'
      */
     protected static function getRateLimitConfig(): array
     {
         return [
             'requests_per_window' => config('martingalian.throttlers.bybit.requests_per_window', 550), // 92% of 600
             'window_seconds' => config('martingalian.throttlers.bybit.window_seconds', 5),
-            'min_delay_between_requests_ms' => config('martingalian.throttlers.bybit.min_delay_ms', 200),
         ];
     }
 

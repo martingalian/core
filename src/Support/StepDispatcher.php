@@ -109,6 +109,13 @@ final class StepDispatcher
 
             $pendingSteps = $pendingQuery->get();
 
+            // Priority Queue System: If any high-priority steps exist, filter to only those
+            if ($pendingSteps->contains('priority', 'high')) {
+                $totalSteps = $pendingSteps->count();
+                $pendingSteps = $pendingSteps->where('priority', 'high')->values();
+                info_if('[StepDispatcher] High-priority steps detected - filtering to '.$pendingSteps->count().' high-priority steps (from '.$totalSteps.' total pending steps)');
+            }
+
             $canTransitionCount = 0;
             $cannotTransitionCount = 0;
 

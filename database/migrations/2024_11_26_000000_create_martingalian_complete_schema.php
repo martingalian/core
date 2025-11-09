@@ -522,6 +522,7 @@ return new class extends Migration
             $table->string('queue')->default('sync');
             $table->json('arguments')->nullable();
             $table->unsignedInteger('retries')->default(0);
+            $table->string('priority', 20)->default('default')->comment('Step priority: default or high');
             $table->timestamp('dispatch_after')->nullable();
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
@@ -535,10 +536,12 @@ return new class extends Migration
             $table->index('block_uuid', 'steps_block_uuid_index');
             $table->index('child_block_uuid', 'steps_child_block_uuid_index');
             $table->index('dispatch_after', 'steps_dispatch_after_index');
+            $table->index('priority', 'steps_priority_index');
             $table->index(['block_uuid', 'index'], 'steps_block_uuid_index_index');
             $table->index(['block_uuid', 'type'], 'steps_block_uuid_type_index');
             $table->index(['block_uuid', 'state'], 'steps_block_uuid_state_index');
             $table->index(['type', 'state'], 'steps_type_state_index');
+            $table->index(['state', 'priority'], 'steps_state_priority_index');
             $table->index('relatable_type', 'steps_relatable_type_index');
             $table->index('relatable_id', 'steps_relatable_id_index');
             $table->index('tick_id', 'idx_steps_tick_id');

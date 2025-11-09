@@ -100,13 +100,13 @@ return [
             'window_seconds' => (int) env('TAAPI_THROTTLER_WINDOW_SECONDS', 15),
 
             // Minimum delay between consecutive requests in milliseconds
-            'min_delay_between_requests_ms' => (int) env('TAAPI_THROTTLER_MIN_DELAY_MS', 225),
+            'min_delay_between_requests_ms' => (int) env('TAAPI_THROTTLER_MIN_DELAY_MS', 250),
 
             // Safety threshold: stop at this percentage of limit (0.0-1.0)
-            // 0.90 = stop at 90% (68/75 requests) to leave 10% buffer
+            // 0.80 = stop at 80% (60/75 requests) to leave 20% buffer
             // Higher values = more aggressive (use more capacity)
             // Lower values = more conservative (larger safety buffer)
-            'safety_threshold' => (float) env('TAAPI_THROTTLER_SAFETY_THRESHOLD', 0.90),
+            'safety_threshold' => (float) env('TAAPI_THROTTLER_SAFETY_THRESHOLD', 0.80),
         ],
 
         'coinmarketcap' => [

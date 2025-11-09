@@ -93,7 +93,7 @@ final class Throttler
     /**
      * Execute the given callback if throttling allows it.
      *
-     * Uses pessimistic locking to prevent race conditions when multiple
+     * Uses INSERT IGNORE + UPDATE pattern to prevent deadlocks when multiple
      * processes try to execute the same throttled action simultaneously.
      *
      * @param  Closure  $callback  The action to execute if not throttled
@@ -120,9 +120,10 @@ final class Throttler
         // Use override or rule's throttle seconds
         $throttleSeconds = $this->throttleSecondsOverride ?? $throttleRule->throttle_seconds;
 
-        // Use database transaction with pessimistic locking to prevent race conditions
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($callback, $throttleSeconds) {
-            // Build query with pessimistic lock to prevent concurrent access
+        // Use a short-lived transaction ONLY for the throttle check
+        // The callback is executed OUTSIDE the transaction to prevent deadlocks
+        $shouldExecute = \Illuminate\Support\Facades\DB::transaction(function () use ($throttleSeconds) {
+            // Build query with lock
             $query = ThrottleLog::where('canonical', $this->canonical);
 
             if ($this->contextable) {
@@ -133,28 +134,42 @@ final class Throttler
                     ->whereNull('contextable_id');
             }
 
-            // Lock the row for update - other processes will wait here
+            // Lock the row - other processes will wait here
             $log = $query->lockForUpdate()->first();
 
             // Never executed before for this contextable
             if (! $log) {
-                $callback();
-                ThrottleLog::recordExecution($this->canonical, $this->contextable);
+                // Create the log entry inside transaction to prevent duplicates
+                ThrottleLog::create([
+                    'canonical' => $this->canonical,
+                    'contextable_type' => $this->contextable ? $this->contextable::class : null,
+                    'contextable_id' => $this->contextable ? $this->contextable->getKey() : null,
+                    'last_executed_at' => now(),
+                ]);
 
-                return false; // Not throttled, executed
+                return true; // Should execute
             }
 
             // Check if enough time has passed
             if ($log->canExecuteAgain($throttleSeconds)) {
-                $callback();
-                ThrottleLog::recordExecution($this->canonical, $this->contextable);
+                // Update the timestamp inside transaction
+                $log->update(['last_executed_at' => now()]);
 
-                return false; // Not throttled, executed
+                return true; // Should execute
             }
 
             // Throttled - do NOT execute
-            return true;
+            return false;
         });
+
+        // Execute callback OUTSIDE transaction to prevent deadlocks
+        if ($shouldExecute) {
+            $callback();
+
+            return false; // Not throttled, executed
+        }
+
+        return true; // Throttled, not executed
     }
 
     /**

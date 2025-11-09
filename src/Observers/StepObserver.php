@@ -25,7 +25,9 @@ final class StepObserver
             $step->state = new NotRunnable($step);
         }
 
-        if ($step->index === 0) {
+        // Default index to 1 if not provided (null) or set to 0
+        // This allows parallel execution: all steps with index=1 can run simultaneously
+        if ($step->index === null || $step->index === 0) {
             $step->index = 1;
         }
 

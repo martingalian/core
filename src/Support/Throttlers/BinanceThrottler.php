@@ -60,27 +60,7 @@ final class BinanceThrottler extends BaseApiThrottler
             return $secondsRemaining;
         }
 
-        // 2. Check minimum delay since last request
-        try {
-            $ip = self::getCurrentIp();
-            $minDelayMs = config('martingalian.throttlers.binance.min_delay_ms', 0);
-            if ($minDelayMs > 0) {
-                $lastRequest = Cache::get("binance:{$ip}:last_request");
-                if ($lastRequest) {
-                    $elapsedMs = (now()->timestamp - $lastRequest) * 1000;
-                    if ($elapsedMs < $minDelayMs) {
-                        $waitSeconds = (int) ceil(($minDelayMs - $elapsedMs) / 1000);
-
-                        return $waitSeconds > 0 ? $waitSeconds : 1;
-                    }
-                }
-            }
-        } catch (Throwable $e) {
-            // Fail-safe: allow request on error
-            Log::warning("Failed to check Binance min delay: {$e->getMessage()}");
-        }
-
-        // 3. Check if approaching any rate limit (>80% threshold)
+        // 2. Check if approaching any rate limit (>80% threshold)
         $secondsToWait = self::checkRateLimitProximity($accountId);
         if ($secondsToWait > 0) {
             Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by rate limit proximity: {$secondsToWait}s");
@@ -131,9 +111,6 @@ final class BinanceThrottler extends BaseApiThrottler
 
                 Cache::put($key, $data['value'], $ttl);
             }
-
-            // Record timestamp of last request
-            Cache::put("binance:{$ip}:last_request", now()->timestamp, 60);
         } catch (Throwable $e) {
             // Fail silently - don't break the application if Cache fails
             Log::warning("Failed to record Binance response headers: {$e->getMessage()}");
@@ -184,13 +161,16 @@ final class BinanceThrottler extends BaseApiThrottler
     /**
      * Basic rate limit config (used as fallback when headers unavailable)
      * Real limits are tracked via response headers.
+     *
+     * Note: Binance uses weight-based throttling (2400 weight/minute).
+     * Setting high fallback to allow base throttler to pass, letting
+     * checkRateLimitProximity() handle weight-based limits.
      */
     protected static function getRateLimitConfig(): array
     {
         return [
-            'requests_per_window' => config('martingalian.throttlers.binance.requests_per_window', 100),
+            'requests_per_window' => config('martingalian.throttlers.binance.requests_per_window', 10000),
             'window_seconds' => config('martingalian.throttlers.binance.window_seconds', 60),
-            'min_delay_between_requests_ms' => config('martingalian.throttlers.binance.min_delay_ms', 200),
         ];
     }
 

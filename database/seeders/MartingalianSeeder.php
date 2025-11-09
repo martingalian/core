@@ -720,6 +720,7 @@ final class MartingalianSeeder extends Seeder
         // SchemaSeeder19: Create Bybit base asset mappers
         $mappers = [
             ['symbol_token' => 'BONK', 'exchange_token' => '1000BONK'],
+            ['symbol_token' => 'BROCCOLI', 'exchange_token' => 'BROCCOLI714'],
         ];
 
         foreach ($mappers as $mapper) {

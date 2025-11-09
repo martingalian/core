@@ -45,4 +45,16 @@ final class CoinmarketCapApi
 
         return $this->client->publicRequest($apiRequest);
     }
+
+    // https://coinmarketcap.com/api/documentation/v1/#operation/getV1CryptocurrencyMarketpairsLatest
+    public function getMarketPairs(ApiProperties $properties)
+    {
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/v1/cryptocurrency/market-pairs/latest',
+            $properties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
 }
