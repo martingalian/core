@@ -21,6 +21,7 @@ use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsOrderModify
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsOrderQuery;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsPlaceOrder;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsPositionsQuery;
+use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsServerTimeQuery;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsSymbolMarginType;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsTokenLeverageRatios;
 
@@ -39,6 +40,7 @@ final class BinanceApiDataMapper extends BaseDataMapper
     use MapsOrderQuery;
     use MapsPlaceOrder;
     use MapsPositionsQuery;
+    use MapsServerTimeQuery;
     use MapsSymbolMarginType;
     use MapsTokenLeverageRatios;
 

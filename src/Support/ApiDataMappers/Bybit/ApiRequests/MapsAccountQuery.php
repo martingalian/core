@@ -21,26 +21,37 @@ trait MapsAccountQuery
 
     public function resolveQueryAccountResponse(Response $response): array
     {
-        $response = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), true);
 
         // Extract the result data from Bybit's response structure
-        if (! isset($response['result'])) {
+        if (! isset($data['result'])) {
             return [];
         }
 
-        $result = $response['result'];
+        $result = $data['result'];
 
         // Bybit returns account data in a 'list' array for UNIFIED accounts
         if (isset($result['list']) && is_array($result['list']) && count($result['list']) > 0) {
             $accountData = $result['list'][0];
 
-            // Map Bybit fields to match Binance structure expected by StoreAccountsBalancesCommand
-            return [
+            // Map Bybit fields to match Binance structure
+            $normalized = [
                 'totalWalletBalance' => $accountData['totalWalletBalance'] ?? '0',
                 'totalUnrealizedProfit' => $accountData['totalPerpUPL'] ?? '0',
                 'totalMaintMargin' => $accountData['totalMaintenanceMargin'] ?? '0',
                 'totalMarginBalance' => $accountData['totalMarginBalance'] ?? '0',
             ];
+
+            // Remove assets and positions arrays if present (same as Binance mapper)
+            if (array_key_exists('assets', $normalized)) {
+                unset($normalized['assets']);
+            }
+
+            if (array_key_exists('positions', $normalized)) {
+                unset($normalized['positions']);
+            }
+
+            return $normalized;
         }
 
         return [];

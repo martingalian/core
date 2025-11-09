@@ -99,6 +99,30 @@ $parts = $mapper->identifyBaseAndQuote('BTCUSDT');
 - Category parameter required (linear, inverse, spot)
 - Different response structure
 - Different error codes
+- **PERP suffix** for USDC-settled perpetual contracts
+
+**Symbol Naming Convention**:
+```php
+// USDT perpetuals: Standard format
+'BNBUSDT', 'SOLUSDT', 'XRPUSDT'
+
+// USDC perpetuals: PERP suffix
+'BNBPERP', 'SOLPERP', 'XRPPERP'
+```
+
+**Mapper Handles PERP Automatically**:
+```php
+// Build symbol for API request
+$symbol = $mapper->baseWithQuote('BNB', 'USDC'); // Returns: "BNBPERP"
+$symbol = $mapper->baseWithQuote('BNB', 'USDT'); // Returns: "BNBUSDT"
+
+// Parse symbol from API response
+$parts = $mapper->identifyBaseAndQuote('BNBPERP');
+// Returns: ['base' => 'BNB', 'quote' => 'USDC']
+
+$parts = $mapper->identifyBaseAndQuote('BNBUSDT');
+// Returns: ['base' => 'BNB', 'quote' => 'USDT']
+```
 
 **Example**:
 ```php
@@ -661,6 +685,202 @@ $symbol = $token . $quote; // May miss 1000PEPE mapping
 // Right
 $symbol = $mapper->baseWithQuote($token, $quote);
 ```
+
+---
+
+## Leverage Brackets Synchronization
+
+### Overview
+Leverage brackets define position size limits and required margin for different leverage levels. Each exchange provides this data, which must be synced regularly as it changes frequently.
+
+### Architecture
+
+**Parent Orchestrator**:
+- `SyncLeverageBracketsJob` (ApiSystem level)
+- Routes to exchange-specific child jobs
+- Uses parent-child job pattern for Bybit (per-symbol API limitation)
+
+**Exchange-Specific Implementations**:
+
+**Binance** (single API call):
+- `ExchangeSymbol\Binance\SyncLeverageBracketsJob`
+- Fetches ALL leverage brackets in one API request
+- Updates all exchange_symbols in a loop
+
+**Bybit** (per-symbol API calls):
+- `ExchangeSymbol\Bybit\SyncLeverageBracketsJob`
+- Bybit's `/v5/market/risk-limit` requires `symbol` parameter
+- One child job per exchange_symbol
+- Parent creates child block with `child_block_uuid`
+
+### Data Structure
+
+Both exchanges normalize to identical JSON structure:
+```json
+{
+  "bracket": 1,
+  "initialLeverage": 75,
+  "notionalCap": 10000,
+  "notionalFloor": 0,
+  "maintMarginRatio": 0.005,
+  "cum": 0
+}
+```
+
+**Stored in**: `exchange_symbols.leverage_brackets` (JSON column)
+
+### Bybit Per-Symbol Query
+
+**Problem**: Bybit's API doesn't return all symbols without pagination. When queried without a symbol parameter, it returns ~15 random symbols.
+
+**Solution**: Query each symbol individually using the symbol from `symbol_information.pair`:
+```php
+// Build symbol string using mapper (handles PERP suffix)
+$mapper = $this->exchangeSymbol->apiSystem->apiMapper();
+$symbolString = $mapper->baseWithQuote(
+    $this->exchangeSymbol->symbol->token,
+    $this->exchangeSymbol->quote->canonical
+);
+// For USDC: Returns "BNBPERP"
+// For USDT: Returns "BNBUSDT"
+
+// Query Bybit API with specific symbol
+$properties = $mapper->prepareQueryLeverageBracketsDataProperties(
+    $this->exchangeSymbol->apiSystem,
+    $symbolString
+);
+```
+
+### Parent-Child Job Pattern (Bybit)
+
+```php
+protected function dispatchBybitChildJobs(): array
+{
+    // Get all exchange symbols for Bybit
+    $exchangeSymbols = ExchangeSymbol::query()
+        ->where('api_system_id', $this->apiSystem->id)
+        ->get();
+
+    // Generate child block UUID
+    $childBlockUuid = $this->uuid();
+
+    // Set on parent step (makes parent wait for children)
+    $this->step->update(['child_block_uuid' => $childBlockUuid]);
+
+    $index = 1;
+    foreach ($exchangeSymbols as $exchangeSymbol) {
+        Step::create([
+            'class' => BybitSyncLeverageBracketsJob::class,
+            'queue' => 'cronjobs',
+            'block_uuid' => $childBlockUuid, // Links to parent
+            'index' => $index++,
+            'arguments' => ['exchangeSymbolId' => $exchangeSymbol->id],
+        ]);
+    }
+
+    return ['dispatched' => $exchangeSymbols->count()];
+}
+```
+
+**Flow**:
+1. Parent `SyncLeverageBracketsJob` (Bybit) starts
+2. Creates child block UUID
+3. Updates self with `child_block_uuid`
+4. Creates N child `BybitSyncLeverageBracketsJob` steps with matching `block_uuid`
+5. Parent waits for all children to complete
+6. Next job in chain (`CheckPriceSpikeAndCooldownJob`) waits for parent
+
+### RefreshDataCommand Integration
+
+**Lifecycle**:
+```
+RefreshDataCommand
+  ↓
+WaitSyncSymbolsAndTriggerExchangeSyncsJob
+  ↓
+[Parallel per exchange]
+  ↓
+SyncMarketDataJob (Binance) | SyncMarketDataJob (Bybit)
+  ↓
+SyncLeverageBracketsJob (Binance) | SyncLeverageBracketsJob (Bybit)
+  ↓                                   ↓
+Single child job (all symbols)     6 child jobs (one per symbol)
+  ↓                                   ↓
+CheckPriceSpikeAndCooldownJob      CheckPriceSpikeAndCooldownJob
+```
+
+### Updates Handling
+
+The system handles leverage bracket updates automatically:
+- Jobs run regularly via RefreshDataCommand (crontab)
+- Each run completely overwrites the JSON column with fresh API data
+- Changes from exchange (new brackets, modified values, removed brackets) are reflected immediately
+- Idempotent: Same data overwrites itself with no side effects
+
+### Data Mapper Responsibilities
+
+**Binance** (`MapsLeverageBracketsQuery`):
+```php
+public function resolveQueryMarketDataResponse(Response $response): array
+{
+    $data = json_decode((string) $response->getBody(), true);
+
+    // Binance returns array directly
+    return $data;
+}
+```
+
+**Bybit** (`MapsLeverageBracketsQuery`):
+```php
+public function resolveLeverageBracketsDataResponse(Response $response): array
+{
+    $data = json_decode((string) $response->getBody(), true);
+
+    // Bybit V5 structure: {result: {list: [...]}}
+    $riskLimits = $data['result']['list'] ?? [];
+
+    // Group by symbol and transform to Binance-compatible structure
+    $grouped = [];
+    foreach ($riskLimits as $risk) {
+        $symbol = $risk['symbol'] ?? null;
+        if (!$symbol) continue;
+
+        if (!isset($grouped[$symbol])) {
+            $grouped[$symbol] = [
+                'symbol' => $symbol,
+                'brackets' => [],
+            ];
+        }
+
+        // Transform Bybit format to match Binance
+        $grouped[$symbol]['brackets'][] = [
+            'bracket' => (int) ($risk['id'] ?? 0),
+            'initialLeverage' => (int) ($risk['maxLeverage'] ?? 0),
+            'notionalCap' => (float) ($risk['riskLimitValue'] ?? 0),
+            'notionalFloor' => 0,
+            'maintMarginRatio' => (float) ($risk['maintenanceMargin'] ?? 0),
+            'cum' => 0,
+        ];
+    }
+
+    return array_values($grouped);
+}
+```
+
+### Filtering Perpetual Contracts
+
+Bybit returns multiple contract types. Filter for perpetual futures only:
+```php
+->filter(function ($symbolData) {
+    return ($symbolData['contractType'] ?? null) === 'LinearPerpetual';
+})
+```
+
+This excludes:
+- Dated futures (e.g., `BTCUSDT-31OCT25`)
+- Inverse perpetuals
+- Spot pairs
+- Options
 
 ---
 

@@ -10,13 +10,18 @@ use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsLeverageBracketsQuery
 {
-    public function prepareQueryLeverageBracketsDataProperties(ApiSystem $apiSystem): ApiProperties
+    public function prepareQueryLeverageBracketsDataProperties(ApiSystem $apiSystem, ?string $symbol = null): ApiProperties
     {
         $properties = new ApiProperties;
         $properties->set('relatable', $apiSystem);
 
         // Bybit requires category parameter for linear contracts
         $properties->set('options.category', 'linear');
+
+        // Add symbol parameter if provided (for querying specific symbol)
+        if ($symbol) {
+            $properties->set('options.symbol', $symbol);
+        }
 
         return $properties;
     }

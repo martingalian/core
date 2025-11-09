@@ -276,23 +276,6 @@ return new class extends Migration
             $table->index(['type', 'is_active'], 'idx_indicators_type_active');
         });
 
-        // leverage_brackets table
-        Schema::create('leverage_brackets', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('exchange_symbol_id');
-            $table->unsignedSmallInteger('bracket');
-            $table->unsignedSmallInteger('initial_leverage');
-            $table->decimal('notional_floor', 30, 8);
-            $table->decimal('notional_cap', 30, 8);
-            $table->decimal('maint_margin_ratio', 18, 10);
-            $table->unsignedBigInteger('cum')->nullable();
-            $table->json('source_payload')->nullable();
-            $table->timestamp('synced_at')->nullable();
-            $table->timestamps();
-
-            $table->unique(['exchange_symbol_id', 'bracket'], 'uniq_symbol_bracket');
-        });
-
         // martingalian table
         Schema::create('martingalian', function (Blueprint $table) {
             $table->id();
@@ -688,7 +671,6 @@ return new class extends Migration
         Schema::dropIfExists('steps_dispatcher_ticks');
         Schema::dropIfExists('steps_dispatcher');
         Schema::dropIfExists('candles');
-        Schema::dropIfExists('leverage_brackets');
         Schema::dropIfExists('indicator_histories');
         Schema::dropIfExists('indicators');
         Schema::dropIfExists('price_history');

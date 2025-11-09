@@ -9,6 +9,9 @@ use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\TradeConfiguration\HasGetters;
 use Martingalian\Core\Concerns\TradeConfiguration\HasScopes;
 
+/**
+ * @property array<int, string> $indicator_timeframes
+ */
 final class TradeConfiguration extends BaseModel
 {
     use HasFactory;

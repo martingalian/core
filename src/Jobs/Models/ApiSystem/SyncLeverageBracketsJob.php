@@ -4,26 +4,21 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
-use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Jobs\Models\ExchangeSymbol\Binance\SyncLeverageBracketsJob as BinanceSyncLeverageBracketsJob;
+use Martingalian\Core\Jobs\Models\ExchangeSymbol\Bybit\SyncLeverageBracketsJob as BybitSyncLeverageBracketsJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Models\LeverageBracket;
-use Martingalian\Core\Models\Quote;
-use Martingalian\Core\Models\Symbol;
-use RuntimeException;
-use Throwable;
+use Martingalian\Core\Models\Step;
 
-/*
- * SyncLeverageBracketsJob
+/**
+ * SyncLeverageBracketsJob - Parent Orchestrator
  *
- * • Keeps existing JSON sync on exchange_symbols.leverage_brackets (unchanged).
- * • Adds normalized upsert into leverage_brackets table (per bracket row).
- * • Deletes stale bracket rows that no longer exist for a symbol.
- * • Skips unknown symbols/quotes exactly like before.
- * • Wraps per-symbol normalization in a transaction for consistency.
+ * Routes to exchange-specific child jobs:
+ * - Binance: Dispatches 1 child job (fetches all symbols at once)
+ * - Bybit: Dispatches N child jobs (one per exchange symbol)
  */
 final class SyncLeverageBracketsJob extends BaseApiableJob
 {
@@ -49,134 +44,95 @@ final class SyncLeverageBracketsJob extends BaseApiableJob
 
     public function startOrFail()
     {
-        // Only run for exchange-type systems.
+        // Only run for exchange-type systems
         return $this->apiSystem->is_exchange;
     }
 
     public function computeApiable()
     {
-        // Fetch leverage brackets data from the exchange.
-        $response = $this->apiSystem->apiQueryLeverageBracketsData();
-        $brackets = $response->result ?? null;
+        $canonical = $this->apiSystem->canonical;
 
-        if (! is_array($brackets)) {
-            // Fail fast on malformed payloads (keeps production safe/observable).
-            throw new RuntimeException('Invalid leverage brackets response.');
+        // Route to exchange-specific child job
+        if ($canonical === 'binance') {
+            return $this->dispatchBinanceChildJob();
         }
 
-        // Filter out test and irrelevant symbols.
-        $brackets = $this->removeUnnecessarySymbols($brackets);
-
-        foreach ($brackets as $entry) {
-            $symbolCode = $entry['symbol'] ?? null;
-            if (! $symbolCode) {
-                continue;
-            }
-
-            try {
-                // Identify base/quote using the API's canonical mapper.
-                $pair = $this->apiSystem->apiMapper()->identifyBaseAndQuote($symbolCode);
-            } catch (Throwable $e) {
-                continue;
-            }
-
-            if (! isset($pair['base'], $pair['quote'])) {
-                continue;
-            }
-
-            // Get or skip unknown symbols and quotes.
-            $symbol = Symbol::getByExchangeBaseAsset($pair['base'], $this->apiSystem);
-            if (! $symbol) {
-                continue;
-            }
-
-            $quote = Quote::firstWhere('canonical', $pair['quote']);
-            if (! $quote) {
-                continue;
-            }
-
-            // --- KEEP: Update JSON blob on exchange_symbols (existing prod behavior) ---
-            ExchangeSymbol::where([
-                'symbol_id' => $symbol->id,
-                'api_system_id' => $this->apiSystem->id,
-                'quote_id' => $quote->id,
-            ])->update([
-                'leverage_brackets' => $entry['brackets'] ?? [],
-            ]);
-
-            // Retrieve the ExchangeSymbol row we just updated.
-            $exchangeSymbol = ExchangeSymbol::where([
-                'symbol_id' => $symbol->id,
-                'api_system_id' => $this->apiSystem->id,
-                'quote_id' => $quote->id,
-            ])->first();
-
-            if (! $exchangeSymbol) {
-                continue;
-            }
-
-            // --- NEW: Normalize into leverage_brackets table ---
-            // Wrap the per-symbol sync in a transaction to keep delete/upserts atomic.
-            DB::transaction(function () use ($exchangeSymbol, $entry) {
-                $now = now();
-
-                $rows = is_array($entry['brackets'] ?? null) ? $entry['brackets'] : [];
-
-                // If the exchange returns no brackets, purge current rows for this symbol.
-                if (empty($rows)) {
-                    LeverageBracket::where('exchange_symbol_id', $exchangeSymbol->id)->delete();
-
-                    return;
-                }
-
-                // Collect current bracket identifiers we are about to upsert.
-                $currentBrackets = collect($rows)
-                    ->filter(fn ($b) => isset($b['bracket']))
-                    ->pluck('bracket')
-                    ->all();
-
-                // Delete stale brackets not present anymore.
-                LeverageBracket::where('exchange_symbol_id', $exchangeSymbol->id)
-                    ->whereNotIn('bracket', $currentBrackets)
-                    ->delete();
-
-                // Upsert each bracket row (idempotent).
-                foreach ($rows as $b) {
-                    // Skip malformed entries (must have a bracket number).
-                    if (! isset($b['bracket'])) {
-                        continue;
-                    }
-
-                    LeverageBracket::updateOrCreate(
-                        [
-                            'exchange_symbol_id' => $exchangeSymbol->id,
-                            'bracket' => (int) $b['bracket'],
-                        ],
-                        [
-                            // Keep precision-sensitive fields as strings in PHP (handled via casts).
-                            'initial_leverage' => isset($b['initialLeverage']) ? (int) $b['initialLeverage'] : null,
-                            'notional_floor' => isset($b['notionalFloor']) ? (string) $b['notionalFloor'] : '0',
-                            'notional_cap' => isset($b['notionalCap']) ? (string) $b['notionalCap'] : '0',
-                            'maint_margin_ratio' => isset($b['maintMarginRatio']) ? (string) $b['maintMarginRatio'] : '0',
-                            'cum' => $b['cum'] ?? null,
-                            'source_payload' => $b,
-                            'synced_at' => $now,
-                        ]
-                    );
-                }
-            });
+        if ($canonical === 'bybit') {
+            return $this->dispatchBybitChildJobs();
         }
 
-        return $response->result;
+        // Unsupported exchange
+        return [
+            'error' => "Unsupported exchange: {$canonical}",
+        ];
     }
 
-    public function removeUnnecessarySymbols(array $entries): array
+    /**
+     * Dispatch single Binance child job.
+     * Binance fetches all leverage brackets in one API call.
+     */
+    public function dispatchBinanceChildJob(): array
     {
-        // Filter out symbols that contain underscores or end with "SETTLED".
-        return array_filter($entries, function ($entry) {
-            $symbol = $entry['symbol'] ?? '';
+        // Get or generate child block UUID (uses BaseQueueableJob::uuid())
+        $childBlockUuid = $this->uuid();
 
-            return ! str_contains($symbol, '_') && ! str_ends_with($symbol, 'SETTLED');
-        });
+        // Set child_block_uuid on the current step so it waits for child
+        $this->step->update(['child_block_uuid' => $childBlockUuid]);
+
+        Step::query()->create([
+            'class' => BinanceSyncLeverageBracketsJob::class,
+            'queue' => 'cronjobs',
+            'block_uuid' => $childBlockUuid,
+            'index' => 1,
+            'arguments' => [
+                'apiSystemId' => $this->apiSystem->id,
+            ],
+        ]);
+
+        return [
+            'dispatched' => 1,
+            'child_block_uuid' => $childBlockUuid,
+        ];
+    }
+
+    /**
+     * Dispatch child jobs for each Bybit exchange symbol.
+     * Each child job queries leverage brackets for one specific symbol.
+     */
+    public function dispatchBybitChildJobs(): array
+    {
+        // Get all exchange symbols for Bybit
+        $exchangeSymbols = ExchangeSymbol::query()
+            ->where('api_system_id', $this->apiSystem->id)
+            ->get();
+
+        if ($exchangeSymbols->isEmpty()) {
+            return ['dispatched' => 0];
+        }
+
+        // Get or generate child block UUID (uses BaseQueueableJob::uuid())
+        $childBlockUuid = $this->uuid();
+
+        // Set child_block_uuid on the current step so it waits for children
+        $this->step->update(['child_block_uuid' => $childBlockUuid]);
+
+        $index = 1;
+
+        foreach ($exchangeSymbols as $exchangeSymbol) {
+            Step::query()->create([
+                'class' => BybitSyncLeverageBracketsJob::class,
+                'queue' => 'cronjobs',
+                'block_uuid' => $childBlockUuid,
+                'index' => $index++,
+                'arguments' => [
+                    'exchangeSymbolId' => $exchangeSymbol->id,
+                ],
+            ]);
+        }
+
+        return [
+            'dispatched' => $exchangeSymbols->count(),
+            'child_block_uuid' => $childBlockUuid,
+        ];
     }
 }

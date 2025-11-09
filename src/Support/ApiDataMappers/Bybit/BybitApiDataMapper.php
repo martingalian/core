@@ -11,16 +11,55 @@ use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsAccountQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsExchangeInformationQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsLeverageBracketsQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsServerTimeQuery;
 
 final class BybitApiDataMapper extends BaseDataMapper
 {
     use MapsAccountQuery;
     use MapsExchangeInformationQuery;
     use MapsLeverageBracketsQuery;
+    use MapsServerTimeQuery;
+
+    public function long()
+    {
+        return 'LONG';
+    }
+
+    public function short()
+    {
+        return 'SHORT';
+    }
+
+    public function directionType(string $canonical)
+    {
+        if ($canonical === 'LONG') {
+            return 'LONG';
+        }
+
+        if ($canonical === 'SHORT') {
+            return 'SHORT';
+        }
+
+        throw new InvalidArgumentException("Invalid Bybit direction type: {$canonical}");
+    }
+
+    public function sideType(string $canonical)
+    {
+        if ($canonical === 'BUY') {
+            return 'Buy';
+        }
+
+        if ($canonical === 'SELL') {
+            return 'Sell';
+        }
+
+        throw new InvalidArgumentException("Invalid Bybit side type: {$canonical}");
+    }
 
     /**
      * Returns the well formed base symbol with the quote on it.
      * E.g.: AVAXUSDT (Bybit uses same format as Binance, no separator).
+     * E.g.: BNBPERP for USDC-settled contracts
      *
      * Takes in account, exceptions for the current token by leveraging
      * BaseAssetMapper entries.
@@ -34,6 +73,11 @@ final class BybitApiDataMapper extends BaseDataMapper
             ->where('symbol_token', $token)
             ->first()->exchange_token ?? $token;
 
+        // Bybit uses PERP suffix for USDC-settled perpetual contracts
+        if ($quote === 'USDC') {
+            return $token.'PERP';
+        }
+
         return $token.$quote;
     }
 
@@ -42,9 +86,19 @@ final class BybitApiDataMapper extends BaseDataMapper
      * quotes, as an array, as example:
      * input: BTCUSDT
      * returns: ['base' => 'BTC', 'quote' => 'USDT']
+     * input: BNBPERP
+     * returns: ['base' => 'BNB', 'quote' => 'USDC']
      */
     public function identifyBaseAndQuote(string $token): array
     {
+        // Handle PERP suffix (Bybit uses PERP for USDC-settled perpetual contracts)
+        if (str_ends_with($token, 'PERP')) {
+            return [
+                'base' => str_replace('PERP', '', $token),
+                'quote' => 'USDC',
+            ];
+        }
+
         $availableQuoteCurrencies = [
             'USDT', 'USDC', 'BTC', 'ETH', 'USDE',
             'DAI', 'EUR', 'GBP', 'AUD',
