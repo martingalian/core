@@ -45,7 +45,7 @@ final class WaitSyncSymbolsAndTriggerExchangeSyncsJob extends BaseQueueableJob
             // Step 1: Sync market data - set group explicitly as first step in new block_uuid chain
             Step::query()->create([
                 'class' => SyncMarketDataJob::class,
-                'queue' => 'cronjobs',
+                'queue' => 'default',
                 'block_uuid' => $exchangeUuid,
                 'index' => $index++,
                 'group' => $parentGroup,
@@ -57,7 +57,7 @@ final class WaitSyncSymbolsAndTriggerExchangeSyncsJob extends BaseQueueableJob
             // Step 2: Sync leverage brackets - inherits group via StepObserver
             Step::query()->create([
                 'class' => SyncLeverageBracketsJob::class,
-                'queue' => 'cronjobs',
+                'queue' => 'default',
                 'block_uuid' => $exchangeUuid,
                 'index' => $index++,
                 'arguments' => [
@@ -68,7 +68,7 @@ final class WaitSyncSymbolsAndTriggerExchangeSyncsJob extends BaseQueueableJob
             // Step 3: Check price spikes and apply cooldowns - inherits group via StepObserver
             Step::query()->create([
                 'class' => CheckPriceSpikeAndCooldownJob::class,
-                'queue' => 'indicators',
+                'queue' => 'default',
                 'block_uuid' => $exchangeUuid,
                 'index' => $index++,
                 'arguments' => [

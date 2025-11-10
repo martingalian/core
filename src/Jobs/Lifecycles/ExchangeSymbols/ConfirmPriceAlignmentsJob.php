@@ -85,7 +85,7 @@ final class ConfirmPriceAlignmentsJob extends BaseQueueableJob
                 // Create bulk query job for this chunk
                 Step::create([
                     'class' => QueryIndicatorsByChunkJob::class,
-                    'queue' => 'indicators',
+                    'queue' => 'default',
                     'block_uuid' => $batchUuid,
                     'index' => $index++,
                     'arguments' => [
@@ -108,7 +108,7 @@ final class ConfirmPriceAlignmentsJob extends BaseQueueableJob
         foreach ($exchangeSymbols as $exchangeSymbol) {
             Step::create([
                 'class' => ConfirmPriceAlignmentWithDirectionJob::class,
-                'queue' => 'indicators',
+                'queue' => 'default',
                 'block_uuid' => $batchUuid,
                 'index' => $index++,
                 'arguments' => [

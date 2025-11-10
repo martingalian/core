@@ -131,7 +131,7 @@ final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
         foreach ($limitOrders as $limitOrder) {
             Step::create([
                 'class' => PlaceLimitOrderJob::class,
-                'queue' => 'orders',
+                'queue' => 'default',
                 'block_uuid' => $blockUuid,
                 'arguments' => [
                     'orderId' => $limitOrder->id,

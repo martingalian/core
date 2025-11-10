@@ -44,7 +44,7 @@ final class LaunchCreatedPositionsJob extends BaseQueueableJob
         // Get all open positions for this account.
         Step::create([
             'class' => QueryPositionsJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => 1,
             'arguments' => [
@@ -55,7 +55,7 @@ final class LaunchCreatedPositionsJob extends BaseQueueableJob
         // Get all open orders for this account.
         Step::create([
             'class' => QueryOpenOrdersJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => 1,
             'arguments' => [
@@ -66,7 +66,7 @@ final class LaunchCreatedPositionsJob extends BaseQueueableJob
         // Get wallet balance too.
         Step::create([
             'class' => QueryAccountBalanceJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => 1,
             'arguments' => [
@@ -77,7 +77,7 @@ final class LaunchCreatedPositionsJob extends BaseQueueableJob
         // Now assign tokens to the new positions (and close positions without tokens).
         Step::create([
             'class' => AssignTokensToNewPositionsJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => 2,
             'arguments' => [
@@ -88,7 +88,7 @@ final class LaunchCreatedPositionsJob extends BaseQueueableJob
         // Finally dispatch each of the new positions.
         Step::create([
             'class' => DispatchNewPositionsWithTokensAssignedJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => 3,
             'arguments' => [

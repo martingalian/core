@@ -75,7 +75,7 @@ final class CheckPositionOrderChangesJob extends BaseQueueableJob
                     $limitOrder->position_side === $limitOrder->position->direction) {
                     Step::create([
                         'class' => ApplyWAPJob::class,
-                        'queue' => 'positions',
+                        'queue' => 'default',
                         'block_uuid' => $this->uuid(),
                         'child_block_uuid' => Str::uuid()->toString(),
                         'index' => 1,
@@ -95,7 +95,7 @@ final class CheckPositionOrderChangesJob extends BaseQueueableJob
 
             Step::create([
                 'class' => ClosePositionJob::class,
-                'queue' => 'positions',
+                'queue' => 'default',
                 'block_uuid' => $this->uuid(),
                 'arguments' => [
                     'positionId' => $this->position->id,
@@ -115,7 +115,7 @@ final class CheckPositionOrderChangesJob extends BaseQueueableJob
 
             Step::create([
                 'class' => ClosePositionJob::class,
-                'queue' => 'positions',
+                'queue' => 'default',
                 'block_uuid' => $this->uuid(),
                 'arguments' => [
                     'positionId' => $this->position->id,
@@ -145,7 +145,7 @@ final class CheckPositionOrderChangesJob extends BaseQueueableJob
     {
         Step::create([
             'class' => UpdatePositionStatusJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $this->uuid(),
             'arguments' => [
                 'positionId' => $this->position->id,

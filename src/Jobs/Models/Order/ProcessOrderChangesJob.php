@@ -109,7 +109,7 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
 
         Step::create([
             'class' => ClosePositionJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'arguments' => ['positionId' => $this->order->position->id],
         ]);
 
@@ -124,7 +124,7 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
 
         Step::create([
             'class' => ClosePositionJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'arguments' => ['positionId' => $this->order->position->id],
         ]);
 
@@ -140,7 +140,7 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
 
         Step::create([
             'class' => UpdatePositionStatusJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => 1,
             'arguments' => [
@@ -153,7 +153,7 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
 
         Step::create([
             'class' => ApplyWAPJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'child_block_uuid' => $childBlockId,
             'index' => 2,
@@ -166,7 +166,7 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
 
         Step::create([
             'class' => UpdatePositionStatusJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => 3,
             'arguments' => [

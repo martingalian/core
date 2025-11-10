@@ -113,7 +113,7 @@ final class DispatchPositionJob extends BaseQueueableJob
          */
         Step::create([
             'class' => VerifyIfTradingPairIsOpenedJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -123,7 +123,7 @@ final class DispatchPositionJob extends BaseQueueableJob
 
         Step::create([
             'class' => ContinueIfTradingPairIsNotOpenJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -138,7 +138,7 @@ final class DispatchPositionJob extends BaseQueueableJob
          */
         Step::create([
             'class' => UpdatePositionMarginJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -158,7 +158,7 @@ final class DispatchPositionJob extends BaseQueueableJob
          */
         Step::create([
             'class' => UpdatePositionLeverageJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -172,7 +172,7 @@ final class DispatchPositionJob extends BaseQueueableJob
          */
         Step::create([
             'class' => VerifyOrderNotionalForMarketOrderJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -186,7 +186,7 @@ final class DispatchPositionJob extends BaseQueueableJob
          */
         Step::create([
             'class' => UpdateTokenLeverageRatioJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -200,7 +200,7 @@ final class DispatchPositionJob extends BaseQueueableJob
          */
         Step::create([
             'class' => UpdatePositionMarginTypeToCrossedJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -210,7 +210,7 @@ final class DispatchPositionJob extends BaseQueueableJob
 
         Step::create([
             'class' => PlaceMarketOrderJob::class,
-            'queue' => 'orders',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -220,7 +220,7 @@ final class DispatchPositionJob extends BaseQueueableJob
 
         Step::create([
             'class' => PlaceProfitOrderJob::class,
-            'queue' => 'orders',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -232,7 +232,7 @@ final class DispatchPositionJob extends BaseQueueableJob
 
         Step::create([
             'class' => CreateAndPlaceLimitOrdersJob::class,
-            'queue' => 'orders',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'child_block_uuid' => $childUuid,
             'index' => $i++,
@@ -243,7 +243,7 @@ final class DispatchPositionJob extends BaseQueueableJob
 
         Step::create([
             'class' => UpdatePositionStatusJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -257,7 +257,7 @@ final class DispatchPositionJob extends BaseQueueableJob
          */
         Step::create([
             'class' => ValidatePositionJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -267,7 +267,7 @@ final class DispatchPositionJob extends BaseQueueableJob
 
         Step::create([
             'class' => CancelPositionJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'type' => 'resolve-exception',
             'arguments' => [

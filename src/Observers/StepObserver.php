@@ -13,6 +13,11 @@ final class StepObserver
 {
     public function creating(Step $step): void
     {
+        // Queue validation: fallback to 'default' if queue is not valid
+        if (! empty($step->queue) && $step->queue !== 'default' && $step->queue !== 'priority') {
+            $step->queue = 'default';
+        }
+
         if (empty($step->block_uuid)) {
             $step->block_uuid = Str::uuid()->toString();
         }
@@ -69,6 +74,11 @@ final class StepObserver
 
     public function saving(Step $step): void
     {
+        // Queue validation: fallback to 'default' if queue is not valid
+        if (! empty($step->queue) && $step->queue !== 'default' && $step->queue !== 'priority') {
+            $step->queue = 'default';
+        }
+
         // Ensure group is never null on updates
         if (empty($step->group)) {
             if (! empty($step->block_uuid)) {

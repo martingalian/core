@@ -81,7 +81,7 @@ final class SyncLeverageBracketsJob extends BaseApiableJob
 
         Step::query()->create([
             'class' => BinanceSyncLeverageBracketsJob::class,
-            'queue' => 'cronjobs',
+            'queue' => 'default',
             'block_uuid' => $childBlockUuid,
             'index' => 1,
             'arguments' => [
@@ -120,7 +120,7 @@ final class SyncLeverageBracketsJob extends BaseApiableJob
         foreach ($exchangeSymbols as $exchangeSymbol) {
             Step::query()->create([
                 'class' => BybitSyncLeverageBracketsJob::class,
-                'queue' => 'cronjobs',
+                'queue' => 'default',
                 'block_uuid' => $childBlockUuid,
                 // No index - allows parallel execution of all leverage bracket syncs
                 'arguments' => [

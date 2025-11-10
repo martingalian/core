@@ -8,6 +8,7 @@ use Exception;
 use Log;
 use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobExceptions;
 use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobLifecycle;
+use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Models\ForbiddenHostname;
 use Martingalian\Core\Support\Proxies\ApiThrottlerProxy;
 use Throwable;
@@ -153,6 +154,48 @@ abstract class BaseApiableJob extends BaseQueueableJob
         $apiSystem = $this->exceptionHandler->getApiSystem();
 
         return ApiThrottlerProxy::getThrottler($apiSystem);
+    }
+
+    /**
+     * Override shouldExitEarly to inject API throttling checks
+     * into the lifecycle before standard BaseQueueableJob checks.
+     */
+    protected function shouldExitEarly(): bool
+    {
+        // Run standard lifecycle checks first
+        if (! $this->shouldStartOrStop()) {
+            $this->stopJob();
+
+            return true;
+        }
+
+        if (! $this->shouldStartOrFail()) {
+            throw new NonNotifiableException("startOrFail() returned false for Step ID {$this->step->id}");
+        }
+
+        if (! $this->shouldStartOrSkip()) {
+            $this->skipJob();
+
+            return true;
+        }
+
+        if (! $this->shouldStartOrRetry()) {
+            $this->retryJob();
+
+            return true;
+        }
+
+        // API-specific: Check throttling
+        if (! $this->shouldStartOrThrottle()) {
+            $this->retryJob();
+
+            return true;
+        }
+
+        // Check max retries AFTER throttle check to avoid failing jobs that are just waiting for rate limit
+        $this->checkMaxRetries();
+
+        return false;
     }
 
     /**

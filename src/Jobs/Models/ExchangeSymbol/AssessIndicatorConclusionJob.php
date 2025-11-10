@@ -36,7 +36,7 @@ final class AssessIndicatorConclusionJob extends BaseApiableJob
 
         Step::create([
             'class' => QueryIndicatorJob::class,
-            'queue' => 'indicators',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => 1,
             'arguments' => [
@@ -47,7 +47,7 @@ final class AssessIndicatorConclusionJob extends BaseApiableJob
 
         Step::create([
             'class' => ConcludeDirectionJob::class,
-            'queue' => 'indicators',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => 2,
             'arguments' => [

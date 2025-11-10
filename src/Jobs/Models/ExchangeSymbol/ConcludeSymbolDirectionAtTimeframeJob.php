@@ -388,7 +388,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         // Only create Query and Conclude steps for child workflow
         Step::create([
             'class' => QuerySymbolIndicatorsJob::class,
-            'queue' => 'indicators',
+            'queue' => 'default',
             'block_uuid' => $childBlockUuid,
             'group' => $group,
             'index' => 1,
@@ -401,7 +401,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
 
         Step::create([
             'class' => self::class,
-            'queue' => 'indicators',
+            'queue' => 'default',
             'block_uuid' => $childBlockUuid,
             'group' => $group,
             'index' => 2,
@@ -434,7 +434,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
 
         Step::create([
             'class' => ConfirmPriceAlignmentWithDirectionJob::class,
-            'queue' => 'indicators',
+            'queue' => 'default',
             'block_uuid' => $blockUuid,
             'group' => $group,
             'index' => $maxIndex + 1,
@@ -446,7 +446,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         if ($shouldCleanup) {
             Step::create([
                 'class' => CleanupIndicatorHistoriesJob::class,
-                'queue' => 'indicators',
+                'queue' => 'default',
                 'block_uuid' => $blockUuid,
                 'group' => $group,
                 'index' => $maxIndex + 2,

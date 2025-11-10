@@ -36,7 +36,7 @@ final class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob
         foreach ($positionsQuery->cursor() as $position) {
             Step::create([
                 'class' => DispatchPositionJob::class,
-                'queue' => 'positions',
+                'queue' => 'default',
                 'arguments' => [
                     'positionId' => $position->id,
                 ],

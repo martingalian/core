@@ -30,7 +30,7 @@ final class ContinueIfTradingPairIsNotOpenJob extends BaseQueueableJob
         if ($previousJobQueue !== null && ($previousJobQueue->response['opened'] ?? false) === true) {
             Step::create([
                 'class' => UpdatePositionStatusJob::class,
-                'queue' => 'positions',
+                'queue' => 'default',
                 'arguments' => [
                     'positionId' => $this->position->id,
                     'status' => 'cancelled',

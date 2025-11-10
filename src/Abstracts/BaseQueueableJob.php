@@ -47,16 +47,6 @@ abstract class BaseQueueableJob extends BaseJob
     // Must be implemented by subclasses to define the compute logic.
     abstract protected function compute();
 
-    /**
-     * Determine if this step should be escalated to high priority.
-     * Default: escalate when step has reached 50% of max retries.
-     * Override in child jobs for custom priority escalation logic.
-     */
-    protected function shouldChangeToHighPriority(): bool
-    {
-        return $this->step->retries >= ($this->retries / 2);
-    }
-
     final public function handle(): void
     {
         $startTime = microtime(true);
@@ -157,6 +147,16 @@ abstract class BaseQueueableJob extends BaseJob
         return $this->step->child_block_uuid ?? Str::uuid()->toString();
     }
 
+    /**
+     * Determine if this step should be escalated to high priority.
+     * Default: escalate when step has reached 50% of max retries.
+     * Override in child jobs for custom priority escalation logic.
+     */
+    protected function shouldChangeToHighPriority(): bool
+    {
+        return $this->step->retries >= ($this->retries / 2);
+    }
+
     protected function prepareJobExecution(): void
     {
         // Refresh step from database to get latest state (it should be Dispatched)
@@ -202,26 +202,10 @@ abstract class BaseQueueableJob extends BaseJob
             return true;
         }
 
-        if (! $this->shouldStartOrThrottle()) {
-            $this->retryJob();
-
-            return true;
-        }
-
-        // Check max retries AFTER throttle check to avoid failing jobs that are just waiting for rate limit
+        // Check max retries after business logic checks
         $this->checkMaxRetries();
 
         return false;
-    }
-
-    /**
-     * Hook for automatic API throttling.
-     * Override in BaseApiableJob for automatic rate limiting.
-     * Default: no throttling (non-API jobs).
-     */
-    protected function shouldStartOrThrottle(): bool
-    {
-        return true;
     }
 
     protected function executeJobLogic(): void

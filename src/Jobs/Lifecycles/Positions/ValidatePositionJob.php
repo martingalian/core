@@ -89,7 +89,7 @@ final class ValidatePositionJob extends BaseQueueableJob
         if ($shouldCancel) {
             Step::create([
                 'class' => CancelPositionJob::class,
-                'queue' => 'positions',
+                'queue' => 'default',
                 'arguments' => [
                     'positionId' => $this->position->id,
                 ],

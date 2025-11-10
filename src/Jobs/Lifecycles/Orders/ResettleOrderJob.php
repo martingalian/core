@@ -41,7 +41,7 @@ final class ResettleOrderJob extends BaseQueueableJob
             'class' => PlaceOrderJob::class,
             'block_uuid' => $this->uuid(),
             'index' => 1,
-            'queue' => 'orders',
+            'queue' => 'default',
             'arguments' => [
                 'orderId' => $newOrder->id,
             ],
@@ -52,7 +52,7 @@ final class ResettleOrderJob extends BaseQueueableJob
             'class' => SyncReferenceDataJob::class,
             'block_uuid' => $this->uuid(),
             'index' => 2,
-            'queue' => 'orders',
+            'queue' => 'default',
             'arguments' => [
                 'orderId' => $newOrder->id,
                 'attributesToSync' => ['status', 'quantity', 'price'],
@@ -64,7 +64,7 @@ final class ResettleOrderJob extends BaseQueueableJob
             'class' => SyncReferenceDataJob::class,
             'block_uuid' => $this->uuid(),
             'index' => 3,
-            'queue' => 'orders',
+            'queue' => 'default',
             'arguments' => [
                 'orderId' => $this->order->id,
                 'attributesToSync' => ['status'],

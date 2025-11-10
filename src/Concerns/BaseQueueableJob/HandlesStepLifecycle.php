@@ -8,6 +8,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Log;
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
+use Martingalian\Core\Models\ForbiddenHostname;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Skipped;
@@ -92,8 +94,8 @@ trait HandlesStepLifecycle
                         $this->assignExceptionHandler();
                     }
 
-                    $hostname = \Martingalian\Core\Models\Martingalian::ip();
-                    $isForbidden = \Martingalian\Core\Models\ForbiddenHostname::query()
+                    $hostname = Martingalian::ip();
+                    $isForbidden = ForbiddenHostname::query()
                         ->where('account_id', $this->exceptionHandler->account->id)
                         ->where('ip_address', $hostname)
                         ->exists();

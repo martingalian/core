@@ -48,7 +48,7 @@ final class ApplyWAPJob extends BaseQueueableJob
 
         Step::create([
             'class' => UpdatePositionStatusJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $this->uuid(),
             'index' => 1,
             'arguments' => [
@@ -59,7 +59,7 @@ final class ApplyWAPJob extends BaseQueueableJob
 
         Step::create([
             'class' => QueryPositionsJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $this->uuid(),
             'index' => 2,
             'arguments' => [
@@ -69,7 +69,7 @@ final class ApplyWAPJob extends BaseQueueableJob
 
         Step::create([
             'class' => CalculateWAPAndModifyProfitOrderJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $this->uuid(),
             'index' => 3,
             'arguments' => [
@@ -79,7 +79,7 @@ final class ApplyWAPJob extends BaseQueueableJob
 
         Step::create([
             'class' => UpdatePositionStatusJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $this->uuid(),
             'index' => 4,
             'arguments' => [

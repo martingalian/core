@@ -46,7 +46,7 @@ final class CancelPositionJob extends BaseApiableJob
 
         Step::create([
             'class' => UpdatePositionStatusJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -57,7 +57,7 @@ final class CancelPositionJob extends BaseApiableJob
 
         Step::create([
             'class' => ClosePositionAtomicallyJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -68,7 +68,7 @@ final class CancelPositionJob extends BaseApiableJob
 
         Step::create([
             'class' => CancelPositionOpenOrdersJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -78,7 +78,7 @@ final class CancelPositionJob extends BaseApiableJob
 
         Step::create([
             'class' => SyncPositionOrdersJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -91,7 +91,7 @@ final class CancelPositionJob extends BaseApiableJob
          */
         Step::create([
             'class' => QueryPositionsJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -101,7 +101,7 @@ final class CancelPositionJob extends BaseApiableJob
 
         Step::create([
             'class' => VerifyPositionResidualAmountJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -111,7 +111,7 @@ final class CancelPositionJob extends BaseApiableJob
 
         Step::create([
             'class' => UpdatePositionStatusJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => $i++,
             'arguments' => [
@@ -122,7 +122,7 @@ final class CancelPositionJob extends BaseApiableJob
 
         Step::create([
             'class' => UpdatePositionStatusJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'type' => 'resolve-exception',
             'arguments' => [

@@ -111,7 +111,7 @@ final class ConcludeIndicatorsJob extends BaseQueueableJob
                 // Add to batch array instead of individual create
                 $stepsToCreate[] = [
                     'class' => QueryAllIndicatorsForSymbolsChunkJob::class,
-                    'queue' => 'indicators',
+                    'queue' => 'default',
                     'block_uuid' => $childBlockUuid,
                     'group' => $group,
                     'state' => \Martingalian\Core\States\Pending::class,
@@ -156,7 +156,7 @@ final class ConcludeIndicatorsJob extends BaseQueueableJob
 
             $concludeStepsToCreate[] = [
                 'class' => ConcludeDirectionJob::class,
-                'queue' => 'indicators',
+                'queue' => 'default',
                 'block_uuid' => $childBlockUuid,
                 'group' => $group,
                 'state' => \Martingalian\Core\States\Pending::class,

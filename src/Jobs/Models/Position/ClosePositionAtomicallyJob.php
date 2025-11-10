@@ -167,7 +167,7 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
         /*
         Step::create([
             'class' => DeletePositionHistoryDataJob::class,
-            'queue' => 'positions',
+            'queue' => 'default',
             'arguments' => [
                 'positionId' => $this->position->id,
             ],

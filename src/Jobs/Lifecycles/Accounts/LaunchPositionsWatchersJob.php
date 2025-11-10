@@ -36,7 +36,7 @@ final class LaunchPositionsWatchersJob extends BaseQueueableJob
         // Get all open positions for this account.
         Step::create([
             'class' => QueryPositionsJob::class,
-            'queue' => 'watchers',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => 1,
             'arguments' => [
@@ -47,7 +47,7 @@ final class LaunchPositionsWatchersJob extends BaseQueueableJob
         // Get all open orders for this account.
         Step::create([
             'class' => QueryOpenOrdersJob::class,
-            'queue' => 'watchers',
+            'queue' => 'default',
             'block_uuid' => $uuid,
             'index' => 1,
             'arguments' => [
@@ -64,7 +64,7 @@ final class LaunchPositionsWatchersJob extends BaseQueueableJob
 
                 Step::create([
                     'class' => UpdatePositionStatusJob::class,
-                    'queue' => 'watchers',
+                    'queue' => 'default',
                     'block_uuid' => $uuid,
                     'index' => 1,
                     'arguments' => [
@@ -75,7 +75,7 @@ final class LaunchPositionsWatchersJob extends BaseQueueableJob
 
                 Step::create([
                     'class' => SyncPositionOrdersJob::class,
-                    'queue' => 'watchers',
+                    'queue' => 'default',
                     'block_uuid' => $uuid,
                     'index' => 2,
                     'arguments' => [
@@ -85,7 +85,7 @@ final class LaunchPositionsWatchersJob extends BaseQueueableJob
 
                 Step::create([
                     'class' => CheckPositionOrderChangesJob::class,
-                    'queue' => 'watchers',
+                    'queue' => 'default',
                     'block_uuid' => $uuid,
                     'child_block_uuid' => $childUuid,
                     'index' => 3,
