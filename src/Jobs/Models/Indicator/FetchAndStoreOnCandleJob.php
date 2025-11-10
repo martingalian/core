@@ -39,7 +39,7 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
         $this->canonical = $canonical;
         $this->timeframe = $timeframe;
         $this->params = $params;
-        $this->retries = 150;
+        $this->retries = 300;
     }
 
     public function assignExceptionHandler(): void

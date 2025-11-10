@@ -47,24 +47,37 @@ final class ApiRequestLogObserver
             return;
         }
 
-        // Skip if already deactivated - no need to process again
-        if (! $exchangeSymbol->is_active) {
-            return;
+        // Use transaction with pessimistic locking to prevent race conditions
+        // Multiple concurrent API requests might all see is_active=true before any can update it
+        $shouldNotify = \DB::transaction(function () use ($exchangeSymbol, $log) {
+            // Lock the row for update - prevents concurrent deactivations
+            $lockedSymbol = ExchangeSymbol::where('id', $exchangeSymbol->id)
+                ->lockForUpdate()
+                ->first();
+
+            // Skip if already deactivated (checked inside transaction after lock acquired)
+            if (! $lockedSymbol || ! $lockedSymbol->is_active) {
+                return false;
+            }
+
+            // Check if this is a consistent pattern (last N requests all failed)
+            if (! $this->hasConsistentFailurePattern($lockedSymbol, $log)) {
+                return false;
+            }
+
+            // Deactivate the ExchangeSymbol
+            $lockedSymbol->update([
+                'is_active' => false,
+                'is_tradeable' => false,
+            ]);
+
+            return true;
+        });
+
+        // Send notification outside transaction (only if we deactivated the symbol)
+        if ($shouldNotify) {
+            $this->sendDeactivationNotification($exchangeSymbol->fresh(), $log);
         }
-
-        // Check if this is a consistent pattern (last N requests all failed)
-        if (! $this->hasConsistentFailurePattern($exchangeSymbol, $log)) {
-            return;
-        }
-
-        // Deactivate the ExchangeSymbol
-        $exchangeSymbol->update([
-            'is_active' => false,
-            'is_tradeable' => false,
-        ]);
-
-        // Send notification to admin
-        $this->sendDeactivationNotification($exchangeSymbol, $log);
     }
 
     private function isPermanentNoDataError(ApiRequestLog $log): bool
