@@ -1,7 +1,14 @@
 # Testing Strategy
 
 ## Overview
-Comprehensive testing using **Pest v4** with feature tests, unit tests, integration tests, and browser tests. Current status: **753 tests, 2946 assertions, all passing**.
+Comprehensive testing using **Pest v4** with feature tests, unit tests, integration tests, and browser tests. Current status: **841 tests passing** (Unit/Feature: 824, Integration: 19).
+
+The project enforces quality through multiple layers:
+- **Pest Tests**: Unit, Feature, Integration, and Browser tests
+- **PHPStan**: Static analysis at level `max`
+- **Pint**: Laravel code style enforcement with strict rules
+- **Rector**: PHP code modernization and refactoring
+- **Prettier**: Frontend code formatting (resources/)
 
 ## Test Structure
 
@@ -141,6 +148,9 @@ it('submits login form successfully', function () {
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <testsuite name="Browser">
+            <directory>tests/Browser</directory>
+        </testsuite>
     </testsuites>
 
     <php>
@@ -155,17 +165,105 @@ it('submits login form successfully', function () {
 ### Pest.php
 
 ```php
-uses(TestCase::class)->in('Feature');
-uses(TestCase::class, RefreshDatabase::class)->in('Feature/Database');
-uses(IntegrationTestCase::class, RefreshDatabase::class)->in('Integration');
+// Feature & Browser tests with database
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
+    ->beforeEach(function (): void {
+        Str::createRandomStringsNormally();
+        Str::createUuidsNormally();
+        Http::preventStrayRequests();
+        Sleep::fake();
+        $this->freezeTime();
 
-function fakeApis(): void
+        // Ensure Martingalian record exists
+        \Martingalian\Core\Models\Martingalian::firstOrCreate(['id' => 1], [...]);
+        Once::flush();
+    })
+    ->in('Browser', 'Feature');
+
+// Pure unit tests without database
+pest()->extend(TestCase::class)
+    ->beforeEach(function (): void {
+        Str::createRandomStringsNormally();
+        Str::createUuidsNormally();
+        Http::preventStrayRequests();
+        Sleep::fake();
+        $this->freezeTime();
+    })
+    ->in('Unit');
+
+// Integration tests with database
+pest()->extend(Tests\Integration\IntegrationTestCase::class)
+    ->use(RefreshDatabase::class)
+    ->beforeEach(function (): void {
+        Str::createRandomStringsNormally();
+        Str::createUuidsNormally();
+        Http::preventStrayRequests();
+        Sleep::fake();
+        $this->freezeTime();
+
+        \Martingalian\Core\Models\Martingalian::firstOrCreate(['id' => 1], [...]);
+        Once::flush();
+    })
+    ->in('Integration');
+```
+
+### phpstan.neon (Static Analysis)
+
+```neon
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/nesbot/carbon/extension.neon
+    - phar://phpstan.phar/conf/bleedingEdge.neon
+
+parameters:
+    paths:
+        - app
+        - bootstrap/app.php
+        - config
+        - database
+        - public
+        - routes
+
+    level: max
+    tmpDir: /tmp/phpstan
+```
+
+### pint.json (Code Style)
+
+```json
 {
-    Http::fake([
-        'api.binance.com/*' => Http::response(['price' => '50000'], 200),
-        'api.bybit.com/*' => Http::response(['result' => []], 200),
-        'api.taapi.io/*' => Http::response(['value' => 50], 200),
-    ]);
+    "preset": "laravel",
+    "notPath": ["tests/TestCase.php", "tmp"],
+    "rules": {
+        "declare_strict_types": true,
+        "final_class": true,
+        "strict_comparison": true,
+        "global_namespace_import": {
+            "import_classes": true,
+            "import_constants": true,
+            "import_functions": true
+        },
+        "ordered_class_elements": {...},
+        "protected_to_private": true,
+        "visibility_required": true
+    }
+}
+```
+
+### package.json (Frontend Linting)
+
+```json
+{
+    "scripts": {
+        "lint": "prettier --write resources/",
+        "test:lint": "prettier --check resources/"
+    },
+    "devDependencies": {
+        "prettier": "^3.6.2",
+        "prettier-plugin-organize-imports": "^4.3.0",
+        "prettier-plugin-tailwindcss": "^0.7.1"
+    }
 }
 ```
 
@@ -354,54 +452,89 @@ Tests stale price monitoring notifications:
 
 **Total: Integration tests covering all critical notification paths**
 
-### Running Integration Tests
-
-Integration tests cannot run in parallel (they share log files):
-
-```bash
-# Run integration tests only
-composer test:integration
-php artisan test --testsuite=Integration
-
-# Run all tests (includes integration sequentially)
-php artisan test
-
-# Unit tests in parallel (excludes integration)
-composer test:unit
-```
-
 ## Running Tests
 
-### All Tests
+### Composer Test Commands
+
+The project uses composer scripts for all testing workflows:
+
+#### Full Test Suite
 ```bash
-php artisan test
+# Runs ALL tests + static analysis + linting
+composer test
+
+# Includes:
+# - composer test:type-coverage (Pest type coverage, min 100%)
+# - composer test:unit (Unit + Feature tests in parallel)
+# - composer test:integration (Integration tests sequentially)
+# - composer test:lint (Pint + Rector + Prettier verification)
+# - composer test:types (PHPStan static analysis)
 ```
 
-### Specific Suite
+#### Unit & Feature Tests (Parallel)
+```bash
+composer test:unit
+
+# Equivalent to: pest --parallel --exclude-testsuite=Integration
+# Runs all tests EXCEPT Integration (841 tests)
+# Uses parallel execution for speed
+```
+
+#### Integration Tests (Sequential)
+```bash
+composer test:integration
+
+# Equivalent to: pest --testsuite=Integration
+# Runs only Integration tests (19 tests)
+# Must run sequentially (shares log files)
+```
+
+#### Static Analysis & Linting
+```bash
+# PHPStan static analysis
+composer test:types
+
+# Verify code style (no changes)
+composer test:lint
+
+# Auto-fix code style issues
+composer lint
+
+# Type coverage check (min 100%)
+composer test:type-coverage
+```
+
+#### Coverage Testing
+```bash
+composer test:coverage
+
+# Equivalent to: pest --coverage --min=70
+# Generates code coverage report
+```
+
+### Direct Pest/Artisan Commands
+
+For specific test scenarios, use Pest/Artisan directly:
+
+#### Specific Suite
 ```bash
 php artisan test --testsuite=Feature
 php artisan test --testsuite=Unit
 php artisan test --testsuite=Integration
 ```
 
-### Specific File
+#### Specific File
 ```bash
 php artisan test tests/Feature/Notifications/AlertNotificationTest.php
 ```
 
-### Specific Test
+#### Specific Test
 ```bash
 php artisan test --filter="renders alert email"
 php artisan test --filter=testUserCanLogin
 ```
 
-### With Coverage
-```bash
-php artisan test --coverage
-php artisan test --coverage --min=80
-```
-
-### Parallel Execution
+#### Parallel Execution
 ```bash
 php artisan test --parallel
 ```
@@ -1038,6 +1171,56 @@ $response->assertStatus(403); // Less specific
 2. Refactor code
 3. Run full test suite after
 4. All tests must still pass
+
+## Testing Workflow
+
+### During Development
+```bash
+# Quick feedback loop: Run only the tests you're working on
+php artisan test --filter="test name"
+php artisan test tests/Feature/YourTest.php
+
+# Auto-fix code style issues
+composer lint
+
+# Before committing: Run unit tests + lint
+composer test:unit
+composer test:lint
+```
+
+### Before Pull Request
+```bash
+# Run the full test suite
+composer test
+
+# This ensures:
+# ✓ All unit/feature/integration tests pass
+# ✓ Type coverage is 100%
+# ✓ Code style is correct (Pint + Rector + Prettier)
+# ✓ Static analysis passes (PHPStan level max)
+```
+
+### Continuous Integration
+```bash
+# CI runs the same command
+composer test
+
+# On failure, check specific areas:
+composer test:unit          # If tests fail
+composer test:integration   # If integration tests fail
+composer test:types         # If PHPStan fails
+composer test:lint          # If code style fails
+```
+
+### Quick Commands Reference
+```bash
+composer test              # Full suite (use before PR)
+composer test:unit         # Fast feedback (use during dev)
+composer test:integration  # Integration only
+composer test:types        # PHPStan static analysis
+composer test:lint         # Verify code style
+composer lint              # Auto-fix code style
+```
 
 ## Future Testing Enhancements
 

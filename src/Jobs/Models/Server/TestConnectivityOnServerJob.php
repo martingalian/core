@@ -94,7 +94,7 @@ final class TestConnectivityOnServerJob extends BaseApiableJob
      * For connectivity tests, we WANT to test if IP is forbidden or rate-limited.
      * We skip pre-flight checks and just test the API call directly.
      */
-    protected function shouldExitEarly(): bool
+    public function shouldExitEarly(): bool
     {
         // Skip all BaseApiableJob safety checks:
         // - ForbiddenHostname check (we're testing if IP is forbidden)

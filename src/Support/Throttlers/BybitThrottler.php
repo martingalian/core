@@ -239,6 +239,7 @@ final class BybitThrottler extends BaseApiThrottler
         return [
             'requests_per_window' => config('martingalian.throttlers.bybit.requests_per_window', 550), // 92% of 600
             'window_seconds' => config('martingalian.throttlers.bybit.window_seconds', 5),
+            'min_delay_between_requests_ms' => config('martingalian.throttlers.bybit.min_delay_ms', 0),
         ];
     }
 

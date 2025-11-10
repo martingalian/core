@@ -107,6 +107,10 @@ Binance has TWO independent rate limit systems:
         'requests_per_window' => 10000,
         'window_seconds' => 60,
 
+        // Optional minimum delay between requests (in milliseconds)
+        // Default: 0 (disabled). Set to enforce minimum spacing between requests
+        'min_delay_ms' => (int) env('BINANCE_THROTTLER_MIN_DELAY_MS', 0),
+
         // Rate limit definitions from response headers
         'rate_limits' => [
             ['type' => 'REQUEST_WEIGHT', 'interval' => '1m', 'limit' => 2040],  // 85% of 2400
@@ -299,6 +303,10 @@ protected static function checkRateLimitProximity(?int $accountId = null): int
     // Fallback rate limit (when headers unavailable)
     'requests_per_window' => (int) env('BYBIT_THROTTLER_REQUESTS_PER_WINDOW', 550), // 92% of 600
     'window_seconds' => (int) env('BYBIT_THROTTLER_WINDOW_SECONDS', 5),
+
+    // Optional minimum delay between requests (in milliseconds)
+    // Default: 0 (disabled). Set to enforce minimum spacing between requests
+    'min_delay_ms' => (int) env('BYBIT_THROTTLER_MIN_DELAY_MS', 0),
 ],
 ```
 

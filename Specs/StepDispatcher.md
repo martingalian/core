@@ -18,7 +18,8 @@ Step-based job execution system using state machines for reliable, sequential ta
 - `relatable_type`, `relatable_id` (polymorphic - what this step operates on)
 - `action` (job class name to dispatch)
 - `arguments` (JSON - job constructor args)
-- `dispatch_group` (queue group: 'default', 'low', 'high')
+- `queue` (queue name: 'default', 'priority', 'candles', 'indicators', or hostname)
+- `group` (dispatch group for load balancing)
 - `state` (StepStatus enum)
 - `dispatch_after` (datetime - delay dispatching until)
 - `started_at`, `completed_at`
@@ -266,12 +267,32 @@ Schedule::command('steps:dispatch')->everySecond();
 
 **Weight**: Probability of group selection for server assignment
 
+### Queue System
+**Location**: `packages/martingalian/core/src/Observers/StepObserver.php`
+
+Valid queue names for step execution:
+```php
+$validQueues = [
+    'default',      // Standard queue for most operations
+    'priority',     // High priority queue (auto-assigned when step priority='high')
+    'candles',      // Dedicated queue for candle data fetching (taapi:store-candles)
+    'indicators',   // Dedicated queue for indicator calculations (cronjobs:conclude-symbols-direction)
+    mb_strtolower(gethostname()) // Hostname-based queue for server-specific tasks
+];
+```
+
+**Queue Assignment Logic** (in StepObserver):
+- Steps with `priority='high'` are automatically routed to 'priority' queue
+- Invalid queue names fallback to 'default'
+- StoreCandlesCommand uses 'candles' queue
+- ConcludeSymbolsDirectionCommand uses 'indicators' queue
+
 ### Horizon Queues
 **Location**: `config/horizon.php`
 
-Maps dispatch groups to queue names:
+Maps queues to workers:
 ```php
-'queue' => ['default', 'low', 'high']
+'queue' => ['default', 'priority', 'candles', 'indicators']
 ```
 
 ## Database Schema

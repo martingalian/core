@@ -68,10 +68,12 @@ final class BybitApiDataMapper extends BaseDataMapper
     {
         $apiSystem = ApiSystem::firstWhere('canonical', 'bybit');
 
-        // Leverage the asset mapper to return the right token for the exchange.
-        $token = BaseAssetMapper::where('api_system_id', $apiSystem->id)
-            ->where('symbol_token', $token)
-            ->first()->exchange_token ?? $token;
+        // Leverage the asset mapper to return the right token for the exchange (if available)
+        if ($apiSystem) {
+            $token = BaseAssetMapper::where('api_system_id', $apiSystem->id)
+                ->where('symbol_token', $token)
+                ->first()->exchange_token ?? $token;
+        }
 
         // Bybit uses PERP suffix for USDC-settled perpetual contracts
         if ($quote === 'USDC') {

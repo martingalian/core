@@ -204,6 +204,7 @@ final class BinanceThrottler extends BaseApiThrottler
         return [
             'requests_per_window' => config('martingalian.throttlers.binance.requests_per_window', 10000),
             'window_seconds' => config('martingalian.throttlers.binance.window_seconds', 60),
+            'min_delay_between_requests_ms' => config('martingalian.throttlers.binance.min_delay_ms', 0),
         ];
     }
 
