@@ -233,7 +233,7 @@ final class ApiRequestLogObserver
         Throttler::using(NotificationService::class)
             ->withCanonical('exchange_symbol_no_taapi_data')
             ->for($exchangeSymbol)
-            ->execute(function () use ($messageData) {
+            ->execute(function () use ($messageData, $exchangeSymbol) {
                 NotificationService::send(
                     user: Martingalian::admin(),
                     message: $messageData['emailMessage'],
@@ -243,7 +243,8 @@ final class ApiRequestLogObserver
                     severity: $messageData['severity'],
                     pushoverMessage: $messageData['pushoverMessage'],
                     actionUrl: $messageData['actionUrl'],
-                    actionLabel: $messageData['actionLabel']
+                    actionLabel: $messageData['actionLabel'],
+                    relatable: $exchangeSymbol
                 );
             });
     }

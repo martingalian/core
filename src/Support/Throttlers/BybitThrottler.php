@@ -51,9 +51,39 @@ final class BybitThrottler extends BaseApiThrottler
     {
         $prefix = self::getCacheKeyPrefix();
 
-        Log::channel('jobs')->info("[BYBIT-THROTTLER] isSafeToDispatch() called");
+        Log::channel('jobs')->info('[BYBIT-THROTTLER] isSafeToDispatch() called');
 
-        // Check if IP is currently banned (403 response)
+        // 1. Check minimum delay between requests
+        $ip = self::getCurrentIp();
+        $minDelayMs = config('martingalian.throttlers.bybit.min_delay_ms', 0);
+
+        if ($minDelayMs > 0) {
+            // Check both IP-based timestamp (from recordResponseHeaders)
+            // and prefix-based Carbon (from recordDispatch)
+            $lastRequest = Cache::get("bybit:{$ip}:last_request");
+            $lastDispatch = Cache::get($prefix.':last_dispatch');
+
+            $lastTimestamp = null;
+            if ($lastRequest) {
+                $lastTimestamp = $lastRequest;
+            } elseif ($lastDispatch && $lastDispatch instanceof \Illuminate\Support\Carbon) {
+                $lastTimestamp = $lastDispatch->timestamp;
+            }
+
+            if ($lastTimestamp) {
+                $minDelaySeconds = $minDelayMs / 1000;
+                $elapsedSeconds = now()->timestamp - $lastTimestamp;
+
+                if ($elapsedSeconds < $minDelaySeconds) {
+                    $waitSeconds = (int) ceil($minDelaySeconds - $elapsedSeconds);
+                    Log::channel('jobs')->info("[BYBIT-THROTTLER] Minimum delay not met | Wait: {$waitSeconds}s");
+
+                    return $waitSeconds;
+                }
+            }
+        }
+
+        // 2. Check if IP is currently banned (403 response)
         if (self::isCurrentlyBanned()) {
             $secondsRemaining = self::getSecondsUntilBanLifts();
             Log::channel('jobs')->info("[BYBIT-THROTTLER] IP currently banned | Wait: {$secondsRemaining}s");
@@ -64,42 +94,46 @@ final class BybitThrottler extends BaseApiThrottler
         try {
             $ip = self::getCurrentIp();
 
-            // Check rate limit threshold
+            // 3. Check rate limit threshold
             $safetyThreshold = config('martingalian.throttlers.bybit.safety_threshold', 0.1);
             $limitStatus = Cache::get("bybit:{$ip}:limit:status");
             $limitMax = Cache::get("bybit:{$ip}:limit:max");
 
-            Log::channel('jobs')->info("[BYBIT-THROTTLER] Rate limit headers | Status: ".($limitStatus ?? 'NULL')." | Max: ".($limitMax ?? 'NULL')." | Safety threshold: {$safetyThreshold}");
+            Log::channel('jobs')->info('[BYBIT-THROTTLER] Rate limit headers | Status: '.($limitStatus ?? 'NULL').' | Max: '.($limitMax ?? 'NULL')." | Safety threshold: {$safetyThreshold}");
 
             // If no rate limit data exists, allow request (fail-safe)
             if ($limitStatus === null || $limitMax === null) {
-                Log::channel('jobs')->info("[BYBIT-THROTTLER] No rate limit data - allowing request");
+                Log::channel('jobs')->info('[BYBIT-THROTTLER] No rate limit data - allowing request');
+
                 return 0;
             }
 
             // If max is 0, allow request (avoid division by zero)
             if ($limitMax === 0) {
-                Log::channel('jobs')->info("[BYBIT-THROTTLER] Max is 0 - allowing request");
+                Log::channel('jobs')->info('[BYBIT-THROTTLER] Max is 0 - allowing request');
+
                 return 0;
             }
 
             // If status is 0 or negative, we're at or over limit
             if ($limitStatus <= 0) {
-                Log::channel('jobs')->info("[BYBIT-THROTTLER] STATUS THROTTLE! Status <= 0");
+                Log::channel('jobs')->info('[BYBIT-THROTTLER] STATUS THROTTLE! Status <= 0');
+
                 return 1; // Wait at least 1 second
             }
 
             // Calculate remaining percentage
             $remainingPercentage = $limitStatus / $limitMax;
-            Log::channel('jobs')->info("[BYBIT-THROTTLER] Remaining percentage: ".round($remainingPercentage * 100, 2)."%");
+            Log::channel('jobs')->info('[BYBIT-THROTTLER] Remaining percentage: '.round($remainingPercentage * 100, 2).'%');
 
             // If below safety threshold, wait
             if ($remainingPercentage < $safetyThreshold) {
                 Log::channel('jobs')->info("[BYBIT-THROTTLER] SAFETY THRESHOLD THROTTLE! {$remainingPercentage} < {$safetyThreshold}");
+
                 return 1; // Wait at least 1 second
             }
 
-            Log::channel('jobs')->info("[BYBIT-THROTTLER] isSafeToDispatch() = OK (0 seconds wait)");
+            Log::channel('jobs')->info('[BYBIT-THROTTLER] isSafeToDispatch() = OK (0 seconds wait)');
         } catch (Throwable $e) {
             // Fail-safe: allow request on error
             Log::warning("Failed to check Bybit safety: {$e->getMessage()}");
@@ -121,6 +155,9 @@ final class BybitThrottler extends BaseApiThrottler
     {
         try {
             $ip = self::getCurrentIp();
+
+            // Record last request timestamp for minimum delay enforcement
+            Cache::put("bybit:{$ip}:last_request", now()->timestamp, 60);
 
             // Parse Bybit rate limit headers
             // X-Bapi-Limit-Status: Current usage count (remaining requests)

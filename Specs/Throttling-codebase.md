@@ -540,6 +540,86 @@ redis-cli GET "binance:1.2.3.4:uid:123:orders:10s"
 
 ---
 
+## Zero-Second Throttling
+
+### Immediate Execution Pattern
+
+**From: Throttler::execute() (Support/Throttler.php)**
+
+```php
+public function execute(Closure $callback): bool
+{
+    // Get active throttle rule
+    $throttleRule = ThrottleRule::findByCanonical($this->canonical);
+
+    // Use override or rule's throttle seconds
+    $throttleSeconds = $this->throttleSecondsOverride ?? $throttleRule->throttle_seconds;
+
+    // If throttle is 0 seconds, execute immediately without any throttle logic or log creation
+    if ($throttleSeconds === 0) {
+        $callback();
+        return false; // Not throttled, executed
+    }
+
+    // Use a short-lived transaction ONLY for the throttle check
+    // ... rest of throttle logic with pessimistic locking ...
+}
+```
+
+**Zero-Second Behavior:**
+- Executes callback immediately
+- **No database operations** - no throttle logs created
+- **No locking** - no transaction overhead
+- Returns `false` (not throttled)
+
+**Use Cases:**
+- Notifications that must send immediately
+- Critical real-time operations
+- Events that cannot be delayed
+
+**Example Usage:**
+
+```php
+// Auto-deactivation notification (never throttled)
+Throttler::using(NotificationService::class)
+    ->withCanonical('exchange_symbol_no_taapi_data')  // Has 0 seconds in DB
+    ->for($exchangeSymbol)
+    ->execute(function () use ($messageData, $exchangeSymbol) {
+        NotificationService::send(
+            user: Martingalian::admin(),
+            message: $messageData['emailMessage'],
+            title: $messageData['title'],
+            canonical: 'exchange_symbol_no_taapi_data',
+            deliveryGroup: 'default',
+            severity: $messageData['severity'],
+            pushoverMessage: $messageData['pushoverMessage'],
+            actionUrl: $messageData['actionUrl'],
+            actionLabel: $messageData['actionLabel'],
+            relatable: $exchangeSymbol
+        );
+    });
+```
+
+**Configuration:**
+
+```php
+// In MartingalianSeeder.php
+[
+    'canonical' => 'exchange_symbol_no_taapi_data',
+    'description' => 'No throttle - send notification immediately',
+    'throttle_seconds' => 0,  // Zero = no throttling
+    'is_active' => true,
+],
+```
+
+**Benefits:**
+- **Performance**: No DB queries or locks
+- **Simplicity**: Clean separation of throttled vs instant operations
+- **Flexibility**: Can enable throttling later by changing DB value
+- **Audit**: Still uses canonical for tracking (even though no logs)
+
+---
+
 ## Summary
 
 **Key Patterns:**
@@ -549,6 +629,7 @@ redis-cli GET "binance:1.2.3.4:uid:123:orders:10s"
 4. **UID-scoped orders** - Per-account tracking
 5. **80% threshold** - Proactive throttling
 6. **IP ban tracking** - Respects 418 responses
+7. **Zero-second throttling** - Immediate execution without overhead
 
 **Cache Strategy:**
 - Keys include IP for multi-server coordination
@@ -560,9 +641,11 @@ redis-cli GET "binance:1.2.3.4:uid:123:orders:10s"
 - `BybitThrottler.php` - Bybit-specific implementation
 - `BaseApiThrottler.php` - Shared base class
 - `BaseApiableJob.php` - Integration point
+- `Throttler.php` - General-purpose throttling with 0-second support
 
 **Never:**
 - Skip pre-flight checks
 - Ignore response headers
 - Hardcode rate limits in jobs
 - Use hostname in cache keys (use IP)
+- Create throttle logs for 0-second rules

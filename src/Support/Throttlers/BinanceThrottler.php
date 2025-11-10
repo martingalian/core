@@ -52,7 +52,37 @@ final class BinanceThrottler extends BaseApiThrottler
     {
         $prefix = self::getCacheKeyPrefix();
 
-        // 1. Check if IP is currently banned (418 response)
+        // 1. Check minimum delay between requests
+        $ip = self::getCurrentIp();
+        $minDelayMs = config('martingalian.throttlers.binance.min_delay_ms', 0);
+
+        if ($minDelayMs > 0) {
+            // Check both IP-based timestamp (from recordResponseHeaders)
+            // and prefix-based Carbon (from recordDispatch)
+            $lastRequest = Cache::get("binance:{$ip}:last_request");
+            $lastDispatch = Cache::get($prefix.':last_dispatch');
+
+            $lastTimestamp = null;
+            if ($lastRequest) {
+                $lastTimestamp = $lastRequest;
+            } elseif ($lastDispatch && $lastDispatch instanceof \Illuminate\Support\Carbon) {
+                $lastTimestamp = $lastDispatch->timestamp;
+            }
+
+            if ($lastTimestamp) {
+                $minDelaySeconds = $minDelayMs / 1000;
+                $elapsedSeconds = now()->timestamp - $lastTimestamp;
+
+                if ($elapsedSeconds < $minDelaySeconds) {
+                    $waitSeconds = (int) ceil($minDelaySeconds - $elapsedSeconds);
+                    Log::channel('jobs')->info("[THROTTLER] {$prefix} | Minimum delay not met | Wait: {$waitSeconds}s");
+
+                    return $waitSeconds;
+                }
+            }
+        }
+
+        // 2. Check if IP is currently banned (418 response)
         if (self::isCurrentlyBanned()) {
             $secondsRemaining = self::getSecondsUntilBanLifts();
             Log::channel('jobs')->info("[THROTTLER] {$prefix} | IP currently banned | Wait: {$secondsRemaining}s");
@@ -60,7 +90,7 @@ final class BinanceThrottler extends BaseApiThrottler
             return $secondsRemaining;
         }
 
-        // 2. Check if approaching any rate limit (>80% threshold)
+        // 3. Check if approaching any rate limit (>80% threshold)
         $secondsToWait = self::checkRateLimitProximity($accountId);
         if ($secondsToWait > 0) {
             Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by rate limit proximity: {$secondsToWait}s");
@@ -84,6 +114,9 @@ final class BinanceThrottler extends BaseApiThrottler
         try {
             $ip = self::getCurrentIp();
             $headers = self::normalizeHeaders($response);
+
+            // Record last request timestamp for minimum delay enforcement
+            Cache::put("binance:{$ip}:last_request", now()->timestamp, 60);
 
             // Parse and store weight headers
             $weights = self::parseIntervalHeaders($headers, 'x-mbx-used-weight-');

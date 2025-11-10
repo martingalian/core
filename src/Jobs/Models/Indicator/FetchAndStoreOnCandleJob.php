@@ -171,7 +171,7 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
      * For candle fetching, escalate to high priority on first retry (any retries > 0).
      * This ensures candle data gets prioritized immediately when rate limited.
      */
-    protected function shouldChangeToHighPriority(): bool
+    public function shouldChangeToHighPriority(): bool
     {
         return $this->step->retries > 0;
     }
