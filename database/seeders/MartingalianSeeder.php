@@ -1099,6 +1099,14 @@ final class MartingalianSeeder extends Seeder
                 'user_types' => ['admin'],
                 'is_active' => true,
             ],
+            [
+                'canonical' => 'exchange_symbol_no_taapi_data',
+                'title' => 'Exchange Symbol Auto-Deactivated - No TAAPI Data',
+                'description' => 'Sent when an exchange symbol is automatically deactivated due to consistent lack of TAAPI indicator data',
+                'default_severity' => 'info',
+                'user_types' => ['admin'],
+                'is_active' => true,
+            ],
         ];
 
         foreach ($notifications as $notification) {
@@ -1144,6 +1152,12 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'symbol_synced',
                 'description' => 'Throttle symbol synced notifications',
                 'throttle_seconds' => 3600,
+                'is_active' => true,
+            ],
+            [
+                'canonical' => 'exchange_symbol_no_taapi_data',
+                'description' => 'No throttle - send notification immediately when exchange symbol is deactivated due to no TAAPI data',
+                'throttle_seconds' => 0,
                 'is_active' => true,
             ],
             [

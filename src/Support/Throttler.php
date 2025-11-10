@@ -120,6 +120,13 @@ final class Throttler
         // Use override or rule's throttle seconds
         $throttleSeconds = $this->throttleSecondsOverride ?? $throttleRule->throttle_seconds;
 
+        // If throttle is 0 seconds, execute immediately without any throttle logic or log creation
+        if ($throttleSeconds === 0) {
+            $callback();
+
+            return false; // Not throttled, executed
+        }
+
         // Use a short-lived transaction ONLY for the throttle check
         // The callback is executed OUTSIDE the transaction to prevent deadlocks
         $shouldExecute = \Illuminate\Support\Facades\DB::transaction(function () use ($throttleSeconds) {

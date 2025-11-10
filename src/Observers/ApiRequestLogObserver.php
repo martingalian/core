@@ -8,6 +8,10 @@ use Martingalian\Core\Models\ApiRequestLog;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Models\ExchangeSymbol;
+use Martingalian\Core\Models\Martingalian;
+use Martingalian\Core\Support\NotificationMessageBuilder;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 
 final class ApiRequestLogObserver
 {
@@ -28,23 +32,28 @@ final class ApiRequestLogObserver
     {
         // Only process TAAPI requests
         $taapiSystem = ApiSystem::where('canonical', 'taapi')->first();
-        if (!$taapiSystem || $log->api_system_id !== $taapiSystem->id) {
+        if (! $taapiSystem || $log->api_system_id !== $taapiSystem->id) {
             return;
         }
 
         // Only process permanent "no data" errors
-        if (!$this->isPermanentNoDataError($log)) {
+        if (! $this->isPermanentNoDataError($log)) {
             return;
         }
 
         // Parse payload to identify the ExchangeSymbol
         $exchangeSymbol = $this->resolveExchangeSymbolFromPayload($log);
-        if (!$exchangeSymbol) {
+        if (! $exchangeSymbol) {
+            return;
+        }
+
+        // Skip if already deactivated - no need to process again
+        if (! $exchangeSymbol->is_active) {
             return;
         }
 
         // Check if this is a consistent pattern (last N requests all failed)
-        if (!$this->hasConsistentFailurePattern($exchangeSymbol, $log)) {
+        if (! $this->hasConsistentFailurePattern($exchangeSymbol, $log)) {
             return;
         }
 
@@ -53,6 +62,9 @@ final class ApiRequestLogObserver
             'is_active' => false,
             'is_tradeable' => false,
         ]);
+
+        // Send notification to admin
+        $this->sendDeactivationNotification($exchangeSymbol, $log);
     }
 
     private function isPermanentNoDataError(ApiRequestLog $log): bool
@@ -85,7 +97,7 @@ final class ApiRequestLogObserver
     {
         $payload = is_string($log->payload) ? json_decode($log->payload, true) : $log->payload;
 
-        if (!isset($payload['options']['exchange'], $payload['options']['symbol'])) {
+        if (! isset($payload['options']['exchange'], $payload['options']['symbol'])) {
             return null;
         }
 
@@ -107,12 +119,12 @@ final class ApiRequestLogObserver
             default => null,
         };
 
-        if (!$exchangeCanonical) {
+        if (! $exchangeCanonical) {
             return null;
         }
 
         $apiSystem = ApiSystem::where('canonical', $exchangeCanonical)->first();
-        if (!$apiSystem) {
+        if (! $apiSystem) {
             return null;
         }
 
@@ -144,7 +156,7 @@ final class ApiRequestLogObserver
         $exchange = $payload['options']['exchange'] ?? null;
         $symbol = $payload['options']['symbol'] ?? null;
 
-        if (!$exchange || !$symbol) {
+        if (! $exchange || ! $symbol) {
             return false;
         }
 
@@ -172,5 +184,54 @@ final class ApiRequestLogObserver
         return $recentLogs->every(function ($log) {
             return $this->isPermanentNoDataError($log);
         });
+    }
+
+    private function sendDeactivationNotification(ExchangeSymbol $exchangeSymbol, ApiRequestLog $log): void
+    {
+        $symbolToken = $exchangeSymbol->symbol->token;
+        $quoteCanonical = $exchangeSymbol->quote->canonical;
+        $exchangeName = $exchangeSymbol->apiSystem->name;
+
+        // Count how many failures occurred
+        $payload = is_string($log->payload) ? json_decode($log->payload, true) : $log->payload;
+        $exchange = $payload['options']['exchange'] ?? null;
+        $symbol = $payload['options']['symbol'] ?? null;
+        $escapedSymbol = str_replace('/', '\\\/', $symbol);
+
+        $taapiSystem = ApiSystem::where('canonical', 'taapi')->first();
+        $failureCount = ApiRequestLog::where('api_system_id', $taapiSystem->id)
+            ->where('created_at', '>=', now()->subHours(24))
+            ->where('payload', 'LIKE', "%{$exchange}%")
+            ->where('payload', 'LIKE', "%{$escapedSymbol}%")
+            ->where('http_response_code', 400)
+            ->count();
+
+        $message = "Exchange symbol {$symbolToken}/{$quoteCanonical} on {$exchangeName} was automatically deactivated.\n\n";
+        $message .= "Reason: TAAPI consistently returned 'No candles found' errors ({$failureCount} failures in last 24h).\n\n";
+        $message .= "The symbol has been marked as is_active=false and is_tradeable=false to prevent further failed API requests.\n\n";
+        $message .= 'This is an automated system action - no manual intervention required unless you want to investigate why TAAPI has no data for this symbol.';
+
+        $messageData = NotificationMessageBuilder::build(
+            canonical: 'exchange_symbol_no_taapi_data',
+            context: ['message' => $message]
+        );
+
+        // Send notification without throttling - throttle rule has 0 seconds so no logs created
+        Throttler::using(NotificationService::class)
+            ->withCanonical('exchange_symbol_no_taapi_data')
+            ->for($exchangeSymbol)
+            ->execute(function () use ($messageData) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
+                    message: $messageData['emailMessage'],
+                    title: $messageData['title'],
+                    canonical: 'exchange_symbol_no_taapi_data',
+                    deliveryGroup: 'default',
+                    severity: $messageData['severity'],
+                    pushoverMessage: $messageData['pushoverMessage'],
+                    actionUrl: $messageData['actionUrl'],
+                    actionLabel: $messageData['actionLabel']
+                );
+            });
     }
 }

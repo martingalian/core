@@ -537,7 +537,7 @@ trait SendsNotifications
                         message: $messageData['emailMessage'],
                         title: $messageData['title'],
                         canonical: 'api_rate_limit_exceeded',
-                        deliveryGroup: 'exceptions',
+                        deliveryGroup: 'default',
                         severity: $messageData['severity'],
                         pushoverMessage: $messageData['pushoverMessage'],
                         actionUrl: $messageData['actionUrl'],
