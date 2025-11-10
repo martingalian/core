@@ -63,22 +63,41 @@ final class Account extends BaseModel
     ];
 
     /**
-     * Build an in-memory Account carrying the "Martingalian admin" credentials
-     * for the requested API system. This does not persist anything.
+     * Create a temporary (non-persisted) Account instance with provided credentials.
+     * This is the base method for creating in-memory accounts for testing or admin operations.
+     *
+     * @param  string  $apiSystemCanonical  API system canonical (e.g., 'binance', 'bybit')
+     * @param  array  $credentials  Credentials array (e.g., ['binance_api_key' => '...', 'binance_api_secret' => '...'])
+     * @return self Non-persisted Account instance
+     */
+    public static function temporary(string $apiSystemCanonical, array $credentials): self
+    {
+        $apiSystem = ApiSystem::where('canonical', $apiSystemCanonical)->firstOrFail();
+
+        return tap(new self, function (self $account) use ($credentials, $apiSystem) {
+            // Fills encrypted columns via the mutator
+            $account->all_credentials = $credentials;
+
+            // Link to API system
+            $account->api_system_id = $apiSystem->id;
+
+            // Mark as non-persisted
+            $account->exists = false;
+        });
+    }
+
+    /**
+     * Create temporary Account with admin credentials from martingalian table.
+     * Convenience wrapper around temporary() that fetches system credentials.
+     *
+     * @param  string  $apiSystemCanonical  API system canonical (e.g., 'binance', 'bybit')
+     * @return self Non-persisted Account instance with admin credentials
      */
     public static function admin(string $apiSystemCanonical): self
     {
         $source = Martingalian::findOrFail(1);
 
-        $apiSystem = ApiSystem::where('canonical', $apiSystemCanonical)->firstOrFail();
-
-        return tap(new self, function (self $account) use ($source, $apiSystem) {
-            // Fills encrypted columns via the mutator.
-            $account->all_credentials = $source->all_credentials;
-
-            // Non-null and valid (prevents withApi() null-rel issues).
-            $account->api_system_id = $apiSystem->id;
-        });
+        return self::temporary($apiSystemCanonical, $source->all_credentials);
     }
 
     public function steps()

@@ -66,7 +66,7 @@ abstract class BaseApiThrottler
         $currentCount = Cache::get($windowKey, 0);
         $safetyThreshold = $config['safety_threshold'] ?? 1.0;
         $effectiveLimit = (int) floor($config['requests_per_window'] * $safetyThreshold);
-        Log::channel('jobs')->info("[THROTTLER] {$prefix} | Window: {$windowKey} | Count: {$currentCount}/{$effectiveLimit} (safety: ".($safetyThreshold * 100)."%)");
+        Log::channel('jobs')->info("[THROTTLER] {$prefix} | Window: {$windowKey} | Count: {$currentCount}/{$effectiveLimit} (safety: ".($safetyThreshold * 100).'%)');
 
         $secondsToWait = static::checkWindowLimit($prefix, $config['requests_per_window'], $config['window_seconds'], $safetyThreshold);
 

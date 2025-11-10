@@ -185,15 +185,18 @@ abstract class BaseApiClient
 
             if ($method === 'GET') {
                 return Http::withHeaders($headers)->get($url, $options['query'] ?? [])->throw()->toPsrResponse();
-            } elseif ($method === 'POST') {
+            }
+            if ($method === 'POST') {
                 $body = $options['json'] ?? $options['query'] ?? [];
 
                 return Http::withHeaders($headers)->post($url, $body)->throw()->toPsrResponse();
-            } elseif ($method === 'PUT') {
+            }
+            if ($method === 'PUT') {
                 $body = $options['json'] ?? $options['query'] ?? [];
 
                 return Http::withHeaders($headers)->put($url, $body)->throw()->toPsrResponse();
-            } elseif ($method === 'DELETE') {
+            }
+            if ($method === 'DELETE') {
                 return Http::withHeaders($headers)->delete($url, $options['query'] ?? [])->throw()->toPsrResponse();
             }
         }

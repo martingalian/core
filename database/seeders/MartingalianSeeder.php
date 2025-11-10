@@ -825,13 +825,96 @@ final class MartingalianSeeder extends Seeder
      */
     public function seedServers(): void
     {
-        DB::table('servers')->insert([
-            'hostname' => gethostname(),
-            'ip_address' => gethostbyname(gethostname()),
-            'type' => 'ingestion',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $servers = [
+            [
+                'hostname' => 'worker-5',
+                'ip_address' => '157.180.69.25',
+                'is_apiable' => true,
+                'needs_whitelisting' => true,
+                'own_queue_name' => 'worker-5',
+                'description' => 'Worker server for job processing',
+                'type' => 'worker',
+            ],
+            [
+                'hostname' => 'worker-4',
+                'ip_address' => '46.62.156.246',
+                'is_apiable' => true,
+                'needs_whitelisting' => true,
+                'own_queue_name' => 'worker-4',
+                'description' => 'Worker server for job processing',
+                'type' => 'worker',
+            ],
+            [
+                'hostname' => 'worker-3',
+                'ip_address' => '46.62.255.137',
+                'is_apiable' => true,
+                'needs_whitelisting' => true,
+                'own_queue_name' => 'worker-3',
+                'description' => 'Worker server for job processing',
+                'type' => 'worker',
+            ],
+            [
+                'hostname' => 'worker-2',
+                'ip_address' => '37.27.83.74',
+                'is_apiable' => true,
+                'needs_whitelisting' => true,
+                'own_queue_name' => 'worker-2',
+                'description' => 'Worker server for job processing',
+                'type' => 'worker',
+            ],
+            [
+                'hostname' => 'worker-1',
+                'ip_address' => '46.62.215.85',
+                'is_apiable' => true,
+                'needs_whitelisting' => true,
+                'own_queue_name' => 'worker-1',
+                'description' => 'Worker server for job processing',
+                'type' => 'worker',
+            ],
+            [
+                'hostname' => 'ingestion',
+                'ip_address' => '46.62.203.165',
+                'is_apiable' => true,
+                'needs_whitelisting' => true,
+                'own_queue_name' => 'ingestion',
+                'description' => 'Ingestion server - cron & dispatch',
+                'type' => 'ingestion',
+            ],
+            [
+                'hostname' => 'redis',
+                'ip_address' => '46.62.215.70',
+                'is_apiable' => false,
+                'needs_whitelisting' => false,
+                'own_queue_name' => null,
+                'description' => 'Redis cache server',
+                'type' => 'redis',
+            ],
+            [
+                'hostname' => 'database',
+                'ip_address' => '46.62.218.172',
+                'is_apiable' => false,
+                'needs_whitelisting' => false,
+                'own_queue_name' => null,
+                'description' => 'Database server',
+                'type' => 'database',
+            ],
+            [
+                'hostname' => 'frontend',
+                'ip_address' => '65.21.5.150',
+                'is_apiable' => false,
+                'needs_whitelisting' => false,
+                'own_queue_name' => null,
+                'description' => 'Frontend application server',
+                'type' => 'frontend',
+            ],
+        ];
+
+        foreach ($servers as $server) {
+            DB::table('servers')->insert(array_merge($server, [
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]));
+        }
     }
 
     /**

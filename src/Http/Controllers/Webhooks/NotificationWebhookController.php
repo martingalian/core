@@ -540,7 +540,7 @@ final class NotificationWebhookController extends Controller
 
         Log::info('[ZEPTOMAIL WEBHOOK] Signature verification', [
             'timestamp' => $timestamp,
-            'payload_length' => strlen($payload),
+            'payload_length' => mb_strlen($payload),
             'signature_received' => $signature,
             'signature_expected' => $expectedSignature,
             'match' => hash_equals($expectedSignature, $signature),

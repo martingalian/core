@@ -13,8 +13,15 @@ final class StepObserver
 {
     public function creating(Step $step): void
     {
+        // Automatically route high priority steps to the priority queue
+        if ($step->priority === 'high') {
+            $step->queue = 'priority';
+        }
+
         // Queue validation: fallback to 'default' if queue is not valid
-        if (! empty($step->queue) && $step->queue !== 'default' && $step->queue !== 'priority') {
+        // Valid queues: 'default', 'priority', and hostname-based queue (lowercase)
+        $validQueues = ['default', 'priority', mb_strtolower(gethostname())];
+        if (! empty($step->queue) && ! in_array($step->queue, $validQueues, true)) {
             $step->queue = 'default';
         }
 
@@ -74,8 +81,15 @@ final class StepObserver
 
     public function saving(Step $step): void
     {
+        // Automatically route high priority steps to the priority queue
+        if ($step->priority === 'high') {
+            $step->queue = 'priority';
+        }
+
         // Queue validation: fallback to 'default' if queue is not valid
-        if (! empty($step->queue) && $step->queue !== 'default' && $step->queue !== 'priority') {
+        // Valid queues: 'default', 'priority', and hostname-based queue (lowercase)
+        $validQueues = ['default', 'priority', mb_strtolower(gethostname())];
+        if (! empty($step->queue) && ! in_array($step->queue, $validQueues, true)) {
             $step->queue = 'default';
         }
 

@@ -480,10 +480,17 @@ return new class extends Migration
         // servers table
         Schema::create('servers', function (Blueprint $table) {
             $table->id();
-            $table->string('hostname')->unique();
-            $table->string('ip_address')->nullable();
-            $table->string('type')->default('ingestion');
+            $table->string('hostname')->unique()->comment('Server hostname identifier');
+            $table->string('ip_address')->nullable()->comment('Server IP address');
+            $table->boolean('is_apiable')->default(false)->comment('Whether this server makes API calls to exchanges');
+            $table->boolean('needs_whitelisting')->default(false)->comment('Whether this server IP needs to be whitelisted on trading platforms');
+            $table->string('own_queue_name')->nullable()->comment('Unique queue name for sending jobs directly to this server');
+            $table->text('description')->nullable()->comment('Description of what this server is used for');
+            $table->string('type')->default('ingestion')->comment('Server type (ingestion, worker, etc)');
             $table->timestamps();
+
+            $table->index('is_apiable', 'idx_servers_is_apiable');
+            $table->index('hostname', 'idx_servers_hostname');
         });
 
         // slow_queries table
@@ -655,6 +662,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(false)->after('last_logged_in_at');
             $table->boolean('can_trade')->default(true)->after('is_active');
             $table->boolean('is_admin')->default(false)->after('can_trade');
+            $table->uuid('current_connectivity_test_uuid')->nullable()->after('is_admin')->comment('Block UUID of currently running connectivity test');
 
             $table->index('is_active', 'idx_users_is_active');
             $table->index('can_trade', 'idx_users_can_trade');

@@ -168,39 +168,6 @@ trait ApiExceptionHelpers
     }
 
     /**
-     * ----------------
-     * Low-level helpers
-     * ----------------
-     */
-
-    /**
-     * Match a RequestException to a map of HTTP/vendor codes.
-     * $statusCodes can be:
-     *  • flat list: [429, 418]
-     *  • map: [400 => [-1021, -5028], 401 => [-2015]]
-     */
-    protected function containsHttpExceptionIn(Throwable $exception, array $statusCodes): bool
-    {
-        if (! $exception instanceof RequestException) {
-            return false;
-        }
-
-        $data = $this->extractHttpErrorCodes($exception);
-        $httpCode = $data['http_code'];
-        $statusCode = $data['status_code'];
-
-        if (array_key_exists($httpCode, $statusCodes)) {
-            $codes = $statusCodes[$httpCode];
-
-            return is_array($codes) && $codes !== []
-                ? in_array($statusCode, $codes, true)
-                : true;
-        }
-
-        return in_array($httpCode, $statusCodes, true);
-    }
-
-    /**
      * Minimal body decoder for HTTP code + vendor JSON code/message.
      * NOTE: Also supports CoinMarketCap style payloads:
      *   { "status": { "error_code": 1008, "error_message": "...", ... }, "data": ... }
@@ -240,6 +207,39 @@ trait ApiExceptionHelpers
             'status_code' => $statusCode,
             'message' => $message,
         ];
+    }
+
+    /**
+     * ----------------
+     * Low-level helpers
+     * ----------------
+     */
+
+    /**
+     * Match a RequestException to a map of HTTP/vendor codes.
+     * $statusCodes can be:
+     *  • flat list: [429, 418]
+     *  • map: [400 => [-1021, -5028], 401 => [-2015]]
+     */
+    protected function containsHttpExceptionIn(Throwable $exception, array $statusCodes): bool
+    {
+        if (! $exception instanceof RequestException) {
+            return false;
+        }
+
+        $data = $this->extractHttpErrorCodes($exception);
+        $httpCode = $data['http_code'];
+        $statusCode = $data['status_code'];
+
+        if (array_key_exists($httpCode, $statusCodes)) {
+            $codes = $statusCodes[$httpCode];
+
+            return is_array($codes) && $codes !== []
+                ? in_array($statusCode, $codes, true)
+                : true;
+        }
+
+        return in_array($httpCode, $statusCodes, true);
     }
 
     /**

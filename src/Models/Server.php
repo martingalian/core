@@ -11,7 +11,11 @@ use Martingalian\Core\Abstracts\BaseModel;
 /**
  * @property int $id
  * @property string $hostname
- * @property string $ip_address
+ * @property string|null $ip_address
+ * @property bool $is_apiable
+ * @property bool $needs_whitelisting
+ * @property string|null $own_queue_name
+ * @property string|null $description
  * @property string $type
  * @property Carbon $created_at
  * @property Carbon $updated_at
@@ -23,6 +27,8 @@ final class Server extends BaseModel
     protected $table = 'servers';
 
     protected $casts = [
+        'is_apiable' => 'boolean',
+        'needs_whitelisting' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

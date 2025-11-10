@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Martingalian\Core\Models\ExchangeSymbol;
 use Illuminate\Database\Eloquent\Model;
+use Martingalian\Core\Models\ExchangeSymbol;
 
 /**
  * Try running a callback multiple times with optional delays and failure callback.

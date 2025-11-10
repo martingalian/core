@@ -28,7 +28,7 @@ final class AccountFactory extends Factory
             'uuid' => fake()->uuid(),
             'user_id' => User::factory(),
             'api_system_id' => ApiSystem::factory(),
-            'name' => fake()->words(3, true) . ' Account',
+            'name' => fake()->words(3, true).' Account',
             'trade_configuration_id' => TradeConfiguration::factory(),
             'portfolio_quote_id' => null,
             'trading_quote_id' => null,

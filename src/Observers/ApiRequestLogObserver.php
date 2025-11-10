@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Observers;
 
+use DB;
 use Martingalian\Core\Models\ApiRequestLog;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
@@ -49,7 +50,7 @@ final class ApiRequestLogObserver
 
         // Use transaction with pessimistic locking to prevent race conditions
         // Multiple concurrent API requests might all see is_active=true before any can update it
-        $shouldNotify = \DB::transaction(function () use ($exchangeSymbol, $log) {
+        $shouldNotify = DB::transaction(function () use ($exchangeSymbol, $log) {
             // Lock the row for update - prevents concurrent deactivations
             $lockedSymbol = ExchangeSymbol::where('id', $exchangeSymbol->id)
                 ->lockForUpdate()
