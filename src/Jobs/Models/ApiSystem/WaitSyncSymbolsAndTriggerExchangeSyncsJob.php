@@ -76,6 +76,18 @@ final class WaitSyncSymbolsAndTriggerExchangeSyncsJob extends BaseQueueableJob
                 ],
             ]);
 
+            // Step 4: Trigger correlation calculations for all USDT symbols
+            if (config('martingalian.correlation.enabled')) {
+                Step::query()->create([
+                    'class' => TriggerCorrelationCalculationsJob::class,
+                    'block_uuid' => $exchangeUuid,
+                    'index' => $index++,
+                    'arguments' => [
+                        'apiSystemId' => $exchange->id,
+                    ],
+                ]);
+            }
+
             $exchangesTriggered++;
         });
 
