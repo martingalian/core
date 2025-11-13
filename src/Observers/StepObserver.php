@@ -19,8 +19,8 @@ final class StepObserver
         }
 
         // Queue validation: fallback to 'default' if queue is not valid
-        // Valid queues: 'default', 'priority', 'candles', 'indicators', and hostname-based queue (lowercase)
-        $validQueues = ['default', 'priority', 'candles', 'indicators', mb_strtolower(gethostname())];
+        // Valid queues: 'default', 'priority', and hostname-based queue (lowercase)
+        $validQueues = ['default', 'priority', mb_strtolower(gethostname())];
         if (! empty($step->queue) && ! in_array($step->queue, $validQueues, true)) {
             $step->queue = 'default';
         }
@@ -87,8 +87,8 @@ final class StepObserver
         }
 
         // Queue validation: fallback to 'default' if queue is not valid
-        // Valid queues: 'default', 'priority', 'candles', 'indicators', and hostname-based queue (lowercase)
-        $validQueues = ['default', 'priority', 'candles', 'indicators', mb_strtolower(gethostname())];
+        // Valid queues: 'default', 'priority', and hostname-based queue (lowercase)
+        $validQueues = ['default', 'priority', mb_strtolower(gethostname())];
         if (! empty($step->queue) && ! in_array($step->queue, $validQueues, true)) {
             $step->queue = 'default';
         }

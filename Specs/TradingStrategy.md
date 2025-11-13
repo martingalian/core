@@ -229,6 +229,481 @@ Before opening a position, all conditions must be met:
 - High volatility (wide spreads)
 - Patience for better price available
 
+## Symbol Selection & Position Assignment
+
+### Overview
+**Location**: `Martingalian\Core\Concerns\Account\HasTokenDiscovery`
+**Purpose**: Assigns specific trading pairs (ExchangeSymbols) to abstract position slots created by the trading strategy
+
+### Current Implementation Analysis
+
+The `HasTokenDiscovery` trait bridges portfolio-level strategy ("open 5 LONG positions") with symbol-level execution ("buy BTC/USDT, ETH/USDT..."). While architecturally clean, the current implementation has critical financial risk concerns that need addressing.
+
+#### Flow
+```
+Strategy creates N empty positions (status='new', exchange_symbol_id=NULL)
+    ↓
+LaunchCreatedPositionsJob triggers
+    ↓
+QueryPositionsJob, QueryOrdersJob, QueryBalanceJob (sync exchange state)
+    ↓
+AssignTokensToNewPositionsJob → HasTokenDiscovery::assignBestTokenToNewPositions()
+    ↓
+Positions assigned concrete trading pairs
+    ↓
+DispatchNewPositionsWithTokensAssignedJob (execute trades)
+```
+
+### Critical Issues Requiring Attention
+
+#### 🚨 Issue #1: Random Symbol Selection (HIGH PRIORITY)
+
+**Current Behavior:**
+```php
+// Line 183 in HasTokenDiscovery
+$exchangeSymbolId = Arr::random($ids);  // Random pick from available LONG/SHORT signals
+```
+
+**The Problem:**
+Symbols are selected **completely at random** from whatever happens to have a directional signal. This creates severe portfolio risk:
+
+**Example Scenario:**
+```
+Available 1h LONG signals: [BTC, ETH, SOL, DOGE, SHIB, PEPE, FLOKI, APE]
+Random picks for 3 positions: [SHIB, PEPE, FLOKI]
+
+Result:
+- 100% memecoin exposure
+- 0.95+ correlation (all move identically)
+- Market dumps 3% → All positions down 15%+ with leverage
+```
+
+**Why This Matters:**
+- **No correlation awareness** - All selected symbols might be highly correlated
+- **No volatility adjustment** - SHIB (±20% daily) treated same as BTC (±3% daily)
+- **No liquidity consideration** - Low-liquidity symbols get equal weight
+- **No signal strength ranking** - Weak LONG signal = Strong LONG signal
+
+**Impact:**
+Works okay in strong bull markets (everything rises), but **catastrophic in bear/choppy markets** when correlation spikes and random selection = holding 5 correlated losers.
+
+**Recommended Solution:**
+Replace random selection with **signal strength scoring**:
+
+```php
+protected function selectBestToken(string $direction)
+{
+    $indexes = $this->tradeConfiguration->indicator_timeframes;
+
+    // Try fast-tracked first (existing logic)
+    $fastTrackedSymbol = $this->getFastTrackedSymbolForDirection($direction);
+    if ($fastTrackedSymbol) {
+        return $fastTrackedSymbol;
+    }
+
+    // NEW: Score-based selection instead of random
+    foreach ($indexes as $timeframe) {
+        $ids = data_get($this->sortedExchangeSymbols, $timeframe.'.'.$direction, []);
+
+        if (!empty($ids)) {
+            // Score each symbol
+            $scored = collect($ids)->map(function($id) {
+                $symbol = ExchangeSymbol::find($id);
+                return [
+                    'id' => $id,
+                    'symbol' => $symbol,
+                    'score' => $this->calculateSignalStrength($symbol),
+                ];
+            })
+            ->sortByDesc('score')
+            ->filter(function($item) {
+                // Filter out if would create high correlation with existing positions
+                return !$this->wouldCreateHighCorrelation($item['symbol']);
+            });
+
+            if ($scored->isNotEmpty()) {
+                $best = $scored->first();
+                // Remove from pool and return
+                $this->availableExchangeSymbols = $this->availableExchangeSymbols->filter(
+                    fn($s) => $s->id !== $best['id']
+                );
+                $this->generateStructuredDataFromAvailableExchangeSymbols();
+                return $best['symbol'];
+            }
+        }
+    }
+
+    return null;
+}
+
+protected function calculateSignalStrength(ExchangeSymbol $symbol): float
+{
+    $indicators = $symbol->indicators_values ?? [];
+    $score = 0;
+
+    // RSI extremes = stronger signal
+    if ($symbol->direction === 'LONG' && isset($indicators['rsi'])) {
+        $rsi = $indicators['rsi'];
+        if ($rsi < 30) $score += 30;      // Deep oversold
+        elseif ($rsi < 40) $score += 20;  // Oversold
+    } elseif ($symbol->direction === 'SHORT' && isset($indicators['rsi'])) {
+        $rsi = $indicators['rsi'];
+        if ($rsi > 70) $score += 30;      // Deep overbought
+        elseif ($rsi > 60) $score += 20;  // Overbought
+    }
+
+    // MACD histogram magnitude
+    if (isset($indicators['macd']['histogram'])) {
+        $score += abs($indicators['macd']['histogram']) * 10;
+    }
+
+    // ADX > 25 = strong trend confirmation
+    if (isset($indicators['adx']) && $indicators['adx'] > 25) {
+        $score += 20;
+    }
+
+    // Signal freshness (penalize stale signals)
+    $age = now()->diffInMinutes($symbol->indicators_synced_at);
+    $score -= $age * 2;
+
+    // Volatility penalty (prefer stable assets)
+    if (isset($symbol->volatility_24h)) {
+        $score -= $symbol->volatility_24h * 5;
+    }
+
+    return max(0, $score);  // Ensure non-negative
+}
+
+protected function wouldCreateHighCorrelation(ExchangeSymbol $candidateSymbol): bool
+{
+    $openPositions = $this->positions()->opened()->with('exchangeSymbol')->get();
+
+    if ($openPositions->isEmpty()) {
+        return false;
+    }
+
+    // Check if candidate symbol is in same sector as existing positions
+    // This is simplified - real implementation would use correlation matrix
+    $candidateSector = $candidateSymbol->sector ?? 'unknown';
+
+    $sectorCounts = $openPositions->groupBy(fn($p) => $p->exchangeSymbol->sector ?? 'unknown')
+        ->map(fn($group) => $group->count());
+
+    $maxSectorPositions = 2;  // Don't allow more than 2 positions in same sector
+
+    if (($sectorCounts[$candidateSector] ?? 0) >= $maxSectorPositions) {
+        return true;  // Would create concentration
+    }
+
+    return false;
+}
+```
+
+#### 🟡 Issue #2: Fast-Track May Chase Exhausted Moves
+
+**Current Behavior:**
+```php
+// Fast-tracked symbols are reused immediately without additional validation
+$fastTrackedSymbol = $this->getFastTrackedSymbolForDirection($direction);
+if ($fastTrackedSymbol) {
+    return $fastTrackedSymbol;  // Immediate reuse
+}
+```
+
+**The Problem:**
+Fast profitable moves often signal **exhaustion**, not continuation. You're essentially **buying what just pumped**.
+
+**Example:**
+```
+Yesterday 15:00: BTC pumps +5% in 10 minutes (fast trade closed profitable)
+Yesterday 15:05: BTC added to fast-track list
+Today 09:00: BTC still shows LONG, assigned via fast-track
+Today 09:01: BTC tops out, reverses -8% (late entry into exhausted move)
+```
+
+**Recommended Solution:**
+Weight fast-track symbols higher but validate signal is still strong:
+
+```php
+protected function getFastTrackedSymbolForDirection(string $direction)
+{
+    $fastTracked = $this->fastTrackedPositions()->where('direction', $direction);
+
+    if ($fastTracked->isNotEmpty()) {
+        foreach ($fastTracked as $trackedPosition) {
+            $symbol = $this->availableExchangeSymbols
+                ->where('direction', $direction)
+                ->first(fn($s) => $s->id === $trackedPosition->exchange_symbol_id);
+
+            if ($symbol) {
+                // NEW: Validate signal is still strong
+                $signalStrength = $this->calculateSignalStrength($symbol);
+
+                // Only use fast-track if signal strength is above threshold
+                if ($signalStrength >= 50) {  // Configurable threshold
+                    return $symbol;
+                }
+
+                // Otherwise, continue to normal selection (signal weakened)
+            }
+        }
+    }
+
+    return null;
+}
+```
+
+#### 🟡 Issue #3: Stale Signal Risk
+
+**Current Behavior:**
+Trait doesn't check `indicators_synced_at` freshness. Could assign symbols with 4-minute-old signals that are executed at minute 5 (right at the staleness threshold).
+
+**Recommended Solution:**
+Filter symbols by freshness before building the sorted structure:
+
+```php
+public function assignBestTokenToNewPositions()
+{
+    $this->availableExchangeSymbols = $this->availableExchangeSymbols();
+
+    // Filter complete metadata (existing)
+    $this->availableExchangeSymbols = $this->availableExchangeSymbols->filter(function ($symbol) {
+        return filled($symbol->min_notional)
+            && filled($symbol->tick_size)
+            && filled($symbol->price_precision)
+            && filled($symbol->quantity_precision);
+    });
+
+    // NEW: Filter by signal freshness
+    $maxAgeMinutes = config('martingalian.strategy.max_indicator_age_minutes', 5);
+    $freshnessThreshold = now()->subMinutes($maxAgeMinutes / 2);  // Use half (2.5 min) for safety
+
+    $this->availableExchangeSymbols = $this->availableExchangeSymbols->filter(function ($symbol) use ($freshnessThreshold) {
+        return $symbol->indicators_synced_at >= $freshnessThreshold;
+    });
+
+    $this->generateStructuredDataFromAvailableExchangeSymbols();
+
+    // ... rest of existing logic
+}
+```
+
+#### 🟠 Issue #4: No Volatility-Adjusted Position Sizing
+
+**Current Behavior:**
+All symbols assigned equally. BTC (3% volatility) gets same margin as SHIB (20% volatility).
+
+**The Problem:**
+Equal margin = vastly different dollar risk per position.
+
+**Recommended Solution:**
+This is actually a **position sizing concern**, not symbol selection. The trait should store volatility metadata that the sizing logic uses:
+
+```php
+// In assignBestTokenToNewPositions(), after assignment:
+$position->updateSaving([
+    'exchange_symbol_id' => $bestToken->id,
+    'direction' => $bestToken->direction,
+    'parsed_trading_pair' => $position->getParsedTradingPair(),
+
+    // NEW: Store volatility for sizing logic
+    'indicators_values' => [
+        'volatility_24h' => $bestToken->volatility_24h ?? 0,
+        'signal_strength' => $this->calculateSignalStrength($bestToken),
+    ],
+]);
+```
+
+Then in your position sizing logic (separate from this trait):
+```php
+// Lower volatility = larger position size for same dollar risk
+$volatilityAdjustment = 1 / max($position->indicators_values['volatility_24h'], 0.01);
+$adjustedMargin = $baseMargin * $volatilityAdjustment;
+```
+
+#### 🟠 Issue #5: No Market Regime Awareness
+
+**Current Behavior:**
+Same selection logic regardless of market conditions.
+
+**The Problem:**
+- **Bull market**: Random works okay (rising tide lifts all boats)
+- **Bear/choppy market**: Need to be highly selective (correlation spikes, most signals fail)
+
+**Recommended Solution:**
+Add market regime detection and adjust selection criteria:
+
+```php
+protected function selectBestToken(string $direction)
+{
+    $marketRegime = $this->detectMarketRegime();  // 'bull', 'bear', 'choppy'
+
+    // In bear markets, only use top-tier signals
+    $minSignalStrength = match($marketRegime) {
+        'bull' => 30,     // Lower bar
+        'choppy' => 50,   // Moderate bar
+        'bear' => 70,     // High bar (very selective)
+        default => 40,
+    };
+
+    // ... then in scoring logic, filter by min strength
+}
+
+protected function detectMarketRegime(): string
+{
+    // Check BTC trend as market proxy
+    $btc = ExchangeSymbol::where('parsed_trading_pair', 'BTC/USDT')->first();
+
+    if (!$btc || !isset($btc->indicators_values['ema'])) {
+        return 'unknown';
+    }
+
+    $ema9 = $btc->indicators_values['ema']['9'] ?? 0;
+    $ema21 = $btc->indicators_values['ema']['21'] ?? 0;
+    $ema50 = $btc->indicators_values['ema']['50'] ?? 0;
+    $adx = $btc->indicators_values['adx'] ?? 0;
+
+    // Strong uptrend
+    if ($ema9 > $ema21 && $ema21 > $ema50 && $adx > 25) {
+        return 'bull';
+    }
+
+    // Strong downtrend
+    if ($ema9 < $ema21 && $ema21 < $ema50 && $adx > 25) {
+        return 'bear';
+    }
+
+    // Weak trend / range-bound
+    return 'choppy';
+}
+```
+
+### Portfolio-Level Risk Management (Future Enhancement)
+
+**Current Gap:**
+Trait operates per-account, doesn't consider cross-position portfolio risk.
+
+**Needed Enhancements:**
+
+1. **Correlation Matrix**
+   - Calculate pairwise correlation between candidate symbol and existing positions
+   - Reject if correlation > 0.8 (prevents clustered blow-ups)
+
+2. **Sector Diversification**
+   - Track sector exposure (Layer-1, DeFi, Meme, AI, etc.)
+   - Enforce limits: Max 40% in any single sector
+
+3. **Market Cap Spread**
+   - Ensure mix of large-cap (stable), mid-cap (growth), small-cap (high-risk)
+   - Don't allow 100% small-cap or 100% memecoins
+
+4. **Kelly Criterion for Selection**
+   - Calculate Kelly fraction per symbol based on historical win rate
+   - Prefer symbols with higher Kelly scores (better risk/reward history)
+
+**Example Implementation (Future):**
+```php
+protected function selectBestToken(string $direction)
+{
+    // ... existing logic ...
+
+    // Portfolio-level checks before finalizing selection
+    if ($scored->isNotEmpty()) {
+        $best = $scored->first(function($item) {
+            // Check correlation
+            if ($this->getCorrelationWithPortfolio($item['symbol']) > 0.8) {
+                return false;
+            }
+
+            // Check sector exposure
+            if ($this->getSectorExposure($item['symbol']->sector) > 0.4) {
+                return false;
+            }
+
+            // Check market cap balance
+            if (!$this->maintainsMarketCapBalance($item['symbol'])) {
+                return false;
+            }
+
+            return true;
+        });
+
+        return $best ? $best['symbol'] : null;
+    }
+}
+```
+
+### Configuration Updates Needed
+
+Add to `config/martingalian.php` → `strategy`:
+
+```php
+'symbol_selection' => [
+    // Signal quality
+    'min_signal_strength' => 40,          // Minimum score to be considered
+    'signal_freshness_minutes' => 2,      // Max age for indicators (stricter than 5)
+
+    // Fast-track
+    'fast_track_min_signal_strength' => 50, // Revalidate fast-track symbols
+    'fast_track_decay_hours' => 24,        // How long fast-track is valid
+
+    // Correlation & diversification
+    'max_correlation' => 0.8,              // Reject if correlation > 0.8
+    'max_sector_exposure' => 0.4,          // Max 40% in one sector
+    'enable_sector_diversification' => true,
+
+    // Market regime
+    'enable_regime_detection' => true,
+    'regime_signal_thresholds' => [
+        'bull' => 30,
+        'choppy' => 50,
+        'bear' => 70,
+    ],
+
+    // Volatility
+    'max_symbol_volatility_24h' => 0.25,   // Reject symbols with >25% daily volatility
+    'volatility_penalty_weight' => 5,      // How much to penalize high volatility in scoring
+],
+```
+
+### Testing Requirements
+
+**Unit Tests** (`tests/Unit/Concerns/Account/HasTokenDiscoveryTest.php`):
+- Signal strength calculation accuracy
+- Correlation detection logic
+- Market regime detection across scenarios
+- Fast-track signal validation
+- Freshness filtering
+
+**Integration Tests** (`tests/Integration/Trading/SymbolSelectionTest.php`):
+- Full flow: empty positions → assigned symbols → verify quality
+- Portfolio construction under different market regimes
+- Diversification enforcement (no >3 correlated symbols)
+- Backtest: random vs. scored selection performance comparison
+
+### Migration Strategy
+
+**Phase 1: Immediate (Safety)**
+- Add signal freshness filter (2.5 min max age)
+- Add volatility max limit (reject >25% daily vol)
+
+**Phase 2: Core Improvement (1-2 weeks)**
+- Implement signal strength scoring
+- Replace random selection with top-scored picks
+- Add fast-track signal revalidation
+
+**Phase 3: Portfolio Risk (Future)**
+- Correlation matrix calculation
+- Sector diversification enforcement
+- Market regime detection
+- Kelly criterion integration
+
+### Related Components
+- `LaunchCreatedPositionsJob` - Triggers this flow
+- `AssignTokensToNewPositionsJob` - Wraps the trait method
+- `ConcludeSymbolDirectionAtTimeframeJob` - Generates the signals used here
+- `ConfirmPriceAlignmentWithDirectionJob` - Validates signals before assignment
+
 ## Exit Criteria
 
 ### Profit Targets

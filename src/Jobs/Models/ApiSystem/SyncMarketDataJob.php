@@ -119,15 +119,28 @@ final class SyncMarketDataJob extends BaseApiableJob
             // Incoming deliveryDate from Binance is milliseconds since epoch (or 0/absent).
             $incomingMs = (int) ($tokenData['deliveryDate'] ?? 0);
 
+            // Binance perpetual default (Dec 25, 2100) - any other value indicates delisting
+            $binancePerpetualDefault = 4133404800000;
+
             // Snapshot current stored ms (nullable).
             $currentMs = $exchangeSymbol->delivery_ts_ms ? (int) $exchangeSymbol->delivery_ts_ms : null;
 
+            // Determine if the incoming delivery date indicates delisting
+            $isDelisted = $incomingMs > 0 && $incomingMs !== $binancePerpetualDefault;
+
             if ($currentMs === null && $incomingMs > 0) {
-                // Case 2.1 — We never saved a delivery date before: just persist it (no side-effects).
-                $exchangeSymbol->forceFill([
+                // Case 2.1 — We never saved a delivery date before
+                $updateData = [
                     'delivery_ts_ms' => $incomingMs,
                     'delivery_at' => Carbon::createFromTimestampMs($incomingMs)->utc(),
-                ])->save();
+                ];
+
+                // Only set is_tradeable to 0 if the symbol is delisted
+                if ($isDelisted) {
+                    $updateData['is_tradeable'] = 0;
+                }
+
+                $exchangeSymbol->forceFill($updateData)->save();
 
                 // No further action.
                 continue;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Martingalian\Core\Http\Controllers\Api\ConnectivityTestController;
+use Martingalian\Core\Http\Controllers\Api\DashboardApiController;
 use Martingalian\Core\Http\Controllers\Webhooks\NotificationWebhookController;
 
 /**
@@ -39,3 +40,14 @@ Route::post('/connectivity-test/start', [ConnectivityTestController::class, 'sta
 // Returns progress and results of all server connectivity tests
 Route::get('/connectivity-test/status/{blockUuid}', [ConnectivityTestController::class, 'status'])
     ->name('connectivity-test.status');
+
+/**
+ * Dashboard API Routes
+ *
+ * Authenticated routes for fetching dashboard data (positions, statistics, charts).
+ */
+
+// Get dashboard data (global stats + positions)
+// Requires authentication - returns 401 if not authenticated
+Route::middleware('auth')->get('/dashboard/data', [DashboardApiController::class, 'index'])
+    ->name('api.dashboard.data');

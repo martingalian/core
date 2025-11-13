@@ -11,7 +11,7 @@ Laravel 12 cryptocurrency trading automation. Multi-exchange support (Binance, B
 
 ## Directory Structure
 
-**IMPORTANT**: Laravel 12 has no `app/Console/Kernel.php`, no middleware directory. Migrations/seeders live in `packages/martingalian/core/database/`.
+**IMPORTANT**: Laravel 12 has no `app/Console/Kernel.php`, no middleware directory. You can now create new migration files and seeders under `packages/martingalian/core/database/migrations/` and `packages/martingalian/core/database/seeders/`. Migration files should directly call their corresponding seeder in the up() method after creating tables.
 
 ```
 app/

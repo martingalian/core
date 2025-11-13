@@ -65,7 +65,7 @@ final class CoreServiceProvider extends ServiceProvider
         // Load API routes with /api prefix
         $this->app->router->group([
             'prefix' => 'api',
-            'middleware' => 'api',
+            'middleware' => ['web'],
         ], function ($router) {
             require __DIR__.'/../routes/api.php';
         });

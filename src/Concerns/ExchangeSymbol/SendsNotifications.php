@@ -8,7 +8,6 @@ use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
 
 /**
  * SendsNotifications
@@ -44,11 +43,21 @@ trait SendsNotifications
 
         $shouldNotify = false;
 
-        // Binance: Delivery date changed (value → different value)
-        // This indicates contract rollover or delisting reschedule
+        // Binance perpetual default (Dec 25, 2100) - any other value indicates delisting
+        $binancePerpetualDefault = 4133404800000;
+
+        // Binance: Delivery date set or changed to non-perpetual value
+        // - First time set (null → value): Initial delisting detection
+        // - Changed (value → different value): Delisting reschedule
+        // - Ignore perpetual default value (4133404800000)
         if ($exchange === 'binance') {
-            if ($oldValue !== null && $newValue !== null && $oldValue !== $newValue) {
-                $shouldNotify = true;
+            $isDelistedValue = $newValue !== null && $newValue !== $binancePerpetualDefault;
+
+            if ($isDelistedValue) {
+                // Notify if: first time set OR changed to different value
+                if ($oldValue === null || ($oldValue !== null && $oldValue !== $newValue)) {
+                    $shouldNotify = true;
+                }
             }
         }
 
@@ -123,17 +132,13 @@ trait SendsNotifications
 
         $title = 'Token Delisting Detected';
 
-        // Send throttled notification to admin
-        Throttler::using(NotificationService::class)
-            ->withCanonical('symbol_delisting_positions_detected')
-            ->execute(function () use ($message, $title) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: $message,
-                    title: $title,
-                    canonical: 'symbol_delisting_positions_detected',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        // Send immediate notification to admin (no throttling - critical event)
+        NotificationService::send(
+            user: Martingalian::admin(),
+            message: $message,
+            title: $title,
+            canonical: 'symbol_delisting_positions_detected',
+            deliveryGroup: 'exceptions'
+        );
     }
 }
