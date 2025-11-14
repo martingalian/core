@@ -156,7 +156,7 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
      * Calculate Pearson correlation coefficient
      * Measures linear relationship between two datasets
      */
-    protected function calculatePearsonCorrelation(array $x, array $y): float
+    public function calculatePearsonCorrelation(array $x, array $y): float
     {
         $n = count($x);
 
@@ -180,7 +180,7 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
             $denomY += $diffY * $diffY;
         }
 
-        if ($denomX == 0 || $denomY == 0) {
+        if ($denomX === 0.0 || $denomY === 0.0) {
             return 0.0;
         }
 
@@ -191,7 +191,7 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
      * Calculate Spearman rank correlation
      * More robust to outliers than Pearson
      */
-    protected function calculateSpearmanCorrelation(array $x, array $y): float
+    public function calculateSpearmanCorrelation(array $x, array $y): float
     {
         // Convert values to ranks
         $ranksX = $this->rankArray($x);
@@ -205,7 +205,7 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
      * Calculate rolling correlation
      * Supports three methods: recent, average, weighted
      */
-    protected function calculateRollingCorrelation(
+    public function calculateRollingCorrelation(
         array $x,
         array $y,
         int $windowSize,
@@ -266,7 +266,7 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
      * Convert array values to ranks (for Spearman)
      * Handles ties by assigning average rank
      */
-    protected function rankArray(array $data): array
+    public function rankArray(array $data): array
     {
         $sorted = $data;
         asort($sorted);

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Http\Controllers\Api;
 
+use Cache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Log;
 
-class DashboardApiController extends Controller
+final class DashboardApiController extends Controller
 {
     /**
      * Get dashboard data with global statistics and positions.
@@ -16,8 +18,6 @@ class DashboardApiController extends Controller
      * Caching behavior:
      * - If refresh=true (F5/page refresh): Bypass cache and regenerate data
      * - Otherwise (dashboard auto-refresh): Use cached data (30 min TTL)
-     *
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -35,13 +35,13 @@ class DashboardApiController extends Controller
 
         // If refresh=true (F5), clear cache and regenerate
         if ($shouldRefresh) {
-            \Cache::forget($cacheKey);
-            \Log::info('🔄 Dashboard cache cleared (F5 refresh)', ['user_id' => $user->id]);
+            Cache::forget($cacheKey);
+            Log::info('🔄 Dashboard cache cleared (F5 refresh)', ['user_id' => $user->id]);
         }
 
         // Get data from cache or generate new
-        $data = \Cache::remember($cacheKey, now()->addMinutes(30), function () use ($user) {
-            \Log::info('🎯 Generating fresh dashboard data', ['user_id' => $user->id]);
+        $data = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($user) {
+            Log::info('🎯 Generating fresh dashboard data', ['user_id' => $user->id]);
 
             $globalStats = $this->generateGlobalStats();
             $longPositions = $this->generatePositions('LONG', 6);
@@ -57,7 +57,7 @@ class DashboardApiController extends Controller
         });
 
         if (! $shouldRefresh) {
-            \Log::info('📦 Using cached dashboard data', ['user_id' => $user->id]);
+            Log::info('📦 Using cached dashboard data', ['user_id' => $user->id]);
         }
 
         return response()->json([
@@ -70,18 +70,16 @@ class DashboardApiController extends Controller
      * Generate stub global statistics.
      *
      * Flatter structure as requested: ['gross_revenue' => XXX, 'daily_gross' => XXX, ...]
-     *
-     * @return array
      */
-    protected function generateGlobalStats(): array
+    public function generateGlobalStats(): array
     {
         return [
-            'gross_revenue' => round(rand(1000, 5000) + (rand(0, 99) / 100), 2),
-            'daily_gross' => round(rand(50, 300) + (rand(0, 99) / 100), 2),
-            'margin_ratio' => round(rand(20, 100) + (rand(0, 99) / 100), 2),
-            'drawdown' => round(rand(-100, -5) + (rand(0, 99) / 100), 2),
-            'clean_revenue' => round(rand(500, 4000) + (rand(0, 99) / 100), 2),
-            'avg_variation' => round(rand(-50, 50) + (rand(0, 99) / 100), 2),
+            'gross_revenue' => round(random_int(1000, 5000) + (random_int(0, 99) / 100), 2),
+            'daily_gross' => round(random_int(50, 300) + (random_int(0, 99) / 100), 2),
+            'margin_ratio' => round(random_int(20, 100) + (random_int(0, 99) / 100), 2),
+            'drawdown' => round(random_int(-100, -5) + (random_int(0, 99) / 100), 2),
+            'clean_revenue' => round(random_int(500, 4000) + (random_int(0, 99) / 100), 2),
+            'avg_variation' => round(random_int(-50, 50) + (random_int(0, 99) / 100), 2),
         ];
     }
 
@@ -97,11 +95,10 @@ class DashboardApiController extends Controller
      * - chart: [{timestamp, mark_price}] array of objects
      * - ladder: {start_price, end_price, tick_prices[], profit_price, current_price}
      *
-     * @param string $positionType LONG or SHORT
-     * @param int $count Number of positions to generate
-     * @return array
+     * @param  string  $positionType  LONG or SHORT
+     * @param  int  $count  Number of positions to generate
      */
-    protected function generatePositions(string $positionType, int $count): array
+    public function generatePositions(string $positionType, int $count): array
     {
         $tokens = [
             ['token' => 'BTC', 'name' => 'Bitcoin', 'icon_url' => 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png', 'base_price' => 100000],
@@ -123,33 +120,33 @@ class DashboardApiController extends Controller
         for ($i = 0; $i < $count; $i++) {
             $tokenData = $tokens[$i % count($tokens)];
             $basePrice = $tokenData['base_price'];
-            $markPrice = round($basePrice * (1 + (rand(-20, 20) / 100)), 2);
-            $variationPercent = round(((rand(-2000, 2000) / 100)), 2);
+            $markPrice = round($basePrice * (1 + (random_int(-20, 20) / 100)), 2);
+            $variationPercent = round(((random_int(-2000, 2000) / 100)), 2);
 
             // Generate random opened_at datetime (1-14 days ago)
-            $openedAt = now()->subHours(rand(1, 336)); // Random time in last 14 days
+            $openedAt = now()->subHours(random_int(1, 336)); // Random time in last 14 days
 
             // Random badge states
-            $isHedged = rand(0, 3) === 0; // 25% chance
-            $isWaped = ! $isHedged && rand(0, 4) === 0; // 20% chance if not hedged
-            $isRecentlyOpened = ! $isHedged && ! $isWaped && rand(0, 5) === 0; // ~16% chance
+            $isHedged = random_int(0, 3) === 0; // 25% chance
+            $isWaped = ! $isHedged && random_int(0, 4) === 0; // 20% chance if not hedged
+            $isRecentlyOpened = ! $isHedged && ! $isWaped && random_int(0, 5) === 0; // ~16% chance
 
             // Generate ladder data with actual prices (UI will calculate percentages)
-            $openingPrice = round($basePrice * (1 + (rand(-10, 10) / 100)), 2);
+            $openingPrice = round($basePrice * (1 + (random_int(-10, 10) / 100)), 2);
 
             // For LONG: ladder goes from opening price DOWN (buying lower)
             // For SHORT: ladder goes from opening price UP (selling higher)
-            $ladderDirection = strtolower($positionType) === 'long' ? -1 : 1;
+            $ladderDirection = mb_strtolower($positionType) === 'long' ? -1 : 1;
             $ladderStartPrice = $openingPrice;
             $ladderEndPrice = round($openingPrice * (1 + ($ladderDirection * 0.05)), 2); // 5% range
 
             // Generate profit price within ladder range (10-40% through the ladder)
-            $profitPricePercent = rand(10, 40) / 100;
+            $profitPricePercent = random_int(10, 40) / 100;
             $profitPrice = round($ladderStartPrice + (($ladderEndPrice - $ladderStartPrice) * $profitPricePercent), 2);
 
             // Generate current price (30-70% through the ladder, AFTER profit price)
             // This ensures the P marker will show (profit already passed, P is behind green bar)
-            $currentPricePercent = rand(30, 70) / 100; // After profit (10-40%)
+            $currentPricePercent = random_int(30, 70) / 100; // After profit (10-40%)
             $currentPrice = round($ladderStartPrice + (($ladderEndPrice - $ladderStartPrice) * $currentPricePercent), 2);
 
             $numTicks = 4;
@@ -164,8 +161,8 @@ class DashboardApiController extends Controller
                 'token' => $tokenData['token'], // Will be $position->symbol->token in real data
                 'name' => $tokenData['name'],
                 'icon_url' => $tokenData['icon_url'],
-                'position' => strtolower($positionType), // "long" or "short" (lowercase like real data)
-                'leverage' => rand(10, 25) . 'x',
+                'position' => mb_strtolower($positionType), // "long" or "short" (lowercase like real data)
+                'leverage' => random_int(10, 25).'x',
                 'opened_at' => $openedAt->toIso8601String(), // ISO 8601 datetime string
                 'opened_at_human' => $openedAt->diffForHumans(), // e.g., "2 hours ago"
                 'is_hedged' => $isHedged,
@@ -187,22 +184,22 @@ class DashboardApiController extends Controller
                 ],
 
                 'stats' => [
-                    'size' => round(rand(10000, 100000) + (rand(0, 99) / 100), 2),
-                    'alpha_path' => round(rand(80, 120) + (rand(0, 99) / 100), 1),
-                    'limit_filled_count' => rand(0, 4),
-                    'limit_filled_percent' => round(rand(0, 100) + (rand(0, 99) / 100), 1),
+                    'size' => round(random_int(10000, 100000) + (random_int(0, 99) / 100), 2),
+                    'alpha_path' => round(random_int(80, 120) + (random_int(0, 99) / 100), 1),
+                    'limit_filled_count' => random_int(0, 4),
+                    'limit_filled_percent' => round(random_int(0, 100) + (random_int(0, 99) / 100), 1),
                 ],
 
                 'prices' => [
                     'opening_price' => $openingPrice,
                     'profit_price' => $profitPrice,
-                    'next_limit_order' => rand(0, 1) ? round($basePrice * (1 + (rand(-5, 5) / 100)), 2) : null,
+                    'next_limit_order' => random_int(0, 1) ? round($basePrice * (1 + (random_int(-5, 5) / 100)), 2) : null,
                 ],
 
                 // Timeframes: 1 = positive (green), -1 = negative (red)
                 'timeframes' => [
-                    '1d' => rand(0, 1) ? 1 : -1,
-                    '4h' => rand(0, 1) ? 1 : -1,
+                    '1d' => random_int(0, 1) ? 1 : -1,
+                    '4h' => random_int(0, 1) ? 1 : -1,
                 ],
             ];
         }
@@ -212,11 +209,8 @@ class DashboardApiController extends Controller
 
     /**
      * Generate chart data in real format: array of {timestamp, mark_price} objects.
-     *
-     * @param float $basePrice
-     * @return array
      */
-    protected function generateChartDataRealFormat(float $basePrice): array
+    public function generateChartDataRealFormat(float $basePrice): array
     {
         $now = now()->timestamp * 1000; // JavaScript timestamp (milliseconds)
         $ticks = [];
@@ -226,7 +220,7 @@ class DashboardApiController extends Controller
             $timestamp = $now - ((55 - $i) * 60 * 1000); // 1 minute intervals, going backwards
 
             // Create realistic price movement
-            $priceVariation = (rand(-500, 500) / 100); // -5% to +5%
+            $priceVariation = (random_int(-500, 500) / 100); // -5% to +5%
             $markPrice = round($basePrice * (1 + ($priceVariation / 100)), 2);
 
             $ticks[] = [

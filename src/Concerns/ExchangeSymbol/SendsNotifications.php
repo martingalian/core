@@ -46,16 +46,16 @@ trait SendsNotifications
         // Binance perpetual default (Dec 25, 2100) - any other value indicates delisting
         $binancePerpetualDefault = 4133404800000;
 
-        // Binance: Delivery date set or changed to non-perpetual value
-        // - First time set (null → value): Initial delisting detection
-        // - Changed (value → different value): Delisting reschedule
+        // Binance: Delivery date changed to non-perpetual value
+        // - First time set (null → value): Just initial sync, DO NOT notify
+        // - Changed (value → different value): Delisting reschedule, notify
         // - Ignore perpetual default value (4133404800000)
         if ($exchange === 'binance') {
             $isDelistedValue = $newValue !== null && $newValue !== $binancePerpetualDefault;
 
             if ($isDelistedValue) {
-                // Notify if: first time set OR changed to different value
-                if ($oldValue === null || ($oldValue !== null && $oldValue !== $newValue)) {
+                // Notify ONLY if: changed to different value (not first time set)
+                if ($oldValue !== null && $oldValue !== $newValue) {
                     $shouldNotify = true;
                 }
             }
