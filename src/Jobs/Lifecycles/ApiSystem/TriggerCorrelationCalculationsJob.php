@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Models\ApiSystem;
+namespace Martingalian\Core\Jobs\Lifecycles\ApiSystem;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Models\ExchangeSymbol\CalculateBtcCorrelationJob;
 use Martingalian\Core\Jobs\Models\ExchangeSymbol\CalculateBtcElasticityJob;
@@ -46,19 +47,14 @@ final class TriggerCorrelationCalculationsJob extends BaseQueueableJob
         $elasticityJobsCount = 0;
 
         // Create correlation and elasticity jobs for each USDT symbol on this exchange
-        // All jobs run in parallel (same block_uuid, incrementing index)
         ExchangeSymbol::query()
             ->where('api_system_id', $this->apiSystemId)
-            ->where('quote_id', 1) // Only USDT pairs
             ->each(function ($exchangeSymbol) use (&$correlationJobsCount, &$elasticityJobsCount, $correlationEnabled, $elasticityEnabled): void {
-                $nextIndex = $this->step->index + 1;
-
                 // Create correlation job if enabled
                 if ($correlationEnabled) {
                     Step::query()->create([
                         'class' => CalculateBtcCorrelationJob::class,
-                        'block_uuid' => $this->step->block_uuid,
-                        'index' => $nextIndex,
+                        'block_uuid' => $this->uuid(),
                         'arguments' => [
                             'exchangeSymbolId' => $exchangeSymbol->id,
                         ],
@@ -70,8 +66,7 @@ final class TriggerCorrelationCalculationsJob extends BaseQueueableJob
                 if ($elasticityEnabled) {
                     Step::query()->create([
                         'class' => CalculateBtcElasticityJob::class,
-                        'block_uuid' => $this->step->block_uuid,
-                        'index' => $nextIndex,
+                        'block_uuid' => $this->uuid(),
                         'arguments' => [
                             'exchangeSymbolId' => $exchangeSymbol->id,
                         ],

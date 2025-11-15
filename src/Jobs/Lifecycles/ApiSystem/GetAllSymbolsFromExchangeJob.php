@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\ApiSystem;
 
-use Martingalian\Core\Abstracts\BaseApiableJob;
-use Martingalian\Core\Abstracts\BaseExceptionHandler;
-use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols\UpsertSymbolEligibilityJob;
+use Illuminate\Support\Str;
+use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Models\Step;
+use Martingalian\Core\Abstracts\BaseApiableJob;
+use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Jobs\Models\ApiSystem\TriggerCorrelationCalculationsJob;
+use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols\UpsertSymbolEligibilityJob;
 
 /*
  * GetAllSymbolsFromExchangeJob
@@ -56,8 +58,17 @@ final class GetAllSymbolsFromExchangeJob extends BaseApiableJob
         // Build symbolData lookup array keyed by token for child jobs to access
         $symbolsData = [];
 
+        // TESTING: Only process SOL, LAYER, and BTC symbols
+        $symbolsToProcess = collect($apiResponse->result)
+            ->filter(function ($symbolData) {
+                return str_starts_with($symbolData['pair'], 'SOL')
+                    || str_starts_with($symbolData['pair'], 'LAYER')
+                    || str_starts_with($symbolData['pair'], 'BTC');
+            })
+            ->toArray();
+
         // Dispatch UpsertSymbolEligibilityJob for each symbol
-        foreach ($apiResponse->result as $symbolData) {
+        foreach ($symbolsToProcess as $symbolData) {
             $token = $symbolData['pair'];
 
             // Store symbolData keyed by token
@@ -70,13 +81,15 @@ final class GetAllSymbolsFromExchangeJob extends BaseApiableJob
                     'apiSystemId' => $this->apiSystem->id,
                 ],
                 'block_uuid' => $this->uuid(),
+                'child_block_uuid' => Str::uuid()->toString()
             ]);
         }
 
         return [
             'symbols_count' => count($symbolsData),
             'symbols_data' => $symbolsData,
-            'message' => 'All symbols dispatched for processing',
+            'child_block_uuid' => $this->uuid(),
+            'message' => 'All symbols dispatched for processing (TESTING: SOL, LAYER, and BTC only)',
         ];
     }
 }

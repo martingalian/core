@@ -171,7 +171,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(false)->comment('If this exchange symbol will be available for trading');
             $table->boolean('is_tradeable')->default(false);
             $table->boolean('is_eligible')->default(false)->comment('If this symbol meets eligibility criteria (TAAPI data, etc.)');
-            $table->string('ineligible_reason')->nullable()->comment('Reason why symbol is not eligible');
+            $table->text('ineligible_reason')->nullable()->comment('Reason why symbol is not eligible');
             $table->string('direction')->nullable()->comment('The exchange symbol open position direction (LONG, SHORT)');
             $table->decimal('percentage_gap_long', 5, 2)->default(8.50);
             $table->decimal('percentage_gap_short', 5, 2)->default(9.50);

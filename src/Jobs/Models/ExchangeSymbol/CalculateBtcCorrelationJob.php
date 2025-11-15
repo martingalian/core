@@ -52,7 +52,7 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
         $btcSymbol = Symbol::where('token', $config['btc_token'])->first();
 
         if (! $btcSymbol) {
-            return ['error' => "BTC symbol not found (token={$config['btc_token']})"];
+            return ['skipped' => true, 'reason' => "BTC symbol not found (token={$config['btc_token']})"];
         }
 
         // Skip if this IS BTC (can't correlate with itself)
@@ -68,18 +68,18 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
             ->first();
 
         if (! $btcExchangeSymbol) {
-            return ['error' => 'BTC not found on same exchange'];
+            return ['skipped' => true, 'reason' => 'BTC not found on same exchange'];
         }
 
         // Get timeframes from TradeConfiguration
         $tradeConfig = TradeConfiguration::default()->first();
         if (! $tradeConfig) {
-            return ['error' => 'No default trade configuration found'];
+            return ['skipped' => true, 'reason' => 'No default trade configuration found'];
         }
 
         $timeframes = $tradeConfig->indicator_timeframes;
         if (! is_array($timeframes) || empty($timeframes)) {
-            return ['error' => 'No indicator timeframes configured'];
+            return ['skipped' => true, 'reason' => 'No indicator timeframes configured'];
         }
 
         // Calculate correlation for each timeframe

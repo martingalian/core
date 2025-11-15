@@ -7,14 +7,12 @@ namespace Martingalian\Core\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\Symbol\HasBaseAssetParsing;
-use Martingalian\Core\Concerns\Symbol\HasScopes;
 use Martingalian\Core\Concerns\Symbol\InteractsWithApis;
 
 final class Symbol extends BaseModel
 {
     use HasBaseAssetParsing;
     use HasFactory;
-    use HasScopes;
     use InteractsWithApis;
 
     public function steps()

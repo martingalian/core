@@ -22,6 +22,7 @@ use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\NotificationContextables\GlobalContextable;
 use Martingalian\Core\Support\NotificationContextables\PerAccountContextable;
 use Martingalian\Core\Support\NotificationContextables\PerExchangeSymbolContextable;
+use Martingalian\Core\Support\NotificationContextables\PerSymbolContextable;
 use Martingalian\Core\Support\NotificationContextables\PerUserContextable;
 
 final class MartingalianSeeder extends Seeder
@@ -1061,6 +1062,15 @@ final class MartingalianSeeder extends Seeder
                 'throttle_contextable_class' => PerExchangeSymbolContextable::class,
                 'is_active' => true,
             ],
+            [
+                'canonical' => 'symbol_cmc_id_not_found',
+                'title' => 'Symbol Not Found on CoinMarketCap',
+                'description' => 'Sent when a symbol cannot be found on CoinMarketCap during symbol discovery',
+                'default_severity' => 'medium',
+                'user_types' => ['admin'],
+                'throttle_contextable_class' => PerSymbolContextable::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($notifications as $notification) {
@@ -1113,6 +1123,12 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'exchange_symbol_no_taapi_data',
                 'description' => 'No throttle - send notification immediately when exchange symbol is deactivated due to no TAAPI data',
                 'throttle_seconds' => 0,
+                'is_active' => true,
+            ],
+            [
+                'canonical' => 'symbol_cmc_id_not_found',
+                'description' => 'Throttle symbol CMC ID not found notifications',
+                'throttle_seconds' => 3600,
                 'is_active' => true,
             ],
             [

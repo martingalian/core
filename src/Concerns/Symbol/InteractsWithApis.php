@@ -23,7 +23,6 @@ trait InteractsWithApis
         return new ApiDataMapperProxy($this->apiAccount->apiSystem->canonical);
     }
 
-    // V4 ready.
     public function apiSyncCMCData(): ApiResponse
     {
         $this->apiAccount = Account::admin('coinmarketcap');
@@ -32,7 +31,7 @@ trait InteractsWithApis
         $this->apiResponse = $this->apiAccount->withApi()->getSymbolsMetadata($this->apiProperties);
         $result = json_decode((string) $this->apiResponse->getBody(), true);
 
-        // Sync symbol.
+        // Sync symbol metadata
         $marketData = collect($result['data'])->first();
 
         if ($marketData) {

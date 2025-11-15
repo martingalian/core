@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Lifecycles\Symbols;
+namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
 use Exception;
 use Illuminate\Database\QueryException;
@@ -11,7 +11,11 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Symbol;
+use Martingalian\Core\Support\NotificationMessageBuilder;
+use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Throttler;
 
 /*
  * GetCMCIDForSymbolJob
@@ -66,7 +70,8 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
 
             // Check if Symbol already exists
             $existingSymbol = Symbol::where('token', mb_strtoupper($canonicalToken))->first();
-            if ($existingSymbol) {
+            if ($existingSymbol && $existingSymbol->cmc_id !== null) {
+                // Symbol exists and has CMC ID - nothing to do
                 return [
                     'symbol_id' => $existingSymbol->id,
                     'token' => $this->token,
@@ -75,10 +80,34 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
                 ];
             }
 
-            // Symbol doesn't exist but mapper does - need to search CMC with canonical token
+            // Symbol doesn't exist OR exists but needs CMC ID - search CMC with canonical token
             $account = Account::admin('coinmarketcap');
             $apiMapper = $account->apiMapper();
             $cmcId = $this->searchCMCByToken($canonicalToken, $account, $apiMapper);
+
+            // If symbol exists but had no CMC ID, update it now
+            if ($existingSymbol && $cmcId !== null) {
+                $existingSymbol->update(['cmc_id' => $cmcId]);
+
+                return [
+                    'symbol_id' => $existingSymbol->id,
+                    'token' => $this->token,
+                    'cmc_id' => $cmcId,
+                    'message' => 'Symbol already exists - updated with CMC ID (via BaseAssetMapper)',
+                ];
+            }
+
+            // If symbol exists but CMC ID wasn't found, notify and return
+            if ($existingSymbol && $cmcId === null) {
+                $this->sendCmcIdNotFoundNotification($canonicalToken);
+
+                return [
+                    'symbol_id' => $existingSymbol->id,
+                    'token' => $this->token,
+                    'cmc_id' => null,
+                    'message' => 'Symbol already exists (CMC ID not found)',
+                ];
+            }
         } else {
             // No mapper exists - need to search CMC
             $account = Account::admin('coinmarketcap');
@@ -122,6 +151,11 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
                 'image_url' => null,
             ]);
 
+            // Send notification if CMC ID was not found
+            if ($cmcId === null) {
+                $this->sendCmcIdNotFoundNotification($canonicalToken);
+            }
+
             return [
                 'symbol_id' => $symbol->id,
                 'token' => $this->token,
@@ -130,12 +164,29 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
             ];
         } catch (QueryException $e) {
             // Duplicate key error - another job already created this symbol
-            // Fetch the existing symbol and return it without making another CMC API call
+            // Fetch the existing symbol
             $existingSymbol = Symbol::where('token', mb_strtoupper($canonicalToken))->first();
 
             // If symbol still doesn't exist (race condition edge case), rethrow to retry
             if (! $existingSymbol) {
                 throw $e;
+            }
+
+            // If existing symbol has no CMC ID but we found one, update it
+            if ($existingSymbol->cmc_id === null && $cmcId !== null) {
+                $existingSymbol->update(['cmc_id' => $cmcId]);
+
+                return [
+                    'symbol_id' => $existingSymbol->id,
+                    'token' => $this->token,
+                    'cmc_id' => $cmcId,
+                    'message' => 'Symbol already exists - updated with CMC ID',
+                ];
+            }
+
+            // If existing symbol has no CMC ID and we didn't find one either, notify
+            if ($existingSymbol->cmc_id === null && $cmcId === null) {
+                $this->sendCmcIdNotFoundNotification($canonicalToken);
             }
 
             return [
@@ -179,5 +230,74 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
             // API error (like 400 Bad Request) - return null to trigger retry with stripped token
             return null;
         }
+    }
+
+    /**
+     * Send admin notification when CMC ID is not found for a symbol.
+     */
+    private function sendCmcIdNotFoundNotification(string $canonicalToken): void
+    {
+        $exchangeName = $this->apiSystem->name;
+        $exchangeCanonical = $this->apiSystem->canonical;
+        $originalToken = $this->token;
+
+        $message = "⚠️ Symbol '{$canonicalToken}' from {$exchangeName} could not be found on CoinMarketCap.\n\n";
+        $message .= "📋 DETAILS:\n";
+        $message .= "Exchange Token: {$originalToken}\n";
+        $message .= "Canonical Token: {$canonicalToken}\n";
+        $message .= "Exchange: {$exchangeName} ({$exchangeCanonical})\n\n";
+        $message .= "The symbol was created in the database without CMC metadata (cmc_id, name, description).\n\n";
+        $message .= "🔍 POSSIBLE REASONS:\n";
+        $message .= "• Symbol not yet listed on CoinMarketCap\n";
+        $message .= "• Symbol uses different ticker on CMC (e.g., SOLAYER → LAYER)\n";
+        $message .= "• Symbol is a test token or delisted\n";
+        $message .= "• Token name has prefix/suffix variations\n\n";
+        $message .= "✅ HOW TO FIX (Exchange Naming Mismatch):\n\n";
+        $message .= "If this is a known token with a different CMC symbol, use the symbols:merge command:\n\n";
+        $message .= "1. First, find the correct CMC symbol by searching:\n";
+        $message .= "   [CMD]https://coinmarketcap.com/search?q={$canonicalToken}[/CMD]\n\n";
+        $message .= "2. Then merge the symbols using this command:\n";
+        $message .= "   [CMD]php artisan symbols:merge --from={$canonicalToken} --to=CORRECT_CMC_SYMBOL --exchange={$exchangeCanonical}[/CMD]\n\n";
+        $message .= "   Example (SOLAYER → LAYER on Bybit):\n";
+        $message .= "   [CMD]php artisan symbols:merge --from=SOLAYER --to=LAYER --exchange=bybit[/CMD]\n\n";
+        $message .= "This command will:\n";
+        $message .= "• Create BaseAssetMapper ({$exchangeCanonical}.{$canonicalToken} → CORRECT_CMC_SYMBOL)\n";
+        $message .= "• Migrate all ExchangeSymbols to the correct Symbol\n";
+        $message .= "• Delete the incorrect Symbol\n";
+        $message .= "• Fetch CMC metadata automatically\n\n";
+        $message .= "🔧 ALTERNATIVE (Manual Fix):\n\n";
+        $message .= "If you prefer to fix it manually:\n\n";
+        $message .= "1. Create BaseAssetMapper:\n";
+        $message .= "[CMD]INSERT INTO base_asset_mappers (api_system_id, exchange_token, symbol_token) VALUES ({$this->apiSystem->id}, '{$originalToken}', 'CORRECT_CMC_SYMBOL');[/CMD]\n\n";
+        $message .= "2. Update the symbol:\n";
+        $message .= "[CMD]UPDATE symbols SET token='CORRECT_CMC_SYMBOL', cmc_id=CMC_ID WHERE token='{$canonicalToken}';[/CMD]\n\n";
+        $message .= "3. Dispatch metadata job:\n";
+        $message .= "[CMD]php artisan tinker --execute=\"\\Martingalian\\Core\\Models\\Step::create(['class' => '\\Martingalian\\Core\\Jobs\\Lifecycles\\Symbols\\GetCMCRemainingSymbolDataJob', 'arguments' => ['token' => 'CORRECT_CMC_SYMBOL', 'apiSystemId' => {$this->apiSystem->id}]]);\"[/CMD]";
+
+        $messageData = NotificationMessageBuilder::build(
+            canonical: 'symbol_cmc_id_not_found',
+            context: ['message' => $message]
+        );
+
+        // Use Symbol as relatable for throttling context
+        $symbol = Symbol::where('token', mb_strtoupper($canonicalToken))->first();
+
+        Throttler::using(NotificationService::class)
+            ->withCanonical('symbol_cmc_id_not_found')
+            ->for($symbol)
+            ->execute(function () use ($messageData, $symbol) {
+                NotificationService::send(
+                    user: Martingalian::admin(),
+                    message: $messageData['emailMessage'],
+                    title: $messageData['title'],
+                    canonical: 'symbol_cmc_id_not_found',
+                    deliveryGroup: 'default',
+                    severity: $messageData['severity'],
+                    pushoverMessage: $messageData['pushoverMessage'],
+                    actionUrl: $messageData['actionUrl'],
+                    actionLabel: $messageData['actionLabel'],
+                    relatable: $symbol
+                );
+            });
     }
 }

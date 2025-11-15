@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
-use Martingalian\Core\Abstracts\BaseApiableJob;
-use Martingalian\Core\Abstracts\BaseExceptionHandler;
-use Martingalian\Core\Jobs\Lifecycles\Symbols\GetCMCIDForSymbolJob;
-use Martingalian\Core\Jobs\Lifecycles\Symbols\GetCMCRemainingSymbolDataJob;
-use Martingalian\Core\Models\Account;
+use Martingalian\Core\Abstracts\BaseQueueableJob;
+use Martingalian\Core\Jobs\Models\ApiSystem\GetCMCIDForSymbolJob;
+use Martingalian\Core\Jobs\Models\ApiSystem\GetCMCRemainingSymbolDataJob;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Step;
@@ -21,7 +19,7 @@ use Martingalian\Core\Models\Symbol;
  * • If Symbol doesn't exist, becomes a parent and dispatches CMC lookup jobs
  * • If Symbol exists, completes successfully
  */
-final class UpsertSymbolOnDatabaseJob extends BaseApiableJob
+final class UpsertSymbolOnDatabaseJob extends BaseQueueableJob
 {
     public string $token;
 
@@ -38,28 +36,17 @@ final class UpsertSymbolOnDatabaseJob extends BaseApiableJob
         return $this->apiSystem;
     }
 
-    public function assignExceptionHandler()
+    public function compute()
     {
-        $canonical = $this->apiSystem->canonical;
-        $this->exceptionHandler = BaseExceptionHandler::make($canonical)
-            ->withAccount(Account::admin($canonical));
-    }
+        // Get symbolData from grandparent step (GetAllSymbolsFromExchangeJob)
+        $symbolData = $this->getSymbolDataFromGrandparent();
 
-    public function startOrFail()
-    {
-        return $this->apiSystem->is_exchange;
-    }
-
-    public function computeApiable()
-    {
-        // Parse token to extract base and quote assets
-        $parsed = $this->parseToken($this->token);
-
-        if (! $parsed) {
-            return ['message' => 'Could not parse token - no matching quote found'];
+        if (! $symbolData) {
+            return ['error' => 'Could not find symbol data from GetAllSymbolsFromExchangeJob'];
         }
 
-        [$baseAsset, $quoteAsset] = $parsed;
+        // Extract baseAsset from symbolData (handles special cases like SOLPERP)
+        $baseAsset = $symbolData['baseAsset'];
 
         // Check if Symbol exists (handles BaseAssetMapper for tokens like 1000BONK → BONK)
         $symbol = Symbol::getByExchangeBaseAsset($baseAsset, $this->apiSystem);
@@ -82,7 +69,7 @@ final class UpsertSymbolOnDatabaseJob extends BaseApiableJob
                 'token' => $baseAsset,
                 'apiSystemId' => $this->apiSystem->id,
             ],
-            'block_uuid' => $childBlockUuid,
+            'block_uuid' => $this->uuid(),
             'index' => 1,
         ]);
 
@@ -102,24 +89,39 @@ final class UpsertSymbolOnDatabaseJob extends BaseApiableJob
         ];
     }
 
-    /**
-     * Parse trading pair token to extract base and quote assets.
-     *
-     * @return array{0: string, 1: string}|null Returns [baseAsset, quoteAsset] or null if no match
-     */
-    private function parseToken(string $token): ?array
+    private function getSymbolDataFromGrandparent(): ?array
     {
-        // Get all quotes ordered by length (longest first to avoid partial matches)
-        $quotes = Quote::orderByRaw('LENGTH(canonical) DESC')->pluck('canonical');
+        // Navigate via block_uuid to find the parent (UpsertSymbolEligibilityJob)
+        // Current step's block_uuid is shared with siblings
+        // Parent is the step that created this block
+        $parent = Step::where('child_block_uuid', $this->step->block_uuid)->first();
 
-        foreach ($quotes as $quoteToken) {
-            if (str_ends_with($token, $quoteToken)) {
-                $baseAsset = mb_substr($token, 0, -mb_strlen($quoteToken));
+        // If no parent found via child_block_uuid, try finding GetAllSymbolsFromExchangeJob directly
+        if (! $parent) {
+            $getAllSymbolsJob = Step::where('class', 'Martingalian\\Core\\Jobs\\Lifecycles\\ApiSystem\\GetAllSymbolsFromExchangeJob')
+                ->where('relatable_id', $this->apiSystem->id)
+                ->orderBy('id', 'desc')
+                ->first();
 
-                return [$baseAsset, $quoteToken];
+            if (! $getAllSymbolsJob || ! $getAllSymbolsJob->response) {
+                return null;
             }
+
+            $symbolsData = $getAllSymbolsJob->response['symbols_data'] ?? [];
+
+            return $symbolsData[$this->token] ?? null;
         }
 
-        return null;
+        // Navigate to grandparent (GetAllSymbolsFromExchangeJob)
+        $grandparent = Step::where('child_block_uuid', $parent->block_uuid)->first();
+
+        if (! $grandparent || ! $grandparent->response) {
+            return null;
+        }
+
+        // Extract symbolData for this token
+        $symbolsData = $grandparent->response['symbols_data'] ?? [];
+
+        return $symbolsData[$this->token] ?? null;
     }
 }

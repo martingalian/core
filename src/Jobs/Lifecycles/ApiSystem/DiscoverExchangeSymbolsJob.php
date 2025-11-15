@@ -47,11 +47,23 @@ final class DiscoverExchangeSymbolsJob extends BaseApiableJob
 
     public function computeApiable()
     {
+        $childBlockUuid = (string) Str::uuid();
+
         Step::create([
             'class' => GetAllSymbolsFromExchangeJob::class,
             'arguments' => ['apiSystemId' => $this->apiSystem->id],
             'block_uuid' => $this->uuid(),
-            'child_block_uuid' => (string) Str::uuid(),
+            'child_block_uuid' => $childBlockUuid,
+        ]);
+
+
+        Step::create([
+            'class' => TriggerCorrelationCalculationsJob::class,
+            'arguments' => [
+                'apiSystemId' => $this->apiSystem->id,
+            ],
+            'block_uuid' => $this->uuid(),
+            'index' => 2,
         ]);
 
         return ['message' => 'Symbol discovery workflow initiated'];

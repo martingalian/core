@@ -59,56 +59,42 @@ Measures how much a token's percentage price change amplifies or dampens relativ
 ### Data Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ SyncMarketData / SyncLeverageBrackets / CheckPriceSpike         │
-│ (Per Exchange Sync Jobs)                                        │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ TriggerCorrelationCalculationsJob                               │
-│ - Triggers after exchange sync complete                         │
-│ - Creates calculation jobs for all USDT symbols                 │
-│ - All jobs run in parallel (same block_uuid, same index)        │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-         ┌───────────┴───────────┐
-         ▼                       ▼
-┌──────────────────────┐  ┌──────────────────────┐
-│ CalculateBtcCorrelation│  │ CalculateBtcElasticity│
-│ Job (per symbol)      │  │ Job (per symbol)      │
-└──────────┬───────────┘  └──────────┬────────────┘
-           │                         │
-           │ Reads candles table     │ Reads candles table
-           │ (aligned timestamps)    │ (aligned timestamps)
-           │                         │
-           ▼                         ▼
-┌──────────────────────┐  ┌──────────────────────┐
-│ Calculates for each  │  │ Calculates for each  │
-│ timeframe:           │  │ timeframe:           │
-│ - Pearson            │  │ - elasticity_long    │
-│ - Spearman           │  │ - elasticity_short   │
-│ - Rolling            │  │                      │
-└──────────┬───────────┘  └──────────┬────────────┘
-           │                         │
-           ▼                         ▼
-┌─────────────────────────────────────────────────┐
-│ exchange_symbols table updated:                 │
-│ - btc_correlation_pearson (JSON by timeframe)   │
-│ - btc_correlation_spearman (JSON by timeframe)  │
-│ - btc_correlation_rolling (JSON by timeframe)   │
-│ - btc_elasticity_long (JSON by timeframe)       │
-│ - btc_elasticity_short (JSON by timeframe)      │
-└─────────────────────────────────────────────────┘
-           │
-           ▼
-┌─────────────────────────────────────────────────┐
-│ assignBestTokenToNewPositions()                 │
-│ - Filters positions by direction (LONG/SHORT)   │
-│ - Scores symbols using elasticity × correlation │
-│ - Assigns best token per position               │
-└─────────────────────────────────────────────────┘
-```
+┌────────────────────────────────────────────────────────────────────────┐
+│ RefreshCoreDataCommand (Cron Job)                                      │
+│ - Creates DiscoverExchangeSymbolsJob for each exchange                 │
+└───────────────────────────────┬────────────────────────────────────────┘
+                                │
+                                ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ DiscoverExchangeSymbolsJob (Block A - Parent)                          │
+│ - Index 1: GetAllSymbolsFromExchangeJob (creates UpsertSymbol jobs)    │
+│ - Index 2: TriggerCorrelationCalculationsJob (queries ExchangeSymbols) │
+└───────────────────────────────┬────────────────────────────────────────┘
+                                │
+                    ┌───────────┴───────────┐
+                    ▼                       ▼
+┌──────────────────────────────┐  ┌─────────────────────────────────────┐
+│ GetAllSymbolsFromExchangeJob │  │ TriggerCorrelationCalculationsJob   │
+│ (Block A.1 - Child Block B)  │  │ (Block A.2)                         │
+│                              │  │                                     │
+│ Creates per-symbol:          │  │ Queries exchange_symbols table      │
+│ - UpsertSymbolEligibilityJob │  │ Creates correlation/elasticity jobs │
+│   (Index 1, Block B)         │  │ for all USDT symbols                │
+│                              │  │                                     │
+│ Each UpsertSymbolEligibility │  │ ⚠️ RACE CONDITION:                  │
+│ creates child block C with:  │  │ Runs at index 2 in parent block,   │
+│ - Index 1: UpsertSymbolJob   │  │ but ExchangeSymbols created in     │
+│ - Index 2: UpsertExchange    │  │ child blocks (C) at different      │
+│         SymbolJob ← Creates! │  │ timing! Job sees 0 symbols.        │
+│ - Index 3: CheckEligibility  │  │                                     │
+│ - Index 4: UpdateStatus      │  │                                     │
+└──────────────────────────────┘  └─────────────────────────────────────┘
+                                              │
+                                              ▼
+                                  ⚠️ CURRENT ISSUE: Returns 0 jobs created
+                                     because ExchangeSymbols don't exist yet
+                                     when this job executes
+
 
 ## Core Models
 
@@ -759,6 +745,72 @@ Result: STABLE selected despite lower elasticity due to reliable correlation
    ```bash
    >>> ExchangeSymbol::where('direction', 'LONG')->count();
    ```
+
+## Current Integration Status
+
+### ⚠️ ACTIVE ISSUE: Race Condition in Workflow Integration
+
+**Status**: Work in Progress (as of 2025-11-15)
+
+**Problem**: TriggerCorrelationCalculationsJob executes before ExchangeSymbols are created in the database.
+
+**Current Implementation**:
+- TriggerCorrelationCalculationsJob runs at index 2 in parent block (DiscoverExchangeSymbolsJob)
+- ExchangeSymbols created by UpsertExchangeSymbolJob at index 2 in CHILD blocks (multiple nested levels deep)
+- Result: Job queries `exchange_symbols` table while it's still empty → Creates 0 correlation/elasticity jobs
+
+**Test Results**:
+```
+TriggerCorrelationCalculationsJob executed: 23:34:05 - 23:34:10
+ExchangeSymbols created: 23:34:20 - 23:34:45
+Result: 0 correlation jobs, 0 elasticity jobs
+```
+
+**Attempted Solutions**:
+1. ❌ Mock parent step pattern → Race condition (children ran before BTC created)
+2. ❌ Index 2 in GetAllSymbolsFromExchangeJob → Still ran before children completed
+3. ❌ Move to DiscoverExchangeSymbolsJob at index 2 → Same issue (parent completes before children)
+4. ✅ NEW child block pattern → Fixed circular dependency but timing still wrong
+
+**Root Cause**:
+The Step system executes a parent job's `compute()` method to completion before dispatching its children. Index controls ordering WITHIN a block, not across parent-child boundaries. When TriggerCorrelationCalculationsJob runs at index 2 in the parent block, it executes after GetAllSymbolsFromExchangeJob's `compute()` finishes, but BEFORE the UpsertSymbolEligibilityJob children (and their nested children) execute.
+
+**Block Hierarchy**:
+```
+Block A (Parent):
+  - Index 1: GetAllSymbolsFromExchangeJob (compute() finishes immediately)
+  - Index 2: TriggerCorrelationCalculationsJob ← Runs HERE
+
+Block B (Child of GetAllSymbols):
+  - Index 1: UpsertSymbolEligibilityJob (multiple instances)
+
+Block C (Child of UpsertSymbolEligibility):
+  - Index 1: UpsertSymbolOnDatabaseJob
+  - Index 2: UpsertExchangeSymbolJob ← Creates ExchangeSymbol HERE (runs AFTER Block A.2!)
+  - Index 3: CheckSymbolEligibilityJob
+  - Index 4: UpdateSymbolEligibilityStatusJob
+```
+
+**Potential Solutions to Explore Tomorrow**:
+1. Move TriggerCorrelationCalculationsJob to index 3+ in same parent block (wait for more steps to complete)
+2. Create a "WaitForExchangeSymbolsJob" wrapper that polls the database before triggering
+3. Dispatch TriggerCorrelationCalculationsJob from a DIFFERENT workflow trigger (after symbol workflow completes)
+4. Move correlation/elasticity dispatch into UpdateSymbolEligibilityStatusJob (last job in chain)
+5. Use database observers/events on ExchangeSymbol creation to trigger calculations
+6. Redesign workflow: Make TriggerCorrelationCalculationsJob a separate cron job that runs AFTER refresh-core-data
+
+**Files Modified During Integration**:
+- `/packages/martingalian/core/src/Jobs/Lifecycles/ApiSystem/DiscoverExchangeSymbolsJob.php` - Added TriggerCorrelationCalculationsJob dispatch at index 2
+- `/packages/martingalian/core/src/Jobs/Models/ApiSystem/TriggerCorrelationCalculationsJob.php` - Fixed circular dependency (NEW child block pattern)
+- `/packages/martingalian/core/src/Jobs/Models/ExchangeSymbol/CalculateBtcCorrelationJob.php` - Changed error returns to graceful skips
+- `/packages/martingalian/core/src/Jobs/Models/ExchangeSymbol/CalculateBtcElasticityJob.php` - Changed error returns to graceful skips
+
+**Next Steps**:
+1. Review Step system execution order documentation
+2. Decide on architectural approach (same workflow vs separate cron)
+3. Implement chosen solution
+4. Test with `--clean` flag to verify ExchangeSymbols exist when correlation jobs run
+5. Verify correlation/elasticity jobs gracefully skip when no candle data available
 
 ## Future Enhancements
 - Multi-asset correlation (ETH, SOL, not just BTC)

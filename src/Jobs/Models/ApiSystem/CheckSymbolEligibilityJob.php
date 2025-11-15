@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
+namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
@@ -122,11 +122,30 @@ final class CheckSymbolEligibilityJob extends BaseApiableJob
                 'ineligible_reason' => 'TAAPI returned empty data',
             ];
         } catch (\Throwable $e) {
-            // Capture the actual error message from TAAPI
+            // Extract just the relevant error message from TAAPI response
+            $errorMessage = $this->extractTaapiError($e->getMessage());
+
             return [
                 'is_eligible' => false,
-                'ineligible_reason' => $e->getMessage(),
+                'ineligible_reason' => $errorMessage,
             ];
         }
+    }
+
+    private function extractTaapiError(string $fullError): string
+    {
+        // Try to extract JSON error array from the response
+        // Pattern: {"errors":["error1","error2"]}
+        if (preg_match('/\{"errors":\[(.*?)\]\}/', $fullError, $matches)) {
+            $errorsJson = '{"errors":['.$matches[1].']}';
+            $decoded = json_decode($errorsJson, true);
+
+            if (isset($decoded['errors']) && is_array($decoded['errors'])) {
+                return implode('; ', $decoded['errors']);
+            }
+        }
+
+        // Fallback: return full error (TEXT column can handle it)
+        return $fullError;
     }
 }

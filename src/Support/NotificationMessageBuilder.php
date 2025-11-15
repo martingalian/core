@@ -378,6 +378,15 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
+            'symbol_cmc_id_not_found' => [
+                'severity' => NotificationSeverity::Medium,
+                'title' => 'Symbol Not Found on CoinMarketCap',
+                'emailMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'A symbol could not be found on CoinMarketCap. The symbol will be created without CMC metadata.',
+                'pushoverMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'Symbol not found on CoinMarketCap',
+                'actionUrl' => null,
+                'actionLabel' => null,
+            ],
+
             // Default fallback for unknown canonicals
             default => [
                 'severity' => NotificationSeverity::Info,

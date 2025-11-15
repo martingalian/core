@@ -6,6 +6,8 @@ namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
+use Martingalian\Core\Jobs\Models\ApiSystem\CheckSymbolEligibilityJob;
+use Martingalian\Core\Jobs\Models\ApiSystem\UpsertExchangeSymbolJob;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\Step;
 
@@ -36,18 +38,13 @@ final class UpsertSymbolEligibilityJob extends BaseQueueableJob
 
     public function compute()
     {
-        // Dispatch child workflow steps with incremental indexes
-        // All children share the same block_uuid (this job's child_block_uuid)
-        $childBlockUuid = (string) Str::uuid();
-
         Step::create([
             'class' => UpsertSymbolOnDatabaseJob::class,
             'arguments' => [
                 'token' => $this->token,
                 'apiSystemId' => $this->apiSystem->id,
             ],
-            'block_uuid' => $childBlockUuid,
-            // child_block_uuid will be auto-generated when job creates children
+            'block_uuid' => $this->uuid(),
             'index' => 1,
         ]);
 
@@ -57,7 +54,7 @@ final class UpsertSymbolEligibilityJob extends BaseQueueableJob
                 'token' => $this->token,
                 'apiSystemId' => $this->apiSystem->id,
             ],
-            'block_uuid' => $childBlockUuid,
+            'block_uuid' => $this->uuid(),
             'index' => 2,
         ]);
 
@@ -67,18 +64,8 @@ final class UpsertSymbolEligibilityJob extends BaseQueueableJob
                 'token' => $this->token,
                 'apiSystemId' => $this->apiSystem->id,
             ],
-            'block_uuid' => $childBlockUuid,
+            'block_uuid' => $this->uuid(),
             'index' => 3,
-        ]);
-
-        Step::create([
-            'class' => UpdateSymbolEligibilityStatusJob::class,
-            'arguments' => [
-                'token' => $this->token,
-                'apiSystemId' => $this->apiSystem->id,
-            ],
-            'block_uuid' => $childBlockUuid,
-            'index' => 4,
         ]);
     }
 }

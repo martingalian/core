@@ -188,12 +188,12 @@ Running → Pending (job calls retryJob())
 
 **Concerns Used**:
 - `HandlesStepExceptions` - Exception handling logic
-- `ManagesStepDuration` - Timing tracking
-- `InteractsWithStepState` - State transitions
+- `FormatsStepResult` - Result formatting
+- `HandlesStepLifecycle` - Lifecycle management
 
 **Core Methods**:
 - `handle()` - Main entry point (final, cannot override)
-- `perform()` - Abstract, child classes implement
+- `compute()` - Abstract, child classes implement
 - `retryJob()` - Transition to Pending for retry
 - `reportAndFail()` - Transition to Failed with error
 - `handleException()` - Centralized exception handling
@@ -202,13 +202,25 @@ Running → Pending (job calls retryJob())
 ```php
 public final function handle(): void
 {
-    $this->initializeDuration();
-    $this->step->state->transitionTo(Running::class);
-
     try {
-        $this->perform(); // Child implements
-        $this->finalizeDuration();
-        $this->step->state->transitionTo(Completed::class);
+        $this->prepareJobExecution();
+
+        if ($this->isInConfirmationMode()) {
+            $this->handleConfirmationMode();
+            return;
+        }
+
+        if ($this->shouldExitEarly()) {
+            return;
+        }
+
+        $this->executeJobLogic(); // Calls compute()
+
+        if ($this->needsVerification()) {
+            return;
+        }
+
+        $this->finalizeJobExecution();
     } catch (\Throwable $e) {
         $this->handleException($e);
     }
@@ -434,7 +446,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 
 class MyJob extends BaseQueueableJob
 {
-    protected function perform(): void
+    protected function compute()
     {
         // Your logic here
 
