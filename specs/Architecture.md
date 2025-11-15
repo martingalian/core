@@ -81,6 +81,47 @@ See `Specs/StepDispatcher.md` for steps tables schema
 
 **RULE**: Never run `php artisan steps:dispatch` manually - supervisor runs it every second
 
+### Job Organization - Lifecycle Jobs
+
+**Lifecycle Jobs** are orchestrator jobs that dispatch other jobs to create workflows. They are organized by the parameter type they receive in their constructor:
+
+**Rule**: Place lifecycle jobs in `packages/martingalian/core/src/Jobs/Lifecycles/{ParameterType}/`
+
+**Examples**:
+- Job receives `apiSystemId` → `Jobs/Lifecycles/ApiSystem/`
+- Job receives `accountId` → `Jobs/Lifecycles/Accounts/`
+- Job receives `exchangeSymbolId` → `Jobs/Lifecycles/ExchangeSymbols/`
+- Job receives `positionId` → `Jobs/Lifecycles/Positions/`
+- Job receives `orderId` → `Jobs/Lifecycles/Orders/`
+
+**Example Implementation**:
+```php
+// Jobs/Lifecycles/ApiSystem/DiscoverExchangeSymbolsJob.php
+namespace Martingalian\Core\Jobs\Lifecycles\ApiSystem;
+
+final class DiscoverExchangeSymbolsJob extends BaseApiableJob
+{
+    public ApiSystem $apiSystem;
+
+    public function __construct(int $apiSystemId) // ← Parameter type determines folder
+    {
+        $this->apiSystem = ApiSystem::findOrFail($apiSystemId);
+    }
+
+    public function computeApiable()
+    {
+        // Dispatch child jobs using Step::create()
+        Step::create([
+            'class' => GetAllSymbolsFromExchangeJob::class,
+            'arguments' => ['apiSystemId' => $this->apiSystem->id],
+            'child_block_uuid' => $this->uuid(), // Creates parent-child relationship
+        ]);
+    }
+}
+```
+
+**Non-Lifecycle Jobs** (standard model-specific jobs) go in `Jobs/Models/{ModelName}/`
+
 ### Queue Configuration
 - **Horizon**: Manages queue workers (`/horizon` dashboard)
 - **Supervisors**: default, notifications, api

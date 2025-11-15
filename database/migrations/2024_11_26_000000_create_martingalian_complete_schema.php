@@ -170,6 +170,8 @@ return new class extends Migration
             $table->unsignedInteger('api_system_id');
             $table->boolean('is_active')->default(false)->comment('If this exchange symbol will be available for trading');
             $table->boolean('is_tradeable')->default(false);
+            $table->boolean('is_eligible')->default(false)->comment('If this symbol meets eligibility criteria (TAAPI data, etc.)');
+            $table->string('ineligible_reason')->nullable()->comment('Reason why symbol is not eligible');
             $table->string('direction')->nullable()->comment('The exchange symbol open position direction (LONG, SHORT)');
             $table->decimal('percentage_gap_long', 5, 2)->default(8.50);
             $table->decimal('percentage_gap_short', 5, 2)->default(9.50);
@@ -198,6 +200,7 @@ return new class extends Migration
             $table->unique(['symbol_id', 'api_system_id', 'quote_id'], 'exchange_symbols_symbol_id_api_system_id_quote_id_unique');
             $table->index('is_active', 'idx_exchange_symbols_is_active');
             $table->index('is_tradeable', 'idx_exchange_symbols_is_tradeable');
+            $table->index('is_eligible', 'idx_exchange_symbols_is_eligible');
             $table->index(['api_system_id', 'is_active'], 'idx_exchange_symbols_api_active');
             $table->index('direction', 'idx_exchange_symbols_direction');
         });
@@ -526,7 +529,7 @@ return new class extends Migration
             $table->string('execution_mode')->default('default');
             $table->unsignedTinyInteger('double_check')->default(0)->comment('0 => Not yet double checked at all, 1=First double check done, 2=No more double checks to do');
             $table->unsignedBigInteger('tick_id')->nullable();
-            $table->string('queue')->default('sync');
+            $table->string('queue')->default('default');
             $table->json('arguments')->nullable();
             $table->unsignedInteger('retries')->default(0);
             $table->string('priority', 20)->default('default')->comment('Step priority: default or high');
@@ -603,7 +606,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('site_url')->nullable();
             $table->string('image_url')->nullable();
-            $table->unsignedInteger('cmc_id');
+            $table->unsignedInteger('cmc_id')->nullable();
             $table->timestamps();
         });
 

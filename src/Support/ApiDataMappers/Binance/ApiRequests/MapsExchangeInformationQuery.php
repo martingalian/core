@@ -27,6 +27,14 @@ trait MapsExchangeInformationQuery
             ->filter(function ($symbolData) {
                 return mb_strpos($symbolData['symbol'], '_') === false;
             })
+            // Only include perpetual contracts (exclude quarterly and dated futures)
+            ->filter(function ($symbolData) {
+                return ($symbolData['contractType'] ?? null) === 'PERPETUAL';
+            })
+            // Only include actively trading symbols (exclude PENDING_TRADING, BREAK, SETTLING, etc.)
+            ->filter(function ($symbolData) {
+                return ($symbolData['status'] ?? null) === 'TRADING';
+            })
             ->map(function ($symbolData) {
                 $filters = collect($symbolData['filters'] ?? []);
 

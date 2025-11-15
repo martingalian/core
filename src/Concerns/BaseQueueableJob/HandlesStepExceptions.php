@@ -72,7 +72,7 @@ trait HandlesStepExceptions
         }
 
         if ($this->shouldRetryException($e)) {
-            $this->retryJobWithBackoff();
+            $this->retryJobWithBackoff($e);
 
             return;
         }
@@ -195,10 +195,19 @@ trait HandlesStepExceptions
     // EXCEPTION ACTIONS
     // ========================================================================
 
-    protected function retryJobWithBackoff(): void
+    protected function retryJobWithBackoff(Throwable $e): void
     {
+        $backoffSeconds = $this->jobBackoffSeconds;
+
+        // Use exponential backoff for database exceptions
+        if (isset($this->databaseExceptionHandler)
+            && $this->databaseExceptionHandler->shouldRetry($e)
+        ) {
+            $backoffSeconds = $this->databaseExceptionHandler->getBackoffSeconds($this->step->retries);
+        }
+
         $this->step->update([
-            'dispatch_after' => now()->addSeconds($this->jobBackoffSeconds),
+            'dispatch_after' => now()->addSeconds($backoffSeconds),
         ]);
 
         $this->retryJob();

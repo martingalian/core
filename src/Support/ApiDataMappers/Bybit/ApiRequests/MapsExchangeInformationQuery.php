@@ -40,6 +40,10 @@ trait MapsExchangeInformationQuery
             ->filter(function ($symbolData) {
                 return ($symbolData['contractType'] ?? null) === 'LinearPerpetual';
             })
+            // Only include actively trading symbols (Bybit uses "Trading" status)
+            ->filter(function ($symbolData) {
+                return ($symbolData['status'] ?? null) === 'Trading';
+            })
             ->map(function ($symbolData) {
                 // Extract price filter
                 $priceFilter = $symbolData['priceFilter'] ?? [];

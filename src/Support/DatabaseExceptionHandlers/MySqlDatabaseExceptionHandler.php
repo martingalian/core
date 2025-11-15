@@ -150,12 +150,12 @@ final class MySqlDatabaseExceptionHandler extends BaseDatabaseExceptionHandler
      */
     protected int $backoffMultiplier = 2;
 
-    protected int $maxBackoffSeconds = 120;
+    protected int $maxBackoffSeconds = 5;
 
     public function __construct()
     {
-        // Base backoff for first retry
-        $this->backoffSeconds = 10;
+        // Base backoff for first retry (2s, 4s, then capped at 5s)
+        $this->backoffSeconds = 2;
     }
 
     /**

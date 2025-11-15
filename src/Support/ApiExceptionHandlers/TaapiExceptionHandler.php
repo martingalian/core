@@ -69,7 +69,7 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
     public function __construct()
     {
         // Conservative backoff when no rate limit info available
-        $this->backoffSeconds = 15;
+        $this->backoffSeconds = 5;
     }
 
     public function ping(): bool
