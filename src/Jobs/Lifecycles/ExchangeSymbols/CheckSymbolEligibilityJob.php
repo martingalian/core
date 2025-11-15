@@ -6,6 +6,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Indicators\History\CandleIndicator;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\ExchangeSymbol;
@@ -37,9 +38,9 @@ final class CheckSymbolEligibilityJob extends BaseApiableJob
 
     public function assignExceptionHandler()
     {
-        $canonical = $this->apiSystem->canonical;
-        $this->exceptionHandler = BaseExceptionHandler::make($canonical)
-            ->withAccount(Account::admin($canonical));
+        // Use TAAPI exception handler since we're querying TAAPI
+        $this->exceptionHandler = BaseExceptionHandler::make('taapi')
+            ->withAccount(Account::admin('taapi'));
     }
 
     public function startOrFail()
@@ -74,21 +75,58 @@ final class CheckSymbolEligibilityJob extends BaseApiableJob
             return [
                 'exchange_symbol_id' => $exchangeSymbolId,
                 'is_eligible' => true,
-                'eligibility_reason' => $exchangeSymbol->eligibility_reason,
+                'ineligible_reason' => $exchangeSymbol->ineligible_reason,
                 'message' => 'ExchangeSymbol is already eligible',
             ];
         }
 
-        // TODO: Implement TAAPI eligibility check using $exchangeSymbol
-        // - Check if TAAPI has data available for this symbol
-        // - Verify other eligibility criteria
-        // - Return eligibility status and reason
+        // Check TAAPI indicator data availability using CandleIndicator
+        $eligibilityResult = $this->checkTaapiIndicatorData($exchangeSymbol);
+
+        // Update eligibility status
+        $exchangeSymbol->update([
+            'is_eligible' => $eligibilityResult['is_eligible'],
+            'ineligible_reason' => $eligibilityResult['ineligible_reason'],
+        ]);
 
         return [
             'exchange_symbol_id' => $exchangeSymbolId,
-            'is_eligible' => false,
-            'eligibility_reason' => 'TAAPI check not yet implemented',
-            'message' => 'Eligibility check placeholder',
+            'is_eligible' => $eligibilityResult['is_eligible'],
+            'ineligible_reason' => $eligibilityResult['ineligible_reason'],
+            'message' => $eligibilityResult['is_eligible'] ? 'Symbol is eligible' : 'Symbol is not eligible',
         ];
+    }
+
+    /**
+     * @return array{is_eligible: bool, ineligible_reason: string|null}
+     */
+    private function checkTaapiIndicatorData(ExchangeSymbol $exchangeSymbol): array
+    {
+        try {
+            // Instantiate CandleIndicator with 1h interval
+            $candleIndicator = new CandleIndicator($exchangeSymbol, ['interval' => '1h']);
+
+            // Attempt to fetch candle data from TAAPI
+            $data = $candleIndicator->compute();
+
+            // If we got valid data back, TAAPI has data for this symbol
+            if (! empty($data)) {
+                return [
+                    'is_eligible' => true,
+                    'ineligible_reason' => null,
+                ];
+            }
+
+            return [
+                'is_eligible' => false,
+                'ineligible_reason' => 'TAAPI returned empty data',
+            ];
+        } catch (\Throwable $e) {
+            // Capture the actual error message from TAAPI
+            return [
+                'is_eligible' => false,
+                'ineligible_reason' => $e->getMessage(),
+            ];
+        }
     }
 }
