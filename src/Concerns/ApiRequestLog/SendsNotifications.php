@@ -771,6 +771,13 @@ trait SendsNotifications
             user: $hasSpecificUser ? $account->user : null
         );
 
+        // Resolve contextable key using the configured class
+        $contextableKey = null;
+        if ($notification->throttle_contextable_class) {
+            $resolver = app($notification->throttle_contextable_class);
+            $contextableKey = $resolver($this);  // Pass ApiRequestLog to resolver
+        }
+
         // Send to user if appropriate
         if ($shouldSendToUser && $hasSpecificUser) {
             $user = $account->user;
@@ -780,7 +787,7 @@ trait SendsNotifications
             $serverIp = $isServerRelated ? Martingalian::ip() : null;
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
-                ->for($user)
+                ->forKey($contextableKey)  // Use dynamic contextable key
                 ->execute(function () use ($user, $messageData, $messageCanonical, $exchangeName, $serverIp) {
                     NotificationService::send(
                         user: $user,
@@ -805,6 +812,7 @@ trait SendsNotifications
         if ($shouldSendToAdmin) {
             Throttler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical.'_admin')
+                ->forKey($contextableKey)  // Use same contextable key for admin
                 ->execute(function () use ($messageData, $messageCanonical) {
                     NotificationService::send(
                         user: Martingalian::admin(),

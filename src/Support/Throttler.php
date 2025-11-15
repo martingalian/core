@@ -41,6 +41,8 @@ final class Throttler
 
     private ?Model $contextable = null;
 
+    private ?string $contextableKey = null;
+
     /**
      * Start building a throttler with a specific strategy class.
      *
@@ -74,6 +76,19 @@ final class Throttler
     public function for(?Model $contextable): self
     {
         $this->contextable = $contextable;
+
+        return $this;
+    }
+
+    /**
+     * Set the contextable key this throttle applies to (e.g., "account:5", "account:5,symbol:10").
+     * This key will be appended to the canonical to create unique throttle windows.
+     *
+     * @param  string|null  $key  The contextable key in format "entity:id" or "entity:id,entity:id"
+     */
+    public function forKey(?string $key): self
+    {
+        $this->contextableKey = $key;
 
         return $this;
     }
@@ -127,16 +142,32 @@ final class Throttler
             return false; // Not throttled, executed
         }
 
+        // Build final canonical key
+        // If contextableKey is set, append it to canonical (new pattern)
+        // Otherwise use the canonical as-is and rely on contextable_type/id (legacy pattern)
+        $finalCanonical = $this->canonical;
+        if ($this->contextableKey) {
+            $finalCanonical .= "_{$this->contextableKey}";
+        }
+
         // Use a short-lived transaction ONLY for the throttle check
         // The callback is executed OUTSIDE the transaction to prevent deadlocks
-        $shouldExecute = \Illuminate\Support\Facades\DB::transaction(function () use ($throttleSeconds) {
+        $shouldExecute = \Illuminate\Support\Facades\DB::transaction(function () use ($throttleSeconds, $finalCanonical) {
             // Build query with lock
-            $query = ThrottleLog::where('canonical', $this->canonical);
+            $query = ThrottleLog::where('canonical', $finalCanonical);
 
-            if ($this->contextable) {
+            // If using contextableKey pattern, we don't use contextable_type/id
+            // If using legacy for() pattern, we do use contextable_type/id
+            if ($this->contextableKey) {
+                // New pattern: key is in canonical, contextable_type/id are NULL
+                $query->whereNull('contextable_type')
+                    ->whereNull('contextable_id');
+            } elseif ($this->contextable) {
+                // Legacy pattern: contextable stored in type/id columns
                 $query->where('contextable_type', $this->contextable::class)
                     ->where('contextable_id', $this->contextable->getKey());
             } else {
+                // Global throttle: no key, no contextable
                 $query->whereNull('contextable_type')
                     ->whereNull('contextable_id');
             }
@@ -148,9 +179,9 @@ final class Throttler
             if (! $log) {
                 // Create the log entry inside transaction to prevent duplicates
                 ThrottleLog::create([
-                    'canonical' => $this->canonical,
-                    'contextable_type' => $this->contextable ? $this->contextable::class : null,
-                    'contextable_id' => $this->contextable ? $this->contextable->getKey() : null,
+                    'canonical' => $finalCanonical,
+                    'contextable_type' => $this->contextableKey ? null : ($this->contextable ? $this->contextable::class : null),
+                    'contextable_id' => $this->contextableKey ? null : ($this->contextable ? $this->contextable->getKey() : null),
                     'last_executed_at' => now(),
                 ]);
 

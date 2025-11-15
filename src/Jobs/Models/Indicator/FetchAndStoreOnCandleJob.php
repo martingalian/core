@@ -6,6 +6,7 @@ namespace Martingalian\Core\Jobs\Models\Indicator;
 
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Sleep;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
@@ -13,6 +14,7 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
+use RuntimeException;
 use Throwable;
 
 use function count;
@@ -70,8 +72,8 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
         /** @var \Martingalian\Core\Abstracts\BaseIndicator $indicator */
         $indicator = new $class($this->exchangeSymbol, $mergedParams);
 
-        // Gentle jitter to smooth bursts across many workers
-        Sleep::for(random_int(500, 1_500))->milliseconds();
+        // Significant jitter to prevent concurrent upsert deadlocks across workers
+        Sleep::for(random_int(2_000, 10_000))->milliseconds();
 
         // Fetch raw candles from provider (Taapi)
         $data = $indicator->compute();
@@ -84,7 +86,7 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
 
         $now = now();
         $count = 0;
-        $chunkSize = 1000;
+        $chunkSize = 50; // Reduced from 1000 to minimize deadlock window
         $buffer = [];
 
         foreach ($rows as $row) {
@@ -116,13 +118,7 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
 
             // Flush in chunks for memory/perf
             if (count($buffer) >= $chunkSize) {
-                Candle::query()->upsert(
-                    $buffer,
-                    // Unique key: avoid duplicates per (symbol, timeframe, timestamp)
-                    ['exchange_symbol_id', 'timeframe', 'timestamp'],
-                    // On conflict, update latest values including candle_time
-                    ['open', 'high', 'low', 'close', 'volume', 'candle_time', 'updated_at']
-                );
+                $this->upsertWithDeadlockRetry($buffer);
                 $count += count($buffer);
                 $buffer = [];
             }
@@ -130,11 +126,7 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
 
         // Flush tail
         if (! empty($buffer)) {
-            Candle::query()->upsert(
-                $buffer,
-                ['exchange_symbol_id', 'timeframe', 'timestamp'],
-                ['open', 'high', 'low', 'close', 'volume', 'candle_time', 'updated_at']
-            );
+            $this->upsertWithDeadlockRetry($buffer);
             $count += count($buffer);
         }
 
@@ -243,5 +235,90 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
         }
 
         return $val;
+    }
+
+    /**
+     * Upsert candles with advisory lock to prevent deadlocks.
+     *
+     * Uses MySQL GET_LOCK to serialize upserts per symbol/timeframe.
+     * This prevents deadlocks by ensuring only one worker can upsert
+     * candles for a given symbol+timeframe at a time.
+     *
+     * Different symbols can still run in parallel across workers.
+     *
+     * COMPATIBILITY WITH BaseQueueableJob RETRY:
+     * - Lock timeout exceptions trigger retryException() → job retries automatically
+     * - Deadlock exceptions trigger retryException() → job retries automatically
+     * - Lock is ALWAYS released in finally block (even on exception)
+     * - MySQL auto-releases lock if connection dies (process crash safety)
+     */
+    protected function upsertWithDeadlockRetry(array $buffer, int $maxAttempts = 5): void
+    {
+        // Advisory lock key: candles_{symbol_id}_{timeframe}
+        // This serializes upserts for same symbol+timeframe, but allows
+        // parallel upserts for different symbols
+        $lockKey = "candles_{$this->exchangeSymbol->id}_{$this->timeframe}";
+        $lockTimeout = 30; // seconds
+        $lockAcquired = false;
+
+        try {
+            // Acquire advisory lock (waits up to 30s)
+            $result = DB::selectOne('SELECT GET_LOCK(?, ?) as lock_result', [$lockKey, $lockTimeout]);
+
+            if (! $result || $result->lock_result !== 1) {
+                // Lock acquisition failed - will be caught by retryException()
+                // which retries via BaseQueueableJob retry mechanism
+                throw new RuntimeException("Failed to acquire advisory lock for {$lockKey} after {$lockTimeout}s. Another worker may be processing same symbol+timeframe.");
+            }
+
+            $lockAcquired = true;
+
+            // Upsert with retry as fallback (in case of other transient errors)
+            $attempt = 0;
+
+            while ($attempt < $maxAttempts) {
+                try {
+                    DB::transaction(function () use ($buffer) {
+                        Candle::query()->upsert(
+                            $buffer,
+                            // Unique key: avoid duplicates per (symbol, timeframe, timestamp)
+                            ['exchange_symbol_id', 'timeframe', 'timestamp'],
+                            // On conflict, update latest values including candle_time
+                            ['open', 'high', 'low', 'close', 'volume', 'candle_time', 'updated_at']
+                        );
+                    });
+
+                    // Success - exit retry loop
+                    return;
+                } catch (\Illuminate\Database\QueryException $e) {
+                    // With advisory locks, deadlocks should be extremely rare
+                    // But keep retry as safety net for other transient errors
+                    if ($e->getCode() === '40001' || str_contains($e->getMessage(), 'Deadlock')) {
+                        $attempt++;
+
+                        if ($attempt >= $maxAttempts) {
+                            // Exhausted retries - re-throw to trigger retryException()
+                            // BaseQueueableJob will retry the entire job (including lock acquisition)
+                            throw $e;
+                        }
+
+                        // Exponential backoff: 100ms, 200ms, 400ms, 800ms, 1600ms
+                        $backoffMs = 100 * (2 ** ($attempt - 1));
+                        Sleep::for($backoffMs)->milliseconds();
+
+                        continue;
+                    }
+
+                    // Not a deadlock - re-throw immediately
+                    throw $e;
+                }
+            }
+        } finally {
+            // Always release the lock, even if upsert fails
+            // Only release if we actually acquired it
+            if ($lockAcquired) {
+                DB::selectOne('SELECT RELEASE_LOCK(?) as release_result', [$lockKey]);
+            }
+        }
     }
 }

@@ -17,6 +17,7 @@ use Martingalian\Core\States\Running;
 use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Support\Throttler;
 use Throwable;
+use Martingalian\Core\Abstracts\BaseDatabaseExceptionHandler;
 
 /*
  * BaseQueueableJob
@@ -43,6 +44,8 @@ abstract class BaseQueueableJob extends BaseJob
     public float $startMicrotime = 0.0;
 
     public ?BaseExceptionHandler $exceptionHandler;
+
+    public ?BaseDatabaseExceptionHandler $databaseExceptionHandler;
 
     // Must be implemented by subclasses to define the compute logic.
     abstract protected function compute();
@@ -165,6 +168,10 @@ abstract class BaseQueueableJob extends BaseJob
         $this->step->state->transitionTo(Running::class);
         $this->startDuration();
         $this->attachRelatable();
+
+        // Initialize database exception handler for all jobs
+        $this->databaseExceptionHandler = BaseDatabaseExceptionHandler::make('mysql');
+
         // Note: checkMaxRetries() moved to shouldExitEarly() to occur AFTER throttle check
     }
 

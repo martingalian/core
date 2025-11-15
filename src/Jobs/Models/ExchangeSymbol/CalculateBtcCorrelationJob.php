@@ -8,17 +8,20 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Symbol;
+use Martingalian\Core\Models\TradeConfiguration;
 
 /**
  * CalculateBtcCorrelationJob
  *
  * Calculates correlation between a token and BTC using historical candle data.
- * Three correlation types are calculated:
+ * Correlation is calculated for all timeframes configured in TradeConfiguration.
+ *
+ * Three correlation types are calculated per timeframe:
  * - Pearson: Linear relationship between price movements
  * - Spearman: Rank-based correlation (more robust for crypto volatility)
  * - Rolling: Correlation over recent window (configurable via method)
  *
- * Results are stored in exchange_symbols columns for filtering/scoring.
+ * Results are stored as JSON arrays indexed by timeframe in exchange_symbols columns.
  */
 final class CalculateBtcCorrelationJob extends BaseQueueableJob
 {
@@ -68,10 +71,79 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
             return ['error' => 'BTC not found on same exchange'];
         }
 
+        // Get timeframes from TradeConfiguration
+        $tradeConfig = TradeConfiguration::default()->first();
+        if (! $tradeConfig) {
+            return ['error' => 'No default trade configuration found'];
+        }
+
+        $timeframes = $tradeConfig->indicator_timeframes;
+        if (! is_array($timeframes) || empty($timeframes)) {
+            return ['error' => 'No indicator timeframes configured'];
+        }
+
+        // Calculate correlation for each timeframe
+        $pearsonResults = [];
+        $spearmanResults = [];
+        $rollingResults = [];
+        $timeframeDetails = [];
+
+        foreach ($timeframes as $timeframe) {
+            $result = $this->calculateCorrelationForTimeframe(
+                $exchangeSymbol,
+                $btcExchangeSymbol,
+                $timeframe,
+                $config
+            );
+
+            if (isset($result['error'])) {
+                // Timeframe had insufficient data, skip but don't fail entire job
+                $timeframeDetails[$timeframe] = $result;
+
+                continue;
+            }
+
+            // Store results indexed by timeframe
+            $pearsonResults[$timeframe] = $result['pearson'];
+            $spearmanResults[$timeframe] = $result['spearman'];
+            $rollingResults[$timeframe] = $result['rolling'];
+            $timeframeDetails[$timeframe] = [
+                'candles_analyzed' => $result['candles_analyzed'],
+                'pearson' => round($result['pearson'], 4),
+                'spearman' => round($result['spearman'], 4),
+                'rolling' => round($result['rolling'], 4),
+            ];
+        }
+
+        // Only save if we calculated at least one timeframe
+        if (! empty($pearsonResults)) {
+            $exchangeSymbol->btc_correlation_pearson = $pearsonResults;
+            $exchangeSymbol->btc_correlation_spearman = $spearmanResults;
+            $exchangeSymbol->btc_correlation_rolling = $rollingResults;
+            $exchangeSymbol->save();
+        }
+
+        return [
+            'exchange_symbol_id' => $exchangeSymbol->id,
+            'symbol' => $exchangeSymbol->symbol->token,
+            'timeframes_calculated' => count($pearsonResults),
+            'timeframes' => $timeframeDetails,
+        ];
+    }
+
+    /**
+     * Calculate correlation for a single timeframe
+     */
+    public function calculateCorrelationForTimeframe(
+        ExchangeSymbol $exchangeSymbol,
+        ExchangeSymbol $btcExchangeSymbol,
+        string $timeframe,
+        array $config
+    ): array {
         // Fetch candles for this token
         $tokenCandles = Candle::query()
             ->where('exchange_symbol_id', $exchangeSymbol->id)
-            ->where('timeframe', $config['timeframe'])
+            ->where('timeframe', $timeframe)
             ->orderBy('timestamp', 'desc')
             ->limit($config['window_size'])
             ->get()
@@ -81,22 +153,12 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
         // Fetch candles for BTC
         $btcCandles = Candle::query()
             ->where('exchange_symbol_id', $btcExchangeSymbol->id)
-            ->where('timeframe', $config['timeframe'])
+            ->where('timeframe', $timeframe)
             ->orderBy('timestamp', 'desc')
             ->limit($config['window_size'])
             ->get()
             ->sortBy('timestamp')
             ->values();
-
-        // Check minimum candles requirement
-        if ($tokenCandles->count() < $config['min_candles'] || $btcCandles->count() < $config['min_candles']) {
-            return [
-                'error' => 'Insufficient candles',
-                'token_candles' => $tokenCandles->count(),
-                'btc_candles' => $btcCandles->count(),
-                'min_required' => $config['min_candles'],
-            ];
-        }
 
         // Align timestamps (only use overlapping candles)
         $tokenTimestamps = $tokenCandles->pluck('timestamp', 'timestamp')->all();
@@ -104,7 +166,11 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
         $commonTimestamps = array_intersect_key($tokenTimestamps, $btcTimestamps);
 
         if (empty($commonTimestamps)) {
-            return ['error' => 'No overlapping candle timestamps found'];
+            return [
+                'error' => 'No overlapping candle timestamps found',
+                'token_candles' => $tokenCandles->count(),
+                'btc_candles' => $btcCandles->count(),
+            ];
         }
 
         // Extract close prices for common timestamps
@@ -121,8 +187,12 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
             }
         }
 
+        // Need at least 2 aligned candles for correlation
         if (count($tokenPrices) < 2) {
-            return ['error' => 'Need at least 2 aligned candles for correlation'];
+            return [
+                'error' => 'Need at least 2 aligned candles for correlation',
+                'aligned_candles' => count($tokenPrices),
+            ];
         }
 
         // Calculate correlations
@@ -136,19 +206,11 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
             $config['rolling']['step_size']
         );
 
-        // Update exchange_symbol
-        $exchangeSymbol->btc_correlation_pearson = $pearson;
-        $exchangeSymbol->btc_correlation_spearman = $spearman;
-        $exchangeSymbol->btc_correlation_rolling = $rolling;
-        $exchangeSymbol->save();
-
         return [
-            'exchange_symbol_id' => $exchangeSymbol->id,
-            'symbol' => $exchangeSymbol->symbol->token,
+            'pearson' => $pearson,
+            'spearman' => $spearman,
+            'rolling' => $rolling,
             'candles_analyzed' => count($tokenPrices),
-            'pearson' => round($pearson, 4),
-            'spearman' => round($spearman, 4),
-            'rolling' => round($rolling, 4),
         ];
     }
 

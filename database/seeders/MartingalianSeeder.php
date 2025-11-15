@@ -19,6 +19,10 @@ use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Models\TradeConfiguration;
 use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\NotificationContextables\GlobalContextable;
+use Martingalian\Core\Support\NotificationContextables\PerAccountContextable;
+use Martingalian\Core\Support\NotificationContextables\PerExchangeSymbolContextable;
+use Martingalian\Core\Support\NotificationContextables\PerUserContextable;
 
 final class MartingalianSeeder extends Seeder
 {
@@ -929,6 +933,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when exchange symbol prices have not been updated within expected timeframe',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -937,6 +942,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when Binance price monitoring restarts due to symbol changes',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -945,6 +951,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when Binance WebSocket encounters an error',
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -953,6 +960,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when Binance API returns invalid JSON',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -961,6 +969,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when database update fails for Binance price data',
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             // User-facing notifications (sent to user only - user needs to take action)
@@ -970,6 +979,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when server IP is not whitelisted on exchange API for user account',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -978,6 +988,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API credentials are invalid or API keys are locked',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -986,6 +997,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when user account is in liquidation mode',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -994,6 +1006,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when account is in reduce-only mode - cannot open new positions',
                 'default_severity' => 'high',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1002,6 +1015,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when account trading is banned due to risk control or compliance',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1010,6 +1024,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when account authentication fails or is unauthorized',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1018,6 +1033,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API key has expired and needs renewal',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1026,6 +1042,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API call fails with ambiguous error (could be credentials, IP, or permissions)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1034,6 +1051,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API key is invalid (Bybit specific)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1042,6 +1060,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API signature is invalid (Bybit specific)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1050,6 +1069,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API key lacks required permissions (Bybit specific)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1058,6 +1078,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when account has insufficient balance or margin for operations',
                 'default_severity' => 'high',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1066,6 +1087,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when KYC verification is required to continue trading',
                 'default_severity' => 'medium',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1074,6 +1096,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent via Pushover when user email bounces (soft or hard bounce)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerUserContextable::class,
                 'is_active' => true,
             ],
 
@@ -1084,6 +1107,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API rate limit is exceeded',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1092,6 +1116,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API access is denied (ambiguous 401/403)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1100,6 +1125,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when exchange API encounters system errors',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1108,6 +1134,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when network errors occur communicating with exchange',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1116,6 +1143,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when exchange is under maintenance or overloaded',
                 'default_severity' => 'high',
                 'user_types' => ['user'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1124,6 +1152,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when unable to connect to exchange API',
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1132,6 +1161,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when server IP is successfully whitelisted on exchange',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1140,6 +1170,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when a symbol is successfully synced with CoinMarketCap',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1148,6 +1179,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when a step encounters an error during execution',
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1156,6 +1188,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when a hostname is forbidden from accessing an exchange API',
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1164,6 +1197,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Fallback notification type for messages without a specific canonical identifier',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1172,6 +1206,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when a symbol delivery date changes indicating delisting, and open positions exist requiring manual review',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => PerExchangeSymbolContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1180,6 +1215,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when price spike check fails due to missing symbol data or calculation errors',
                 'default_severity' => 'medium',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => PerExchangeSymbolContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1188,6 +1224,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when an exchange symbol is automatically deactivated due to consistent lack of TAAPI indicator data',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
+                'throttle_contextable_class' => PerExchangeSymbolContextable::class,
                 'is_active' => true,
             ],
         ];
@@ -1200,6 +1237,7 @@ final class MartingalianSeeder extends Seeder
                 'detailed_description' => $notification['detailed_description'] ?? $notification['description'],
                 'default_severity' => $notification['default_severity'],
                 'user_types' => json_encode($notification['user_types']),
+                'throttle_contextable_class' => $notification['throttle_contextable_class'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

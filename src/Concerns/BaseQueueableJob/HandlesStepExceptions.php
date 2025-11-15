@@ -64,6 +64,13 @@ trait HandlesStepExceptions
             return;
         }
 
+        // Check for permanent database errors (syntax, schema issues) - fail immediately
+        if ($this->isPermanentDatabaseError($e)) {
+            $this->reportAndFail($e);
+
+            return;
+        }
+
         if ($this->shouldRetryException($e)) {
             $this->retryJobWithBackoff();
 
@@ -97,12 +104,32 @@ trait HandlesStepExceptions
             || $e instanceof JustEndException;
     }
 
+    protected function isPermanentDatabaseError(Throwable $e): bool
+    {
+        if (isset($this->databaseExceptionHandler)
+            && $this->databaseExceptionHandler->isPermanentError($e)
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
     protected function shouldRetryException(Throwable $e): bool
     {
+        // PRIORITY 1: Database handler (transient DB errors - deadlocks, connection failures)
+        if (isset($this->databaseExceptionHandler)
+            && $this->databaseExceptionHandler->shouldRetry($e)
+        ) {
+            return true;
+        }
+
+        // PRIORITY 2: Job-specific retry logic
         if (method_exists($this, 'retryException') && $this->retryException($e)) {
             return true;
         }
 
+        // PRIORITY 3: API exception handler (rate limits, server errors)
         if (isset($this->exceptionHandler)
             && method_exists($this->exceptionHandler, 'retryException')
             && $this->exceptionHandler->retryException($e)
@@ -115,13 +142,22 @@ trait HandlesStepExceptions
 
     protected function shouldIgnoreException(Throwable $e): bool
     {
+        // PRIORITY 1: Job-specific ignore logic
         if (method_exists($this, 'ignoreException') && $this->ignoreException($e)) {
             return true;
         }
 
+        // PRIORITY 2: API exception handler
         if (isset($this->exceptionHandler)
             && method_exists($this->exceptionHandler, 'ignoreException')
             && $this->exceptionHandler->ignoreException($e)
+        ) {
+            return true;
+        }
+
+        // PRIORITY 3: Database handler (very rare - idempotent duplicate entries)
+        if (isset($this->databaseExceptionHandler)
+            && $this->databaseExceptionHandler->shouldIgnore($e)
         ) {
             return true;
         }

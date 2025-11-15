@@ -34,6 +34,11 @@ use Martingalian\Core\Concerns\ExchangeSymbol\SendsNotifications;
  * @property mixed $indicators_values
  * @property string|null $indicators_timeframe
  * @property \Illuminate\Support\Carbon|null $indicators_synced_at
+ * @property array<string, float>|null $btc_correlation_pearson
+ * @property array<string, float>|null $btc_correlation_spearman
+ * @property array<string, float>|null $btc_correlation_rolling
+ * @property array<string, float>|null $btc_elasticity_long
+ * @property array<string, float>|null $btc_elasticity_short
  * @property \Illuminate\Support\Carbon|null $mark_price_synced_at
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
@@ -60,6 +65,12 @@ final class ExchangeSymbol extends BaseModel
         'leverage_brackets' => 'array',
         'indicators' => 'array',
         'limit_quantity_multipliers' => 'array',
+
+        'btc_correlation_pearson' => 'array',
+        'btc_correlation_spearman' => 'array',
+        'btc_correlation_rolling' => 'array',
+        'btc_elasticity_long' => 'array',
+        'btc_elasticity_short' => 'array',
 
         'mark_price_synced_at' => 'datetime',
         'indicators_synced_at' => 'datetime',
