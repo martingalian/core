@@ -247,8 +247,8 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
      * Different symbols can still run in parallel across workers.
      *
      * COMPATIBILITY WITH BaseQueueableJob RETRY:
-     * - Lock timeout exceptions trigger retryException() → job retries automatically
-     * - Deadlock exceptions trigger retryException() → job retries automatically
+     * - Lock timeout exceptions → caught by global DatabaseExceptionHandler → job retries automatically
+     * - Deadlock exceptions → local retry (5 attempts), then global handler → job retries automatically
      * - Lock is ALWAYS released in finally block (even on exception)
      * - MySQL auto-releases lock if connection dies (process crash safety)
      */
@@ -266,8 +266,8 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
             $result = DB::selectOne('SELECT GET_LOCK(?, ?) as lock_result', [$lockKey, $lockTimeout]);
 
             if (! $result || $result->lock_result !== 1) {
-                // Lock acquisition failed - will be caught by retryException()
-                // which retries via BaseQueueableJob retry mechanism
+                // Lock acquisition failed - will be caught by global DatabaseExceptionHandler
+                // which retries the entire job via BaseQueueableJob retry mechanism
                 throw new RuntimeException("Failed to acquire advisory lock for {$lockKey} after {$lockTimeout}s. Another worker may be processing same symbol+timeframe.");
             }
 
@@ -292,13 +292,13 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
                     return;
                 } catch (\Illuminate\Database\QueryException $e) {
                     // With advisory locks, deadlocks should be extremely rare
-                    // But keep retry as safety net for other transient errors
+                    // But keep local retry as optimization (avoids full job dispatch cycle)
                     if ($e->getCode() === '40001' || str_contains($e->getMessage(), 'Deadlock')) {
                         $attempt++;
 
                         if ($attempt >= $maxAttempts) {
-                            // Exhausted retries - re-throw to trigger retryException()
-                            // BaseQueueableJob will retry the entire job (including lock acquisition)
+                            // Exhausted local retries - re-throw to trigger global DatabaseExceptionHandler
+                            // which will retry the entire job (including lock acquisition) via BaseQueueableJob
                             throw $e;
                         }
 
