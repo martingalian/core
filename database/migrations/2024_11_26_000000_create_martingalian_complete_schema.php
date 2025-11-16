@@ -317,6 +317,7 @@ return new class extends Migration
             $table->uuid('uuid')->unique()->comment('Unique identifier for backend reference');
             $table->unsignedBigInteger('notification_id')->nullable()->comment('FK to notifications table - which notification definition was used');
             $table->string('canonical')->comment('Notification canonical used (e.g., ip_not_whitelisted)');
+            $table->unsignedBigInteger('user_id')->nullable()->comment('FK to users table - which user received this notification (null for admin virtual user)');
             $table->nullableMorphs('relatable', 'notification_logs_relatable_index');
             $table->string('channel')->comment('Delivery channel: mail, pushover');
             $table->string('recipient')->comment('Email address or Pushover key');

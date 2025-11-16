@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string $uuid
  * @property int|null $notification_id
  * @property string $canonical
+ * @property int|null $user_id
  * @property string|null $relatable_type
  * @property int|null $relatable_id
  * @property string $channel
@@ -43,6 +44,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property-read Notification|null $notification
+ * @property-read User|null $user
  * @property-read Model|null $relatable
  */
 final class NotificationLog extends Model
@@ -85,7 +87,17 @@ final class NotificationLog extends Model
     }
 
     /**
-     * The relatable model (usually Account, sometimes User, null for admin notifications).
+     * The user who received this notification (null for admin virtual user).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The relatable context model (Account, ApiSystem, ExchangeSymbol, etc.) - NOT the user.
      *
      * @return MorphTo<Model, $this>
      */

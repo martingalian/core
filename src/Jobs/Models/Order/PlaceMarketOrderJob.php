@@ -63,10 +63,7 @@ final class PlaceMarketOrderJob extends BaseApiableJob
             return true;
         }
 
-        // Null-guard: exchange_symbol_id may be null; only inactivate if we can.
-        if ($this->position->exchange_symbol_id && $this->position->exchangeSymbol) {
-            $this->position->exchangeSymbol->updateSaving(['is_tradeable' => false]);
-        }
+        // Null-guard: exchange_symbol_id may be null (is_tradeable controlled manually via backoffice)
 
         NotificationThrottler::using(NotificationService::class)
             ->withCanonical('place_market_order')

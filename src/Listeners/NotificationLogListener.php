@@ -79,8 +79,11 @@ final class NotificationLogListener
         // Extract canonical from notification object
         $canonical = $this->extractCanonical($notification);
 
-        // Determine relatable model (Account or User or null for admin)
+        // Extract user ID (null for admin virtual user)
         /** @var object $notifiable */
+        $userId = $this->extractUserId($notifiable);
+
+        // Determine relatable context model (NOT the user)
         [$relatableType, $relatableId] = $this->extractRelatable($notifiable);
 
         // Determine recipient based on channel
@@ -110,6 +113,7 @@ final class NotificationLogListener
         NotificationLog::create([
             'notification_id' => $notificationId,
             'canonical' => $canonical,
+            'user_id' => $userId,
             'relatable_type' => $relatableType,
             'relatable_id' => $relatableId,
             'channel' => $this->normalizeChannel($channel),
@@ -146,7 +150,26 @@ final class NotificationLogListener
     }
 
     /**
-     * Extract relatable model (Account or User or null).
+     * Extract user ID from notifiable (null for admin virtual user).
+     */
+    private function extractUserId(object $notifiable): ?int
+    {
+        // If notifiable is User, return user ID
+        if ($notifiable instanceof User) {
+            return $notifiable->id;
+        }
+
+        // If notifiable is Account, return the account's user_id
+        if ($notifiable instanceof Account && $notifiable->user_id) {
+            return $notifiable->user_id;
+        }
+
+        // Admin notifications have no user (virtual admin)
+        return null;
+    }
+
+    /**
+     * Extract relatable context model (Account, ApiSystem, ExchangeSymbol, etc.) - NOT the user.
      *
      * @return array{string|null, int|null}
      */
@@ -157,12 +180,25 @@ final class NotificationLogListener
             return [Account::class, $notifiable->id];
         }
 
-        // If notifiable is User, use it as relatable
+        // If notifiable is User, DON'T use User as relatable - check for relatable property instead
+        // (User is stored in user_id column, relatable is for context models)
         if ($notifiable instanceof User) {
-            return [User::class, $notifiable->id];
+            // Check if User has a relatable property (unlikely, but check for consistency)
+            if (property_exists($notifiable, 'relatable') && is_object($notifiable->relatable)) {
+                $relatable = $notifiable->relatable;
+                if (method_exists($relatable, 'getMorphClass')) {
+                    return [$relatable->getMorphClass(), $relatable->getKey()];
+                }
+                if (property_exists($relatable, 'id')) {
+                    return [get_class($relatable), $relatable->id];
+                }
+            }
+
+            // User notifications without additional context have no relatable
+            return [null, null];
         }
 
-        // Check if pseudo-notifiable has a relatable property (admin notifications)
+        // Check if pseudo-notifiable has a relatable property (admin notifications with context)
         if (property_exists($notifiable, 'relatable') && is_object($notifiable->relatable)) {
             $relatable = $notifiable->relatable;
             if (method_exists($relatable, 'getMorphClass')) {
@@ -173,7 +209,7 @@ final class NotificationLogListener
             }
         }
 
-        // Admin notifications have no relatable model
+        // Admin notifications without additional context have no relatable model
         return [null, null];
     }
 

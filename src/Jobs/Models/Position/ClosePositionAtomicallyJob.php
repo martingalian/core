@@ -52,7 +52,7 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
 
     public function computeApiable()
     {
-        // If configured, immediately disable symbol when a position is about to close negative.
+        // If configured, notify when a position is about to close negative (is_tradeable controlled manually via backoffice)
         if ($this->position->account->tradeConfiguration->disable_exchange_symbol_from_negative_pnl_position) {
             if (($this->position->direction === 'SHORT' && $this->position->opening_price < $this->position->exchangeSymbol->mark_price) ||
                 ($this->position->direction === 'LONG' && $this->position->opening_price > $this->position->exchangeSymbol->mark_price)
@@ -62,15 +62,12 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
                     ->execute(function () {
                         NotificationService::send(
                             user: Martingalian::admin(),
-                            message: "Position {$this->position->parsed_trading_pair} is possibly closing with a negative PnL. Exchange symbol disabled. Please check!",
+                            message: "Position {$this->position->parsed_trading_pair} is possibly closing with a negative PnL. Please check!",
                             title: "Position {$this->position->parsed_trading_pair} possible closed with negative PnL",
                             canonical: 'position_closing_negative_pnl',
                             deliveryGroup: 'exceptions'
                         );
                     });
-
-                $this->position->exchangeSymbol->is_tradeable = false;
-                $this->position->exchangeSymbol->save();
             }
         }
 

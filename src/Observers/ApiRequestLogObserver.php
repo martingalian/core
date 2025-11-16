@@ -67,7 +67,7 @@ final class ApiRequestLogObserver
             // Deactivate the ExchangeSymbol
             $lockedSymbol->update([
                 'is_active' => false,
-                'is_tradeable' => false,
+                'is_eligible' => false
             ]);
 
             return true;

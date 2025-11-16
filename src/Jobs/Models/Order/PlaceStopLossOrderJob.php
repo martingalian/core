@@ -53,10 +53,7 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
             return true;
         }
 
-        // Null-guard before touching exchangeSymbol
-        if ($this->position->exchange_symbol_id && $this->position->exchangeSymbol) {
-            $this->position->exchangeSymbol->updateSaving(['is_tradeable' => false]);
-        }
+        // Null-guard before touching exchangeSymbol (is_tradeable controlled manually via backoffice)
 
         NotificationThrottler::using(NotificationService::class)
             ->withCanonical('stop_loss_precondition_failed')
