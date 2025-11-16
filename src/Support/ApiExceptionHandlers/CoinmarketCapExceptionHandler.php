@@ -29,9 +29,10 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
     }
 
     /**
-     * Ignorable: none defined by CMC docs.
+     * Ignorable: Invalid symbol names or malformed requests that should not retry.
+     * 400 = Bad Request (invalid symbol, malformed parameters, etc.)
      */
-    public array $ignorableHttpCodes = [];
+    public array $ignorableHttpCodes = [400];
 
     /**
      * Retryable: transient server-side/network conditions.

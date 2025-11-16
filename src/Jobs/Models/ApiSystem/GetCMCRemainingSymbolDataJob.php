@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
+use DB;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
@@ -52,55 +53,74 @@ final class GetCMCRemainingSymbolDataJob extends BaseApiableJob
 
     public function computeApiable()
     {
-        // Get the previous step's response to find the symbol_id
-        $previousStep = $this->step->getPrevious()->first();
+        // Acquire advisory lock to prevent duplicate CMC API calls for the same token
+        // Lock name format: "cmc_metadata:{TOKEN}"
+        $lockName = 'cmc_metadata:'.mb_strtoupper($this->token);
+        $lockTimeout = 10; // seconds
 
-        if (! $previousStep || ! $previousStep->response) {
-            return ['error' => 'Previous job (GetCMCIDForSymbolJob) did not provide symbol_id'];
+        $lockAcquired = DB::select('SELECT GET_LOCK(?, ?) as locked', [$lockName, $lockTimeout])[0]->locked;
+
+        if (! $lockAcquired) {
+            // Could not acquire lock within timeout - retry job
+            $this->retryJob();
+
+            return;
         }
 
-        $symbolId = $previousStep->response['symbol_id'] ?? null;
+        try {
+            // Get the previous step's response to find the symbol_id
+            $previousStep = $this->step->getPrevious()->first();
 
-        if (! $symbolId) {
-            return ['error' => 'symbol_id not found in previous job response'];
-        }
+            if (! $previousStep || ! $previousStep->response) {
+                return ['error' => 'Previous job (GetCMCIDForSymbolJob) did not provide symbol_id'];
+            }
 
-        // Find the Symbol created by previous job
-        $symbol = Symbol::find($symbolId);
+            $symbolId = $previousStep->response['symbol_id'] ?? null;
 
-        if (! $symbol) {
-            return ['error' => 'Symbol not found with ID: '.$symbolId];
-        }
+            if (! $symbolId) {
+                return ['error' => 'symbol_id not found in previous job response'];
+            }
 
-        if (! $symbol->cmc_id) {
-            return [
-                'symbol_id' => $symbol->id,
-                'token' => $this->token,
-                'cmc_id' => null,
-                'message' => 'Symbol has no cmc_id - skipping metadata sync',
-            ];
-        }
+            // Find the Symbol created by previous job
+            $symbol = Symbol::find($symbolId);
 
-        // Check if symbol already has metadata (another job might have synced it)
-        if ($symbol->name && $symbol->description) {
+            if (! $symbol) {
+                return ['error' => 'Symbol not found with ID: '.$symbolId];
+            }
+
+            if (! $symbol->cmc_id) {
+                return [
+                    'symbol_id' => $symbol->id,
+                    'token' => $this->token,
+                    'cmc_id' => null,
+                    'message' => 'Symbol has no cmc_id - skipping metadata sync',
+                ];
+            }
+
+            // Check if symbol already has metadata (another job might have synced it)
+            if ($symbol->name && $symbol->description) {
+                return [
+                    'symbol_id' => $symbol->id,
+                    'token' => $this->token,
+                    'cmc_id' => $symbol->cmc_id,
+                    'name' => $symbol->name,
+                    'message' => 'Symbol metadata already exists - skipping CMC API call',
+                ];
+            }
+
+            // Use Symbol's existing API method to fetch and update metadata from CMC
+            $apiResponse = $symbol->apiSyncCMCData();
+
             return [
                 'symbol_id' => $symbol->id,
                 'token' => $this->token,
                 'cmc_id' => $symbol->cmc_id,
-                'name' => $symbol->name,
-                'message' => 'Symbol metadata already exists - skipping CMC API call',
+                'name' => $symbol->fresh()->name,
+                'message' => 'Symbol metadata synced from CoinMarketCap',
             ];
+        } finally {
+            // Always release the lock, even if an exception occurred
+            DB::select('SELECT RELEASE_LOCK(?) as released', [$lockName]);
         }
-
-        // Use Symbol's existing API method to fetch and update metadata from CMC
-        $apiResponse = $symbol->apiSyncCMCData();
-
-        return [
-            'symbol_id' => $symbol->id,
-            'token' => $this->token,
-            'cmc_id' => $symbol->cmc_id,
-            'name' => $symbol->fresh()->name,
-            'message' => 'Symbol metadata synced from CoinMarketCap',
-        ];
     }
 }

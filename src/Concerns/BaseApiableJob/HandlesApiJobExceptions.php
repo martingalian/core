@@ -33,6 +33,12 @@ trait HandlesApiJobExceptions
         }
 
         if ($e instanceof RequestException) {
+            if ($this->exceptionHandler->ignoreException($e)) {
+                // Ignorable exceptions (like 400 Bad Request for invalid symbols)
+                // Job completes normally, allowing computeApiable() to return its result
+                return;
+            }
+
             if ($this->exceptionHandler->isRecvWindowMismatch($e)) {
                 $this->handleRecvWindowIssue($e);
 

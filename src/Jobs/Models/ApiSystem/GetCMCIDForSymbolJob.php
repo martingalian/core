@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\ApiSystem;
 
+use DB;
 use Exception;
 use Illuminate\Database\QueryException;
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -59,148 +60,160 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
 
     public function computeApiable()
     {
-        // Check if BaseAssetMapper exists for this exchange token
-        $mapper = BaseAssetMapper::where('api_system_id', $this->apiSystem->id)
-            ->where('exchange_token', mb_strtoupper($this->token))
-            ->first();
+        // Acquire advisory lock to prevent duplicate CMC API calls for the same token
+        // Lock name format: "cmc_symbol:{TOKEN}"
+        $lockName = 'cmc_symbol:'.mb_strtoupper($this->token);
+        $lockTimeout = 10; // seconds
 
-        // If mapper exists, use the canonical token directly
-        if ($mapper) {
-            $canonicalToken = $mapper->symbol_token;
+        $lockAcquired = DB::select('SELECT GET_LOCK(?, ?) as locked', [$lockName, $lockTimeout])[0]->locked;
 
-            // Check if Symbol already exists
+        if (! $lockAcquired) {
+            // Could not acquire lock within timeout - retry job
+            $this->retryJob();
+
+            return;
+        }
+
+        try {
+            // Check if BaseAssetMapper exists for this exchange token
+            $mapper = BaseAssetMapper::where('api_system_id', $this->apiSystem->id)
+                ->where('exchange_token', mb_strtoupper($this->token))
+                ->first();
+
+            // Determine canonical token from mapper or use original token
+            $canonicalToken = $mapper ? $mapper->symbol_token : $this->token;
+
+            // Check if Symbol already exists with CMC ID
             $existingSymbol = Symbol::where('token', mb_strtoupper($canonicalToken))->first();
             if ($existingSymbol && $existingSymbol->cmc_id !== null) {
-                // Symbol exists and has CMC ID - nothing to do
                 return [
                     'symbol_id' => $existingSymbol->id,
                     'token' => $this->token,
                     'cmc_id' => $existingSymbol->cmc_id,
-                    'message' => 'Symbol already exists (found via BaseAssetMapper)',
+                    'message' => 'Symbol already exists with CMC ID',
                 ];
             }
 
-            // Symbol doesn't exist OR exists but needs CMC ID - search CMC with canonical token
+            // Search CMC for the canonical token
             $account = Account::admin('coinmarketcap');
             $apiMapper = $account->apiMapper();
             $cmcId = $this->searchCMCByToken($canonicalToken, $account, $apiMapper);
 
-            // If symbol exists but had no CMC ID, update it now
-            if ($existingSymbol && $cmcId !== null) {
-                $existingSymbol->update(['cmc_id' => $cmcId]);
+            // If not found and token has leading digits, try stripping them
+            if ($cmcId === null && preg_match('/^\d+(.+)$/', $canonicalToken, $matches)) {
+                $strippedToken = $matches[1];
+                $cmcId = $this->searchCMCByToken($strippedToken, $account, $apiMapper);
 
-                return [
-                    'symbol_id' => $existingSymbol->id,
-                    'token' => $this->token,
-                    'cmc_id' => $cmcId,
-                    'message' => 'Symbol already exists - updated with CMC ID (via BaseAssetMapper)',
-                ];
+                if ($cmcId !== null) {
+                    $canonicalToken = $strippedToken;
+
+                    // Create BaseAssetMapper to track exchange→canonical mapping
+                    if (! $mapper) {
+                        try {
+                            BaseAssetMapper::create([
+                                'api_system_id' => $this->apiSystem->id,
+                                'exchange_token' => mb_strtoupper($this->token),
+                                'symbol_token' => mb_strtoupper($canonicalToken),
+                            ]);
+                        } catch (QueryException $e) {
+                            // Mapper already exists from another job - ignore
+                        }
+                    }
+                }
             }
 
-            // If symbol exists but CMC ID wasn't found, notify and return
-            if ($existingSymbol && $cmcId === null) {
+            // If existing Symbol found, update it with CMC ID
+            if ($existingSymbol) {
+                if ($cmcId !== null) {
+                    $existingSymbol->update(['cmc_id' => $cmcId]);
+
+                    return [
+                        'symbol_id' => $existingSymbol->id,
+                        'token' => $this->token,
+                        'cmc_id' => $cmcId,
+                        'message' => 'Symbol updated with CMC ID',
+                    ];
+                }
+
+                // Symbol exists but CMC ID not found
                 $this->sendCmcIdNotFoundNotification($canonicalToken);
 
                 return [
                     'symbol_id' => $existingSymbol->id,
                     'token' => $this->token,
                     'cmc_id' => null,
-                    'message' => 'Symbol already exists (CMC ID not found)',
+                    'message' => 'Symbol exists (CMC ID not found)',
                 ];
             }
-        } else {
-            // No mapper exists - need to search CMC
-            $account = Account::admin('coinmarketcap');
-            $apiMapper = $account->apiMapper();
 
-            // Try with original token first
-            $cmcId = $this->searchCMCByToken($this->token, $account, $apiMapper);
-            $canonicalToken = $this->token; // Track which token worked
+            // Create Symbol with CMC ID (handle race condition if another job already created it)
+            try {
+                $symbol = Symbol::create([
+                    'token' => mb_strtoupper($canonicalToken),
+                    'cmc_id' => $cmcId,
+                    'name' => null,
+                    'description' => null,
+                    'site_url' => null,
+                    'image_url' => null,
+                ]);
 
-            // If no result and token starts with digits, strip them and try again
-            if ($cmcId === null && preg_match('/^\d+(.+)$/', $this->token, $matches)) {
-                $strippedToken = $matches[1]; // Token without leading digits
-                $cmcId = $this->searchCMCByToken($strippedToken, $account, $apiMapper);
-
-                // If we found it with the stripped token, use that as canonical
-                if ($cmcId !== null) {
-                    $canonicalToken = $strippedToken;
-
-                    // Create BaseAssetMapper to track the exchange→canonical mapping
-                    try {
-                        BaseAssetMapper::create([
-                            'api_system_id' => $this->apiSystem->id,
-                            'exchange_token' => mb_strtoupper($this->token),
-                            'symbol_token' => mb_strtoupper($canonicalToken),
-                        ]);
-                    } catch (QueryException $e) {
-                        // Mapper already exists from another job - ignore
-                    }
+                // Send notification if CMC ID was not found
+                if ($cmcId === null) {
+                    $this->sendCmcIdNotFoundNotification($canonicalToken);
                 }
-            }
-        }
 
-        // Create Symbol with CMC ID (handle race condition if another job already created it)
-        try {
-            $symbol = Symbol::create([
-                'token' => mb_strtoupper($canonicalToken),
-                'cmc_id' => $cmcId,
-                'name' => null,
-                'description' => null,
-                'site_url' => null,
-                'image_url' => null,
-            ]);
+                return [
+                    'symbol_id' => $symbol->id,
+                    'token' => $this->token,
+                    'cmc_id' => $cmcId,
+                    'message' => $cmcId ? 'Symbol created with CMC ID' : 'Symbol created (CMC ID not found)',
+                ];
+            } catch (QueryException $e) {
+                // Duplicate key error - another job already created this symbol
+                // Fetch the existing symbol
+                $existingSymbol = Symbol::where('token', mb_strtoupper($canonicalToken))->first();
 
-            // Send notification if CMC ID was not found
-            if ($cmcId === null) {
-                $this->sendCmcIdNotFoundNotification($canonicalToken);
-            }
+                // If symbol still doesn't exist (race condition edge case), rethrow to retry
+                if (! $existingSymbol) {
+                    throw $e;
+                }
 
-            return [
-                'symbol_id' => $symbol->id,
-                'token' => $this->token,
-                'cmc_id' => $cmcId,
-                'message' => $cmcId ? 'Symbol created with CMC ID' : 'Symbol created (CMC ID not found)',
-            ];
-        } catch (QueryException $e) {
-            // Duplicate key error - another job already created this symbol
-            // Fetch the existing symbol
-            $existingSymbol = Symbol::where('token', mb_strtoupper($canonicalToken))->first();
+                // If existing symbol has no CMC ID but we found one, update it
+                if ($existingSymbol->cmc_id === null && $cmcId !== null) {
+                    $existingSymbol->update(['cmc_id' => $cmcId]);
 
-            // If symbol still doesn't exist (race condition edge case), rethrow to retry
-            if (! $existingSymbol) {
-                throw $e;
-            }
+                    return [
+                        'symbol_id' => $existingSymbol->id,
+                        'token' => $this->token,
+                        'cmc_id' => $cmcId,
+                        'message' => 'Symbol already exists - updated with CMC ID',
+                    ];
+                }
 
-            // If existing symbol has no CMC ID but we found one, update it
-            if ($existingSymbol->cmc_id === null && $cmcId !== null) {
-                $existingSymbol->update(['cmc_id' => $cmcId]);
+                // If existing symbol has no CMC ID and we didn't find one either, notify
+                if ($existingSymbol->cmc_id === null && $cmcId === null) {
+                    $this->sendCmcIdNotFoundNotification($canonicalToken);
+                }
 
                 return [
                     'symbol_id' => $existingSymbol->id,
                     'token' => $this->token,
-                    'cmc_id' => $cmcId,
-                    'message' => 'Symbol already exists - updated with CMC ID',
+                    'cmc_id' => $existingSymbol->cmc_id,
+                    'message' => 'Symbol already exists (created by another job)',
                 ];
             }
-
-            // If existing symbol has no CMC ID and we didn't find one either, notify
-            if ($existingSymbol->cmc_id === null && $cmcId === null) {
-                $this->sendCmcIdNotFoundNotification($canonicalToken);
-            }
-
-            return [
-                'symbol_id' => $existingSymbol->id,
-                'token' => $this->token,
-                'cmc_id' => $existingSymbol->cmc_id,
-                'message' => 'Symbol already exists (created by another job)',
-            ];
+        } finally {
+            // Always release the lock, even if an exception occurred
+            DB::select('SELECT RELEASE_LOCK(?) as released', [$lockName]);
         }
     }
 
     /**
      * Search CoinMarketCap API for a symbol by token.
      * Returns CMC ID if found, null otherwise.
+     *
+     * Note: API errors (rate limits, network issues, etc.) will bubble up
+     * to the exception handler which will retry the job appropriately.
      */
     private function searchCMCByToken(string $token, $account, $mapper): ?int
     {
@@ -226,9 +239,15 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
             }
 
             return null;
-        } catch (Exception $e) {
-            // API error (like 400 Bad Request) - return null to trigger retry with stripped token
-            return null;
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            // 400 Bad Request = invalid symbol name (too long, malformed, etc.)
+            // Return null to indicate symbol not found, allowing job to complete gracefully
+            if ($e->getResponse() && $e->getResponse()->getStatusCode() === 400) {
+                return null;
+            }
+
+            // Re-throw other client exceptions (will be handled by exception handler)
+            throw $e;
         }
     }
 
