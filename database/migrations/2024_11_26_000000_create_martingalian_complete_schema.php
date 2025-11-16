@@ -532,6 +532,8 @@ return new class extends Migration
             $table->string('queue')->default('default');
             $table->json('arguments')->nullable();
             $table->unsignedInteger('retries')->default(0);
+            $table->boolean('was_throttled')->default(false)->comment('Historical flag: Has this step ever been throttled?');
+            $table->boolean('is_throttled')->default(false)->comment('Current state: Is this step currently waiting due to throttling?');
             $table->string('priority', 20)->default('default')->comment('Step priority: default or high');
             $table->timestamp('dispatch_after')->nullable();
             $table->timestamp('started_at')->nullable();
@@ -547,6 +549,8 @@ return new class extends Migration
             $table->index('child_block_uuid', 'steps_child_block_uuid_index');
             $table->index('dispatch_after', 'steps_dispatch_after_index');
             $table->index('priority', 'steps_priority_index');
+            $table->index('was_throttled', 'steps_was_throttled_index');
+            $table->index('is_throttled', 'steps_is_throttled_index');
             $table->index(['block_uuid', 'index'], 'steps_block_uuid_index_index');
             $table->index(['block_uuid', 'type'], 'steps_block_uuid_type_index');
             $table->index(['block_uuid', 'state'], 'steps_block_uuid_state_index');

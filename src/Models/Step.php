@@ -60,6 +60,9 @@ final class Step extends BaseModel
         'completed_at' => 'datetime',
         'dispatch_after' => 'datetime',
 
+        'was_throttled' => 'boolean',
+        'is_throttled' => 'boolean',
+
         'state' => StepStatus::class,
     ];
 

@@ -238,4 +238,33 @@ abstract class BaseApiableJob extends BaseQueueableJob
             parent::executeJobLogic();
         }
     }
+
+    /**
+     * Override to provide API-specific diagnostic information for retry failures.
+     * Checks if the current hostname is forbidden for this account/API system.
+     */
+    protected function getRetryDiagnostics(): array
+    {
+        $diagnostics = [];
+
+        try {
+            if (! isset($this->exceptionHandler)) {
+                $this->assignExceptionHandler();
+            }
+
+            $hostname = \Martingalian\Core\Models\Martingalian::ip();
+            $isForbidden = ForbiddenHostname::query()
+                ->where('account_id', $this->exceptionHandler->account->id)
+                ->where('ip_address', $hostname)
+                ->exists();
+
+            if ($isForbidden) {
+                $diagnostics[] = "Hostname {$hostname} is FORBIDDEN for account {$this->exceptionHandler->account->id}";
+            }
+        } catch (Throwable $e) {
+            // Silently skip diagnostics if anything fails
+        }
+
+        return $diagnostics;
+    }
 }

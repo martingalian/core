@@ -43,8 +43,6 @@ abstract class BaseQueueableJob extends BaseJob
 
     public float $startMicrotime = 0.0;
 
-    public ?BaseExceptionHandler $exceptionHandler;
-
     public ?BaseDatabaseExceptionHandler $databaseExceptionHandler;
 
     // Must be implemented by subclasses to define the compute logic.

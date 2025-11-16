@@ -86,12 +86,16 @@ trait HandlesStepLifecycle
         $this->step->duration = 0;
         $this->step->dispatch_after = $dispatchTime;
 
+        // Set throttling flags
+        $this->step->was_throttled = true;  // Historical: step has been throttled at least once
+        $this->step->is_throttled = true;   // Current: step is currently waiting due to throttling
+
         // Manually set state to Pending WITHOUT using transitionTo() to avoid incrementing retries
         $this->step->state = new Pending($this->step);
         $this->step->save();
 
         $freshStep = $this->step->fresh();
-        Log::info("[RESCHEDULE-NO-RETRY] Step #{$this->step->id} | AFTER reschedule | New state: {$freshStep->state} | Retries unchanged: {$freshStep->retries}");
+        Log::info("[RESCHEDULE-NO-RETRY] Step #{$this->step->id} | AFTER reschedule | New state: {$freshStep->state} | Retries unchanged: {$freshStep->retries} | was_throttled: {$freshStep->was_throttled} | is_throttled: {$freshStep->is_throttled}");
 
         $this->stepStatusUpdated = true;
     }
@@ -123,28 +127,7 @@ trait HandlesStepLifecycle
     protected function checkMaxRetries(): void
     {
         if ($this->step->retries >= $this->retries) {
-            $diagnostics = [];
-
-            // Add context about why retries might be happening
-            if (method_exists($this, 'assignExceptionHandler') && method_exists($this, 'exceptionHandler')) {
-                try {
-                    if (! isset($this->exceptionHandler)) {
-                        $this->assignExceptionHandler();
-                    }
-
-                    $hostname = Martingalian::ip();
-                    $isForbidden = ForbiddenHostname::query()
-                        ->where('account_id', $this->exceptionHandler->account->id)
-                        ->where('ip_address', $hostname)
-                        ->exists();
-
-                    if ($isForbidden) {
-                        $diagnostics[] = "Hostname {$hostname} is FORBIDDEN for account {$this->exceptionHandler->account->id}";
-                    }
-                } catch (Throwable $e) {
-                    // Silently skip diagnostics if anything fails
-                }
-            }
+            $diagnostics = $this->getRetryDiagnostics();
 
             $message = "Max retries ({$this->step->retries}) reached for Step ID {$this->step->id}.";
             if (! empty($diagnostics)) {
@@ -153,6 +136,15 @@ trait HandlesStepLifecycle
 
             throw new MaxRetriesReachedException($message);
         }
+    }
+
+    /**
+     * Get diagnostic information for retry failures.
+     * Override in subclasses to provide domain-specific diagnostics.
+     */
+    protected function getRetryDiagnostics(): array
+    {
+        return [];
     }
 
     // ========================================================================
