@@ -21,3 +21,4 @@ yarn-error.log
 /.zed
 *.bat
 *.sql
+!/database/dumps/*.sql
