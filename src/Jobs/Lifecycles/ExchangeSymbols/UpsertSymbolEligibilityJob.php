@@ -39,7 +39,7 @@ final class UpsertSymbolEligibilityJob extends BaseQueueableJob
     public function compute()
     {
         Step::create([
-            'class' => UpsertSymbolOnDatabaseJob::class,
+            'class' => UpsertSymbolJob::class,
             'arguments' => [
                 'token' => $this->token,
                 'apiSystemId' => $this->apiSystem->id,

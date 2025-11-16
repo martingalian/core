@@ -38,11 +38,11 @@ final class UpsertExchangeSymbolJob extends BaseQueueableJob
 
     public function compute()
     {
-        // Get previous sibling step (UpsertSymbolOnDatabaseJob) to find symbol_id
+        // Get previous sibling step (UpsertSymbolJob) to find symbol_id
         $previousStep = $this->step->getPrevious()->first();
 
         if (! $previousStep || ! $previousStep->response) {
-            return ['error' => 'Previous job (UpsertSymbolOnDatabaseJob) did not provide response'];
+            return ['error' => 'Previous job (UpsertSymbolJob) did not provide response'];
         }
 
         // Get symbol_id from previous step or its children

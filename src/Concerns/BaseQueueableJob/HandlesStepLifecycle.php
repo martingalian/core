@@ -45,16 +45,54 @@ trait HandlesStepLifecycle
 
     public function retryJob(Carbon|CarbonImmutable|null $dispatchAfter = null): void
     {
+        $dispatchTime = $dispatchAfter ?? now()->addSeconds($this->jobBackoffSeconds);
+
+        Log::info("[RETRY-JOB] Step #{$this->step->id} | Current state: {$this->step->state} | Current retries: {$this->step->retries} | Backoff: {$this->jobBackoffSeconds}s | Dispatch after: {$dispatchTime->format('H:i:s')}");
+
         // Check if step should be escalated to high priority
         if (method_exists($this, 'shouldChangeToHighPriority') && $this->shouldChangeToHighPriority() === true) {
             $this->step->update(['priority' => 'high']);
+            Log::info("[RETRY-JOB] Step #{$this->step->id} | Escalated to high priority");
         }
 
         $this->step->update([
-            'dispatch_after' => $dispatchAfter ?? now()->addSeconds($this->jobBackoffSeconds),
+            'dispatch_after' => $dispatchTime,
         ]);
 
+        Log::info("[RETRY-JOB] Step #{$this->step->id} | About to transition from {$this->step->state} to Pending");
         $this->step->state->transitionTo(Pending::class);
+
+        $freshStep = $this->step->fresh();
+        Log::info("[RETRY-JOB] Step #{$this->step->id} | AFTER transition | New state: {$freshStep->state} | New retries: {$freshStep->retries}");
+
+        $this->stepStatusUpdated = true;
+    }
+
+    public function rescheduleWithoutRetry(Carbon|CarbonImmutable|null $dispatchAfter = null): void
+    {
+        $dispatchTime = $dispatchAfter ?? now()->addSeconds($this->jobBackoffSeconds);
+
+        Log::info("[RESCHEDULE-NO-RETRY] Step #{$this->step->id} | Current state: {$this->step->state} | Current retries: {$this->step->retries} | Backoff: {$this->jobBackoffSeconds}s | Dispatch after: {$dispatchTime->format('H:i:s')}");
+
+        // Check if step should be escalated to high priority
+        if (method_exists($this, 'shouldChangeToHighPriority') && $this->shouldChangeToHighPriority() === true) {
+            $this->step->update(['priority' => 'high']);
+            Log::info("[RESCHEDULE-NO-RETRY] Step #{$this->step->id} | Escalated to high priority");
+        }
+
+        // Reset timers (same as RunningToPending transition)
+        $this->step->started_at = null;
+        $this->step->completed_at = null;
+        $this->step->duration = 0;
+        $this->step->dispatch_after = $dispatchTime;
+
+        // Manually set state to Pending WITHOUT using transitionTo() to avoid incrementing retries
+        $this->step->state = new Pending($this->step);
+        $this->step->save();
+
+        $freshStep = $this->step->fresh();
+        Log::info("[RESCHEDULE-NO-RETRY] Step #{$this->step->id} | AFTER reschedule | New state: {$freshStep->state} | Retries unchanged: {$freshStep->retries}");
+
         $this->stepStatusUpdated = true;
     }
 

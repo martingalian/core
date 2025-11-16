@@ -13,13 +13,13 @@ use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\Symbol;
 
 /*
- * UpsertSymbolOnDatabaseJob
+ * UpsertSymbolJob
  *
  * • Verifies if the Symbol exists in the database for the given token
  * • If Symbol doesn't exist, becomes a parent and dispatches CMC lookup jobs
  * • If Symbol exists, completes successfully
  */
-final class UpsertSymbolOnDatabaseJob extends BaseQueueableJob
+final class UpsertSymbolJob extends BaseQueueableJob
 {
     public string $token;
 

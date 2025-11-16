@@ -58,18 +58,25 @@ final class GetAllSymbolsFromExchangeJob extends BaseApiableJob
         // Build symbolData lookup array keyed by token for child jobs to access
         $symbolsData = [];
 
-        // TESTING: Only process SOL, LAYER, and BTC symbols
-        $symbolsToProcess = collect($apiResponse->result)
-            ->filter(function ($symbolData) {
-                return str_starts_with($symbolData['pair'], 'SOL')
-                    || str_starts_with($symbolData['pair'], 'LAYER')
-                    || str_starts_with($symbolData['pair'], 'BTC');
-            })
-            ->toArray();
+        // Testing filter: only process specific base assets
+        $allowedPrefixes = ['BTC', 'SOL', 'AERO', 'BAN', 'SPX', 'VIRTUAL'];
 
         // Dispatch UpsertSymbolEligibilityJob for each symbol
-        foreach ($symbolsToProcess as $symbolData) {
+        foreach ($apiResponse->result as $symbolData) {
             $token = $symbolData['pair'];
+
+            // Testing: filter to symbols starting with allowed prefixes
+            $baseAsset = $symbolData['baseAsset'];
+            $isAllowed = false;
+            foreach ($allowedPrefixes as $prefix) {
+                if (str_starts_with($baseAsset, $prefix)) {
+                    $isAllowed = true;
+                    break;
+                }
+            }
+            if (!$isAllowed) {
+                continue;
+            }
 
             // Store symbolData keyed by token
             $symbolsData[$token] = $symbolData;
@@ -89,7 +96,7 @@ final class GetAllSymbolsFromExchangeJob extends BaseApiableJob
             'symbols_count' => count($symbolsData),
             'symbols_data' => $symbolsData,
             'child_block_uuid' => $this->uuid(),
-            'message' => 'All symbols dispatched for processing (TESTING: SOL, LAYER, and BTC only)',
+            'message' => 'All symbols dispatched for processing',
         ];
     }
 }
