@@ -46,7 +46,7 @@ final class NotificationService
      * @param  array<string, mixed>  $referenceData  Reference data for template interpolation (e.g., ['exchange' => 'binance', 'ip' => '127.0.0.1'])
      * @param  object|null  $relatable  Optional relatable model (ApiSystem, Step, Account) for audit trail
      * @param  int|null  $duration  Throttle duration in seconds (null = use default from notifications table, 0 = no throttle, >0 = custom throttle window)
-     * @param  string|null  $throttleKey  Optional cache-based throttle key structure (e.g., 'exchange,user' or 'exchange'). If null, uses database-based throttling via notification_logs.
+     * @param  string|null  $cacheKey  Optional literal cache key for cache-based throttling (e.g., 'my_custom_key'). If null, uses database-based throttling via notification_logs.
      * @return bool True if notification was sent, false otherwise
      */
     public static function send(
@@ -55,7 +55,7 @@ final class NotificationService
         array $referenceData = [],
         ?object $relatable = null,
         ?int $duration = null,
-        ?string $throttleKey = null
+        ?string $cacheKey = null
     ): bool {
         // Determine throttle duration:
         // - null: use default from notifications table
@@ -70,12 +70,9 @@ final class NotificationService
         }
 
         // Throttle check: only if throttleDuration is set and > 0
-        $cacheKey = null;
         if ($throttleDuration !== null && $throttleDuration > 0) {
-            if ($throttleKey) {
-                // Cache-based throttling (context-aware, e.g., per-exchange)
-                $cacheKey = self::buildThrottleCacheKey($canonical, $throttleKey, $referenceData, $user);
-
+            if ($cacheKey) {
+                // Cache-based throttling using literal cache key
                 if (Cache::has($cacheKey)) {
                     // Still within throttle window - skip sending
                     return false;
@@ -151,7 +148,7 @@ final class NotificationService
      * @param  array<string, mixed>  $referenceData  Reference data for template interpolation (e.g., ['exchange' => 'binance'])
      * @param  object|null  $relatable  Optional relatable model for audit trail
      * @param  int|null  $duration  Throttle duration in seconds (null = use default from notifications table, 0 = no throttle, >0 = custom throttle window)
-     * @param  string|null  $throttleKey  Optional cache-based throttle key structure (e.g., 'exchange,user' or 'exchange'). If null, uses database-based throttling via notification_logs.
+     * @param  string|null  $cacheKey  Optional literal cache key for cache-based throttling (e.g., 'my_custom_key'). If null, uses database-based throttling via notification_logs.
      * @return bool True if notification was sent, false otherwise
      */
     public static function sendToAdminByCanonical(
@@ -159,7 +156,7 @@ final class NotificationService
         array $referenceData = [],
         ?object $relatable = null,
         ?int $duration = null,
-        ?string $throttleKey = null
+        ?string $cacheKey = null
     ): bool {
         // Send to admin using virtual user
         return self::send(
@@ -168,38 +165,8 @@ final class NotificationService
             referenceData: $referenceData,
             relatable: $relatable,
             duration: $duration,
-            throttleKey: $throttleKey
+            cacheKey: $cacheKey
         );
     }
 
-    /**
-     * Build cache key for throttling based on provided components.
-     *
-     * @param  string  $canonical  Notification canonical
-     * @param  string  $throttleKey  Comma-separated throttle key components (e.g., 'exchange,user')
-     * @param  array<string, mixed>  $referenceData  Reference data containing values for components
-     * @param  User  $user  User for 'user' component
-     * @return string Cache key for throttling
-     */
-    private static function buildThrottleCacheKey(
-        string $canonical,
-        string $throttleKey,
-        array $referenceData,
-        User $user
-    ): string {
-        $components = explode(',', $throttleKey);
-        $keyParts = ['notification_throttle', $canonical];
-
-        foreach ($components as $component) {
-            $component = mb_trim($component);
-
-            if ($component === 'user') {
-                $keyParts[] = $user->id;
-            } elseif (isset($referenceData[$component])) {
-                $keyParts[] = $referenceData[$component];
-            }
-        }
-
-        return implode(':', $keyParts);
-    }
 }

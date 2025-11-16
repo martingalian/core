@@ -183,8 +183,8 @@ final class NotificationLogListener
         // If notifiable is User, DON'T use User as relatable - check for relatable property instead
         // (User is stored in user_id column, relatable is for context models)
         if ($notifiable instanceof User) {
-            // Check if User has a relatable property (unlikely, but check for consistency)
-            if (property_exists($notifiable, 'relatable') && is_object($notifiable->relatable)) {
+            // Check if User has a relatable property (dynamically added by NotificationService)
+            if (isset($notifiable->relatable) && is_object($notifiable->relatable)) {
                 $relatable = $notifiable->relatable;
                 if (method_exists($relatable, 'getMorphClass')) {
                     return [$relatable->getMorphClass(), $relatable->getKey()];
@@ -199,7 +199,7 @@ final class NotificationLogListener
         }
 
         // Check if pseudo-notifiable has a relatable property (admin notifications with context)
-        if (property_exists($notifiable, 'relatable') && is_object($notifiable->relatable)) {
+        if (isset($notifiable->relatable) && is_object($notifiable->relatable)) {
             $relatable = $notifiable->relatable;
             if (method_exists($relatable, 'getMorphClass')) {
                 return [$relatable->getMorphClass(), $relatable->getKey()];
