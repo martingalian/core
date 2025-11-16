@@ -764,9 +764,9 @@ final class MartingalianSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'canonical' => 'binance_prices_restart',
-                'title' => 'Binance: Price Stream Restart',
-                'description' => 'Sent when Binance price monitoring restarts due to symbol changes',
+                'canonical' => 'update_prices_restart',
+                'title' => 'Price Stream Restart',
+                'description' => 'Sent when price monitoring restarts due to symbol changes (exchange-agnostic, uses relatable ApiSystem)',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
                 'is_active' => true,

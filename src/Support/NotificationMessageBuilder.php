@@ -270,7 +270,7 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            'binance_prices_restart', 'bybit_prices_restart' => [
+            'update_prices_restart' => [
                 'severity' => NotificationSeverity::Info,
                 'title' => "{$exchangeTitle} Price Stream Restart",
                 'emailMessage' => "{$exchangeTitle} WebSocket price monitoring restarting due to symbol list changes (new pairs added or removed).\n\nPlatform gracefully closing existing WebSocket connection and reconnecting with updated subscription list. Price streaming resumes within seconds. Normal operational event.\n\nNo action required - fully automated process.\n\n• Monitor supervisor status:\n[CMD]supervisorctl status update-{$exchange}-prices[/CMD]\n\n• Check recent supervisor logs:\n[CMD]supervisorctl tail update-{$exchange}-prices[/CMD]",
