@@ -19,12 +19,6 @@ use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Models\TradeConfiguration;
 use Martingalian\Core\Models\User;
-use Martingalian\Core\Support\NotificationContextables\GlobalContextable;
-use Martingalian\Core\Support\NotificationContextables\PerAccountContextable;
-use Martingalian\Core\Support\NotificationContextables\PerExchangeContextable;
-use Martingalian\Core\Support\NotificationContextables\PerExchangeSymbolContextable;
-use Martingalian\Core\Support\NotificationContextables\PerSymbolContextable;
-use Martingalian\Core\Support\NotificationContextables\PerUserContextable;
 
 final class MartingalianSeeder extends Seeder
 {
@@ -99,9 +93,6 @@ final class MartingalianSeeder extends Seeder
 
         // SECTION 22: Seed Notifications
         $this->seedNotifications();
-
-        // SECTION 23: Seed Throttle Rules
-        $this->seedThrottleRules();
     }
 
     /**
@@ -770,7 +761,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when exchange symbol prices have not been updated within expected timeframe',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -779,7 +769,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when Binance price monitoring restarts due to symbol changes',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -788,7 +777,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when Binance WebSocket encounters an error',
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -797,7 +785,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when Binance API returns invalid JSON',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -806,7 +793,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when database update fails for Binance price data',
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             // User-facing notifications (sent to user only - user needs to take action)
@@ -816,7 +802,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when server IP is not whitelisted on exchange API for user account',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -825,7 +810,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API credentials are invalid or API keys are locked',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -834,7 +818,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when user account is in liquidation mode',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -843,7 +826,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when account is in reduce-only mode - cannot open new positions',
                 'default_severity' => 'high',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -852,7 +834,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when account trading is banned due to risk control or compliance',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -861,7 +842,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when account authentication fails or is unauthorized',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -870,7 +850,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API key has expired and needs renewal',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -879,7 +858,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API call fails with ambiguous error (could be credentials, IP, or permissions)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -888,7 +866,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API key is invalid (Bybit specific)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -897,7 +874,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API signature is invalid (Bybit specific)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -906,7 +882,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API key lacks required permissions (Bybit specific)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -915,7 +890,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when account has insufficient balance or margin for operations',
                 'default_severity' => 'high',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -924,7 +898,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when KYC verification is required to continue trading',
                 'default_severity' => 'medium',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -933,7 +906,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent via Pushover when user email bounces (soft or hard bounce)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerUserContextable::class,
                 'is_active' => true,
             ],
 
@@ -944,7 +916,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API rate limit is exceeded',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -953,7 +924,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when API access is denied (ambiguous 401/403)',
                 'default_severity' => 'critical',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerAccountContextable::class,
                 'is_active' => true,
             ],
             [
@@ -962,7 +932,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when exchange API encounters system errors',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -971,7 +940,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when network errors occur communicating with exchange',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -980,7 +948,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when exchange is under maintenance or overloaded',
                 'default_severity' => 'high',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => PerExchangeContextable::class,
                 'is_active' => true,
             ],
             [
@@ -989,7 +956,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when unable to connect to exchange API',
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -998,7 +964,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when server IP is successfully whitelisted on exchange',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1007,7 +972,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when a symbol is successfully synced with CoinMarketCap',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1016,7 +980,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when a step encounters an error during execution',
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1025,7 +988,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when a hostname is forbidden from accessing an exchange API',
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1034,7 +996,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Fallback notification type for messages without a specific canonical identifier',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => GlobalContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1043,7 +1004,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when a symbol delivery date changes indicating delisting, and open positions exist requiring manual review',
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => PerExchangeSymbolContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1052,7 +1012,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when price spike check fails due to missing symbol data or calculation errors',
                 'default_severity' => 'medium',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => PerExchangeSymbolContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1061,7 +1020,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when an exchange symbol is automatically deactivated due to consistent lack of TAAPI indicator data',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => PerExchangeSymbolContextable::class,
                 'is_active' => true,
             ],
             [
@@ -1070,7 +1028,6 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when a symbol cannot be found on CoinMarketCap during symbol discovery',
                 'default_severity' => 'medium',
                 'user_types' => ['admin'],
-                'throttle_contextable_class' => PerSymbolContextable::class,
                 'is_active' => true,
             ],
         ];
@@ -1083,165 +1040,10 @@ final class MartingalianSeeder extends Seeder
                 'detailed_description' => $notification['detailed_description'] ?? $notification['description'],
                 'default_severity' => $notification['default_severity'],
                 'user_types' => json_encode($notification['user_types']),
-                'throttle_contextable_class' => $notification['throttle_contextable_class'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
         }
     }
 
-    /**
-     * Seed common throttle rules.
-     */
-    public function seedThrottleRules(): void
-    {
-        $throttleRules = [
-            // General throttle intervals
-            [
-                'canonical' => 'throttle_900',
-                'description' => 'Throttle for 15 minutes (900 seconds)',
-                'throttle_seconds' => 900,
-                'is_active' => true,
-            ],
-            [
-                'canonical' => 'throttle_1800',
-                'description' => 'Throttle for 30 minutes (1800 seconds)',
-                'throttle_seconds' => 1800,
-                'is_active' => true,
-            ],
-            [
-                'canonical' => 'throttle_3600',
-                'description' => 'Throttle for 1 hour (3600 seconds)',
-                'throttle_seconds' => 3600,
-                'is_active' => true,
-            ],
-            [
-                'canonical' => 'symbol_synced',
-                'description' => 'Throttle symbol synced notifications',
-                'throttle_seconds' => 3600,
-                'is_active' => true,
-            ],
-            [
-                'canonical' => 'exchange_symbol_no_taapi_data',
-                'description' => 'No throttle - send notification immediately when exchange symbol is deactivated due to no TAAPI data',
-                'throttle_seconds' => 0,
-                'is_active' => true,
-            ],
-            [
-                'canonical' => 'symbol_cmc_id_not_found',
-                'description' => 'Throttle symbol CMC ID not found notifications',
-                'throttle_seconds' => 3600,
-                'is_active' => true,
-            ],
-            [
-                'canonical' => 'step_error',
-                'description' => 'Throttle step error notifications',
-                'throttle_seconds' => 900,
-                'is_active' => true,
-            ],
-            [
-                'canonical' => 'forbidden_hostname_added',
-                'description' => 'Throttle forbidden hostname notifications',
-                'throttle_seconds' => 3600,
-                'is_active' => true,
-            ],
-
-            // Supervisor restart throttles (1 minute default)
-            ['canonical' => 'binance_prices_restart', 'throttle_seconds' => 60, 'description' => 'Binance: Supervisor restart notification', 'is_active' => true],
-            ['canonical' => 'bybit_prices_restart', 'throttle_seconds' => 60, 'description' => 'Bybit: Supervisor restart notification', 'is_active' => true],
-
-            // WebSocket notification throttles (15 minutes default)
-            ['canonical' => 'websocket_error', 'throttle_seconds' => 900, 'description' => 'WebSocket: Generic error occurred', 'is_active' => true],
-            ['canonical' => 'websocket_reconnected', 'throttle_seconds' => 900, 'description' => 'WebSocket: Successfully reconnected', 'is_active' => true],
-            ['canonical' => 'websocket_connection_failed', 'throttle_seconds' => 900, 'description' => 'WebSocket: Connection failed', 'is_active' => true],
-            ['canonical' => 'websocket_closed_with_details', 'throttle_seconds' => 900, 'description' => 'WebSocket: Connection closed with details', 'is_active' => true],
-            ['canonical' => 'websocket_reconnect_attempt', 'throttle_seconds' => 900, 'description' => 'WebSocket: Reconnection attempt', 'is_active' => true],
-            ['canonical' => 'websocket_error_3', 'throttle_seconds' => 900, 'description' => 'WebSocket: Error code 3', 'is_active' => true],
-            ['canonical' => 'binance_no_symbols', 'throttle_seconds' => 900, 'description' => 'Binance: No symbols available', 'is_active' => true],
-            ['canonical' => 'bybit_no_symbols', 'throttle_seconds' => 900, 'description' => 'Bybit: No symbols available', 'is_active' => true],
-            ['canonical' => 'binance_websocket_error', 'throttle_seconds' => 900, 'description' => 'Binance: WebSocket error', 'is_active' => true],
-            ['canonical' => 'bybit_websocket_error', 'throttle_seconds' => 900, 'description' => 'Bybit: WebSocket error', 'is_active' => true],
-            ['canonical' => 'binance_invalid_json', 'throttle_seconds' => 900, 'description' => 'Binance: Invalid JSON received', 'is_active' => true],
-            ['canonical' => 'bybit_invalid_json', 'throttle_seconds' => 900, 'description' => 'Bybit: Invalid JSON received', 'is_active' => true],
-            ['canonical' => 'binance_db_update_error', 'throttle_seconds' => 900, 'description' => 'Binance: Database update error', 'is_active' => true],
-            ['canonical' => 'bybit_db_update_error', 'throttle_seconds' => 900, 'description' => 'Bybit: Database update error', 'is_active' => true],
-            ['canonical' => 'binance_db_insert_error', 'throttle_seconds' => 900, 'description' => 'Binance: Database insert error', 'is_active' => true],
-            ['canonical' => 'bybit_db_insert_error', 'throttle_seconds' => 900, 'description' => 'Bybit: Database insert error', 'is_active' => true],
-
-            // API Exception Handler throttles (API-system-specific to prevent cross-API throttling)
-            // Binance
-            ['canonical' => 'binance_ip_not_whitelisted', 'throttle_seconds' => 900, 'description' => 'Binance: Worker IP is not whitelisted on API', 'is_active' => true],
-            ['canonical' => 'binance_api_rate_limit_exceeded', 'throttle_seconds' => 1800, 'description' => 'Binance: API rate limit exceeded', 'is_active' => true],
-            ['canonical' => 'binance_api_connection_failed', 'throttle_seconds' => 900, 'description' => 'Binance: Unable to connect to API', 'is_active' => true],
-            ['canonical' => 'binance_invalid_api_credentials', 'throttle_seconds' => 1800, 'description' => 'Binance: Invalid API credentials for account', 'is_active' => true],
-            ['canonical' => 'binance_exchange_maintenance', 'throttle_seconds' => 3600, 'description' => 'Binance: API is under maintenance or unavailable', 'is_active' => true],
-
-            // Bybit
-            ['canonical' => 'bybit_ip_not_whitelisted', 'throttle_seconds' => 900, 'description' => 'Bybit: Worker IP is not whitelisted on API', 'is_active' => true],
-            ['canonical' => 'bybit_api_rate_limit_exceeded', 'throttle_seconds' => 1800, 'description' => 'Bybit: API rate limit exceeded', 'is_active' => true],
-            ['canonical' => 'bybit_api_connection_failed', 'throttle_seconds' => 900, 'description' => 'Bybit: Unable to connect to API', 'is_active' => true],
-            ['canonical' => 'bybit_invalid_api_credentials', 'throttle_seconds' => 1800, 'description' => 'Bybit: Invalid API credentials for account', 'is_active' => true],
-            ['canonical' => 'bybit_exchange_maintenance', 'throttle_seconds' => 3600, 'description' => 'Bybit: API is under maintenance or unavailable', 'is_active' => true],
-
-            // Taapi
-            ['canonical' => 'taapi_ip_not_whitelisted', 'throttle_seconds' => 900, 'description' => 'Taapi: Worker IP is not whitelisted on API', 'is_active' => true],
-            ['canonical' => 'taapi_api_rate_limit_exceeded', 'throttle_seconds' => 1800, 'description' => 'Taapi: API rate limit exceeded', 'is_active' => true],
-            ['canonical' => 'taapi_api_connection_failed', 'throttle_seconds' => 900, 'description' => 'Taapi: Unable to connect to API', 'is_active' => true],
-            ['canonical' => 'taapi_invalid_api_credentials', 'throttle_seconds' => 1800, 'description' => 'Taapi: Invalid API credentials for account', 'is_active' => true],
-            ['canonical' => 'taapi_exchange_maintenance', 'throttle_seconds' => 3600, 'description' => 'Taapi: API is under maintenance or unavailable', 'is_active' => true],
-
-            // AlternativeMe
-            ['canonical' => 'alternativeme_ip_not_whitelisted', 'throttle_seconds' => 900, 'description' => 'Alternativeme: Worker IP is not whitelisted on API', 'is_active' => true],
-            ['canonical' => 'alternativeme_api_rate_limit_exceeded', 'throttle_seconds' => 1800, 'description' => 'Alternativeme: API rate limit exceeded', 'is_active' => true],
-            ['canonical' => 'alternativeme_api_connection_failed', 'throttle_seconds' => 900, 'description' => 'Alternativeme: Unable to connect to API', 'is_active' => true],
-            ['canonical' => 'alternativeme_invalid_api_credentials', 'throttle_seconds' => 1800, 'description' => 'Alternativeme: Invalid API credentials for account', 'is_active' => true],
-            ['canonical' => 'alternativeme_exchange_maintenance', 'throttle_seconds' => 3600, 'description' => 'Alternativeme: API is under maintenance or unavailable', 'is_active' => true],
-
-            // CoinMarketCap
-            ['canonical' => 'coinmarketcap_ip_not_whitelisted', 'throttle_seconds' => 900, 'description' => 'Coinmarketcap: Worker IP is not whitelisted on API', 'is_active' => true],
-            ['canonical' => 'coinmarketcap_api_rate_limit_exceeded', 'throttle_seconds' => 1800, 'description' => 'Coinmarketcap: API rate limit exceeded', 'is_active' => true],
-            ['canonical' => 'coinmarketcap_api_connection_failed', 'throttle_seconds' => 900, 'description' => 'Coinmarketcap: Unable to connect to API', 'is_active' => true],
-            ['canonical' => 'coinmarketcap_invalid_api_credentials', 'throttle_seconds' => 1800, 'description' => 'Coinmarketcap: Invalid API credentials for account', 'is_active' => true],
-            ['canonical' => 'coinmarketcap_exchange_maintenance', 'throttle_seconds' => 3600, 'description' => 'Coinmarketcap: API is under maintenance or unavailable', 'is_active' => true],
-
-            // Critical account status notifications (exchange-specific)
-            // Binance
-            ['canonical' => 'binance_api_key_expired', 'throttle_seconds' => 1800, 'description' => 'Binance: API key has expired', 'is_active' => true],
-            ['canonical' => 'binance_account_in_liquidation', 'throttle_seconds' => 900, 'description' => 'Binance: Account undergoing liquidation', 'is_active' => true],
-            ['canonical' => 'binance_account_reduce_only_mode', 'throttle_seconds' => 900, 'description' => 'Binance: Account restricted to reduce-only', 'is_active' => true],
-            ['canonical' => 'binance_account_trading_banned', 'throttle_seconds' => 1800, 'description' => 'Binance: Trading banned on account', 'is_active' => true],
-            ['canonical' => 'binance_insufficient_balance_margin', 'throttle_seconds' => 900, 'description' => 'Binance: Insufficient balance or margin', 'is_active' => true],
-            ['canonical' => 'binance_kyc_verification_required', 'throttle_seconds' => 1800, 'description' => 'Binance: KYC verification required', 'is_active' => true],
-            ['canonical' => 'binance_account_unauthorized', 'throttle_seconds' => 900, 'description' => 'Binance: Unauthorized operation attempted', 'is_active' => true],
-            ['canonical' => 'binance_api_system_error', 'throttle_seconds' => 900, 'description' => 'Binance: System error or timeout occurred', 'is_active' => true],
-            ['canonical' => 'binance_api_network_error', 'throttle_seconds' => 900, 'description' => 'Binance: Network connectivity error', 'is_active' => true],
-
-            // Bybit
-            ['canonical' => 'bybit_api_key_expired', 'throttle_seconds' => 1800, 'description' => 'Bybit: API key has expired', 'is_active' => true],
-            ['canonical' => 'bybit_account_in_liquidation', 'throttle_seconds' => 900, 'description' => 'Bybit: Account undergoing liquidation', 'is_active' => true],
-            ['canonical' => 'bybit_account_reduce_only_mode', 'throttle_seconds' => 900, 'description' => 'Bybit: Account restricted to reduce-only', 'is_active' => true],
-            ['canonical' => 'bybit_account_trading_banned', 'throttle_seconds' => 1800, 'description' => 'Bybit: Trading banned on account', 'is_active' => true],
-            ['canonical' => 'bybit_insufficient_balance_margin', 'throttle_seconds' => 900, 'description' => 'Bybit: Insufficient balance or margin', 'is_active' => true],
-            ['canonical' => 'bybit_kyc_verification_required', 'throttle_seconds' => 1800, 'description' => 'Bybit: KYC verification required', 'is_active' => true],
-            ['canonical' => 'bybit_account_unauthorized', 'throttle_seconds' => 900, 'description' => 'Bybit: Unauthorized operation attempted', 'is_active' => true],
-            ['canonical' => 'bybit_api_system_error', 'throttle_seconds' => 900, 'description' => 'Bybit: System error or timeout occurred', 'is_active' => true],
-            ['canonical' => 'bybit_api_network_error', 'throttle_seconds' => 900, 'description' => 'Bybit: Network connectivity error', 'is_active' => true],
-
-            // User notification system throttles
-            ['canonical' => 'bounce_alert_to_pushover', 'throttle_seconds' => 3600, 'description' => 'Email bounce alert notification (sent via Pushover)', 'is_active' => true],
-
-            // Symbol delisting throttles
-            ['canonical' => 'symbol_delisting_positions_detected', 'throttle_seconds' => 1800, 'description' => 'Symbol delisting with open positions notification', 'is_active' => true],
-
-            // Price spike check throttles
-            ['canonical' => 'price_spike_check_symbol_error', 'throttle_seconds' => 900, 'description' => 'Price spike check symbol error notification', 'is_active' => true],
-        ];
-
-        foreach ($throttleRules as $rule) {
-            DB::table('throttle_rules')->insert(array_merge($rule, [
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
-        }
-    }
 }

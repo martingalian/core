@@ -305,6 +305,7 @@ return new class extends Migration
             $table->text('detailed_description')->nullable()->comment('Comprehensive technical details: HTTP codes, vendor error codes, error messages, and triggering conditions from exchange APIs');
             $table->string('default_severity')->nullable()->comment('Default severity level (Critical, High, Medium, Info)');
             $table->json('user_types')->nullable()->comment('Target recipient types: admin, user, or both (defaults to ["user"] if null)');
+            $table->unsignedInteger('default_throttle_duration')->default(600)->comment('Default throttle duration in seconds (600 = 10 minutes default, 0 = no throttle, >0 = throttle window)');
             $table->timestamps();
 
             $table->index('canonical', 'notifications_canonical_index');
@@ -614,34 +615,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // throttle_logs table
-        Schema::create('throttle_logs', function (Blueprint $table) {
-            $table->id();
-            $table->string('canonical')->comment('Throttle rule canonical identifier');
-            $table->timestamp('last_executed_at')->comment('When action was last executed');
-            $table->timestamps();
-            $table->string('contextable_type')->nullable();
-            $table->unsignedBigInteger('contextable_id')->nullable();
-
-            $table->unique(['canonical', 'contextable_type', 'contextable_id'], 'throttle_logs_canonical_contextable_unique');
-            $table->index('canonical', 'throttle_logs_canonical_index');
-            $table->index('last_executed_at', 'throttle_logs_last_executed_at_index');
-            $table->index(['contextable_type', 'contextable_id'], 'throttle_logs_contextable');
-        });
-
-        // throttle_rules table
-        Schema::create('throttle_rules', function (Blueprint $table) {
-            $table->id();
-            $table->string('canonical')->unique()->comment('Unique identifier for throttle rule');
-            $table->string('description')->nullable();
-            $table->integer('throttle_seconds')->comment('Throttle window in seconds');
-            $table->boolean('is_active')->default(true)->comment('Whether this rule is active');
-            $table->timestamps();
-
-            $table->index('canonical', 'throttle_rules_canonical_index');
-            $table->index('is_active', 'throttle_rules_is_active_index');
-        });
-
         // trade_configuration table
         Schema::create('trade_configuration', function (Blueprint $table) {
             $table->id();
@@ -682,8 +655,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('throttle_logs');
-        Schema::dropIfExists('throttle_rules');
         Schema::dropIfExists('slow_queries');
         Schema::dropIfExists('steps');
         Schema::dropIfExists('steps_dispatcher_ticks');

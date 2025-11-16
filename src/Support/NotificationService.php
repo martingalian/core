@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Support;
 
-use Martingalian\Core\Enums\NotificationSeverity;
+use Illuminate\Support\Facades\Cache;
 use Martingalian\Core\Models\Martingalian;
+use Martingalian\Core\Models\Notification;
+use Martingalian\Core\Models\NotificationLog;
 use Martingalian\Core\Models\User;
 use Martingalian\Core\Notifications\AlertNotification;
 
@@ -19,8 +21,7 @@ use Martingalian\Core\Notifications\AlertNotification;
  *   NotificationService::send(
  *       user: $user,  // Real or virtual user
  *       message: 'BTC price reached $50,000',
- *       title: 'Price Alert',
- *       deliveryGroup: 'indicators'
+ *       title: 'Price Alert'
  *   );
  *
  *   // Admin notifications using virtual user:
@@ -41,52 +42,73 @@ final class NotificationService
      * works seamlessly with this approach.
      *
      * @param  User  $user  The user to notify (real User or virtual admin via Martingalian::admin())
-     * @param  string  $message  The notification message body
-     * @param  string  $title  The notification title (hostname will be prepended for Pushover)
-     * @param  string|null  $canonical  Notification canonical identifier (e.g., 'ip_not_whitelisted', 'api_rate_limit_exceeded')
-     * @param  string|null  $deliveryGroup  Delivery group name (exceptions, default, indicators)
-     * @param  array<string, mixed>  $additionalParameters  Extra parameters (sound, priority, url, etc.)
-     * @param  NotificationSeverity|null  $severity  Severity level for visual styling
-     * @param  string|null  $pushoverMessage  Override message for Pushover (defaults to $message)
-     * @param  string|null  $actionUrl  URL for action button in email
-     * @param  string|null  $actionLabel  Label for action button
-     * @param  string|null  $exchange  Exchange name for email subject (e.g., 'binance', 'bybit')
-     * @param  string|null  $serverIp  Server IP address for email subject (e.g., '192.168.1.100')
+     * @param  string  $canonical  Notification canonical identifier (e.g., 'ip_not_whitelisted', 'api_rate_limit_exceeded')
+     * @param  array<string, mixed>  $referenceData  Reference data for template interpolation (e.g., ['exchange' => 'binance', 'ip' => '127.0.0.1'])
      * @param  object|null  $relatable  Optional relatable model (ApiSystem, Step, Account) for audit trail
+     * @param  int|null  $duration  Throttle duration in seconds (null = use default from notifications table, 0 = no throttle, >0 = custom throttle window)
+     * @param  string|null  $throttleKey  Optional cache-based throttle key structure (e.g., 'exchange,user' or 'exchange'). If null, uses database-based throttling via notification_logs.
      * @return bool True if notification was sent, false otherwise
      */
     public static function send(
         User $user,
-        string $message,
-        string $title = 'Alert',
-        ?string $canonical = null,
-        ?string $deliveryGroup = 'default',
-        array $additionalParameters = [],
-        ?NotificationSeverity $severity = null,
-        ?string $pushoverMessage = null,
-        ?string $actionUrl = null,
-        ?string $actionLabel = null,
-        ?string $exchange = null,
-        ?string $serverIp = null,
-        ?object $relatable = null
+        string $canonical,
+        array $referenceData = [],
+        ?object $relatable = null,
+        ?int $duration = null,
+        ?string $throttleKey = null
     ): bool {
-        // Check if notifications are globally enabled
-        if (! config('martingalian.notifications_enabled', true)) {
-            return false;
+        // Determine throttle duration:
+        // - null: use default from notifications table
+        // - 0: no throttling (send immediately)
+        // - >0: use custom duration
+        $throttleDuration = $duration;
+
+        if ($duration === null) {
+            // Look up default throttle duration from notifications table
+            $notification = Notification::where('canonical', $canonical)->first();
+            $throttleDuration = $notification?->default_throttle_duration;
         }
 
-        // Check if user is active
-        if (! $user->is_active) {
-            return false;
+        // Throttle check: only if throttleDuration is set and > 0
+        $cacheKey = null;
+        if ($throttleDuration !== null && $throttleDuration > 0) {
+            if ($throttleKey) {
+                // Cache-based throttling (context-aware, e.g., per-exchange)
+                $cacheKey = self::buildThrottleCacheKey($canonical, $throttleKey, $referenceData, $user);
+
+                if (Cache::has($cacheKey)) {
+                    // Still within throttle window - skip sending
+                    return false;
+                }
+            } else {
+                // Database-based throttling (default fallback)
+                // Use $relatable if provided, otherwise use $user as the throttle relatable
+                $throttleRelatable = $relatable ?? $user;
+
+                $lastNotification = NotificationLog::query()
+                    ->where('canonical', $canonical)
+                    ->where('relatable_type', get_class($throttleRelatable))
+                    ->where('relatable_id', $throttleRelatable->id)
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+
+                if ($lastNotification) {
+                    // Check if we're within the throttle window
+                    $throttleWindow = now()->subSeconds($throttleDuration);
+
+                    if ($lastNotification->created_at->isAfter($throttleWindow)) {
+                        // Still within throttle window - skip sending
+                        return false;
+                    }
+                }
+            }
         }
 
-        // Build additional parameters with action URL and label
-        $params = $additionalParameters;
-        if ($actionUrl) {
-            $params['url'] = $actionUrl;
-        }
-        if ($actionLabel) {
-            $params['url_title'] = $actionLabel;
+        // Build notification message from canonical template
+        $messageData = NotificationMessageBuilder::build($canonical, $referenceData, $user);
+
+        if (! $messageData) {
+            return false;
         }
 
         // Add relatable model to user for NotificationLogListener to extract
@@ -94,60 +116,90 @@ final class NotificationService
             $user->relatable = $relatable;
         }
 
+        // Build additional parameters with action URL if provided
+        $additionalParameters = [];
+        if ($messageData['actionUrl']) {
+            $additionalParameters['url'] = $messageData['actionUrl'];
+            $additionalParameters['url_title'] = $messageData['actionLabel'] ?? 'View Details';
+        }
+
         // Send notification using Laravel's notification system
-        $user->notifyWithGroup(
+        $user->notify(
             new AlertNotification(
-                message: $message,
-                title: $title,
+                message: $messageData['emailMessage'],
+                title: $messageData['title'],
                 canonical: $canonical,
-                deliveryGroup: $deliveryGroup,
-                additionalParameters: $params,
-                severity: $severity,
-                pushoverMessage: $pushoverMessage,
-                exchange: $exchange,
-                serverIp: $serverIp
-            ),
-            $deliveryGroup
+                severity: $messageData['severity'],
+                pushoverMessage: $messageData['pushoverMessage'],
+                additionalParameters: $additionalParameters
+            )
         );
+
+        // Set cache throttle after successful send (cache-based throttling only)
+        if ($cacheKey && $throttleDuration) {
+            Cache::put($cacheKey, true, $throttleDuration);
+        }
 
         return true;
     }
 
     /**
      * Send a notification to admin using a canonical notification template.
-     * Convenience wrapper that fetches message data from NotificationMessageBuilder.
+     * Convenience wrapper for sending to the admin user.
      *
      * @param  string  $canonical  Notification canonical identifier (e.g., 'api_rate_limit_exceeded')
-     * @param  array<string, mixed>  $context  Context variables for template interpolation (e.g., ['exchange' => 'binance'])
-     * @param  string|null  $deliveryGroup  Delivery group name (exceptions, default, indicators)
+     * @param  array<string, mixed>  $referenceData  Reference data for template interpolation (e.g., ['exchange' => 'binance'])
      * @param  object|null  $relatable  Optional relatable model for audit trail
+     * @param  int|null  $duration  Throttle duration in seconds (null = use default from notifications table, 0 = no throttle, >0 = custom throttle window)
+     * @param  string|null  $throttleKey  Optional cache-based throttle key structure (e.g., 'exchange,user' or 'exchange'). If null, uses database-based throttling via notification_logs.
      * @return bool True if notification was sent, false otherwise
      */
     public static function sendToAdminByCanonical(
         string $canonical,
-        array $context = [],
-        ?string $deliveryGroup = 'default',
-        ?object $relatable = null
+        array $referenceData = [],
+        ?object $relatable = null,
+        ?int $duration = null,
+        ?string $throttleKey = null
     ): bool {
-        // Get notification message data from builder
-        $messageData = NotificationMessageBuilder::build($canonical, $context);
-
-        if (! $messageData) {
-            return false;
-        }
-
         // Send to admin using virtual user
         return self::send(
             user: Martingalian::admin(),
-            message: $messageData['emailMessage'],
-            title: $messageData['title'],
             canonical: $canonical,
-            deliveryGroup: $deliveryGroup,
-            severity: $messageData['severity'],
-            pushoverMessage: $messageData['pushoverMessage'],
-            actionUrl: $messageData['actionUrl'],
-            actionLabel: $messageData['actionLabel'],
-            relatable: $relatable
+            referenceData: $referenceData,
+            relatable: $relatable,
+            duration: $duration,
+            throttleKey: $throttleKey
         );
+    }
+
+    /**
+     * Build cache key for throttling based on provided components.
+     *
+     * @param  string  $canonical  Notification canonical
+     * @param  string  $throttleKey  Comma-separated throttle key components (e.g., 'exchange,user')
+     * @param  array<string, mixed>  $referenceData  Reference data containing values for components
+     * @param  User  $user  User for 'user' component
+     * @return string Cache key for throttling
+     */
+    private static function buildThrottleCacheKey(
+        string $canonical,
+        string $throttleKey,
+        array $referenceData,
+        User $user
+    ): string {
+        $components = explode(',', $throttleKey);
+        $keyParts = ['notification_throttle', $canonical];
+
+        foreach ($components as $component) {
+            $component = mb_trim($component);
+
+            if ($component === 'user') {
+                $keyParts[] = $user->id;
+            } elseif (isset($referenceData[$component])) {
+                $keyParts[] = $referenceData[$component];
+            }
+        }
+
+        return implode(':', $keyParts);
     }
 }

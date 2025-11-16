@@ -10,6 +10,7 @@ use Martingalian\Core\Indicators\History\CandleIndicator;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\ExchangeSymbol;
+use Throwable;
 
 /*
  * CheckSymbolEligibilityJob
@@ -46,6 +47,37 @@ final class CheckSymbolEligibilityJob extends BaseApiableJob
     public function startOrFail()
     {
         return $this->apiSystem->is_exchange;
+    }
+
+    /**
+     * Skip this job if the ExchangeSymbol is already eligible.
+     * This prevents unnecessary Taapi API calls and throttling.
+     *
+     * @return bool|null Return false to skip, true to proceed
+     */
+    public function startOrSkip()
+    {
+        // Load ExchangeSymbol from previous step's response
+        $previousStep = $this->step->getPrevious()->first();
+
+        if (! $previousStep || ! $previousStep->response) {
+            return true; // Proceed if no previous step
+        }
+
+        $exchangeSymbolId = $previousStep->response['exchange_symbol_id'] ?? null;
+
+        if (! $exchangeSymbolId) {
+            return true; // Proceed if no exchange_symbol_id
+        }
+
+        $exchangeSymbol = ExchangeSymbol::find($exchangeSymbolId);
+
+        // Skip if already eligible (no Taapi call needed, no throttling)
+        if ($exchangeSymbol?->is_eligible) {
+            return false; // Return false = skip the job
+        }
+
+        return true; // Proceed to throttle check and eligibility verification
     }
 
     public function computeApiable()
@@ -121,7 +153,7 @@ final class CheckSymbolEligibilityJob extends BaseApiableJob
                 'is_eligible' => false,
                 'ineligible_reason' => 'TAAPI returned empty data',
             ];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Extract just the relevant error message from TAAPI response
             $errorMessage = $this->extractTaapiError($e->getMessage());
 

@@ -6,8 +6,7 @@ namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Models\NotificationLog;
 use Martingalian\Core\Models\User;
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
+use Martingalian\Core\Notifications\AlertNotification;
 use NotificationChannels\Pushover\PushoverChannel;
 
 final class NotificationLogObserver
@@ -72,20 +71,14 @@ final class NotificationLogObserver
         $user->notification_channels = [PushoverChannel::class];
         $user->save();
 
-        // Send throttled bounce alert notification
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('bounce_alert_to_pushover')
-            ->for($user)
-            ->throttleFor(0)
-            ->execute(function () use ($user) {
-                NotificationService::send(
-                    user: $user,
-                    message: 'Critical: We cannot send you emails. Please check your email on your dashboard',
-                    title: 'Email Delivery Failed',
-                    canonical: 'bounce_alert_to_pushover',
-                    deliveryGroup: null
-                );
-            });
+        // Send bounce alert notification (no throttling - immediate send)
+        $user->notify(
+            new AlertNotification(
+                message: 'Critical: We cannot send you emails. Please check your email on your dashboard',
+                title: 'Email Delivery Failed',
+                canonical: 'bounce_alert_to_pushover'
+            )
+        );
 
         // Restore original notification channels
         $user->notification_channels = $originalChannels;

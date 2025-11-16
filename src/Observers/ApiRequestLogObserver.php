@@ -10,9 +10,7 @@ use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Support\NotificationMessageBuilder;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 
 final class ApiRequestLogObserver
 {
@@ -220,33 +218,16 @@ final class ApiRequestLogObserver
             ->where('http_response_code', 400)
             ->count();
 
-        $message = "Exchange symbol {$symbolToken}/{$quoteCanonical} on {$exchangeName} was automatically deactivated.\n\n";
-        $message .= "Reason: TAAPI consistently returned 'No candles found' errors ({$failureCount} failures in last 24h).\n\n";
-        $message .= "The symbol has been marked as is_active=false and is_tradeable=false to prevent further failed API requests.\n\n";
-        $message .= 'This is an automated system action - no manual intervention required unless you want to investigate why TAAPI has no data for this symbol.';
-
-        $messageData = NotificationMessageBuilder::build(
+        NotificationService::send(
+            user: Martingalian::admin(),
             canonical: 'exchange_symbol_no_taapi_data',
-            context: ['message' => $message]
+            referenceData: [
+                'symbol_token' => $symbolToken,
+                'quote_canonical' => $quoteCanonical,
+                'exchange_name' => $exchangeName,
+                'failure_count' => $failureCount,
+            ],
+            relatable: $exchangeSymbol
         );
-
-        // Send notification without throttling - throttle rule has 0 seconds so no logs created
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('exchange_symbol_no_taapi_data')
-            ->for($exchangeSymbol)
-            ->execute(function () use ($messageData, $exchangeSymbol) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: $messageData['emailMessage'],
-                    title: $messageData['title'],
-                    canonical: 'exchange_symbol_no_taapi_data',
-                    deliveryGroup: 'default',
-                    severity: $messageData['severity'],
-                    pushoverMessage: $messageData['pushoverMessage'],
-                    actionUrl: $messageData['actionUrl'],
-                    actionLabel: $messageData['actionLabel'],
-                    relatable: $exchangeSymbol
-                );
-            });
     }
 }
