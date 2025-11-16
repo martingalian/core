@@ -58,26 +58,9 @@ final class GetAllSymbolsFromExchangeJob extends BaseApiableJob
         // Build symbolData lookup array keyed by token for child jobs to access
         $symbolsData = [];
 
-        // Testing filter: Get first 50 symbols + any symbol starting with SOL
-        $processedCount = 0;
-        $maxSymbols = 50;
-
         // Dispatch UpsertSymbolEligibilityJob for each symbol
         foreach ($apiResponse->result as $symbolData) {
             $token = $symbolData['pair'];
-            $baseAsset = $symbolData['baseAsset'];
-
-            // Always include symbols starting with SOL (edge cases like SOLAYER)
-            $isSOL = str_starts_with($baseAsset, 'SOL');
-
-            // Include if: (within first 50) OR (starts with SOL)
-            if (!$isSOL && $processedCount >= $maxSymbols) {
-                continue;
-            }
-
-            if (!$isSOL) {
-                $processedCount++;
-            }
 
             // Store symbolData keyed by token
             $symbolsData[$token] = $symbolData;

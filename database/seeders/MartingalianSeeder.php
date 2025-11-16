@@ -21,6 +21,7 @@ use Martingalian\Core\Models\TradeConfiguration;
 use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\NotificationContextables\GlobalContextable;
 use Martingalian\Core\Support\NotificationContextables\PerAccountContextable;
+use Martingalian\Core\Support\NotificationContextables\PerExchangeContextable;
 use Martingalian\Core\Support\NotificationContextables\PerExchangeSymbolContextable;
 use Martingalian\Core\Support\NotificationContextables\PerSymbolContextable;
 use Martingalian\Core\Support\NotificationContextables\PerUserContextable;
@@ -513,7 +514,8 @@ final class MartingalianSeeder extends Seeder
     public function updateExchangeSymbols(): void
     {
         // From SchemaSeeder2 - Disable all current tokens
-        ExchangeSymbol::query()->update(['is_tradeable' => false, 'is_active' => false]);
+        // NOTE: Commented out because CoreSymbolDataSeeder now handles is_active correctly
+        // ExchangeSymbol::query()->update(['is_tradeable' => false, 'is_active' => false]);
 
         // From SchemaSeeder12 - Set limit quantity multipliers
         ExchangeSymbol::query()->update([
@@ -978,7 +980,7 @@ final class MartingalianSeeder extends Seeder
                 'description' => 'Sent when exchange is under maintenance or overloaded',
                 'default_severity' => 'high',
                 'user_types' => ['user'],
-                'throttle_contextable_class' => GlobalContextable::class,
+                'throttle_contextable_class' => PerExchangeContextable::class,
                 'is_active' => true,
             ],
             [

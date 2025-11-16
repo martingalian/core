@@ -9,7 +9,7 @@ use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class VerifyPositionResidualAmountJob extends BaseQueueableJob
@@ -35,7 +35,7 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
         if (is_array($positions) && array_key_exists($this->position->parsed_trading_pair, $positions)) {
             $amount = $positions[$this->position->parsed_trading_pair]['positionAmt'];
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('position_residual_amount_detected')
                 ->execute(function () use ($amount) {
                     NotificationService::send(
@@ -59,7 +59,7 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('position_residual_verification_error')
             ->execute(function () use ($e) {
                 NotificationService::send(

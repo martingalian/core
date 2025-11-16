@@ -7,7 +7,7 @@ namespace Martingalian\Core\Abstracts;
 use Exception;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Ratchet\Client\Connector;
 use Ratchet\Client\WebSocket;
 use Ratchet\RFC6455\Messaging\Frame;
@@ -55,7 +55,7 @@ abstract class BaseWebsocketClient
         if ($this->wsConnection) {
             $this->wsConnection->send(new Frame('', true, Frame::OP_PING));
         } else {
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('websocket_error')
                 ->execute(function () {
                     NotificationService::send(
@@ -85,7 +85,7 @@ abstract class BaseWebsocketClient
                 $this->reconnectAttempt = 0;
 
                 if ($wasReconnecting) {
-                    Throttler::using(NotificationService::class)
+                    NotificationThrottler::using(NotificationService::class)
                         ->withCanonical('websocket_reconnected')
                         ->execute(function () {
                             NotificationService::send(
@@ -104,7 +104,7 @@ abstract class BaseWebsocketClient
                  * Handle failure to connect and notify admins.
                  * Trigger custom error handler if provided.
                  */
-                Throttler::using(NotificationService::class)
+                NotificationThrottler::using(NotificationService::class)
                     ->withCanonical('websocket_connection_failed')
                     ->execute(function () {
                         NotificationService::send(
@@ -180,7 +180,7 @@ abstract class BaseWebsocketClient
             }
 
             // Send notification with close details
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('websocket_closed_with_details')
                 ->execute(function () {
                     NotificationService::send(
@@ -220,7 +220,7 @@ abstract class BaseWebsocketClient
         if ($this->reconnectAttempt > $this->maxReconnectAttempts) {
             $maxAttempts = $this->maxReconnectAttempts;
             $exchangeName = $this->exchangeName;
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('websocket_max_reconnect_attempts_reached')
                 ->execute(function () use ($maxAttempts, $url, $exchangeName) {
                     NotificationService::send(
@@ -243,7 +243,7 @@ abstract class BaseWebsocketClient
 
         $delay = pow(2, $this->reconnectAttempt - 1);
 
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('websocket_reconnect_attempt')
             ->execute(function () {
                 NotificationService::send(

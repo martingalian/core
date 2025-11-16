@@ -10,28 +10,21 @@ use Martingalian\Core\Models\ThrottleLog;
 use Martingalian\Core\Models\ThrottleRule;
 
 /**
- * Throttler
+ * NotificationThrottler
  *
- * Unified throttling system for any action (notifications, supervisor restarts, API calls, database queries).
+ * Notification-specific throttling system to prevent notification spam.
  * Uses database-driven throttle rules and execution logs.
  *
  * Usage (Fluent API):
- *   Throttler::using(NotificationService::class)
+ *   NotificationThrottler::using(NotificationService::class)
  *       ->withCanonical('critical_alert')
  *       ->for($user)
  *       ->throttleFor(300)
  *       ->execute(function () use ($user) {
  *           NotificationService::send($user, 'Alert message');
  *       });
- *
- *   Throttler::using(BinanceThrottler::class)
- *       ->withCanonical('fetch_balance')
- *       ->for($account)
- *       ->executeNow(function () use ($account) {
- *           return $account->binanceApi()->getBalance();
- *       });
  */
-final class Throttler
+final class NotificationThrottler
 {
     private string $strategyClass;
 
@@ -46,7 +39,7 @@ final class Throttler
     /**
      * Start building a throttler with a specific strategy class.
      *
-     * @param  string  $strategyClass  The throttler strategy class (e.g., NotificationService::class, BinanceThrottler::class)
+     * @param  string  $strategyClass  The throttler strategy class (e.g., NotificationService::class)
      */
     public static function using(string $strategyClass): self
     {

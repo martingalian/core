@@ -12,7 +12,7 @@ use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
@@ -60,7 +60,7 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 
         // Sanity checks.
         if (bccomp($breakEvenPrice, '0', $scale) !== 1) {
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('wap_calculation_invalid_break_even_price')
                 ->execute(function () use ($breakEvenPrice) {
                     NotificationService::send(
@@ -76,7 +76,7 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
         }
 
         if (bccomp($rawQty, '0', $scale) === 0) {
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('wap_calculation_zero_quantity')
                 ->execute(function () {
                     NotificationService::send(
@@ -125,7 +125,7 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
         $profitOrder = $this->position->profitOrder();
         if (! $profitOrder) {
             $position = $this->position;
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('wap_calculation_profit_order_missing')
                 ->execute(function () use ($position) {
                     NotificationService::send(
@@ -166,7 +166,7 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
         // Notify once the ladder threshold is met.
         if ($this->position->totalLimitOrdersFilled() >= $this->position->account->total_limit_orders_filled_to_notify) {
             $position = $this->position;
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('wap_profit_order_updated_successfully')
                 ->execute(function () use ($position, $oldPrice, $profitOrder, $oldQty, $formattedBEP) {
                     NotificationService::send(
@@ -186,7 +186,7 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
     public function resolveException(Throwable $e)
     {
         $position = $this->position;
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('wap_calculation_error')
             ->execute(function () use ($position, $e) {
                 NotificationService::send(

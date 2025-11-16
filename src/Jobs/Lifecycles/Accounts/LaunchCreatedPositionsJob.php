@@ -15,7 +15,7 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class LaunchCreatedPositionsJob extends BaseQueueableJob
@@ -101,7 +101,7 @@ final class LaunchCreatedPositionsJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('launch_created_positions')
             ->execute(function () use ($e) {
                 NotificationService::send(

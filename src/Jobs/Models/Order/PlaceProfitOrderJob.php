@@ -11,7 +11,7 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class PlaceProfitOrderJob extends BaseApiableJob
@@ -52,7 +52,7 @@ final class PlaceProfitOrderJob extends BaseApiableJob
                 $reason .= 'Position status not in opening';
             }
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('place_profit_order')
                 ->execute(function () {
                     NotificationService::send(
@@ -143,7 +143,7 @@ final class PlaceProfitOrderJob extends BaseApiableJob
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->profitOrder) {
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('profit_order_placement_error')
                 ->execute(function () use ($e) {
                     NotificationService::send(
@@ -155,7 +155,7 @@ final class PlaceProfitOrderJob extends BaseApiableJob
                     );
                 });
         } else {
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('profit_order_placement_error_no_order')
                 ->execute(function () use ($e) {
                     NotificationService::send(

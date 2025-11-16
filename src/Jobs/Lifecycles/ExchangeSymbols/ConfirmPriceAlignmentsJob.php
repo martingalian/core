@@ -15,7 +15,7 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 /**
@@ -128,7 +128,7 @@ final class ConfirmPriceAlignmentsJob extends BaseQueueableJob
     {
         $symbolId = isset($this->exchangeSymbolBeingComputed) ? $this->exchangeSymbolBeingComputed->id : 'unknown';
 
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('confirm_price_alignments')
             ->execute(function () use ($e, $symbolId) {
                 NotificationService::send(

@@ -11,7 +11,7 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use RuntimeException;
 use Throwable;
 
@@ -58,7 +58,7 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
             $this->position->exchangeSymbol->updateSaving(['is_tradeable' => false]);
         }
 
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('stop_loss_precondition_failed')
             ->execute(function () {
                 NotificationService::send(
@@ -112,7 +112,7 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
 
         $this->stopLossOrder->apiPlace();
 
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('stop_loss_placed_successfully')
             ->execute(function () use ($calc) {
                 NotificationService::send(
@@ -155,7 +155,7 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
     {
         $id = $this->stopLossOrder?->id ?? 'unknown';
 
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('stop_loss_placement_error')
             ->execute(function () use ($e, $id) {
                 NotificationService::send(

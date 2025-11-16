@@ -14,7 +14,7 @@ use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Throwable;
 
@@ -116,7 +116,7 @@ final class QueryIndicatorsByChunkJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('query_indicators_chunk')
             ->execute(function () {
                 NotificationService::send(

@@ -35,14 +35,19 @@ trait InteractsWithApis
         $marketData = collect($result['data'])->first();
 
         if ($marketData) {
-            $this->updateSaving([
-                'token' => $marketData['symbol'],
+            $updateData = [
                 'name' => $marketData['name'],
                 'description' => $marketData['description'],
                 'image_url' => $marketData['logo'],
                 'site_url' => $this->sanitizeWebsiteAttribute($marketData['urls']['website']),
-                'created_at' => now(),
-            ]);
+            ];
+
+            // Only update token if not already set (preserve exchange-specific naming)
+            if (! $this->token) {
+                $updateData['token'] = $marketData['symbol'];
+            }
+
+            $this->updateSaving($updateData);
         }
 
         return new ApiResponse(

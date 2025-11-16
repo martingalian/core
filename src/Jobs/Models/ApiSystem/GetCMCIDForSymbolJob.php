@@ -16,7 +16,7 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Support\NotificationMessageBuilder;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 
 /*
  * GetCMCIDForSymbolJob
@@ -301,7 +301,7 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
         // Use Symbol as relatable for throttling context
         $symbol = Symbol::where('token', mb_strtoupper($canonicalToken))->first();
 
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('symbol_cmc_id_not_found')
             ->for($symbol)
             ->execute(function () use ($messageData, $symbol) {

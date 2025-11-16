@@ -12,7 +12,7 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class PlaceMarketOrderJob extends BaseApiableJob
@@ -68,7 +68,7 @@ final class PlaceMarketOrderJob extends BaseApiableJob
             $this->position->exchangeSymbol->updateSaving(['is_tradeable' => false]);
         }
 
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('place_market_order')
             ->execute(function () {
                 NotificationService::send(
@@ -184,7 +184,7 @@ final class PlaceMarketOrderJob extends BaseApiableJob
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->marketOrder) {
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('market_order_placement_error')
                 ->execute(function () use ($e) {
                     NotificationService::send(
@@ -196,7 +196,7 @@ final class PlaceMarketOrderJob extends BaseApiableJob
                     );
                 });
         } else {
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('market_order_placement_error_no_order')
                 ->execute(function () use ($e) {
                     NotificationService::send(

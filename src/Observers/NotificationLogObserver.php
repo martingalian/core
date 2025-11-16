@@ -7,7 +7,7 @@ namespace Martingalian\Core\Observers;
 use Martingalian\Core\Models\NotificationLog;
 use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use NotificationChannels\Pushover\PushoverChannel;
 
 final class NotificationLogObserver
@@ -73,7 +73,7 @@ final class NotificationLogObserver
         $user->save();
 
         // Send throttled bounce alert notification
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('bounce_alert_to_pushover')
             ->for($user)
             ->throttleFor(0)

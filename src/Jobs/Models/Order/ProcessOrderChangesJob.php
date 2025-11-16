@@ -13,7 +13,7 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 
 final class ProcessOrderChangesJob extends BaseQueueableJob
 {
@@ -95,7 +95,7 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
     {
         info('[ProcessOrderChangesJob] Logging and dispatching ClosePositionJob due to STOP-MARKET filled.');
 
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('stop_market_filled_closing_position')
             ->execute(function () {
                 NotificationService::send(

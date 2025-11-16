@@ -10,7 +10,7 @@ use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ForbiddenHostname;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -79,7 +79,7 @@ trait ApiExceptionHelpers
 
             $throttleCanonical = $exchange.'_forbidden_hostname_added';
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($exchangeName, $hostname, $record, $accountInfo) {
                     NotificationService::send(

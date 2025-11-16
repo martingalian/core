@@ -12,7 +12,7 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationMessageBuilder;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 
 final class ApiRequestLogObserver
 {
@@ -231,7 +231,7 @@ final class ApiRequestLogObserver
         );
 
         // Send notification without throttling - throttle rule has 0 seconds so no logs created
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('exchange_symbol_no_taapi_data')
             ->for($exchangeSymbol)
             ->execute(function () use ($messageData, $exchangeSymbol) {

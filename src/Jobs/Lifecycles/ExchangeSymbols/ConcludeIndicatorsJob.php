@@ -15,7 +15,7 @@ use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\StepsDispatcher;
 use Martingalian\Core\Models\TradeConfiguration;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 /**
@@ -201,7 +201,7 @@ final class ConcludeIndicatorsJob extends BaseQueueableJob
     {
         $symbolId = isset($this->exchangeSymbol) ? $this->exchangeSymbol->id : 'unknown';
 
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('conclude_indicators_error')
             ->execute(function () use ($e, $symbolId) {
                 NotificationService::send(

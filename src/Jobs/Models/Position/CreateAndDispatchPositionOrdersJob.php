@@ -11,7 +11,7 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
@@ -284,7 +284,7 @@ final class CreateAndDispatchPositionOrdersJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('create_dispatch_position_orders')
             ->execute(function () {
                 NotificationService::send(

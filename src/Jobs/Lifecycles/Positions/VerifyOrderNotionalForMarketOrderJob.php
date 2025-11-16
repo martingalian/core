@@ -11,7 +11,7 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
@@ -67,7 +67,7 @@ final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('verify_order_notional_market')
             ->execute(function () use ($e) {
                 NotificationService::send(

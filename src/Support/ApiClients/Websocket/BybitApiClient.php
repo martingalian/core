@@ -7,7 +7,7 @@ namespace Martingalian\Core\Support\ApiClients\Websocket;
 use Martingalian\Core\Abstracts\BaseWebsocketClient;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 
 final class BybitApiClient extends BaseWebsocketClient
 {
@@ -93,7 +93,7 @@ final class BybitApiClient extends BaseWebsocketClient
 
             if (is_array($decoded) && isset($decoded['op']) && $decoded['op'] === 'subscribe') {
                 if (isset($decoded['success']) && $decoded['success'] === false) {
-                    Throttler::using(NotificationService::class)
+                    NotificationThrottler::using(NotificationService::class)
                         ->withCanonical('bybit_subscription_failed')
                         ->execute(function () {
                             NotificationService::send(

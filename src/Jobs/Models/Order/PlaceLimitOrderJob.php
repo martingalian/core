@@ -9,7 +9,7 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class PlaceLimitOrderJob extends BaseApiableJob
@@ -48,7 +48,7 @@ final class PlaceLimitOrderJob extends BaseApiableJob
                 $reason .= 'Position status not in opening';
             }
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('place_limit_order')
                 ->execute(function () {
                     NotificationService::send(
@@ -96,7 +96,7 @@ final class PlaceLimitOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('limit_order_placement_error')
             ->execute(function () use ($e) {
                 NotificationService::send(

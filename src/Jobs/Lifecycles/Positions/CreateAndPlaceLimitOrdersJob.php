@@ -14,7 +14,7 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
@@ -145,7 +145,7 @@ final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
      */
     public function resolveException(Throwable $e)
     {
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('create_place_limit_orders')
             ->execute(function () use ($e) {
                 NotificationService::send(

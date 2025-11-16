@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 
 final class StepsDispatcher extends BaseModel
 {
@@ -157,7 +157,7 @@ final class StepsDispatcher extends BaseModel
                     ]);
 
                     if ($durationMs > 40000) {
-                        Throttler::using(NotificationService::class)
+                        NotificationThrottler::using(NotificationService::class)
                             ->withCanonical('steps_dispatcher')
                             ->execute(function () {
                                 NotificationService::send(

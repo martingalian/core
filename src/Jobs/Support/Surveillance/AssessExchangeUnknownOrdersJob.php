@@ -10,7 +10,7 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 /**
@@ -167,7 +167,7 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
             }
 
             // --- All guards passed: notify admins with context
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('unknown_orders_detected')
                 ->execute(function () use ($symbol, $unknownOrders) {
                     NotificationService::send(
@@ -187,7 +187,7 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
     public function resolveException(Throwable $e)
     {
         $account = $this->account;
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('unknown_orders_assessment_error')
             ->execute(function () use ($account, $e) {
                 NotificationService::send(

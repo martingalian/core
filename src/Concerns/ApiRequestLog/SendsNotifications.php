@@ -14,7 +14,7 @@ use Martingalian\Core\Models\Server;
 use Martingalian\Core\Repeaters\ServerIpNotWhitelistedRepeater;
 use Martingalian\Core\Support\NotificationMessageBuilder;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 
 /**
  * SendsNotifications
@@ -347,7 +347,7 @@ trait SendsNotifications
 
             $throttleCanonical = $apiSystem.'_invalid_api_credentials';
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::send(
@@ -380,7 +380,7 @@ trait SendsNotifications
 
             $throttleCanonical = $apiSystem.'_invalid_api_key';
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::send(
@@ -413,7 +413,7 @@ trait SendsNotifications
 
             $throttleCanonical = $apiSystem.'_invalid_signature';
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::send(
@@ -446,7 +446,7 @@ trait SendsNotifications
 
             $throttleCanonical = $apiSystem.'_insufficient_permissions';
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::send(
@@ -482,7 +482,7 @@ trait SendsNotifications
 
             $throttleCanonical = $apiSystem.'_ip_not_whitelisted';
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::send(
@@ -529,7 +529,7 @@ trait SendsNotifications
                 ]
             );
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::send(
@@ -564,7 +564,7 @@ trait SendsNotifications
 
             $throttleCanonical = $apiSystem.'_api_access_denied';
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::send(
@@ -599,7 +599,7 @@ trait SendsNotifications
 
             $throttleCanonical = $apiSystem.'_api_access_denied';
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::send(
@@ -634,7 +634,7 @@ trait SendsNotifications
 
             $throttleCanonical = $apiSystem.'_exchange_maintenance';
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::send(
@@ -668,7 +668,7 @@ trait SendsNotifications
 
             $throttleCanonical = $apiSystem.'_api_connection_failed';
 
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->execute(function () use ($messageData, $apiSystem, $serverIp) {
                     NotificationService::send(
@@ -785,7 +785,7 @@ trait SendsNotifications
             $apiSystem = ApiSystem::where('canonical', $exchangeCanonical)->first();
             $exchangeName = $apiSystem ? $apiSystem->name : ucfirst($exchangeCanonical);
             $serverIp = $isServerRelated ? Martingalian::ip() : null;
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical)
                 ->forKey($contextableKey)  // Use dynamic contextable key
                 ->execute(function () use ($user, $messageData, $messageCanonical, $exchangeName, $serverIp) {
@@ -810,7 +810,7 @@ trait SendsNotifications
         // Send to admin independently of whether we sent to user (both can receive notifications)
         // Use separate throttle key to avoid throttling admin notification when user notification was just sent
         if ($shouldSendToAdmin) {
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical($throttleCanonical.'_admin')
                 ->forKey($contextableKey)  // Use same contextable key for admin
                 ->execute(function () use ($messageData, $messageCanonical) {

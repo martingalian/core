@@ -9,7 +9,7 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 /*
@@ -81,7 +81,7 @@ final class AssignTokensToNewPositionsJob extends BaseQueueableJob
          * Notify admins via Pushover if any exception occurs during job.
          * Includes account ID, user name, quote symbol, and error summary.
          */
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('assign_tokens_positions')
             ->execute(function () {
                 NotificationService::send(

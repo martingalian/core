@@ -15,7 +15,7 @@ use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\Running;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 use Martingalian\Core\Abstracts\BaseDatabaseExceptionHandler;
 
@@ -111,7 +111,7 @@ abstract class BaseQueueableJob extends BaseJob
         // Notify admins about unhandled job exceptions
         $step = $this->step;
         $jobClass = class_basename($this);
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('job_execution_failed')
             ->execute(function () use ($step, $jobClass, $e) {
                 $stepId = $step->id ?? 'unknown';

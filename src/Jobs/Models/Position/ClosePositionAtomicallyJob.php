@@ -13,7 +13,7 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 
 final class ClosePositionAtomicallyJob extends BaseApiableJob
 {
@@ -57,7 +57,7 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
             if (($this->position->direction === 'SHORT' && $this->position->opening_price < $this->position->exchangeSymbol->mark_price) ||
                 ($this->position->direction === 'LONG' && $this->position->opening_price > $this->position->exchangeSymbol->mark_price)
             ) {
-                Throttler::using(NotificationService::class)
+                NotificationThrottler::using(NotificationService::class)
                     ->withCanonical('position_closing_negative_pnl')
                     ->execute(function () {
                         NotificationService::send(
@@ -125,7 +125,7 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
                         ]);
 
                         // Notify admins so it's visible in ops.
-                        Throttler::using(NotificationService::class)
+                        NotificationThrottler::using(NotificationService::class)
                             ->withCanonical('position_price_spike_cooldown_set')
                             ->execute(function () use ($pct, $until) {
                                 NotificationService::send(

@@ -10,7 +10,7 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class MatchOrphanedExchangeOrdersJob extends BaseQueueableJob
@@ -66,7 +66,7 @@ final class MatchOrphanedExchangeOrdersJob extends BaseQueueableJob
             });
 
             // ✅ Alert: Orphaned orders found
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('orphaned_orders_detected')
                 ->execute(function () use ($formattedOrphans) {
                     NotificationService::send(
@@ -83,7 +83,7 @@ final class MatchOrphanedExchangeOrdersJob extends BaseQueueableJob
     public function resolveException(Throwable $e)
     {
         $account = $this->account;
-        Throttler::using(NotificationService::class)
+        NotificationThrottler::using(NotificationService::class)
             ->withCanonical('orphaned_orders_match_error')
             ->execute(function () use ($account, $e) {
                 NotificationService::send(

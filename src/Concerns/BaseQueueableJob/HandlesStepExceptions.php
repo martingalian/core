@@ -13,7 +13,7 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\Throttler;
+use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 /**
@@ -37,7 +37,7 @@ trait HandlesStepExceptions
         }
 
         if (! $e instanceof NonNotifiableException) {
-            Throttler::using(NotificationService::class)
+            NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('step_error')
                 ->execute(function () use ($parser) {
                     NotificationService::send(
