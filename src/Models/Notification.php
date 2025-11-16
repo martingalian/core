@@ -23,6 +23,8 @@ use Martingalian\Core\Enums\NotificationSeverity;
  * @property string $title
  * @property string|null $description
  * @property string|null $detailed_description
+ * @property string|null $usage_reference
+ * @property bool $verified
  * @property NotificationSeverity|null $default_severity
  * @property array<int, string> $user_types
  * @property \Illuminate\Support\Carbon $created_at
@@ -39,6 +41,7 @@ final class Notification extends Model
     protected $casts = [
         'default_severity' => NotificationSeverity::class,
         'user_types' => 'array',
+        'verified' => 'boolean',
     ];
 
     /**

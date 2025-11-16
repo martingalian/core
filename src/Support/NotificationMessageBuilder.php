@@ -120,16 +120,6 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            // NEW: Binance ambiguous error -2015 (covers credentials, IP whitelist, or permissions)
-            'api_credentials_or_ip' => [
-                'severity' => NotificationSeverity::Critical,
-                'title' => 'API Access Issue Detected',
-                'emailMessage' => "⚠️ ACTION REQUIRED: {$exchangeTitle} Access Problem\n\nWe're experiencing issues accessing your {$exchangeTitle} account.\n\nAccount: {$accountName}\nServer IP: [COPY]{$ip}[/COPY]\n\n🔍 POSSIBLE CAUSES:\n\nBinance error code -2015 can indicate ONE of these three issues:\n\n1. **Invalid API Credentials**\n   Your API key may be invalid, expired, or deleted\n\n2. **IP Not Whitelisted**\n   The server IP above may not be in your API key's whitelist\n\n3. **Insufficient API Permissions**\n   Your API key may lack required permissions (Read, Trade, Futures)\n\n✅ TROUBLESHOOTING STEPS:\n\n1. Log into your {$exchangeTitle} account\n2. Go to API Management\n3. Verify your API key is active and not expired\n4. Check that the server IP above is in your whitelist (or whitelist is disabled)\n5. Confirm these permissions are enabled:\n   - Read/View permissions ✓\n   - Trading permissions ✓\n   - Futures permissions ✓ (if you trade futures)\n6. If anything is missing or incorrect, update it and save\n\nOnce fixed, our platform will automatically reconnect within minutes.",
-                'pushoverMessage' => "⚠️ {$exchangeTitle} access issue: {$accountName} - Check API key, IP whitelist, or permissions",
-                'actionUrl' => self::getApiManagementUrl($exchange),
-                'actionLabel' => 'Fix API Settings',
-            ],
-
             // NEW: Bybit specific error - Invalid API Key (10003)
             'invalid_api_key' => [
                 'severity' => NotificationSeverity::Critical,
@@ -169,43 +159,6 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            // NEW: Critical account status notifications
-            'api_key_expired' => [
-                'severity' => NotificationSeverity::Critical,
-                'title' => 'URGENT: API Key Expired',
-                'emailMessage' => "⚠️ IMMEDIATE ACTION REQUIRED ⚠️\n\nYour {$exchangeTitle} API key has expired and needs immediate renewal.\n\nAccount: {$accountName}\n\n🚨 CRITICAL IMPACT:\n\n- We can NO LONGER access your {$exchangeTitle} account\n- We CANNOT execute trades on your behalf\n- We CANNOT monitor your open positions\n- We CANNOT manage risk or close positions\n\nIf you have open positions, they are at risk.\n\n✅ WHAT YOU NEED TO DO NOW:\n\n1. Log into your {$exchangeTitle} account IMMEDIATELY\n2. Go to API Management\n3. Generate a new API key\n4. Update the API key in our platform\n5. Ensure all permissions are enabled (Read, Trade, Futures)\n\nTime is critical. Please act now to restore trading functionality.",
-                'pushoverMessage' => "🚨 URGENT: {$exchangeTitle} API key expired for {$accountName} - Renew NOW!",
-                'actionUrl' => self::getApiManagementUrl($exchange),
-                'actionLabel' => 'Renew API Key NOW',
-            ],
-
-            'account_in_liquidation' => [
-                'severity' => NotificationSeverity::Critical,
-                'title' => 'CRITICAL: Account in Liquidation',
-                'emailMessage' => "🚨 CRITICAL ALERT: Account Liquidation in Progress\n\nYour {$exchangeTitle} account is currently undergoing liquidation.\n\nAccount: {$accountName}\n\n⚠️ WHAT'S HAPPENING:\n\n{$exchangeTitle} is automatically closing your positions due to insufficient margin. This is controlled by the exchange, not our platform.\n\n🚨 CRITICAL IMPACT:\n\n- We CANNOT stop the liquidation process\n- We CANNOT execute new trades\n- We CANNOT modify existing orders\n- Account operations are severely restricted\n\n✅ WHAT YOU CAN DO:\n\n1. Log into your {$exchangeTitle} account directly\n2. Add funds immediately if possible to stop further liquidation\n3. Monitor which positions are being liquidated\n4. Review your margin requirements\n5. Consider adjusting leverage settings after liquidation completes\n\nThe liquidation process is automatic and controlled by {$exchangeTitle}. Once complete, you can resume normal trading.",
-                'pushoverMessage' => "CRITICAL: Your {$exchangeTitle} account ({$accountName}) is being liquidated. Please verify!",
-                'actionUrl' => self::getExchangeFuturesUrl($exchange),
-                'actionLabel' => 'Login to Exchange',
-            ],
-
-            'account_reduce_only_mode' => [
-                'severity' => NotificationSeverity::Critical,
-                'title' => 'URGENT: Account in Reduce-Only Mode',
-                'emailMessage' => "⚠️ URGENT: Trading Restricted\n\nYour {$exchangeTitle} account has been placed in reduce-only mode.\n\nAccount: {$accountName}\n\n🚨 WHAT THIS MEANS:\n\n- You can ONLY close or reduce existing positions\n- You CANNOT open new positions\n- You CANNOT increase position sizes\n- Account is under risk control restrictions\n\n📊 WHY THIS HAPPENS:\n\nReduce-only mode is typically triggered by:\n\n- Risk management rules\n- Margin requirements not met\n- Account under review\n- Compliance restrictions\n- Exchange-imposed limitations\n\n✅ WHAT YOU NEED TO DO:\n\n1. Log into your {$exchangeTitle} account\n2. Check account status and notifications\n3. Review margin requirements and balances\n4. Close or reduce positions if needed\n5. Contact {$exchangeTitle} support if unclear why this was triggered\n6. Add funds if margin-related\n\nUntil this restriction is lifted, you can only reduce your exposure, not increase it.",
-                'pushoverMessage' => "⚠️ URGENT: {$accountName} on {$exchangeTitle} in reduce-only mode",
-                'actionUrl' => self::getApiManagementUrl($exchange),
-                'actionLabel' => 'Check Account Status',
-            ],
-
-            'account_trading_banned' => [
-                'severity' => NotificationSeverity::Critical,
-                'title' => 'CRITICAL: Trading Banned',
-                'emailMessage' => "🚨 CRITICAL: Trading Completely Banned\n\nYour {$exchangeTitle} account has been banned from placing new orders.\n\nAccount: {$accountName}\n\n⚠️ CRITICAL IMPACT:\n\n- You CANNOT place any new orders\n- You CANNOT modify existing orders  \n- You MAY be able to cancel orders\n- Account operations are severely restricted\n\n🔍 POSSIBLE REASONS:\n\n- Account compliance issues\n- Violation of exchange terms\n- Regulatory restrictions\n- Security hold on account\n- Region-specific limitations\n\n✅ IMMEDIATE ACTIONS:\n\n1. Log into your {$exchangeTitle} account NOW\n2. Check for messages or alerts from {$exchangeTitle}\n3. Review account restrictions section\n4. Contact {$exchangeTitle} support immediately to understand why\n5. Resolve any compliance or verification issues\n\nIf you have open positions, manually monitor them on {$exchangeTitle} directly until this is resolved.\n\nThis is a serious restriction that requires immediate attention and resolution through {$exchangeTitle} support.",
-                'pushoverMessage' => "🚨 CRITICAL: {$accountName} on {$exchangeTitle} - Trading BANNED!",
-                'actionUrl' => self::getApiManagementUrl($exchange),
-                'actionLabel' => 'Contact Support NOW',
-            ],
-
             'insufficient_balance_margin' => [
                 'severity' => NotificationSeverity::High,
                 'title' => 'Insufficient Balance/Margin',
@@ -222,15 +175,6 @@ final class NotificationMessageBuilder
                 'pushoverMessage' => "ℹ️ {$accountName} on {$exchangeTitle}: KYC verification needed",
                 'actionUrl' => self::getApiManagementUrl($exchange),
                 'actionLabel' => 'Complete KYC',
-            ],
-
-            'account_unauthorized' => [
-                'severity' => NotificationSeverity::High,
-                'title' => 'Unauthorized Operation',
-                'emailMessage' => "⚠️ WARNING: Unauthorized Operation Attempted\n\nAn operation was attempted on your {$exchangeTitle} account that you don't have authorization for.\n\nAccount: {$accountName}\n\n🔍 WHAT HAPPENED:\n\nYour account tried to perform an operation but lacked the necessary permissions or authority.\n\n📊 POSSIBLE REASONS:\n\n- API key permissions are insufficient\n- Account type doesn't support this operation\n- Feature requires higher verification level\n- Regional restrictions apply\n- Account status prevents this action\n\n✅ TROUBLESHOOTING STEPS:\n\n1. Log into your {$exchangeTitle} account\n2. Check your account type and status\n3. Review API key permissions\n4. Verify your account has access to the required features\n5. Check for any account restrictions or holds\n6. Ensure you've completed required verifications\n\nIf you believe this is an error, contact {$exchangeTitle} support to verify your account permissions.",
-                'pushoverMessage' => "⚠️ {$accountName} on {$exchangeTitle}: Unauthorized operation attempted",
-                'actionUrl' => self::getApiManagementUrl($exchange),
-                'actionLabel' => 'Check Permissions',
             ],
 
             // NEW: Admin monitoring notifications
@@ -297,47 +241,11 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            'step_error' => [
-                'severity' => NotificationSeverity::Critical,
-                'title' => 'Step Execution Error',
-                'emailMessage' => "Background job step execution failed in StepDispatcher queue. May affect trading operations, data sync, balance updates, or position management workflows.\n\nStep marked with state='failed' in steps table. Platform may auto-retry depending on retries configuration. Dependent steps in same block_uuid may be blocked. Other workflows continue normally.\n\nResolution steps:\n\n• Query failed steps:\n[CMD]SELECT id, class, type, relatable_type, relatable_id, state, error_message, failed_at FROM steps WHERE state='failed' ORDER BY created_at DESC LIMIT 20;[/CMD]\n\n• Check error details and stack trace:\n[CMD]SELECT id, class, error_message, error_stack_trace FROM steps WHERE state='failed' AND failed_at > NOW() - INTERVAL 1 HOUR ORDER BY failed_at DESC;[/CMD]\n\n• Identify failure patterns:\n[CMD]SELECT class, type, COUNT(*) as failures FROM steps WHERE state='failed' AND failed_at > NOW() - INTERVAL 1 HOUR GROUP BY class, type ORDER BY failures DESC;[/CMD]\n\n• Check blocked dependent steps:\n[CMD]SELECT block_uuid, COUNT(*) as blocked_steps FROM steps WHERE state='pending' AND block_uuid IN (SELECT DISTINCT block_uuid FROM steps WHERE state='failed') GROUP BY block_uuid;[/CMD]\n\n• Review application logs for full context around failed_at timestamp\n\n• Determine if transient error (retry manually) or code bug (fix required)",
-                'pushoverMessage' => 'Step execution failed - check logs',
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
-
             'stale_price_detected' => [
                 'severity' => NotificationSeverity::High,
                 'title' => "{$exchangeTitle} Stale Prices Detected",
                 'emailMessage' => "{$exchangeTitle} price updates not received within expected timeframe. WebSocket connection may be stalled or {$exchangeTitle} API experiencing issues.\n\nPlatform automatically set should_restart_websocket flag on api_systems table. WebSocket command checks this flag every second and will gracefully restart. Supervisor then relaunches the process.\n\nResolution steps:\n\n• Check stale prices:\n[CMD]SELECT parsed_trading_pair, mark_price, mark_price_synced_at, TIMESTAMPDIFF(SECOND, mark_price_synced_at, NOW()) as seconds_stale FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchange}') ORDER BY mark_price_synced_at ASC LIMIT 10;[/CMD]\n\n• Verify restart flag:\n[CMD]SELECT should_restart_websocket, updated_at FROM api_systems WHERE canonical = '{$exchange}';[/CMD]\n\n• Check supervisor status:\n[CMD]supervisorctl status update-{$exchange}-prices[/CMD]\nOr tail logs:\n[CMD]supervisorctl tail update-{$exchange}-prices[/CMD]\n\n• Check {$exchangeTitle} status page:\nBinance: binance.com/en/support/announcement\nBybit: bybit-exchange.github.io/docs/v5/sysStatus\n\n• Review application logs (look for websocket errors, connection failures, mark_price update failures):\n[CMD]tail -100 storage/logs/laravel.log | grep -i \"{$exchange}\"[/CMD]",
                 'pushoverMessage' => "Stale price detected on {$exchangeTitle}",
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
-
-            'forbidden_hostname_added' => [
-                'severity' => NotificationSeverity::Critical,
-                'title' => "{$exchangeTitle} Server Banned",
-                'emailMessage' => "Server permanently banned by {$exchangeTitle} - error code 10009 or 418 received. Severely reduces system redundancy and load distribution capacity.\n\nPlatform automatically added server to forbidden_hostnames table to prevent further violations. All subsequent requests from this server blocked. Other servers continue operations. Ban typically permanent.\n\nResolution steps:\n\n• Check forbidden_hostnames table:\n[CMD]SELECT * FROM forbidden_hostnames WHERE exchange = '{$exchange}' ORDER BY created_at DESC LIMIT 10;[/CMD]\n\n• Contact {$exchangeTitle} API support with banned server details and account details\n\n• Request specific violation reason (rate limits, suspicious patterns, ToS breach)\n\n• Review api_request_logs before ban for violations:\n[CMD]SELECT endpoint, status_code, vendor_code, error_message, COUNT(*) FROM api_request_logs WHERE exchange = '{$exchange}' AND status_code IN (403, 418) AND created_at > NOW() - INTERVAL 1 DAY GROUP BY endpoint, status_code, vendor_code, error_message ORDER BY COUNT(*) DESC;[/CMD]\n\n• Once unbanned, remove from forbidden list:\n[CMD]DELETE FROM forbidden_hostnames WHERE exchange = '{$exchange}' AND created_at > NOW() - INTERVAL 7 DAY;[/CMD]",
-                'pushoverMessage' => "Server banned by {$exchangeTitle} - contact support",
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
-
-            'server_ip_whitelisted' => [
-                'severity' => NotificationSeverity::Info,
-                'title' => "{$exchangeTitle} Server Whitelisted",
-                'emailMessage' => "Server successfully whitelisted on {$exchangeTitle}. API access restored.\n\nPlatform automatically detecting whitelist status and resuming normal operations. System redundancy and load balancing restored. Trading operations proceeding normally.\n\nNo action required - informational only.\n\n• Verify whitelisted servers:\n[CMD]SELECT COUNT(*) as whitelisted_count FROM api_systems WHERE exchange = '{$exchange}' AND is_ip_whitelisted = 1;[/CMD]\n\n• Check recent API requests:\n[CMD]SELECT endpoint, status_code, COUNT(*) FROM api_request_logs WHERE exchange = '{$exchange}' AND created_at > NOW() - INTERVAL 5 MINUTE GROUP BY endpoint, status_code ORDER BY COUNT(*) DESC;[/CMD]",
-                'pushoverMessage' => "Server whitelisted on {$exchangeTitle}",
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
-
-            'symbol_synced' => [
-                'severity' => NotificationSeverity::Info,
-                'title' => 'Symbol Synced with CoinMarketCap',
-                'emailMessage' => "Trading symbol successfully matched with CoinMarketCap entry. Market cap data, metadata, and cross-exchange correlation now available.\n\nRoutine data synchronization event. Platform automatically maintaining accurate symbol mappings and market data for trading algorithms.\n\nNo action required - informational only.",
-                'pushoverMessage' => 'Symbol synced with CoinMarketCap',
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],
@@ -356,15 +264,6 @@ final class NotificationMessageBuilder
                 'title' => 'Token Delisting Detected',
                 'emailMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'A symbol delivery date has changed, indicating potential delisting.',
                 'pushoverMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'Token delisting detected',
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
-
-            'price_spike_check_symbol_error' => [
-                'severity' => NotificationSeverity::Medium,
-                'title' => 'Price Spike Check Error',
-                'emailMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'An error occurred during batch price spike detection. The symbol may be missing required candle data or there was a calculation error.',
-                'pushoverMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'Price spike check failed for symbol',
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],
