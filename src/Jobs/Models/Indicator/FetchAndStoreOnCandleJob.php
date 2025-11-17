@@ -252,7 +252,7 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
      * - Lock is ALWAYS released in finally block (even on exception)
      * - MySQL auto-releases lock if connection dies (process crash safety)
      */
-    protected function upsertWithDeadlockRetry(array $buffer, int $maxAttempts = 5): void
+    public function upsertWithDeadlockRetry(array $buffer, int $maxAttempts = 5): void
     {
         // Advisory lock key: candles_{symbol_id}_{timeframe}
         // This serializes upserts for same symbol+timeframe, but allows

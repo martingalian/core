@@ -8,7 +8,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
-class CoreSymbolDataSeeder extends Seeder
+final class CoreSymbolDataSeeder extends Seeder
 {
     /**
      * Seed core symbol data (symbols, exchange_symbols, base_asset_mappers).
