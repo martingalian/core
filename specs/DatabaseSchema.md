@@ -245,39 +245,13 @@ AccountBalance::create([
 ]);
 ```
 
-### throttle_logs
+### throttle_logs (DEPRECATED - REMOVED)
 
-Notification throttling to prevent spam.
+**Status**: ❌ Deprecated and removed from codebase
 
-```sql
-CREATE TABLE throttle_logs (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    canonical VARCHAR(255) NOT NULL UNIQUE COMMENT 'Unique identifier',
-    last_executed_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP NULL,
-    updated_at TIMESTAMP NULL,
+**Reason**: Throttling now uses `notification_logs` table for dual purpose (audit + throttle). The `throttle_logs` table was redundant and has been completely removed.
 
-    UNIQUE KEY unique_canonical (canonical),
-    INDEX idx_last_executed_at (last_executed_at)
-);
-```
-
-**Purpose**: Prevents duplicate notifications within throttle window (default 30 minutes)
-
-**Key Fields**:
-- `canonical`: Unique identifier (e.g., 'binance_ip_not_whitelisted')
-- `last_executed_at`: Timestamp of last notification
-
-**Usage**:
-```php
-Throttler::using(NotificationService::class)
-    ->withCanonical('binance_ip_not_whitelisted')
-    ->execute(function () {
-        NotificationService::sendToAdmin(...);
-    });
-```
-
-**Cleanup**: Old entries can be periodically deleted (e.g., older than 24 hours)
+**Migration**: All throttling logic now uses `NotificationService` which logs to `notification_logs` and uses those records for throttle checking based on `throttle_rules.throttle_seconds`.
 
 ## Migration Patterns
 
@@ -738,6 +712,6 @@ expect($position->closing_price)->toBe('51000.00000000');  // Passes!
 - Monitor slow queries
 
 ### Cleanup Tasks
-- Delete old throttle_logs (>24 hours)
+- Archive old notification_logs (>30 days)
 - Archive closed positions (>90 days)
 - Archive balance snapshots (>365 days)

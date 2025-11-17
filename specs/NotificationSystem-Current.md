@@ -310,7 +310,7 @@ php artisan test:notification --account_id=1 --canonical=ip_not_whitelisted
 ## Key Changes from Previous Implementation
 
 ### ❌ **REMOVED**:
-1. `Throttler` class and database tables (`throttle_rules`, `throttle_logs`)
+1. `Throttler` class and deprecated `throttle_logs` database table
 2. `NotificationMessageBuilder` complexity
 3. `buildThrottleCacheKey()` method (component-based key building)
 4. Separate `_admin` suffix conventions

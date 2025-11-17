@@ -59,9 +59,10 @@ packages/martingalian/core/src/
 - `canonical` - message template identifier (e.g., 'api_access_denied')
 - `user_types` (JSON) - ['user'], ['admin'], or ['admin', 'user']
 
-### throttle_logs
-- `canonical` - throttle identifier (e.g., 'binance_rate_limit_exceeded')
-- `last_executed_at` - prevents duplicates within 30-minute window
+### throttle_rules
+- `canonical` - throttle identifier (e.g., 'api_rate_limit_exceeded')
+- `throttle_seconds` - minimum time between notifications
+- Database-driven throttling (deprecated `throttle_logs` table removed in favor of `notification_logs`)
 
 See `Specs/StepDispatcher.md` for steps tables schema
 
