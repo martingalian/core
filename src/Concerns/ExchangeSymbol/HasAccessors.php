@@ -40,4 +40,10 @@ trait HasAccessors
     {
         return "{$this->parsed_trading_pair}/{$this->indicators_timeframe}/{$this->direction}";
     }
+
+    // ->parsed_trading_pair_with_exchange
+    public function getParsedTradingPairWithExchangeAttribute(): ?string
+    {
+        return "{$this->parsed_trading_pair}@{$this->apiSystem->name}";
+    }
 }

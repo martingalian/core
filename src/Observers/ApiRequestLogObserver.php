@@ -67,7 +67,7 @@ final class ApiRequestLogObserver
             // Deactivate the ExchangeSymbol
             $lockedSymbol->update([
                 'is_active' => false,
-                'is_eligible' => false
+                'is_eligible' => false,
             ]);
 
             return true;
@@ -200,10 +200,6 @@ final class ApiRequestLogObserver
 
     private function sendDeactivationNotification(ExchangeSymbol $exchangeSymbol, ApiRequestLog $log): void
     {
-        $symbolToken = $exchangeSymbol->symbol->token;
-        $quoteCanonical = $exchangeSymbol->quote->canonical;
-        $exchangeName = $exchangeSymbol->apiSystem->name;
-
         // Count how many failures occurred
         $payload = is_string($log->payload) ? json_decode($log->payload, true) : $log->payload;
         $exchange = $payload['options']['exchange'] ?? null;
@@ -222,9 +218,7 @@ final class ApiRequestLogObserver
             user: Martingalian::admin(),
             canonical: 'exchange_symbol_no_taapi_data',
             referenceData: [
-                'symbol_token' => $symbolToken,
-                'quote_canonical' => $quoteCanonical,
-                'exchange_name' => $exchangeName,
+                'exchange_symbol' => $exchangeSymbol,
                 'failure_count' => $failureCount,
             ],
             relatable: $exchangeSymbol

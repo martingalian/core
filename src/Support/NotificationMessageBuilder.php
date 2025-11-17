@@ -270,9 +270,21 @@ final class NotificationMessageBuilder
 
             'exchange_symbol_no_taapi_data' => [
                 'severity' => NotificationSeverity::Info,
-                'title' => 'Exchange Symbol Auto-Deactivated',
-                'emailMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'An exchange symbol was automatically deactivated due to consistent lack of TAAPI indicator data.',
-                'pushoverMessage' => is_string($context['message'] ?? null) ? $context['message'] : 'Exchange symbol auto-deactivated - no TAAPI data',
+                'title' => ($context['exchange_symbol']?->parsed_trading_pair_with_exchange ?? 'Exchange Symbol').' Auto-Deactivated',
+                'emailMessage' => "ℹ️ Exchange Symbol Auto-Deactivated\n\n".
+                    'Exchange Symbol: '.($context['exchange_symbol']?->parsed_trading_pair_with_exchange ?? 'UNKNOWN')."\n".
+                    "Reason: Consistent lack of TAAPI indicator data\n".
+                    'Failed Requests: '.($context['failure_count'] ?? 'N/A')." in last 24 hours\n\n".
+                    "📊 WHAT HAPPENED:\n\n".
+                    'This exchange symbol has been automatically deactivated because TAAPI (Technical Analysis API) consistently failed to provide indicator data. '.
+                    "After multiple consecutive failures, the platform determined this symbol is not supported by TAAPI and deactivated it to prevent further errors.\n\n".
+                    "✅ IMPACT:\n\n".
+                    "• Symbol marked as inactive (is_active = false)\n".
+                    "• Symbol marked as ineligible (is_eligible = false)\n".
+                    "• No more TAAPI requests will be made for this symbol\n".
+                    "• Trading operations for this symbol will be suspended\n\n".
+                    'This is an automated protection mechanism to prevent wasted API calls and log pollution.',
+                'pushoverMessage' => ($context['exchange_symbol']?->parsed_trading_pair_with_exchange ?? 'Exchange Symbol').' auto-deactivated - '.($context['failure_count'] ?? 'N/A').' TAAPI failures',
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],

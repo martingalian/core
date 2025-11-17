@@ -7,7 +7,7 @@ namespace Martingalian\Core\Concerns\ExchangeSymbol;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Notifications\AlertNotification;
 
 /**
  * SendsNotifications
@@ -133,12 +133,11 @@ trait SendsNotifications
         $title = 'Token Delisting Detected';
 
         // Send immediate notification to admin (no throttling - critical event)
-        NotificationService::send(
-            user: Martingalian::admin(),
-            message: $message,
-            title: $title,
-            canonical: 'symbol_delisting_positions_detected',
-            deliveryGroup: 'exceptions'
+        Martingalian::admin()->notify(
+            new AlertNotification(
+                message: $message,
+                title: $title
+            )
         );
     }
 }
