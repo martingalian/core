@@ -7,6 +7,8 @@ namespace Martingalian\Core\Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Martingalian\Core\Models\ExchangeSymbol;
+use Martingalian\Core\Models\Symbol;
 
 final class CoreSymbolDataSeeder extends Seeder
 {
@@ -19,6 +21,19 @@ final class CoreSymbolDataSeeder extends Seeder
      * Dump files are stored alongside this seeder in the Core package.
      */
     public function run(): void
+    {
+        // Disable observers during seeding to prevent notification spam
+        ExchangeSymbol::withoutEvents(function () {
+            Symbol::withoutEvents(function () {
+                $this->runSeeding();
+            });
+        });
+    }
+
+    /**
+     * Run all seeding operations with observers disabled.
+     */
+    private function runSeeding(): void
     {
         $dumpsPath = __DIR__ . '/../dumps';
 

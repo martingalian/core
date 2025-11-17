@@ -28,6 +28,23 @@ final class MartingalianSeeder extends Seeder
      */
     public function run(): void
     {
+        // Disable observers during seeding to prevent notification spam
+        ExchangeSymbol::withoutEvents(function () {
+            Account::withoutEvents(function () {
+                Position::withoutEvents(function () {
+                    User::withoutEvents(function () {
+                        $this->runSeeding();
+                    });
+                });
+            });
+        });
+    }
+
+    /**
+     * Run all seeding operations with observers disabled.
+     */
+    private function runSeeding(): void
+    {
         // SECTION 1: Create Indicators (SchemaSeeder1, SchemaSeeder9, SchemaSeeder11)
         $this->seedIndicators();
 
