@@ -28,7 +28,6 @@ final class ApiSystemFactory extends Factory
             'recvwindow_margin' => 1000,
             'taapi_canonical' => null,
             'websocket_class' => null,
-            'should_restart_websocket' => false,
         ];
     }
 

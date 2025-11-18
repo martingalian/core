@@ -116,6 +116,11 @@ final class PendingToDispatched extends Transition
         return false;
     }
 
+    public function handle(): Step
+    {
+        return $this->apply();
+    }
+
     public function apply(): Step
     {
         $this->step->state = new Dispatched($this->step); // Transition to Dispatched state

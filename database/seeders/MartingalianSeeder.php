@@ -41,78 +41,6 @@ final class MartingalianSeeder extends Seeder
     }
 
     /**
-     * Run all seeding operations with observers disabled.
-     */
-    private function runSeeding(): void
-    {
-        // SECTION 1: Create Indicators (SchemaSeeder1, SchemaSeeder9, SchemaSeeder11)
-        $this->seedIndicators();
-
-        // SECTION 2: Create API Systems (SchemaSeeder1)
-        $apiSystems = $this->seedApiSystems();
-
-        // SECTION 3: Create Quotes (SchemaSeeder1)
-        $quotes = $this->seedQuotes();
-
-        // SECTION 4: Create User (SchemaSeeder1)
-        $trader = $this->seedUser();
-
-        // SECTION 5: Create Default Trade Configuration (SchemaSeeder1)
-        $this->seedTradeConfiguration();
-
-        // SECTION 6: Create Binance Account (SchemaSeeder1)
-        $this->seedBinanceAccount($trader, $apiSystems['binance'], $quotes['usdt']);
-
-        // SECTION 7: Create Initial Symbols (SchemaSeeder1, SchemaSeeder2)
-        $this->seedSymbols();
-
-        // SECTION 8: Create Base Asset Mappers (SchemaSeeder1, SchemaSeeder2)
-        $this->seedBinanceBaseAssetMappers($apiSystems['binance']);
-
-        // SECTION 9: Create StepsDispatcher (SchemaSeeder3, StepsDispatcherSeeder)
-        $this->seedStepsDispatchers();
-
-        // SECTION 10: Update Trade Configuration (SchemaSeeder4) - SKIPPED: column doesn't exist in final schema
-        // $this->updateTradeConfiguration();
-
-        // SECTION 11: Create Martingalian (SchemaSeeder5)
-        $this->seedMartingalian();
-
-        // SECTION 12: Add Additional Symbol Batches (SchemaSeeder6-8, SchemaSeeder13-15, SchemaSeeder18)
-        $this->seedAdditionalSymbols();
-
-        // SECTION 13: Update Existing Positions (SchemaSeeder10)
-        $this->updatePositionProfitPrices();
-
-        // SECTION 14: Update Exchange Symbols (SchemaSeeder2, SchemaSeeder12)
-        $this->updateExchangeSymbols();
-
-        // SECTION 15: Migrate Account Credentials (SchemaSeeder16)
-        $this->migrateAccountCredentials();
-
-        // SECTION 16: Migrate Martingalian Credentials (SchemaSeeder17)
-        $this->migrateMartingalianCredentials();
-
-        // SECTION 17: Setup Bybit Integration (SchemaSeeder19, SchemaSeeder20, SchemaSeeder21)
-        $this->setupBybitIntegration($trader, $apiSystems['bybit'], $quotes['usdt']);
-
-        // SECTION 18: Cleanup Bybit Account Credentials (SchemaSeeder22)
-        $this->cleanupAccountCredentials();
-
-        // SECTION 19: Add Notification Channels (SchemaSeeder23)
-        $this->addNotificationChannels();
-
-        // SECTION 20: Move Admin Pushover Key (SchemaSeeder24)
-        $this->moveAdminPushoverKey();
-
-        // SECTION 21: Seed Servers
-        $this->seedServers();
-
-        // SECTION 22: Seed Notifications
-        $this->seedNotifications();
-    }
-
-    /**
      * Get all symbol CMC IDs consolidated from all schema seeders.
      * This combines initial symbols, high volatility tokens, and additional batches.
      *
@@ -780,6 +708,7 @@ final class MartingalianSeeder extends Seeder
                 'default_severity' => 'high',
                 'user_types' => ['admin'],
                 'is_active' => true,
+                'verified' => 1,
             ],
             [
                 'canonical' => 'update_prices_restart',
@@ -789,6 +718,7 @@ final class MartingalianSeeder extends Seeder
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
                 'is_active' => true,
+                'verified' => 1,
             ],
             [
                 'canonical' => 'binance_websocket_error',
@@ -798,21 +728,33 @@ final class MartingalianSeeder extends Seeder
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
                 'is_active' => true,
+                'verified' => 1,
             ],
             [
-                'canonical' => 'binance_invalid_json',
-                'title' => 'Binance: Invalid JSON Response',
-                'description' => 'Sent when Binance API returns invalid JSON',
-                'usage_reference' => 'Binance/UpdatePricesCommand::processWebSocketMessage() line 168',
-                'default_severity' => 'high',
+                'canonical' => 'bybit_websocket_error',
+                'title' => 'Bybit: WebSocket Error',
+                'description' => 'Sent when Bybit WebSocket encounters an error',
+                'usage_reference' => 'Bybit/UpdatePricesCommand WebSocket error callback line 143',
+                'default_severity' => 'critical',
                 'user_types' => ['admin'],
                 'is_active' => true,
+                'verified' => 1,
             ],
             [
-                'canonical' => 'binance_db_update_error',
-                'title' => 'Binance: Database Update Error',
-                'description' => 'Sent when database update fails for Binance price data',
-                'usage_reference' => 'Binance/UpdatePricesCommand::updateExchangeSymbol() line 214',
+                'canonical' => 'websocket_invalid_json',
+                'title' => 'WebSocket: Invalid JSON Response',
+                'description' => 'Sent when exchange WebSocket returns invalid JSON (exchange-agnostic, uses relatable ApiSystem)',
+                'usage_reference' => 'Binance/UpdatePricesCommand::processWebSocketMessage() line 165, Bybit/UpdatePricesCommand::processWebSocketMessage() line 166',
+                'default_severity' => 'medium',
+                'user_types' => ['admin'],
+                'is_active' => true,
+                'verified' => 1,
+            ],
+            [
+                'canonical' => 'websocket_prices_update_error',
+                'title' => 'WebSocket Prices: Database Update Error',
+                'description' => 'Sent when database update fails for WebSocket price data (any exchange)',
+                'usage_reference' => 'Binance/UpdatePricesCommand::updateExchangeSymbol(), Bybit/UpdatePricesCommand::updateExchangeSymbol()',
                 'default_severity' => 'critical',
                 'user_types' => ['admin'],
                 'is_active' => true,
@@ -959,10 +901,11 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'exchange_symbol_no_taapi_data',
                 'title' => 'Exchange Symbol Auto-Deactivated - No TAAPI Data',
                 'description' => 'Sent when an exchange symbol is automatically deactivated due to consistent lack of TAAPI indicator data',
-                'usage_reference' => 'ApiRequestLogObserver::notifyTaapiDataFailureIfNeeded() line 223',
+                'usage_reference' => 'ApiRequestLogObserver::sendDeactivationNotification() line 201',
                 'default_severity' => 'info',
                 'user_types' => ['admin'],
                 'is_active' => true,
+                'verified' => 1,
             ],
             [
                 'canonical' => 'symbol_cmc_id_not_found',
@@ -972,6 +915,16 @@ final class MartingalianSeeder extends Seeder
                 'default_severity' => 'medium',
                 'user_types' => ['admin'],
                 'is_active' => true,
+            ],
+            [
+                'canonical' => 'unrealized_pnl_alert',
+                'title' => 'Position Monitoring: P&L Update',
+                'description' => 'Sent when unrealized P&L exceeds 10% of total wallet balance',
+                'usage_reference' => 'StoreAccountsBalancesCommand lines 96-122',
+                'default_severity' => 'high',
+                'user_types' => ['user'],
+                'is_active' => true,
+                'verified' => 1,
             ],
         ];
 
@@ -984,9 +937,82 @@ final class MartingalianSeeder extends Seeder
                 'usage_reference' => $notification['usage_reference'] ?? null,
                 'default_severity' => $notification['default_severity'],
                 'user_types' => json_encode($notification['user_types']),
+                'verified' => $notification['verified'] ?? 0,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
         }
+    }
+
+    /**
+     * Run all seeding operations with observers disabled.
+     */
+    private function runSeeding(): void
+    {
+        // SECTION 1: Create Indicators (SchemaSeeder1, SchemaSeeder9, SchemaSeeder11)
+        $this->seedIndicators();
+
+        // SECTION 2: Create API Systems (SchemaSeeder1)
+        $apiSystems = $this->seedApiSystems();
+
+        // SECTION 3: Create Quotes (SchemaSeeder1)
+        $quotes = $this->seedQuotes();
+
+        // SECTION 4: Create User (SchemaSeeder1)
+        $trader = $this->seedUser();
+
+        // SECTION 5: Create Default Trade Configuration (SchemaSeeder1)
+        $this->seedTradeConfiguration();
+
+        // SECTION 6: Create Binance Account (SchemaSeeder1)
+        $this->seedBinanceAccount($trader, $apiSystems['binance'], $quotes['usdt']);
+
+        // SECTION 7: Create Initial Symbols (SchemaSeeder1, SchemaSeeder2)
+        $this->seedSymbols();
+
+        // SECTION 8: Create Base Asset Mappers (SchemaSeeder1, SchemaSeeder2)
+        $this->seedBinanceBaseAssetMappers($apiSystems['binance']);
+
+        // SECTION 9: Create StepsDispatcher (SchemaSeeder3, StepsDispatcherSeeder)
+        $this->seedStepsDispatchers();
+
+        // SECTION 10: Update Trade Configuration (SchemaSeeder4) - SKIPPED: column doesn't exist in final schema
+        // $this->updateTradeConfiguration();
+
+        // SECTION 11: Create Martingalian (SchemaSeeder5)
+        $this->seedMartingalian();
+
+        // SECTION 12: Add Additional Symbol Batches (SchemaSeeder6-8, SchemaSeeder13-15, SchemaSeeder18)
+        $this->seedAdditionalSymbols();
+
+        // SECTION 13: Update Existing Positions (SchemaSeeder10)
+        $this->updatePositionProfitPrices();
+
+        // SECTION 14: Update Exchange Symbols (SchemaSeeder2, SchemaSeeder12)
+        $this->updateExchangeSymbols();
+
+        // SECTION 15: Migrate Account Credentials (SchemaSeeder16)
+        $this->migrateAccountCredentials();
+
+        // SECTION 16: Migrate Martingalian Credentials (SchemaSeeder17)
+        $this->migrateMartingalianCredentials();
+
+        // SECTION 17: Setup Bybit Integration (SchemaSeeder19, SchemaSeeder20, SchemaSeeder21)
+        $this->setupBybitIntegration($trader, $apiSystems['bybit'], $quotes['usdt']);
+
+        // SECTION 18: Cleanup Bybit Account Credentials (SchemaSeeder22)
+        $this->cleanupAccountCredentials();
+
+        // SECTION 19: Add Notification Channels (SchemaSeeder23)
+        $this->addNotificationChannels();
+
+        // SECTION 20: Move Admin Pushover Key (SchemaSeeder24)
+        $this->moveAdminPushoverKey();
+
+        // SECTION 21: Seed Servers
+        $this->seedServers();
+
+        // SECTION 22: Seed Notifications
+        $this->seedNotifications();
     }
 }

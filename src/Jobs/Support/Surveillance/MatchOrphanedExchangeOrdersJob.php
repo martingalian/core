@@ -10,7 +10,6 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class MatchOrphanedExchangeOrdersJob extends BaseQueueableJob
@@ -66,33 +65,33 @@ final class MatchOrphanedExchangeOrdersJob extends BaseQueueableJob
             });
 
             // ✅ Alert: Orphaned orders found
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('orphaned_orders_detected')
-                ->execute(function () use ($formattedOrphans) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: 'Orphaned Orders detected: '.$formattedOrphans->implode(', '),
-                        title: 'Orphaned Orders Detected',
-                        canonical: 'orphaned_orders_detected',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'orphaned_orders_detected',
+                referenceData: [
+                    'account_id' => $this->account->id,
+                    'orphaned_orders_count' => $formattedOrphans->count(),
+                    'orphaned_orders' => $formattedOrphans->toArray(),
+                    'job_class' => class_basename(self::class),
+                ],
+                cacheKey: "orphaned_orders_detected:{$this->account->id}"
+            );
         }
     }
 
     public function resolveException(Throwable $e)
     {
-        $account = $this->account;
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('orphaned_orders_match_error')
-            ->execute(function () use ($account, $e) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "[{$account->id}] Account {$account->user->name}/{$account->tradingQuote->canonical} surveillance error - ".ExceptionParser::with($e)->friendlyMessage(),
-                    title: '['.class_basename(self::class).'] - Error',
-                    canonical: 'orphaned_orders_match_error',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'orphaned_orders_match_error',
+            referenceData: [
+                'account_id' => $this->account->id,
+                'user_name' => $this->account->user->name,
+                'quote_canonical' => $this->account->tradingQuote->canonical,
+                'job_class' => class_basename(self::class),
+                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
+            ],
+            cacheKey: "orphaned_orders_match_error:{$this->account->id}"
+        );
     }
 }

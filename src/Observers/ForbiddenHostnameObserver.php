@@ -8,15 +8,9 @@ use Martingalian\Core\Models\ForbiddenHostname;
 
 final class ForbiddenHostnameObserver
 {
-    public function creating(ForbiddenHostname $model): void
-    {
-        $model->cacheChangesForCreate();
-    }
+    public function creating(ForbiddenHostname $model): void {}
 
-    public function updating(ForbiddenHostname $model): void
-    {
-        $model->cacheChangesForUpdate();
-    }
+    public function updating(ForbiddenHostname $model): void {}
 
     public function created(ForbiddenHostname $model): void
     {

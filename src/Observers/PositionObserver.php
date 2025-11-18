@@ -12,15 +12,11 @@ final class PositionObserver
     public function creating(Position $model): void
     {
         $model->uuid ??= Str::uuid()->toString();
-        $model->cacheChangesForCreate();
     }
 
     public function created(Position $model): void {}
 
-    public function updating(Position $model): void
-    {
-        $model->cacheChangesForUpdate();
-    }
+    public function updating(Position $model): void {}
 
     public function updated(Position $model): void {}
 

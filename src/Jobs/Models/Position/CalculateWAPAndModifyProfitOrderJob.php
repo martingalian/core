@@ -12,7 +12,6 @@ use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
@@ -60,33 +59,32 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 
         // Sanity checks.
         if (bccomp($breakEvenPrice, '0', $scale) !== 1) {
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('wap_calculation_invalid_break_even_price')
-                ->execute(function () use ($breakEvenPrice) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "[{$this->position->id}] {$this->position->parsed_trading_pair} — WAP not triggered: invalid breakEvenPrice={$breakEvenPrice}.",
-                        title: 'WAP skipped',
-                        canonical: 'wap_calculation_invalid_break_even_price',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'wap_calculation_invalid_break_even_price',
+                referenceData: [
+                    'position_id' => $this->position->id,
+                    'trading_pair' => $this->position->parsed_trading_pair,
+                    'break_even_price' => $breakEvenPrice,
+                    'job_class' => class_basename(self::class),
+                ],
+                cacheKey: "wap_calculation_invalid_break_even_price:{$this->position->id}"
+            );
 
             return;
         }
 
         if (bccomp($rawQty, '0', $scale) === 0) {
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('wap_calculation_zero_quantity')
-                ->execute(function () {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "[{$this->position->id}] {$this->position->parsed_trading_pair} — WAP not triggered: zero quantity from exchange.",
-                        title: 'WAP skipped',
-                        canonical: 'wap_calculation_zero_quantity',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'wap_calculation_zero_quantity',
+                referenceData: [
+                    'position_id' => $this->position->id,
+                    'trading_pair' => $this->position->parsed_trading_pair,
+                    'job_class' => class_basename(self::class),
+                ],
+                cacheKey: "wap_calculation_zero_quantity:{$this->position->id}"
+            );
 
             return;
         }
@@ -124,18 +122,16 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
         // 7) Fetch profit order and modify.
         $profitOrder = $this->position->profitOrder();
         if (! $profitOrder) {
-            $position = $this->position;
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('wap_calculation_profit_order_missing')
-                ->execute(function () use ($position) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "[{$position->id}] {$position->parsed_trading_pair} — WAP computed but profit order missing.",
-                        title: 'WAP warning',
-                        canonical: 'wap_calculation_profit_order_missing',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'wap_calculation_profit_order_missing',
+                referenceData: [
+                    'position_id' => $this->position->id,
+                    'trading_pair' => $this->position->parsed_trading_pair,
+                    'job_class' => class_basename(self::class),
+                ],
+                cacheKey: "wap_calculation_profit_order_missing:{$this->position->id}"
+            );
 
             return;
         }
@@ -165,38 +161,38 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 
         // Notify once the ladder threshold is met.
         if ($this->position->totalLimitOrdersFilled() >= $this->position->account->total_limit_orders_filled_to_notify) {
-            $position = $this->position;
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('wap_profit_order_updated_successfully')
-                ->execute(function () use ($position, $oldPrice, $profitOrder, $oldQty, $formattedBEP) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "{$position->parsed_trading_pair_extended} — WAP Profit order updated"
-                ."\nPrice: {$oldPrice} → {$profitOrder->price}"
-                ."\nQty:   {$oldQty} → {$profitOrder->quantity}"
-                ."\nBEP:   {$formattedBEP}",
-                        title: "[P:{$position->id} O:{$profitOrder->id}] - Profit WAP updated",
-                        canonical: 'wap_profit_order_updated_successfully',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'wap_profit_order_updated_successfully',
+                referenceData: [
+                    'position_id' => $this->position->id,
+                    'order_id' => $profitOrder->id,
+                    'trading_pair' => $this->position->parsed_trading_pair_extended,
+                    'old_price' => $oldPrice,
+                    'new_price' => $profitOrder->price,
+                    'old_quantity' => $oldQty,
+                    'new_quantity' => $profitOrder->quantity,
+                    'break_even_price' => $formattedBEP,
+                    'job_class' => class_basename(self::class),
+                ],
+                cacheKey: "wap_profit_order_updated_successfully:{$profitOrder->id}"
+            );
         }
     }
 
     public function resolveException(Throwable $e)
     {
-        $position = $this->position;
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('wap_calculation_error')
-            ->execute(function () use ($position, $e) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "[{$position->id}] Position {$position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-                    title: '['.class_basename(self::class).'] - Error',
-                    canonical: 'wap_calculation_error',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'wap_calculation_error',
+            referenceData: [
+                'position_id' => $this->position->id,
+                'trading_pair' => $this->position->parsed_trading_pair,
+                'job_class' => class_basename(self::class),
+                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
+            ],
+            cacheKey: "wap_calculation_error:{$this->position->id}"
+        );
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

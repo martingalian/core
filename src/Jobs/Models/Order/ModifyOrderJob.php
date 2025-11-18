@@ -9,7 +9,6 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class ModifyOrderJob extends BaseApiableJob
@@ -52,15 +51,17 @@ final class ModifyOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('modify_order')
-            ->execute(function () {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "[{$this->order->id}] Order {$this->order->type} {$this->order->side} modify error - {$e->getMessage()}",
-                    title: '['.class_basename(self::class).'] - Error',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'modify_order',
+            referenceData: [
+                'order_id' => $this->order->id,
+                'order_type' => $this->order->type,
+                'order_side' => $this->order->side,
+                'job_class' => class_basename(self::class),
+                'error_message' => $e->getMessage(),
+            ],
+            cacheKey: "modify_order:{$this->order->id}"
+        );
     }
 }

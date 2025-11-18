@@ -221,7 +221,8 @@ final class ApiRequestLogObserver
                 'exchange_symbol' => $exchangeSymbol,
                 'failure_count' => $failureCount,
             ],
-            relatable: $exchangeSymbol
+            relatable: $exchangeSymbol,
+            cacheKey: "exchange_symbol:{$exchangeSymbol->id},exchange:{$exchangeSymbol->apiSystem->canonical}"
         );
     }
 }

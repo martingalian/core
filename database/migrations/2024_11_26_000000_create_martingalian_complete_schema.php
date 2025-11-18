@@ -128,7 +128,6 @@ return new class extends Migration
             $table->unsignedInteger('recvwindow_margin')->default(10000)->comment('The miliseconds margin so we dont get errors due to server time vs exchange time desynchronizations');
             $table->string('canonical')->unique();
             $table->string('websocket_class')->nullable();
-            $table->boolean('should_restart_websocket')->default(false);
             $table->string('taapi_canonical')->nullable();
             $table->timestamps();
 

@@ -8,7 +8,6 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class DeletePositionHistoryDataJob extends BaseQueueableJob
@@ -42,15 +41,16 @@ final class DeletePositionHistoryDataJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('delete_position_history')
-            ->execute(function () {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} historical data delete error - {$e->getMessage()}",
-                    title: '['.class_basename(self::class).'] - Error',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'delete_position_history',
+            referenceData: [
+                'position_id' => $this->position->id,
+                'trading_pair' => $this->position->parsed_trading_pair,
+                'job_class' => class_basename(self::class),
+                'error_message' => $e->getMessage(),
+            ],
+            cacheKey: "delete_position_history:{$this->position->id}"
+        );
     }
 }

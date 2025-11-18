@@ -14,7 +14,6 @@ use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Throwable;
 
@@ -134,16 +133,17 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('query_all_indicators_chunk')
-            ->execute(function () {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: '[Timeframe:'.$this->timeframe.'] Chunk query error - '.$e->getMessage(),
-                    title: '['.class_basename(self::class).'] - Error',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'query_all_indicators_chunk',
+            referenceData: [
+                'timeframe' => $this->timeframe,
+                'exchange_symbol_count' => count($this->exchangeSymbolIds),
+                'job_class' => class_basename(self::class),
+                'error_message' => $e->getMessage(),
+            ],
+            cacheKey: "query_all_indicators_chunk:{$this->timeframe}"
+        );
     }
 
     /**

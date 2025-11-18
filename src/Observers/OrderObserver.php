@@ -12,7 +12,6 @@ final class OrderObserver
 {
     public function creating(Order $model): void
     {
-        $model->cacheChangesForCreate();
 
         if (empty($model->uuid)) {
             $model->uuid = Str::uuid()->toString();
@@ -103,7 +102,6 @@ final class OrderObserver
             $model->filled_at = now();
         }
 
-        $model->cacheChangesForUpdate();
     }
 
     public function created(Order $model): void {}

@@ -17,7 +17,6 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 /**
@@ -283,16 +282,17 @@ final class DispatchPositionJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('dispatch_position')
-            ->execute(function () use ($e) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-                    title: '['.class_basename(self::class).'] - Error',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'dispatch_position',
+            referenceData: [
+                'position_id' => $this->position->id,
+                'trading_pair' => $this->position->parsed_trading_pair,
+                'job_class' => class_basename(self::class),
+                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
+            ],
+            cacheKey: "dispatch_position:{$this->position->id}"
+        );
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

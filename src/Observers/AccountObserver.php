@@ -12,13 +12,9 @@ final class AccountObserver
     public function creating(Account $model): void
     {
         $model->uuid ??= Str::uuid()->toString();
-        $model->cacheChangesForCreate();
     }
 
-    public function updating(Account $model): void
-    {
-        $model->cacheChangesForUpdate();
-    }
+    public function updating(Account $model): void {}
 
     public function created(Account $model): void {}
 

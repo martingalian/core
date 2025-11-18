@@ -11,7 +11,6 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use RuntimeException;
 use Throwable;
 
@@ -55,17 +54,16 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
 
         // Null-guard before touching exchangeSymbol (is_tradeable controlled manually via backoffice)
 
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('stop_loss_precondition_failed')
-            ->execute(function () {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on a StartOrFail()",
-                    title: '['.class_basename(self::class).'] - startOrFail() returned false',
-                    canonical: 'stop_loss_precondition_failed',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'stop_loss_precondition_failed',
+            referenceData: [
+                'position_id' => $this->position->id,
+                'trading_pair' => $this->position->parsed_trading_pair,
+                'job_class' => class_basename(self::class),
+            ],
+            cacheKey: "stop_loss_precondition_failed:{$this->position->id}"
+        );
 
         return false;
     }
@@ -109,17 +107,19 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
 
         $this->stopLossOrder->apiPlace();
 
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('stop_loss_placed_successfully')
-            ->execute(function () use ($calc) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "{$this->position->parsed_trading_pair} Stop Loss Order successfully placed. ID [{$this->stopLossOrder->id}] Qty: {$calc['quantity']}, Price: {$calc['price']}",
-                    title: '['.class_basename(self::class).'] - Stop Loss placed',
-                    canonical: 'stop_loss_placed_successfully',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'stop_loss_placed_successfully',
+            referenceData: [
+                'position_id' => $this->position->id,
+                'order_id' => $this->stopLossOrder->id,
+                'trading_pair' => $this->position->parsed_trading_pair,
+                'quantity' => $calc['quantity'],
+                'price' => $calc['price'],
+                'job_class' => class_basename(self::class),
+            ],
+            cacheKey: "stop_loss_placed_successfully:{$this->stopLossOrder->id}"
+        );
 
         return ['order' => format_model_attributes($this->stopLossOrder)];
     }
@@ -152,16 +152,16 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
     {
         $id = $this->stopLossOrder?->id ?? 'unknown';
 
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('stop_loss_placement_error')
-            ->execute(function () use ($e, $id) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "[{$id}] STOP-MARKET order place error - {$e->getMessage()}",
-                    title: '['.class_basename(self::class).'] - Error',
-                    canonical: 'stop_loss_placement_error',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'stop_loss_placement_error',
+            referenceData: [
+                'order_id' => $id,
+                'position_id' => $this->position->id,
+                'job_class' => class_basename(self::class),
+                'error_message' => $e->getMessage(),
+            ],
+            cacheKey: "stop_loss_placement_error:{$id}"
+        );
     }
 }

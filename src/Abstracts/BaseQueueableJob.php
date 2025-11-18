@@ -15,9 +15,7 @@ use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\Running;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
-use Martingalian\Core\Abstracts\BaseDatabaseExceptionHandler;
 
 /*
  * BaseQueueableJob
@@ -43,7 +41,7 @@ abstract class BaseQueueableJob extends BaseJob
 
     public float $startMicrotime = 0.0;
 
-    public ?BaseDatabaseExceptionHandler $databaseExceptionHandler;
+    public ?BaseDatabaseExceptionHandler $databaseExceptionHandler = null;
 
     // Must be implemented by subclasses to define the compute logic.
     abstract protected function compute();
@@ -108,23 +106,29 @@ abstract class BaseQueueableJob extends BaseJob
          * Notify admins about the failure and update step state.
          */
 
+        // Check if step property is initialized before accessing it
+        if (! isset($this->step)) {
+            // Job failed before step was initialized - log and exit
+            Log::channel('jobs')->error('[JOB FAILED] Job failed before step initialization: '.$e->getMessage());
+
+            return;
+        }
+
         // Notify admins about unhandled job exceptions
         $step = $this->step;
         $jobClass = class_basename($this);
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('job_execution_failed')
-            ->execute(function () use ($step, $jobClass, $e) {
-                $stepId = $step->id ?? 'unknown';
-                $message = "[Step #{$stepId}] Job {$jobClass} failed with unhandled exception: ".$e->getMessage();
+        $stepId = $step->id ?? 'unknown';
 
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: $message,
-                    title: 'Job Execution Failed',
-                    canonical: 'job_execution_failed',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'job_execution_failed',
+            referenceData: [
+                'step_id' => $stepId,
+                'job_class' => $jobClass,
+                'exception_message' => $e->getMessage(),
+            ],
+            cacheKey: "job_execution_failed:{$stepId}"
+        );
 
         // Update step state to failed
         $this->step->update(['response' => ['exception' => $e->getMessage()]]);

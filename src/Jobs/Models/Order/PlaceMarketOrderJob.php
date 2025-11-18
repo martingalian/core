@@ -12,7 +12,6 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class PlaceMarketOrderJob extends BaseApiableJob
@@ -65,16 +64,16 @@ final class PlaceMarketOrderJob extends BaseApiableJob
 
         // Null-guard: exchange_symbol_id may be null (is_tradeable controlled manually via backoffice)
 
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('place_market_order')
-            ->execute(function () {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "{$this->position->parsed_trading_pair} trading deactivated due to an issue on startOrFail()",
-                    title: '['.class_basename(self::class).'] - startOrFail() returned false',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'place_market_order_start_failed',
+            referenceData: [
+                'position_id' => $this->position->id,
+                'trading_pair' => $this->position->parsed_trading_pair,
+                'job_class' => class_basename(self::class),
+            ],
+            cacheKey: "place_market_order_start_failed:{$this->position->id}"
+        );
 
         return false;
     }
@@ -181,29 +180,30 @@ final class PlaceMarketOrderJob extends BaseApiableJob
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->marketOrder) {
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('market_order_placement_error')
-                ->execute(function () use ($e) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "[{$this->marketOrder->id}] Order {$this->marketOrder->type} {$this->marketOrder->side} MARKET place error - {$e->getMessage()}",
-                        title: '['.class_basename(self::class).'] - Error',
-                        canonical: 'market_order_placement_error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'market_order_placement_error',
+                referenceData: [
+                    'order_id' => $this->marketOrder->id,
+                    'order_type' => $this->marketOrder->type,
+                    'order_side' => $this->marketOrder->side,
+                    'position_id' => $this->position->id,
+                    'job_class' => class_basename(self::class),
+                    'error_message' => $e->getMessage(),
+                ],
+                cacheKey: "market_order_placement_error:{$this->marketOrder->id}"
+            );
         } else {
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('market_order_placement_error_no_order')
-                ->execute(function () use ($e) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "[{$this->position->id}] MARKET place error before order instance - {$e->getMessage()}",
-                        title: '['.class_basename(self::class).'] - Error',
-                        canonical: 'market_order_placement_error_no_order',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'market_order_placement_error_no_order',
+                referenceData: [
+                    'position_id' => $this->position->id,
+                    'job_class' => class_basename(self::class),
+                    'error_message' => $e->getMessage(),
+                ],
+                cacheKey: "market_order_placement_error_no_order:{$this->position->id}"
+            );
         }
     }
 }

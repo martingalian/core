@@ -8,15 +8,9 @@ use Martingalian\Core\Models\Indicator;
 
 final class IndicatorObserver
 {
-    public function creating(Indicator $model): void
-    {
-        $model->cacheChangesForCreate();
-    }
+    public function creating(Indicator $model): void {}
 
-    public function updating(Indicator $model): void
-    {
-        $model->cacheChangesForUpdate();
-    }
+    public function updating(Indicator $model): void {}
 
     public function created(Indicator $model): void {}
 

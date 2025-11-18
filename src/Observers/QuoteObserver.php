@@ -8,17 +8,11 @@ use Martingalian\Core\Models\Quote;
 
 final class QuoteObserver
 {
-    public function creating(Quote $model): void
-    {
-        $model->cacheChangesForCreate();
-    }
+    public function creating(Quote $model): void {}
 
     public function created(Quote $model): void {}
 
-    public function updating(Quote $model): void
-    {
-        $model->cacheChangesForUpdate();
-    }
+    public function updating(Quote $model): void {}
 
     public function updated(Quote $model): void {}
 

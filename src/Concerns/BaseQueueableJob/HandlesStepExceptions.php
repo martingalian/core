@@ -13,7 +13,6 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 /**
@@ -27,6 +26,11 @@ trait HandlesStepExceptions
 {
     public function reportAndFail(Throwable $e): void
     {
+        // Guard against accessing step before initialization
+        if (! isset($this->step)) {
+            return;
+        }
+
         $parser = ExceptionParser::with($e);
 
         if (is_null($this->step->error_message)) {
@@ -37,16 +41,16 @@ trait HandlesStepExceptions
         }
 
         if (! $e instanceof NonNotifiableException) {
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('step_error')
-                ->execute(function () use ($parser) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: 'Step error - '.$parser->friendlyMessage(),
-                        title: "[S:{$this->step->id} ".class_basename(static::class).'] - Error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'step_error',
+                referenceData: [
+                    'step_id' => $this->step->id,
+                    'job_class' => class_basename(static::class),
+                    'error_message' => $parser->friendlyMessage(),
+                ],
+                cacheKey: "step_error:{$this->step->id}"
+            );
         }
 
         $this->finalizeDuration();
@@ -197,6 +201,11 @@ trait HandlesStepExceptions
 
     protected function retryJobWithBackoff(Throwable $e): void
     {
+        // Guard against accessing step before initialization
+        if (! isset($this->step)) {
+            return;
+        }
+
         $backoffSeconds = $this->jobBackoffSeconds;
 
         // Use exponential backoff for database exceptions
@@ -215,6 +224,11 @@ trait HandlesStepExceptions
 
     protected function completeAndIgnoreException(): void
     {
+        // Guard against accessing step before initialization
+        if (! isset($this->step)) {
+            return;
+        }
+
         $this->finalizeDuration();
         $this->step->state->transitionTo(Completed::class);
         $this->stepStatusUpdated = true;
@@ -226,6 +240,11 @@ trait HandlesStepExceptions
 
     protected function logExceptionToStep(Throwable $e): void
     {
+        // Guard against accessing step before initialization
+        if (! isset($this->step)) {
+            return;
+        }
+
         $parser = ExceptionParser::with($e);
 
         if (is_null($this->step->error_message)) {

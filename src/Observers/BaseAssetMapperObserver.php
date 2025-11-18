@@ -8,15 +8,9 @@ use Martingalian\Core\Models\BaseAssetMapper;
 
 final class BaseAssetMapperObserver
 {
-    public function creating(BaseAssetMapper $model): void
-    {
-        $model->cacheChangesForCreate();
-    }
+    public function creating(BaseAssetMapper $model): void {}
 
-    public function updating(BaseAssetMapper $model): void
-    {
-        $model->cacheChangesForUpdate();
-    }
+    public function updating(BaseAssetMapper $model): void {}
 
     public function created(BaseAssetMapper $model): void {}
 

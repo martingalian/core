@@ -8,15 +8,9 @@ use Martingalian\Core\Models\ExchangeSymbol;
 
 final class ExchangeSymbolObserver
 {
-    public function creating(ExchangeSymbol $model): void
-    {
-        $model->cacheChangesForCreate();
-    }
+    public function creating(ExchangeSymbol $model): void {}
 
-    public function updating(ExchangeSymbol $model): void
-    {
-        $model->cacheChangesForUpdate();
-    }
+    public function updating(ExchangeSymbol $model): void {}
 
     public function created(ExchangeSymbol $model): void {}
 

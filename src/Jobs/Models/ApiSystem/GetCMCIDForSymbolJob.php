@@ -16,7 +16,6 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Support\NotificationMessageBuilder;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 
 /*
  * GetCMCIDForSymbolJob
@@ -293,30 +292,21 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
         $message .= "3. Dispatch metadata job:\n";
         $message .= "[CMD]php artisan tinker --execute=\"\\Martingalian\\Core\\Models\\Step::create(['class' => '\\Martingalian\\Core\\Jobs\\Lifecycles\\Symbols\\GetCMCRemainingSymbolDataJob', 'arguments' => ['token' => 'CORRECT_CMC_SYMBOL', 'apiSystemId' => {$this->apiSystem->id}]]);\"[/CMD]";
 
-        $messageData = NotificationMessageBuilder::build(
-            canonical: 'symbol_cmc_id_not_found',
-            context: ['message' => $message]
-        );
-
         // Use Symbol as relatable for throttling context
         $symbol = Symbol::where('token', mb_strtoupper($canonicalToken))->first();
 
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('symbol_cmc_id_not_found')
-            ->for($symbol)
-            ->execute(function () use ($messageData, $symbol) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: $messageData['emailMessage'],
-                    title: $messageData['title'],
-                    canonical: 'symbol_cmc_id_not_found',
-                    deliveryGroup: 'default',
-                    severity: $messageData['severity'],
-                    pushoverMessage: $messageData['pushoverMessage'],
-                    actionUrl: $messageData['actionUrl'],
-                    actionLabel: $messageData['actionLabel'],
-                    relatable: $symbol
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'symbol_cmc_id_not_found',
+            referenceData: [
+                'canonical_token' => $canonicalToken,
+                'original_token' => $originalToken,
+                'exchange_name' => $exchangeName,
+                'exchange_canonical' => $exchangeCanonical,
+                'message' => $message,
+            ],
+            relatable: $symbol,
+            cacheKey: "symbol_cmc_id_not_found:{$canonicalToken}"
+        );
     }
 }

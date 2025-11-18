@@ -17,7 +17,6 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class LaunchPositionsWatchersJob extends BaseQueueableJob
@@ -98,15 +97,18 @@ final class LaunchPositionsWatchersJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('launch_positions_watchers')
-            ->execute(function () use ($e) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "[{$this->account->id}] Account {$this->account->user->name}/{$this->account->tradingQuote->canonical} lifecycle error - ".ExceptionParser::with($e)->friendlyMessage(),
-                    title: "[S:{$this->step->id} ".class_basename(self::class).'] - Error',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'launch_positions_watchers',
+            referenceData: [
+                'account_id' => $this->account->id,
+                'step_id' => $this->step->id,
+                'user_name' => $this->account->user->name,
+                'quote_canonical' => $this->account->tradingQuote->canonical,
+                'job_class' => class_basename(self::class),
+                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
+            ],
+            cacheKey: "launch_positions_watchers:{$this->account->id}"
+        );
     }
 }

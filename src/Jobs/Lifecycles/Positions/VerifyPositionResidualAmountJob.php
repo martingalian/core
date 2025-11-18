@@ -9,7 +9,6 @@ use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class VerifyPositionResidualAmountJob extends BaseQueueableJob
@@ -35,17 +34,16 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
         if (is_array($positions) && array_key_exists($this->position->parsed_trading_pair, $positions)) {
             $amount = $positions[$this->position->parsed_trading_pair]['positionAmt'];
 
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('position_residual_amount_detected')
-                ->execute(function () use ($amount) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "Position {$this->position->parsed_trading_pair} with residual amount (Qty:{$amount}). Please close position MANUALLY on exchange",
-                        title: "Position {$this->position->parsed_trading_pair} with residual amount",
-                        canonical: 'position_residual_amount_detected',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'position_residual_amount_detected',
+                referenceData: [
+                    'position_id' => $this->position->id,
+                    'trading_pair' => $this->position->parsed_trading_pair,
+                    'amount' => $amount,
+                ],
+                cacheKey: "position_residual_amount_detected:{$this->position->id}"
+            );
 
             return [
                 'message' => "Position {$this->position->parsed_trading_pair} with residual amount detected. Qty: {$amount}",
@@ -59,16 +57,16 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('position_residual_verification_error')
-            ->execute(function () use ($e) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} residual verification error - {$e->getMessage()}",
-                    title: '['.class_basename(self::class).'] - Error',
-                    canonical: 'position_residual_verification_error',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'position_residual_verification_error',
+            referenceData: [
+                'position_id' => $this->position->id,
+                'trading_pair' => $this->position->parsed_trading_pair,
+                'job_class' => class_basename(self::class),
+                'error_message' => $e->getMessage(),
+            ],
+            cacheKey: "position_residual_verification_error:{$this->position->id}"
+        );
     }
 }

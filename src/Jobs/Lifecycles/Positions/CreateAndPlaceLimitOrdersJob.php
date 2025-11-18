@@ -14,7 +14,6 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
@@ -145,16 +144,17 @@ final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
      */
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('create_place_limit_orders')
-            ->execute(function () use ($e) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "[{$this->position->id}] Placing limit orders for {$this->position->parsed_trading_pair} failed - ".ExceptionParser::with($e)->friendlyMessage(),
-                    title: '['.class_basename(self::class).'] - Error',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'create_place_limit_orders',
+            referenceData: [
+                'position_id' => $this->position->id,
+                'trading_pair' => $this->position->parsed_trading_pair,
+                'job_class' => class_basename(self::class),
+                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
+            ],
+            cacheKey: "create_place_limit_orders:{$this->position->id}"
+        );
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

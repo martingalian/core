@@ -13,7 +13,6 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 
 final class ClosePositionAtomicallyJob extends BaseApiableJob
 {
@@ -57,17 +56,19 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
             if (($this->position->direction === 'SHORT' && $this->position->opening_price < $this->position->exchangeSymbol->mark_price) ||
                 ($this->position->direction === 'LONG' && $this->position->opening_price > $this->position->exchangeSymbol->mark_price)
             ) {
-                NotificationThrottler::using(NotificationService::class)
-                    ->withCanonical('position_closing_negative_pnl')
-                    ->execute(function () {
-                        NotificationService::send(
-                            user: Martingalian::admin(),
-                            message: "Position {$this->position->parsed_trading_pair} is possibly closing with a negative PnL. Please check!",
-                            title: "Position {$this->position->parsed_trading_pair} possible closed with negative PnL",
-                            canonical: 'position_closing_negative_pnl',
-                            deliveryGroup: 'exceptions'
-                        );
-                    });
+                NotificationService::send(
+                    user: Martingalian::admin(),
+                    canonical: 'position_closing_negative_pnl',
+                    referenceData: [
+                        'position_id' => $this->position->id,
+                        'trading_pair' => $this->position->parsed_trading_pair,
+                        'direction' => $this->position->direction,
+                        'opening_price' => $this->position->opening_price,
+                        'mark_price' => $this->position->exchangeSymbol->mark_price,
+                        'job_class' => class_basename(self::class),
+                    ],
+                    cacheKey: "position_closing_negative_pnl:{$this->position->id}"
+                );
             }
         }
 
@@ -122,17 +123,19 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
                         ]);
 
                         // Notify admins so it's visible in ops.
-                        NotificationThrottler::using(NotificationService::class)
-                            ->withCanonical('position_price_spike_cooldown_set')
-                            ->execute(function () use ($pct, $until) {
-                                NotificationService::send(
-                                    user: Martingalian::admin(),
-                                    message: "Cooldown set for {$this->position->parsed_trading_pair}: +".number_format($pct, 2).'% vs latest 1D close. Tradeable again at '.$until->format('Y-m-d H:i').'.',
-                                    title: 'Price Spike Detected',
-                                    canonical: 'position_price_spike_cooldown_set',
-                                    deliveryGroup: 'nidavellir_warnings'
-                                );
-                            });
+                        NotificationService::send(
+                            user: Martingalian::admin(),
+                            canonical: 'position_price_spike_cooldown_set',
+                            referenceData: [
+                                'position_id' => $this->position->id,
+                                'trading_pair' => $this->position->parsed_trading_pair,
+                                'exchange_symbol_id' => $ex->id,
+                                'price_change_percent' => number_format($pct, 2),
+                                'tradeable_at' => $until->format('Y-m-d H:i'),
+                                'job_class' => class_basename(self::class),
+                            ],
+                            cacheKey: "position_price_spike_cooldown_set:{$ex->id}"
+                        );
                     }
                 }
             }

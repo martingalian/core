@@ -11,7 +11,6 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class PlaceProfitOrderJob extends BaseApiableJob
@@ -52,16 +51,17 @@ final class PlaceProfitOrderJob extends BaseApiableJob
                 $reason .= 'Position status not in opening';
             }
 
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('place_profit_order')
-                ->execute(function () {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "{$this->position->parsed_trading_pair} StartOrFail() failed. Reason: {$reason}",
-                        title: '['.class_basename(self::class).'] - startOrFail() returned false',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'place_profit_order_start_failed',
+                referenceData: [
+                    'position_id' => $this->position->id,
+                    'trading_pair' => $this->position->parsed_trading_pair,
+                    'reason' => $reason,
+                    'job_class' => class_basename(self::class),
+                ],
+                cacheKey: "place_profit_order_start_failed:{$this->position->id}"
+            );
 
             return $result;
         }
@@ -143,29 +143,30 @@ final class PlaceProfitOrderJob extends BaseApiableJob
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->profitOrder) {
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('profit_order_placement_error')
-                ->execute(function () use ($e) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "[O:{$this->profitOrder->id}] Order {$this->profitOrder->type} {$this->profitOrder->side} PROFIT-LIMIT place error - {$e->getMessage()}",
-                        title: '['.class_basename(self::class).'] - Error',
-                        canonical: 'profit_order_placement_error',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'profit_order_placement_error',
+                referenceData: [
+                    'order_id' => $this->profitOrder->id,
+                    'order_type' => $this->profitOrder->type,
+                    'order_side' => $this->profitOrder->side,
+                    'position_id' => $this->position->id,
+                    'job_class' => class_basename(self::class),
+                    'error_message' => $e->getMessage(),
+                ],
+                cacheKey: "profit_order_placement_error:{$this->profitOrder->id}"
+            );
         } else {
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('profit_order_placement_error_no_order')
-                ->execute(function () use ($e) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "[P:{$this->position->id}] PROFIT-LIMIT place error before order instance - {$e->getMessage()}",
-                        title: '['.class_basename(self::class).'] - Error',
-                        canonical: 'profit_order_placement_error_no_order',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'profit_order_placement_error_no_order',
+                referenceData: [
+                    'position_id' => $this->position->id,
+                    'job_class' => class_basename(self::class),
+                    'error_message' => $e->getMessage(),
+                ],
+                cacheKey: "profit_order_placement_error_no_order:{$this->position->id}"
+            );
         }
     }
 }

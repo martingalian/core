@@ -8,15 +8,9 @@ use Martingalian\Core\Models\ApiSnapshot;
 
 final class ApiSnapshotObserver
 {
-    public function creating(ApiSnapshot $model): void
-    {
-        $model->cacheChangesForCreate();
-    }
+    public function creating(ApiSnapshot $model): void {}
 
-    public function updating(ApiSnapshot $model): void
-    {
-        $model->cacheChangesForUpdate();
-    }
+    public function updating(ApiSnapshot $model): void {}
 
     public function created(ApiSnapshot $model): void {}
 

@@ -10,7 +10,6 @@ use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class ValidatePositionJob extends BaseQueueableJob
@@ -32,17 +31,16 @@ final class ValidatePositionJob extends BaseQueueableJob
         ]);
 
         if (! in_array($this->position->status, $this->position->activeStatuses(), true)) {
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('position_validation_inactive_status')
-                ->execute(function () {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} not in an active-related status. Canceling position...",
-                        title: '['.class_basename(self::class).'] - Warning',
-                        canonical: 'position_validation_inactive_status',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'position_validation_inactive_status',
+                referenceData: [
+                    'position_id' => $this->position->id,
+                    'trading_pair' => $this->position->parsed_trading_pair,
+                    'job_class' => class_basename(self::class),
+                ],
+                cacheKey: "position_validation_inactive_status:{$this->position->id}"
+            );
 
             $shouldCancel = true;
         }
@@ -51,17 +49,16 @@ final class ValidatePositionJob extends BaseQueueableJob
             ->where('orders.position_side', $this->position->direction)
             ->whereNull('orders.exchange_order_id')
             ->count() > 0) {
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('position_validation_unsynced_orders')
-                ->execute(function () {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have invalid sync'ed orders. Canceling position...",
-                        title: '['.class_basename(self::class).'] - Warning',
-                        canonical: 'position_validation_unsynced_orders',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'position_validation_unsynced_orders',
+                referenceData: [
+                    'position_id' => $this->position->id,
+                    'trading_pair' => $this->position->parsed_trading_pair,
+                    'job_class' => class_basename(self::class),
+                ],
+                cacheKey: "position_validation_unsynced_orders:{$this->position->id}"
+            );
 
             $shouldCancel = true;
         }
@@ -71,17 +68,16 @@ final class ValidatePositionJob extends BaseQueueableJob
             ->where('orders.type', 'LIMIT')
             ->active()
             ->count() !== $this->position->total_limit_orders) {
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical('position_validation_incorrect_limit_count')
-                ->execute(function () {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} have a different number of total active limit orders. Canceling position...",
-                        title: '['.class_basename(self::class).'] - Warning',
-                        canonical: 'position_validation_incorrect_limit_count',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'position_validation_incorrect_limit_count',
+                referenceData: [
+                    'position_id' => $this->position->id,
+                    'trading_pair' => $this->position->parsed_trading_pair,
+                    'job_class' => class_basename(self::class),
+                ],
+                cacheKey: "position_validation_incorrect_limit_count:{$this->position->id}"
+            );
 
             $shouldCancel = true;
         }
@@ -99,17 +95,17 @@ final class ValidatePositionJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('position_validation_exception')
-            ->execute(function () use ($e) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
-                    title: '['.class_basename(self::class).'] - Error',
-                    canonical: 'position_validation_exception',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'position_validation_exception',
+            referenceData: [
+                'position_id' => $this->position->id,
+                'trading_pair' => $this->position->parsed_trading_pair,
+                'job_class' => class_basename(self::class),
+                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
+            ],
+            cacheKey: "position_validation_exception:{$this->position->id}"
+        );
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

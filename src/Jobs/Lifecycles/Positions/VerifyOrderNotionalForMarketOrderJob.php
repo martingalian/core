@@ -11,7 +11,6 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Throwable;
 
 final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
@@ -67,16 +66,17 @@ final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationThrottler::using(NotificationService::class)
-            ->withCanonical('verify_order_notional_market')
-            ->execute(function () use ($e) {
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    message: "[{$this->position->id}] Position {$this->position->parsed_trading_pair} validation error - ".ExceptionParser::with($e)->friendlyMessage(),
-                    title: '['.class_basename(self::class).'] - Error',
-                    deliveryGroup: 'exceptions'
-                );
-            });
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'verify_order_notional_market',
+            referenceData: [
+                'position_id' => $this->position->id,
+                'trading_pair' => $this->position->parsed_trading_pair,
+                'job_class' => class_basename(self::class),
+                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
+            ],
+            cacheKey: "verify_order_notional_market:{$this->position->id}"
+        );
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

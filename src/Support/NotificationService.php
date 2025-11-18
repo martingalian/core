@@ -72,8 +72,10 @@ final class NotificationService
         // Throttle check: only if throttleDuration is set and > 0
         if ($throttleDuration !== null && $throttleDuration > 0) {
             if ($cacheKey) {
-                // Cache-based throttling using literal cache key
-                if (Cache::has($cacheKey)) {
+                // Cache-based throttling - prefix cache key with canonical
+                $prefixedCacheKey = "{$canonical}_{$cacheKey}";
+
+                if (Cache::has($prefixedCacheKey)) {
                     // Still within throttle window - skip sending
                     return false;
                 }
@@ -82,21 +84,16 @@ final class NotificationService
                 // Use $relatable if provided, otherwise use $user as the throttle relatable
                 $throttleRelatable = $relatable ?? $user;
 
-                $lastNotification = NotificationLog::query()
+                $isThrottled = NotificationLog::query()
                     ->where('canonical', $canonical)
                     ->where('relatable_type', get_class($throttleRelatable))
                     ->where('relatable_id', $throttleRelatable->id)
-                    ->orderBy('created_at', 'desc')
-                    ->first();
+                    ->where('created_at', '>', now()->subSeconds($throttleDuration))
+                    ->exists();
 
-                if ($lastNotification) {
-                    // Check if we're within the throttle window
-                    $throttleWindow = now()->subSeconds($throttleDuration);
-
-                    if ($lastNotification->created_at->isAfter($throttleWindow)) {
-                        // Still within throttle window - skip sending
-                        return false;
-                    }
+                if ($isThrottled) {
+                    // Still within throttle window - skip sending
+                    return false;
                 }
             }
         }
@@ -134,7 +131,8 @@ final class NotificationService
 
         // Set cache throttle after successful send (cache-based throttling only)
         if ($cacheKey && $throttleDuration) {
-            Cache::put($cacheKey, true, $throttleDuration);
+            $prefixedCacheKey = "{$canonical}_{$cacheKey}";
+            Cache::put($prefixedCacheKey, true, $throttleDuration);
         }
 
         return true;
@@ -168,5 +166,4 @@ final class NotificationService
             cacheKey: $cacheKey
         );
     }
-
 }

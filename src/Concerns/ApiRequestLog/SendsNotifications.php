@@ -12,9 +12,7 @@ use Martingalian\Core\Models\Notification;
 use Martingalian\Core\Models\Repeater;
 use Martingalian\Core\Models\Server;
 use Martingalian\Core\Repeaters\ServerIpNotWhitelistedRepeater;
-use Martingalian\Core\Support\NotificationMessageBuilder;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 
 /**
  * SendsNotifications
@@ -334,179 +332,87 @@ trait SendsNotifications
 
         // Binance ambiguous error -2015 (could be credentials, IP, or permissions)
         if ($handler->isCredentialsOrIpErrorFromLog($vendorCode)) {
-            $messageData = NotificationMessageBuilder::build(
+            NotificationService::send(
+                user: Martingalian::admin(),
                 canonical: 'invalid_api_credentials',
-                context: [
+                referenceData: [
                     'exchange' => $apiSystem,
                     'ip' => $serverIp,
                     'hostname' => $hostname,
                     'account_info' => 'System-level API call (admin account)',
                     'account_name' => 'Admin Account',
-                ]
+                ],
+                cacheKey: $apiSystem.'_invalid_api_credentials'
             );
-
-            $throttleCanonical = $apiSystem.'_invalid_api_credentials';
-
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: 'invalid_api_credentials',
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $apiSystem,
-                        serverIp: $serverIp
-                    );
-                });
 
             return;
         }
 
         // Bybit specific: Invalid API Key (10003)
         if ($handler->isInvalidApiKeyFromLog($vendorCode)) {
-            $messageData = NotificationMessageBuilder::build(
+            NotificationService::send(
+                user: Martingalian::admin(),
                 canonical: 'invalid_api_key',
-                context: [
+                referenceData: [
                     'exchange' => $apiSystem,
                     'account_name' => 'Admin Account',
-                ]
+                ],
+                cacheKey: $apiSystem.'_invalid_api_key'
             );
-
-            $throttleCanonical = $apiSystem.'_invalid_api_key';
-
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: 'invalid_api_key',
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $apiSystem,
-                        serverIp: $serverIp
-                    );
-                });
 
             return;
         }
 
         // Bybit specific: Invalid Signature (10004)
         if ($handler->isInvalidSignatureFromLog($vendorCode)) {
-            $messageData = NotificationMessageBuilder::build(
+            NotificationService::send(
+                user: Martingalian::admin(),
                 canonical: 'invalid_signature',
-                context: [
+                referenceData: [
                     'exchange' => $apiSystem,
                     'account_name' => 'Admin Account',
-                ]
+                ],
+                cacheKey: $apiSystem.'_invalid_signature'
             );
-
-            $throttleCanonical = $apiSystem.'_invalid_signature';
-
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: 'invalid_signature',
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $apiSystem,
-                        serverIp: $serverIp
-                    );
-                });
 
             return;
         }
 
         // Bybit specific: Insufficient Permissions (10005)
         if ($handler->isInsufficientPermissionsFromLog($vendorCode)) {
-            $messageData = NotificationMessageBuilder::build(
+            NotificationService::send(
+                user: Martingalian::admin(),
                 canonical: 'insufficient_permissions',
-                context: [
+                referenceData: [
                     'exchange' => $apiSystem,
                     'account_name' => 'Admin Account',
-                ]
+                ],
+                cacheKey: $apiSystem.'_insufficient_permissions'
             );
-
-            $throttleCanonical = $apiSystem.'_insufficient_permissions';
-
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: 'insufficient_permissions',
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $apiSystem,
-                        serverIp: $serverIp
-                    );
-                });
 
             return;
         }
 
         // Bybit specific: IP Not Whitelisted (10010)
         if ($handler->isIpNotWhitelistedFromLog($vendorCode)) {
-            $messageData = NotificationMessageBuilder::build(
+            NotificationService::send(
+                user: Martingalian::admin(),
                 canonical: 'ip_not_whitelisted',
-                context: [
+                referenceData: [
                     'exchange' => $apiSystem,
                     'ip' => $serverIp,
                     'hostname' => $hostname,
                     'account_info' => 'System-level API call (admin account)',
                     'account_name' => 'Admin Account',
-                ]
+                ],
+                cacheKey: $apiSystem.'_ip_not_whitelisted'
             );
-
-            $throttleCanonical = $apiSystem.'_ip_not_whitelisted';
-
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: 'ip_not_whitelisted',
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $apiSystem,
-                        serverIp: $serverIp
-                    );
-                });
 
             return;
         }
 
         // Rate Limit
         if ($handler->isRateLimitedFromLog($httpCode, $vendorCode)) {
-            $throttleCanonical = $apiSystem.'_api_rate_limit_exceeded';
-
             // Load account if available
             $accountInfo = 'System-level API call (no specific account)';
             if ($this->account_id) {
@@ -519,103 +425,51 @@ trait SendsNotifications
                 }
             }
 
-            $messageData = NotificationMessageBuilder::build(
+            NotificationService::send(
+                user: Martingalian::admin(),
                 canonical: 'api_rate_limit_exceeded',
-                context: [
+                referenceData: [
                     'exchange' => $apiSystem,
                     'ip' => $serverIp,
                     'hostname' => $hostname,
                     'account_info' => $accountInfo,
-                ]
+                ],
+                cacheKey: $apiSystem.'_api_rate_limit_exceeded'
             );
-
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: 'api_rate_limit_exceeded',
-                        deliveryGroup: 'default',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $apiSystem,
-                        serverIp: $serverIp
-                    );
-                });
 
             return;
         }
 
         // Forbidden / API Access Denied
         if ($handler->isForbiddenFromLog($httpCode, $vendorCode)) {
-            $messageData = NotificationMessageBuilder::build(
+            NotificationService::send(
+                user: Martingalian::admin(),
                 canonical: 'api_access_denied',
-                context: [
+                referenceData: [
                     'exchange' => $apiSystem,
                     'ip' => $serverIp,
                     'hostname' => $hostname,
                     'account_info' => 'System-level API call (admin account)',
-                ]
+                ],
+                cacheKey: $apiSystem.'_api_access_denied'
             );
-
-            $throttleCanonical = $apiSystem.'_api_access_denied';
-
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: 'api_access_denied',
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $apiSystem,
-                        serverIp: $serverIp
-                    );
-                });
 
             return;
         }
 
         // Invalid credentials (generic 401)
         if ($httpCode === 401) {
-            $messageData = NotificationMessageBuilder::build(
+            NotificationService::send(
+                user: Martingalian::admin(),
                 canonical: 'api_access_denied',
-                context: [
+                referenceData: [
                     'exchange' => $apiSystem,
                     'ip' => $serverIp,
                     'hostname' => $hostname,
                     'account_info' => 'System-level API call (admin account)',
-                ]
+                ],
+                cacheKey: $apiSystem.'_api_access_denied'
             );
-
-            $throttleCanonical = $apiSystem.'_api_access_denied';
-
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: 'api_access_denied',
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $apiSystem,
-                        serverIp: $serverIp
-                    );
-                });
 
             return;
         }
@@ -623,68 +477,32 @@ trait SendsNotifications
         // Service unavailable / Server Overload
         // CRITICAL: During price crashes, exchanges get overloaded and cannot process requests
         if ($handler->isServerOverloadFromLog($httpCode, $vendorCode)) {
-            $messageData = NotificationMessageBuilder::build(
+            NotificationService::send(
+                user: Martingalian::admin(),
                 canonical: 'exchange_maintenance',
-                context: [
+                referenceData: [
                     'exchange' => $apiSystem,
                     'ip' => $serverIp,
                     'hostname' => $hostname,
-                ]
+                ],
+                cacheKey: $apiSystem.'_exchange_maintenance'
             );
-
-            $throttleCanonical = $apiSystem.'_exchange_maintenance';
-
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: 'exchange_maintenance',
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $apiSystem,
-                        serverIp: $serverIp
-                    );
-                });
 
             return;
         }
 
         // Connection failures
         if (! $httpCode && $this->error_message) {
-            $messageData = NotificationMessageBuilder::build(
+            NotificationService::send(
+                user: Martingalian::admin(),
                 canonical: 'api_connection_failed',
-                context: [
+                referenceData: [
                     'exchange' => $apiSystem,
                     'ip' => $serverIp,
                     'hostname' => $hostname,
-                ]
+                ],
+                cacheKey: $apiSystem.'_api_connection_failed'
             );
-
-            $throttleCanonical = $apiSystem.'_api_connection_failed';
-
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($messageData, $apiSystem, $serverIp) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: 'api_connection_failed',
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $apiSystem,
-                        serverIp: $serverIp
-                    );
-                });
 
             return;
         }
@@ -764,68 +582,27 @@ trait SendsNotifications
             $context['hostname'] = $hostname;
         }
 
-        // Build user-friendly message
-        $messageData = NotificationMessageBuilder::build(
-            canonical: $messageCanonical,
-            context: $context,
-            user: $hasSpecificUser ? $account->user : null
-        );
-
-        // Resolve contextable key using the configured class
-        $contextableKey = null;
-        if ($notification->throttle_contextable_class) {
-            $resolver = app($notification->throttle_contextable_class);
-            $contextableKey = $resolver($this);  // Pass ApiRequestLog to resolver
-        }
-
         // Send to user if appropriate
         if ($shouldSendToUser && $hasSpecificUser) {
             $user = $account->user;
-            $exchangeCanonical = $handler->getApiSystem();
-            $apiSystem = ApiSystem::where('canonical', $exchangeCanonical)->first();
-            $exchangeName = $apiSystem ? $apiSystem->name : ucfirst($exchangeCanonical);
-            $serverIp = $isServerRelated ? Martingalian::ip() : null;
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->forKey($contextableKey)  // Use dynamic contextable key
-                ->execute(function () use ($user, $messageData, $messageCanonical, $exchangeName, $serverIp) {
-                    NotificationService::send(
-                        user: $user,
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: $messageCanonical,
-                        deliveryGroup: null,  // User notifications should NOT use delivery groups (those route to admin group keys)
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel'],
-                        exchange: $exchangeName,
-                        serverIp: $serverIp
-                    );
-                });
+            NotificationService::send(
+                user: $user,
+                canonical: $messageCanonical,
+                referenceData: $context,
+                cacheKey: $throttleCanonical.':user:'.$user->id
+            );
         }
 
         // Send to admin if appropriate
-        // Note: Admin notifications do NOT include exchange/serverIp parameters to keep email subjects clean
         // Send to admin independently of whether we sent to user (both can receive notifications)
         // Use separate throttle key to avoid throttling admin notification when user notification was just sent
         if ($shouldSendToAdmin) {
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical.'_admin')
-                ->forKey($contextableKey)  // Use same contextable key for admin
-                ->execute(function () use ($messageData, $messageCanonical) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: $messageData['emailMessage'],
-                        title: $messageData['title'],
-                        canonical: $messageCanonical,
-                        deliveryGroup: 'exceptions',
-                        severity: $messageData['severity'],
-                        pushoverMessage: $messageData['pushoverMessage'],
-                        actionUrl: $messageData['actionUrl'],
-                        actionLabel: $messageData['actionLabel']
-                    );
-                });
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: $messageCanonical,
+                referenceData: $context,
+                cacheKey: $throttleCanonical.'_admin'
+            );
         }
     }
 

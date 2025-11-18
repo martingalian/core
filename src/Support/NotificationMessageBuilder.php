@@ -41,8 +41,8 @@ final class NotificationMessageBuilder
         $userName = $user !== null ? $user->name : 'there';
 
         $exchangeRaw = $context['exchange'] ?? 'exchange';
-        $exchange = is_string($exchangeRaw) ? $exchangeRaw : 'exchange';
-        $exchangeTitle = ucfirst($exchange);
+        $exchange = is_string($exchangeRaw) ? $exchangeRaw : ($exchangeRaw->canonical ?? 'exchange');
+        $exchangeTitle = is_string($exchangeRaw) ? ucfirst($exchangeRaw) : ($exchangeRaw->name ?? ucfirst($exchange));
 
         $ipRaw = $context['ip'] ?? 'unknown';
         $ip = is_string($ipRaw) ? $ipRaw : 'unknown';
@@ -196,41 +196,106 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            'binance_websocket_error', 'bybit_websocket_error' => [
-                'severity' => NotificationSeverity::High,
-                'title' => "{$exchangeTitle} WebSocket Error",
-                'emailMessage' => "{$exchangeTitle} WebSocket connection error. Real-time price updates interrupted.\n\nException: ".($exception ?? 'Unknown error')."\n\nPlatform automatically reconnecting with exponential backoff. If fails, supervisor will restart update-{$exchange}-prices command.\n\nResolution steps:\n\n• Check supervisor status:\n[CMD]supervisorctl status update-{$exchange}-prices[/CMD]\n\n• Check supervisor logs:\n[CMD]supervisorctl tail update-{$exchange}-prices[/CMD]\n\n• Review full application logs:\n[CMD]tail -100 storage/logs/laravel.log | grep -i \"{$exchange}\"[/CMD]\n\n• Check {$exchangeTitle} API status page for WebSocket service incidents:\nBinance: binance.com/en/support/announcement\nBybit: bybit-exchange.github.io/docs/v5/sysStatus\n\n• Monitor price sync status:\n[CMD]SELECT parsed_trading_pair, mark_price_synced_at, TIMESTAMPDIFF(SECOND, mark_price_synced_at, NOW()) as seconds_stale FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchange}') ORDER BY mark_price_synced_at ASC LIMIT 10;[/CMD]",
-                'pushoverMessage' => "{$exchangeTitle} WebSocket error: ".($exception ?? 'Unknown'),
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
+            'binance_websocket_error', 'bybit_websocket_error' => (function () use ($context, $exchange, $exchangeTitle) {
+                $exception = is_string($context['exception'] ?? null) ? $context['exception'] : 'Unknown error';
+                $exchangeLower = mb_strtolower($exchange);
 
-            'binance_invalid_json', 'bybit_invalid_json' => [
-                'severity' => NotificationSeverity::Medium,
-                'title' => "{$exchangeTitle} Price Stream: Invalid Data",
-                'emailMessage' => "{$exchangeTitle} price stream supervisor (update-{$exchange}-prices) received malformed JSON from WebSocket. Data discarded to prevent corruption.\n\nPlatform continues listening for subsequent price updates. Next message should be valid. Raw malformed data logged in application logs. Typically transient network glitch.\n\nResolution steps (if repeated >5 times in 30 minutes):\n\n• Review application logs for raw JSON samples:\n[CMD]tail -100 storage/logs/laravel.log | grep -i \"invalid\\|malformed\\|json\"[/CMD]\n\n• Check {$exchangeTitle} API changelog for WebSocket protocol changes:\nBinance: binance.com/en/support/announcement\nBybit: bybit-exchange.github.io/docs/v5/changelog\n\n• Test network quality:\n[CMD]mtr -c 10 stream.{$exchange}.com[/CMD]\n\n• Check supervisor status and logs:\n[CMD]supervisorctl status update-{$exchange}-prices[/CMD]\n[CMD]supervisorctl tail update-{$exchange}-prices | grep -i \"json\\|parse\"[/CMD]",
-                'pushoverMessage' => "{$exchangeTitle} price stream: invalid JSON received",
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
+                return [
+                    'severity' => NotificationSeverity::High,
+                    'title' => "{$exchangeTitle} WebSocket Error",
+                    'emailMessage' => "⚠️ {$exchangeTitle} WebSocket Error\n\n".
+                        "{$exchangeTitle} WebSocket connection error. Real-time price updates interrupted.\n\n".
+                        "📛 EXCEPTION:\n\n".
+                        "{$exception}\n\n".
+                        "✅ AUTOMATIC RECOVERY:\n\n".
+                        "Platform automatically reconnecting with exponential backoff. If reconnection fails, supervisor will restart update-{$exchangeLower}-prices command.\n\n".
+                        "🔍 RESOLUTION STEPS:\n\n".
+                        "• Check supervisor status:\n".
+                        "[CMD]supervisorctl status update-{$exchangeLower}-prices[/CMD]\n\n".
+                        "• Check supervisor logs:\n".
+                        "[CMD]supervisorctl tail update-{$exchangeLower}-prices[/CMD]\n\n".
+                        "• Review full application logs:\n".
+                        "[CMD]tail -100 storage/logs/laravel.log | grep -i \"{$exchangeLower}\"[/CMD]\n\n".
+                        "• Check {$exchangeTitle} API status page for WebSocket service incidents:\n".
+                        "Binance: binance.com/en/support/announcement\n".
+                        "Bybit: bybit-exchange.github.io/docs/v5/sysStatus\n\n".
+                        "• Monitor price sync status:\n".
+                        "[CMD]SELECT parsed_trading_pair, mark_price_synced_at, TIMESTAMPDIFF(SECOND, mark_price_synced_at, NOW()) as seconds_stale FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}') ORDER BY mark_price_synced_at ASC LIMIT 10;[/CMD]",
+                    'pushoverMessage' => "{$exchangeTitle} WebSocket error: {$exception}",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
 
-            'update_prices_restart' => [
-                'severity' => NotificationSeverity::Info,
-                'title' => "{$exchangeTitle} Price Stream Restart",
-                'emailMessage' => "{$exchangeTitle} WebSocket price monitoring restarting due to symbol list changes (new pairs added or removed).\n\nPlatform gracefully closing existing WebSocket connection and reconnecting with updated subscription list. Price streaming resumes within seconds. Normal operational event.\n\nNo action required - fully automated process.\n\n• Monitor supervisor status:\n[CMD]supervisorctl status update-{$exchange}-prices[/CMD]\n\n• Check recent supervisor logs:\n[CMD]supervisorctl tail update-{$exchange}-prices[/CMD]",
-                'pushoverMessage' => "{$exchangeTitle} price supervisor restarting - new trading pairs detected",
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
+            'websocket_invalid_json' => (function () use ($context, $exchange, $exchangeTitle) {
+                $exchangeLower = mb_strtolower($exchange);
+                $hits = is_numeric($context['hits'] ?? null) ? (int) $context['hits'] : 0;
 
-            'binance_db_update_error', 'bybit_db_update_error' => [
-                'severity' => NotificationSeverity::Critical,
-                'title' => "{$exchangeTitle} Price Stream: Database Error",
-                'emailMessage' => "{$exchangeTitle} price stream supervisor (update-{$exchange}-prices) failed to persist price data to database. Data received from WebSocket but UPDATE to exchange_symbols.mark_price failed.\n\nPlatform continues receiving prices but cannot persist to mark_price and mark_price_synced_at. Stale price detection may trigger. Trading algorithms using stale data.\n\nCRITICAL: Immediate action required to prevent trading on stale prices.\n\nResolution steps:\n\n• Check MySQL server status:\n[CMD]systemctl status mysql[/CMD]\n\n• Check disk space on database host:\n[CMD]df -h[/CMD]\n\n• Review MySQL connection pool for locks:\n[CMD]mysql -e \"SHOW PROCESSLIST;\"[/CMD]\n\n• Check for long-running queries:\n[CMD]mysql -e \"SELECT * FROM information_schema.processlist WHERE TIME > 10 ORDER BY TIME DESC;\"[/CMD]\n\n• Check MySQL error logs:\n[CMD]tail -100 /var/log/mysql/error.log[/CMD]\n\n• Test database connectivity:\n[CMD]mysql -e \"SELECT 1;\"[/CMD]\n\n• Check database table status:\n[CMD]mysql -e \"SELECT COUNT(*) as total, MAX(mark_price_synced_at) as latest FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchange}');\"[/CMD]\n\n• Check supervisor status:\n[CMD]supervisorctl status update-{$exchange}-prices[/CMD]",
-                'pushoverMessage' => "{$exchangeTitle} price stream: database error",
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
+                return [
+                    'severity' => NotificationSeverity::Medium,
+                    'title' => "{$exchangeTitle} Price Stream: Invalid Data",
+                    'emailMessage' => "⚠️ {$exchangeTitle} Price Stream: Invalid Data\n\n".
+                        "Received {$hits} invalid JSON payload(s) in less than 60 seconds from {$exchangeTitle} WebSocket stream.\n\n".
+                        "{$exchangeTitle} price stream supervisor (update-{$exchangeLower}-prices) is discarding malformed data to prevent corruption. Platform continues listening for valid price updates.\n\n".
+                        "🔍 RESOLUTION STEPS:\n\n".
+                        "• Review application logs for raw JSON samples:\n".
+                        "[CMD]tail -100 storage/logs/laravel.log | grep -i \"invalid\\|malformed\\|json\"[/CMD]\n\n".
+                        "• Test network quality:\n".
+                        "[CMD]mtr -c 10 stream.{$exchangeLower}.com[/CMD]\n\n".
+                        "• Check supervisor status and logs:\n".
+                        "[CMD]supervisorctl status update-{$exchangeLower}-prices[/CMD]\n".
+                        "[CMD]supervisorctl tail update-{$exchangeLower}-prices | grep -i \"json\\|parse\"[/CMD]",
+                    'pushoverMessage' => "{$exchangeTitle}: {$hits} invalid JSON payload(s) in <60s",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
+            'update_prices_restart' => (function () use ($context, $exchange, $exchangeTitle) {
+                $oldCount = is_numeric($context['old_count'] ?? null) ? (int) $context['old_count'] : 0;
+                $newCount = is_numeric($context['new_count'] ?? null) ? (int) $context['new_count'] : 0;
+                $difference = abs($newCount - $oldCount);
+                $changeType = $newCount > $oldCount ? 'added' : 'removed';
+                $exchangeLower = mb_strtolower($exchange);
+
+                return [
+                    'severity' => NotificationSeverity::Info,
+                    'title' => "{$exchangeTitle} Price Stream Restart",
+                    'emailMessage' => "ℹ️ {$exchangeTitle} Price Stream Restart\n\n".
+                        "{$exchangeTitle} WebSocket price monitoring restarting due to symbol list changes (new pairs added or removed).\n\n".
+                        "📊 SYMBOL COUNT CHANGE:\n\n".
+                        "• Previous Count: {$oldCount} trading pairs\n".
+                        "• New Count: {$newCount} trading pairs\n".
+                        "• Change: {$difference} pair(s) {$changeType}\n\n".
+                        "Platform gracefully closing existing WebSocket connection and reconnecting with updated subscription list. Price streaming resumes within seconds. Normal operational event.\n\n".
+                        "✅ AUTOMATIC PROCESS:\n\n".
+                        "No action required - fully automated process. Supervisor will restart the update-{$exchangeLower}-prices command with the new symbol list.\n\n".
+                        "🔍 MONITORING:\n\n".
+                        "• Monitor supervisor status:\n".
+                        "[CMD]supervisorctl status update-{$exchangeLower}-prices[/CMD]\n\n".
+                        "• Check recent supervisor logs:\n".
+                        "[CMD]supervisorctl tail update-{$exchangeLower}-prices[/CMD]\n\n".
+                        "• Verify new symbol count in database:\n".
+                        "[CMD]SELECT COUNT(*) as total FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}');[/CMD]",
+                    'pushoverMessage' => "{$exchangeTitle} price supervisor restarting: {$difference} pair(s) {$changeType} ({$oldCount} → {$newCount})",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
+            'websocket_prices_update_error' => (function () use ($context, $exchange) {
+                $exception = is_string($context['exception'] ?? null) ? $context['exception'] : 'Unknown error';
+                $exchangeTitle = ucfirst($exchange);
+
+                return [
+                    'severity' => NotificationSeverity::Critical,
+                    'title' => "{$exchangeTitle} UpdatePricesCommand database error",
+                    'emailMessage' => "There was an error updating prices for this exchange.\n\nError message: {$exception}",
+                    'pushoverMessage' => "There was an error updating prices for this exchange. Error message: {$exception}",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
 
             'binance_db_insert_error', 'bybit_db_insert_error' => [
                 'severity' => NotificationSeverity::High,
@@ -241,14 +306,44 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            'stale_price_detected' => [
-                'severity' => NotificationSeverity::High,
-                'title' => "{$exchangeTitle} Stale Prices Detected",
-                'emailMessage' => "{$exchangeTitle} price updates not received within expected timeframe. WebSocket connection may be stalled or {$exchangeTitle} API experiencing issues.\n\nPlatform automatically set should_restart_websocket flag on api_systems table. WebSocket command checks this flag every second and will gracefully restart. Supervisor then relaunches the process.\n\nResolution steps:\n\n• Check stale prices:\n[CMD]SELECT parsed_trading_pair, mark_price, mark_price_synced_at, TIMESTAMPDIFF(SECOND, mark_price_synced_at, NOW()) as seconds_stale FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchange}') ORDER BY mark_price_synced_at ASC LIMIT 10;[/CMD]\n\n• Verify restart flag:\n[CMD]SELECT should_restart_websocket, updated_at FROM api_systems WHERE canonical = '{$exchange}';[/CMD]\n\n• Check supervisor status:\n[CMD]supervisorctl status update-{$exchange}-prices[/CMD]\nOr tail logs:\n[CMD]supervisorctl tail update-{$exchange}-prices[/CMD]\n\n• Check {$exchangeTitle} status page:\nBinance: binance.com/en/support/announcement\nBybit: bybit-exchange.github.io/docs/v5/sysStatus\n\n• Review application logs (look for websocket errors, connection failures, mark_price update failures):\n[CMD]tail -100 storage/logs/laravel.log | grep -i \"{$exchange}\"[/CMD]",
-                'pushoverMessage' => "Stale price detected on {$exchangeTitle}",
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
+            'stale_price_detected' => (function () use ($context, $exchange, $exchangeTitle) {
+                // Extract stale price details
+                $oldestSymbol = is_string($context['oldest_symbol'] ?? null) ? $context['oldest_symbol'] : 'N/A';
+                $oldestPrice = is_string($context['oldest_price'] ?? null) ? $context['oldest_price'] : 'N/A';
+                $oldestMinutes = is_numeric($context['oldest_minutes'] ?? null) ? (int) $context['oldest_minutes'] : 0;
+                $newestSymbol = is_string($context['newest_symbol'] ?? null) ? $context['newest_symbol'] : 'N/A';
+                $newestSeconds = is_numeric($context['newest_seconds'] ?? null) ? (int) $context['newest_seconds'] : 0;
+
+                $exchangeLower = mb_strtolower($exchange);
+
+                return [
+                    'severity' => NotificationSeverity::High,
+                    'title' => "{$exchangeTitle} Stale Prices Detected",
+                    'emailMessage' => "⚠️ {$exchangeTitle} Stale Prices Detected\n\n".
+                        "{$exchangeTitle} price updates not received within expected timeframe. WebSocket connection may be stalled or {$exchangeTitle} API experiencing issues.\n\n".
+                        "📊 STALE PRICE DETAILS:\n\n".
+                        "• Most Stale Symbol: {$oldestSymbol}\n".
+                        "• Last Price: {$oldestPrice}\n".
+                        "• Last Updated: {$oldestMinutes} minutes ago\n\n".
+                        "• Newest Symbol: {$newestSymbol}\n".
+                        "• Last Updated: {$newestSeconds} seconds ago\n\n".
+                        "🔍 RESOLUTION STEPS:\n\n".
+                        "• Check stale prices:\n".
+                        "[CMD]SELECT parsed_trading_pair, mark_price, mark_price_synced_at, TIMESTAMPDIFF(SECOND, mark_price_synced_at, NOW()) as seconds_stale FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}') ORDER BY mark_price_synced_at ASC LIMIT 10;[/CMD]\n\n".
+                        "• Check supervisor status:\n".
+                        "[CMD]supervisorctl status update-{$exchangeLower}-prices[/CMD]\n".
+                        "Or tail logs:\n".
+                        "[CMD]supervisorctl tail update-{$exchangeLower}-prices[/CMD]\n\n".
+                        "• Restart supervisor if needed:\n".
+                        "[CMD]supervisorctl restart update-{$exchangeLower}-prices[/CMD]",
+                    'pushoverMessage' => "⚠️ {$exchangeTitle} stale prices detected\n".
+                        "Most stale: {$oldestSymbol} ({$oldestMinutes}m ago)\n".
+                        "Newest: {$newestSymbol} ({$newestSeconds}s ago)\n".
+                        'Manual supervisor restart may be required',
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
 
             'notification_gateway_error' => [
                 'severity' => NotificationSeverity::Critical,
@@ -268,26 +363,41 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            'exchange_symbol_no_taapi_data' => [
-                'severity' => NotificationSeverity::Info,
-                'title' => ($context['exchange_symbol']?->parsed_trading_pair_with_exchange ?? 'Exchange Symbol').' Auto-Deactivated',
-                'emailMessage' => "ℹ️ Exchange Symbol Auto-Deactivated\n\n".
-                    'Exchange Symbol: '.($context['exchange_symbol']?->parsed_trading_pair_with_exchange ?? 'UNKNOWN')."\n".
-                    "Reason: Consistent lack of TAAPI indicator data\n".
-                    'Failed Requests: '.($context['failure_count'] ?? 'N/A')." in last 24 hours\n\n".
-                    "📊 WHAT HAPPENED:\n\n".
-                    'This exchange symbol has been automatically deactivated because TAAPI (Technical Analysis API) consistently failed to provide indicator data. '.
-                    "After multiple consecutive failures, the platform determined this symbol is not supported by TAAPI and deactivated it to prevent further errors.\n\n".
-                    "✅ IMPACT:\n\n".
-                    "• Symbol marked as inactive (is_active = false)\n".
-                    "• Symbol marked as ineligible (is_eligible = false)\n".
-                    "• No more TAAPI requests will be made for this symbol\n".
-                    "• Trading operations for this symbol will be suspended\n\n".
-                    'This is an automated protection mechanism to prevent wasted API calls and log pollution.',
-                'pushoverMessage' => ($context['exchange_symbol']?->parsed_trading_pair_with_exchange ?? 'Exchange Symbol').' auto-deactivated - '.($context['failure_count'] ?? 'N/A').' TAAPI failures',
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
+            'exchange_symbol_no_taapi_data' => (function () use ($context) {
+                $exchangeSymbol = $context['exchange_symbol'] ?? null;
+
+                // Build display string manually: "SYMBOL/QUOTE@Exchange" for readability
+                $displayString = 'Exchange Symbol';
+                if ($exchangeSymbol) {
+                    $symbolToken = $exchangeSymbol->symbol?->token ?? 'UNKNOWN';
+                    $quoteCanonical = $exchangeSymbol->quote?->canonical ?? 'UNKNOWN';
+                    $exchangeName = $exchangeSymbol->apiSystem?->name ?? 'UNKNOWN';
+                    $displayString = "{$symbolToken}/{$quoteCanonical}@{$exchangeName}";
+                }
+
+                return [
+                    'severity' => NotificationSeverity::Info,
+                    'title' => $displayString.' Auto-Deactivated',
+                    'emailMessage' => "ℹ️ Exchange Symbol Auto-Deactivated\n\n".
+                        'Exchange Symbol: '.$displayString."\n".
+                        "Reason: Consistent lack of TAAPI indicator data\n".
+                        'Failed Requests: '.($context['failure_count'] ?? 'N/A')." in last 24 hours\n\n".
+                        "📊 WHAT HAPPENED:\n\n".
+                        'This exchange symbol has been automatically deactivated because TAAPI (Technical Analysis API) consistently failed to provide indicator data. '.
+                        "After multiple consecutive failures, the platform determined this symbol is not supported by TAAPI and deactivated it to prevent further errors.\n\n".
+                        "✅ IMPACT:\n\n".
+                        "• Symbol marked as inactive (is_active = false)\n".
+                        "• Symbol marked as ineligible (is_eligible = false)\n".
+                        "• No more TAAPI requests will be made for this symbol\n".
+                        "• Trading operations for this symbol will be suspended\n".
+                        '• Already ongoing Trading operations will continue',
+                    'pushoverMessage' => 'Exchange Symbol: '.$displayString."\n".
+                        'Reason: '.($context['failure_count'] ?? 'N/A')." Taapi failures\n".
+                        'Action: Changed to Deactivated and Ineligible',
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
 
             'symbol_cmc_id_not_found' => [
                 'severity' => NotificationSeverity::Medium,
@@ -297,6 +407,88 @@ final class NotificationMessageBuilder
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],
+
+            'job_execution_failed' => (function () use ($context) {
+                $stepId = $context['step_id'] ?? 'N/A';
+                $jobClass = $context['job_class'] ?? 'UnknownJob';
+                $exceptionMessage = is_string($context['exception_message'] ?? null) ? $context['exception_message'] : 'Unknown error';
+
+                return [
+                    'severity' => NotificationSeverity::High,
+                    'title' => 'Job Execution Failed',
+                    'emailMessage' => "⚠️ Job Execution Failed\n\n".
+                        "A queued job encountered an exception and failed to complete.\n\n".
+                        "📋 JOB DETAILS:\n\n".
+                        "• Job Class: {$jobClass}\n".
+                        "• Step ID: {$stepId}\n".
+                        "• Exception: {$exceptionMessage}\n\n".
+                        "🔍 RESOLUTION STEPS:\n\n".
+                        "• Check application logs for full stack trace:\n".
+                        "[CMD]tail -100 storage/logs/laravel.log | grep -i \"{$jobClass}\"[/CMD]\n\n".
+                        "• Review step details in database:\n".
+                        "[CMD]SELECT * FROM steps WHERE id = {$stepId};[/CMD]\n\n".
+                        "• Check Horizon dashboard for failed jobs:\n".
+                        "[CMD]php artisan horizon:list[/CMD]\n\n".
+                        "• Retry the failed job if appropriate:\n".
+                        "[CMD]php artisan queue:retry {$stepId}[/CMD]",
+                    'pushoverMessage' => "⚠️ Job failed: {$jobClass} - {$exceptionMessage}",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
+            'step_error' => (function () use ($context) {
+                $stepId = $context['step_id'] ?? 'N/A';
+                $jobClass = $context['job_class'] ?? 'UnknownJob';
+                $errorMessage = is_string($context['error_message'] ?? null) ? $context['error_message'] : 'Unknown error';
+
+                return [
+                    'severity' => NotificationSeverity::High,
+                    'title' => "[S:{$stepId} {$jobClass}] - Error",
+                    'emailMessage' => "⚠️ Step Error\n\n".
+                        "A step encountered an error during execution.\n\n".
+                        "📋 STEP DETAILS:\n\n".
+                        "• Job Class: {$jobClass}\n".
+                        "• Step ID: {$stepId}\n".
+                        "• Error: {$errorMessage}\n\n".
+                        "🔍 RESOLUTION STEPS:\n\n".
+                        "• Check application logs for details:\n".
+                        "[CMD]tail -100 storage/logs/laravel.log | grep -i \"step {$stepId}\"[/CMD]\n\n".
+                        "• Review step state and history:\n".
+                        "[CMD]SELECT * FROM steps WHERE id = {$stepId};[/CMD]\n\n".
+                        "• Check for related errors:\n".
+                        '[CMD]php artisan horizon:failed[/CMD]',
+                    'pushoverMessage' => "⚠️ Step error - {$jobClass}: {$errorMessage}",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
+            'unrealized_pnl_alert' => (function () use ($context, $userName) {
+                $accountName = is_string($context['account_name'] ?? null) ? $context['account_name'] : 'Unknown Account';
+                $walletBalance = is_string($context['wallet_balance'] ?? null) ? $context['wallet_balance'] : '$0';
+                $unrealizedPnl = is_string($context['unrealized_pnl'] ?? null) ? $context['unrealized_pnl'] : '$0';
+
+                return [
+                    'severity' => NotificationSeverity::High,
+                    'title' => 'Position Monitoring: P&L Update',
+                    'emailMessage' => "📊 Position Monitoring Alert\n\n".
+                        "Unrealized P&L has exceeded 10% of wallet balance for {$accountName}.\n\n".
+                        "📈 POSITION DETAILS:\n\n".
+                        "• Trader: {$userName}\n".
+                        "• Account: {$accountName}\n".
+                        "• Wallet Balance: {$walletBalance}\n".
+                        "• Unrealized P&L: {$unrealizedPnl}\n\n".
+                        "⚠️ ATTENTION REQUIRED:\n\n".
+                        "This notification is triggered when unrealized profit or loss exceeds 10% of the wallet balance.\n\n".
+                        "• Review open positions in the dashboard\n".
+                        "• Consider taking action if necessary\n".
+                        '• Monitor for further changes',
+                    'pushoverMessage' => "⚠️ P&L Alert: {$unrealizedPnl} on {$accountName}",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
 
             // Default fallback for unknown canonicals
             default => [

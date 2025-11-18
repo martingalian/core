@@ -1,6 +1,6 @@
 # Notification System - Current Implementation
 
-**Last Updated**: 2025-11-16
+**Last Updated**: 2025-11-17
 **Status**: Production
 
 ---
@@ -250,6 +250,109 @@ NotificationService::send(
     duration: 0  // No throttle - always send
 );
 ```
+
+---
+
+## Real-World Implementation Example: WebSocket Invalid JSON Detection
+
+### Overview
+The `websocket_invalid_json` notification demonstrates a production pattern for error threshold detection with cache-based counting and notification throttling.
+
+### Pattern: Cache-Based Error Threshold
+
+**Location**: `app/Console/Commands/Cronjobs/{Binance,Bybit}/UpdatePricesCommand.php`
+
+**Problem**: WebSocket streams occasionally receive malformed JSON. Occasional errors are normal (network blips, API hiccups), but persistent errors indicate a problem requiring intervention.
+
+**Solution**: Cache-based hit counter with threshold (3 hits per 60 seconds triggers notification).
+
+**Implementation**:
+```php
+protected function processWebSocketMessage(string $msg): void
+{
+    $decoded = json_decode($msg, true);
+    if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
+        $cacheKey = 'binance_invalid_json_hits';  // or 'bybit_invalid_json_hits'
+
+        // Increment hit counter (with 60 second TTL)
+        $hits = Cache::get($cacheKey, 0) + 1;
+        Cache::put($cacheKey, $hits, 60);
+
+        // Notify if threshold reached (3+ hits per minute)
+        if ($hits >= 3) {
+            $binanceSystem = ApiSystem::firstWhere('canonical', 'binance');
+            NotificationService::sendToAdminByCanonical(
+                canonical: 'websocket_invalid_json',
+                referenceData: [
+                    'exchange' => 'BINANCE',  // or 'BYBIT'
+                    'hits' => $hits,
+                ],
+                relatable: $binanceSystem,
+                duration: 60,
+                cacheKey: 'binance'  // or 'bybit'
+            );
+        }
+
+        return;
+    }
+
+    // ... normal message processing
+}
+```
+
+### Key Design Decisions
+
+**1. Exchange-Agnostic Notification**
+- Single `websocket_invalid_json` canonical (not separate per exchange)
+- Exchange identified via `referenceData['exchange']`
+- Relatable is the `ApiSystem` model instance
+- Pattern enables reuse across Binance, Bybit, and future exchanges
+
+**2. Dual Caching Strategy**
+- **Error Counter Cache**: `{exchange}_invalid_json_hits` (60s TTL, separate per exchange)
+- **Notification Throttle Cache**: `{exchange}` via cacheKey parameter (60s TTL, separate per exchange)
+
+**3. Self-Healing**
+- Errors 1-2 within 60s: Silently discarded, counter expires naturally
+- Error 3+ within 60s: Notification triggered once (throttled for 60s)
+- After 60s of no errors: Counter resets, notification can fire again
+
+**4. Message Context**
+The notification message includes the hit count for debugging:
+```php
+referenceData: [
+    'exchange' => 'BINANCE',
+    'hits' => 5,  // Actual count when threshold exceeded
+]
+```
+
+This renders as: "Received 5 invalid JSON payload(s) in less than 60 seconds from Binance WebSocket stream."
+
+### Cache Keys Explained
+
+| Purpose | Cache Key | TTL | Scope |
+|---------|-----------|-----|-------|
+| Error counting | `binance_invalid_json_hits` | 60s | Per exchange |
+| Notification throttle | `binance` (via cacheKey param) | 60s | Per exchange |
+
+**Why separate keys?**
+- Error counter tracks ALL invalid JSON occurrences
+- Notification throttle prevents spam after threshold reached
+- Both expire independently, allowing fresh detection cycles
+
+### Related Patterns
+
+This pattern is reusable for any threshold-based error detection:
+- Database connection failures (3+ per minute)
+- API rate limit hits (5+ per minute)
+- Authentication failures (10+ per hour)
+
+**Template**:
+1. Cache counter with TTL matching detection window
+2. Check threshold before notifying
+3. Pass hit count in referenceData for context
+4. Use NotificationService throttling to prevent spam
+5. Self-healing via cache expiration
 
 ---
 

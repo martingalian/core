@@ -60,6 +60,7 @@ final class ExchangeSymbol extends BaseModel
     protected $casts = [
         'is_tradeable' => 'boolean',
         'is_active' => 'boolean',
+        'is_eligible' => 'boolean',
 
         'symbol_information' => 'array',
         'leverage_brackets' => 'array',

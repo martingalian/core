@@ -9,6 +9,15 @@ use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\Symbol\HasBaseAssetParsing;
 use Martingalian\Core\Concerns\Symbol\InteractsWithApis;
 
+/**
+ * @property int $id
+ * @property string $token
+ * @property string $name
+ * @property string|null $description
+ * @property int|null $cmc_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ */
 final class Symbol extends BaseModel
 {
     use HasBaseAssetParsing;
