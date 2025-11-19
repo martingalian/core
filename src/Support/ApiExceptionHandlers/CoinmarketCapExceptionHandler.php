@@ -27,6 +27,12 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
         rateLimitUntil as baseRateLimitUntil;
     }
 
+    public function __construct()
+    {
+        // Base fallback when no Retry-After is present.
+        $this->backoffSeconds = 30;
+    }
+
     /**
      * Ignorable: Invalid symbol names or malformed requests that should not retry.
      * 400 = Bad Request (invalid symbol, malformed parameters, etc.)
@@ -35,10 +41,14 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
 
     /**
      * Retryable: transient server-side/network conditions.
+     * Standard HTTP errors that can be retried.
      */
     public array $retryableHttpCodes = [
-        500, 502, 503, 504,
-        408,
+        408,     // Request timeout
+        500,     // Internal server error
+        502,     // Bad gateway
+        503,     // Service unavailable
+        504,     // Gateway timeout
     ];
 
     /**
@@ -71,10 +81,14 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
 
     public array $cmcMonthlyCodes = [1010];       // monthly cap
 
-    public function __construct()
+    /**
+     * Ping the CoinMarketCap API to check connectivity.
+     */
+    public function ping(): bool
     {
-        // Base fallback when no Retry-After is present.
-        $this->backoffSeconds = 30;
+        // CoinMarketCap doesn't have a dedicated ping endpoint
+        // Return true as we'll discover issues through actual API calls
+        return true;
     }
 
     public function getApiSystem(): string

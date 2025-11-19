@@ -100,7 +100,7 @@ final class ApiRequestLogObserver
         if ($handler->isServerForbiddenFromLog($httpCode, $vendorCode)) {
             NotificationService::send(
                 user: Martingalian::admin(),
-                canonical: 'server_forbidden',
+                canonical: 'server_ip_forbidden',
                 referenceData: $baseData,
                 relatable: $apiSystem,
                 cacheKey: $log->account_id

@@ -38,6 +38,21 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
      */
     public array $serverForbiddenHttpCodes = [418];
 
+    // SYNCHRONIZED
+    /**
+     * Server rate-limited — slow down and back off.
+     * • HTTP 429: Too Many Requests (may or may not carry Retry-After)
+     * • HTTP 400 with -1003: Too many requests (WAF limit)
+     *
+     * NOTE: 401/-2015 is handled separately as an API key configuration issue.
+     * NOTE: 418 is NOT here (it's a server forbidden error, not a rate limit)
+     * NOTE: -1015 (order rate limit) is NOT here (action-specific, not general rate limit)
+     */
+    public array $serverRateLimitedHttpCodes = [
+        429,
+        400 => [-1003],
+    ];
+
     /**
      * Ignorable — no-ops / idempotent.
      *
@@ -64,21 +79,6 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
         400 => [-1021, -5028, -2013],
         408 => [-1007],
         -2013,
-    ];
-
-    // SYNCHRONIZED
-    /**
-     * Server rate-limited — slow down and back off.
-     * • HTTP 429: Too Many Requests (may or may not carry Retry-After)
-     * • HTTP 400 with -1003: Too many requests (WAF limit)
-     *
-     * NOTE: 401/-2015 is handled separately as an API key configuration issue.
-     * NOTE: 418 is NOT here (it's a server forbidden error, not a rate limit)
-     * NOTE: -1015 (order rate limit) is NOT here (action-specific, not general rate limit)
-     */
-    public array $serverRateLimitedHttpCodes = [
-        429,
-        400 => [-1003],
     ];
 
     /**

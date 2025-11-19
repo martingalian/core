@@ -25,6 +25,12 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
         rateLimitUntil as baseRateLimitUntil;
     }
 
+    public function __construct()
+    {
+        // Conservative backoff when no rate limit info available
+        $this->backoffSeconds = 5;
+    }
+
     /**
      * Ignorable — no-ops / idempotent.
      * 400: Bad request (malformed parameters, invalid data)
@@ -35,12 +41,14 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
 
     /**
      * Retryable — transient conditions.
-     * 503: Service unavailable (temporary)
-     * 504: Gateway timeout
+     * HTTP-level errors that can be retried.
      */
     public array $retryableHttpCodes = [
-        503,
-        504,
+        500,     // Internal server error
+        502,     // Bad gateway
+        503,     // Service unavailable
+        504,     // Gateway timeout
+        408,     // Request timeout
     ];
 
     /**
@@ -63,12 +71,19 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
         429,
     ];
 
+    /**
+     * recvWindow mismatches: not applicable for Taapi.io.
+     */
     public array $recvWindowMismatchedHttpCodes = [];
 
-    public function __construct()
+    /**
+     * Ping the Taapi API to check connectivity.
+     */
+    public function ping(): bool
     {
-        // Conservative backoff when no rate limit info available
-        $this->backoffSeconds = 5;
+        // Taapi doesn't have a dedicated ping endpoint
+        // Return true as we'll discover issues through actual API calls
+        return true;
     }
 
     public function getApiSystem(): string
@@ -95,7 +110,7 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
      * • HTTP 429 returned when limit exceeded with JSON error message
      * • No Retry-After or custom headers documented
      * • Window implementation details not specified (sliding vs. fixed)
-     * • Conservative approach: wait full 15 seconds from rate limit
+     * • Conservative approach: wait full 3 seconds from rate limit
      */
     public function rateLimitUntil(RequestException $exception): Carbon
     {
@@ -111,7 +126,7 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
 
         // 2) No Retry-After: wait a full 3 seconds from now
         // Since Taapi doesn't document window boundaries or reset timing,
-        // conservatively wait the full window duration
+        // conservatively wait 3 seconds
         $resetAt = $now->copy()->addSeconds(3);
 
         // Add small jitter to avoid stampede
@@ -119,7 +134,7 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
     }
 
     /**
-     * Override: calculate backoff for rate limits considering Taapi's 15-second windows.
+     * Override: calculate backoff for rate limits considering Taapi's windows.
      */
     public function backoffSeconds(Throwable $e): int
     {

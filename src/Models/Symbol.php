@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\Symbol\HasBaseAssetParsing;
 use Martingalian\Core\Concerns\Symbol\InteractsWithApis;
+use Martingalian\Core\Database\Factories\SymbolFactory;
 
 /**
  * @property int $id
@@ -23,6 +24,11 @@ final class Symbol extends BaseModel
     use HasBaseAssetParsing;
     use HasFactory;
     use InteractsWithApis;
+
+    protected static function newFactory(): SymbolFactory
+    {
+        return SymbolFactory::new();
+    }
 
     public function steps()
     {

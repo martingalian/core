@@ -20,46 +20,75 @@ final class BybitExceptionHandler extends BaseExceptionHandler
         rateLimitUntil as baseRateLimitUntil;
     }
 
+    public function __construct()
+    {
+        // Conservative backoff when no Retry-After is available
+        $this->backoffSeconds = 10;
+    }
+
     /**
      * Errors that should be ignored (no action needed).
      * HTTP 200 with ignorable retCodes in response body.
      */
     public array $ignorableHttpCodes = [
         200 => [
-            34040,   // Not modified (value already set)
-            110025,  // Position mode unchanged
-            110026,  // Margin mode unchanged
-            110043,  // Leverage unchanged
+            20006,   // Duplicate request ID
+            10014,   // Invalid duplicate request
+            34040,   // Not modified (value already set TP/SL)
+            110025,  // Position mode not modified
+            110026,  // Cross/isolated margin mode unchanged
+            110027,  // Margin unchanged
+            110030,  // Duplicate order ID
+            110043,  // Set leverage not modified
         ],
     ];
 
     /**
      * Errors that can be retried (transient issues).
-     * HTTP 200 with retryable retCodes in response body.
+     * Includes standard HTTP errors and Bybit-specific retCodes.
      */
     public array $retryableHttpCodes = [
+        400,     // Bad request (transient)
+        404,     // Cannot find path
+        408,     // Request timeout
+        500,     // Internal server error
+        502,     // Bad gateway
+        503,     // Service unavailable
+        504,     // Gateway timeout
         200 => [
+            10000,   // Server timeout
+            10016,   // Internal server error or service restarting
             10019,   // Service restarting
             170007,  // Backend timeout
+            170032,  // Network error
+            170146,  // Order creation timeout
+            170147,  // Order cancellation timeout
             177002,  // Server busy
+            131200,  // Service error
+            131201,  // Internal error
+            131230,  // System busy
         ],
     ];
 
     /**
-     * Server forbidden — real exchange-level IP bans (server cannot make ANY calls).
-     * HTTP 401: Authentication failed (invalid API key)
-     * HTTP 200 with permanent IP ban retCode.
+     * Server forbidden — real exchange-level bans and credential failures.
+     * HTTP 401: Authentication failed
+     * HTTP 200 with permanent ban/credential retCodes.
      *
      * IMPORTANT:
      * • 10009 = IP banned by Bybit exchange (permanent until manual unban)
-     * • 403 is NOT here (it's a temporary rate limit, handled as rate-limit)
-     * • 10003/10004/10005/10007 are NOT here (API key credential issues, not server bans)
-     * • 10010 is NOT here (IP whitelist configuration in API key settings, not a server ban)
+     * • 10003-10007, 10010 = API key credential/permission issues
+     * • 403 is NOT here (it's a temporary rate limit, handled separately)
      */
     public array $serverForbiddenHttpCodes = [
         401,     // HTTP-level: Authentication failed
         200 => [
+            10003,   // API key is invalid or domain mismatch
+            10004,   // Invalid signature
+            10005,   // Permission denied, check API key permissions
+            10007,   // User authentication failed
             10009,   // IP banned by exchange (permanent)
+            10010,   // Unmatched IP, check API key's bound IP addresses
         ],
     ];
 
@@ -80,7 +109,15 @@ final class BybitExceptionHandler extends BaseExceptionHandler
         ],
     ];
 
-    public array $recvWindowMismatchedHttpCodes = [];
+    /**
+     * recvWindow mismatches: timestamp synchronization errors.
+     * Bybit requires: server_time - recv_window <= timestamp < server_time + 1000
+     */
+    public array $recvWindowMismatchedHttpCodes = [
+        200 => [
+            10002,   // Invalid request, please check your timestamp or recv_window param
+        ],
+    ];
 
     /**
      * Check if exception represents an IP ban (HTTP 429).
@@ -132,6 +169,30 @@ final class BybitExceptionHandler extends BaseExceptionHandler
 
         // 3) Last resort: use the base backoff
         return $this->baseRateLimitUntil($exception);
+    }
+
+    /**
+     * Override: calculate backoff for rate limits considering Bybit headers.
+     * Escalates backoff for IP bans (HTTP 429).
+     */
+    public function backoffSeconds(Throwable $e): int
+    {
+        if ($e instanceof RequestException && $e->hasResponse()) {
+            if ($this->isRateLimited($e) || in_array($e->getResponse()->getStatusCode(), [429, 403], true)) {
+                $until = $this->rateLimitUntil($e);
+                $delta = max(0, now()->diffInSeconds($until, false));
+
+                if ($this->isIpBanned($e)) {
+                    // Be extra conservative on IP bans (10 minutes default)
+                    // 3x multiplier ensures we wait well beyond the ban period
+                    return (int) max($delta, $this->backoffSeconds * 3);
+                }
+
+                return (int) max($delta, $this->backoffSeconds);
+            }
+        }
+
+        return $this->backoffSeconds;
     }
 
     /**

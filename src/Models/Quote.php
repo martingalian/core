@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Martingalian\Core\Abstracts\BaseModel;
+use Martingalian\Core\Database\Factories\QuoteFactory;
 
 /**
  * @property int $id
@@ -15,6 +17,13 @@ use Martingalian\Core\Abstracts\BaseModel;
  */
 final class Quote extends BaseModel
 {
+    use HasFactory;
+
+    protected static function newFactory(): QuoteFactory
+    {
+        return QuoteFactory::new();
+    }
+
     public function exchangeSymbols()
     {
         return $this->hasMany(ExchangeSymbol::class);

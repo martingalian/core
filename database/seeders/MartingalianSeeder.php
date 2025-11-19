@@ -58,115 +58,137 @@ final class MartingalianSeeder extends Seeder
     public function seedIndicators(): void
     {
         // From SchemaSeeder1
-        Indicator::create([
-            'canonical' => 'emas-same-direction',
-            'is_active' => true,
-            'class' => "Martingalian\Core\Indicators\RefreshData\EMAsSameDirection",
-            'is_computed' => true,
-        ]);
+        Indicator::updateOrCreate(
+            ['canonical' => 'emas-same-direction'],
+            [
+                'is_active' => true,
+                'class' => "Martingalian\Core\Indicators\RefreshData\EMAsSameDirection",
+                'is_computed' => true,
+            ]
+        );
 
-        Indicator::create([
-            'canonical' => 'candle-comparison',
-            'type' => 'refresh-data',
-            'is_active' => true,
-            'is_computed' => false,
-            'class' => "Martingalian\Core\Indicators\Ongoing\CandleComparisonIndicator",
-            'parameters' => [
-                'results' => 2,
-            ],
-        ]);
+        Indicator::updateOrCreate(
+            ['canonical' => 'candle-comparison'],
+            [
+                'type' => 'refresh-data',
+                'is_active' => true,
+                'is_computed' => false,
+                'class' => "Martingalian\Core\Indicators\Ongoing\CandleComparisonIndicator",
+                'parameters' => [
+                    'results' => 2,
+                ],
+            ]
+        );
 
-        Indicator::create([
-            'canonical' => 'macd',
-            'is_active' => false,
-            'class' => "Martingalian\Core\Indicators\RefreshData\MACDIndicator",
-            'parameters' => [
-                'backtrack' => 1,
-                'results' => 2,
-                'optInFastPeriod' => '12',
-                'optInSlowPeriod' => 26,
-                'optInSignalPeriod' => 9,
-            ],
-        ]);
+        Indicator::updateOrCreate(
+            ['canonical' => 'macd'],
+            [
+                'is_active' => false,
+                'class' => "Martingalian\Core\Indicators\RefreshData\MACDIndicator",
+                'parameters' => [
+                    'backtrack' => 1,
+                    'results' => 2,
+                    'optInFastPeriod' => '12',
+                    'optInSlowPeriod' => 26,
+                    'optInSignalPeriod' => 9,
+                ],
+            ]
+        );
 
-        Indicator::create([
-            'canonical' => 'obv',
-            'is_active' => false, // For now, this indicator is causing issues.
-            'class' => "Martingalian\Core\Indicators\RefreshData\OBVIndicator",
-            'parameters' => [
-                'results' => 2,
-            ],
-        ]);
+        Indicator::updateOrCreate(
+            ['canonical' => 'obv'],
+            [
+                'is_active' => false, // For now, this indicator is causing issues.
+                'class' => "Martingalian\Core\Indicators\RefreshData\OBVIndicator",
+                'parameters' => [
+                    'results' => 2,
+                ],
+            ]
+        );
 
-        Indicator::create([
-            'canonical' => 'adx',
-            'class' => "Martingalian\Core\Indicators\RefreshData\ADXIndicator",
-            'parameters' => [
-                'results' => 1,
-            ],
-        ]);
+        Indicator::updateOrCreate(
+            ['canonical' => 'adx'],
+            [
+                'class' => "Martingalian\Core\Indicators\RefreshData\ADXIndicator",
+                'parameters' => [
+                    'results' => 1,
+                ],
+            ]
+        );
 
-        Indicator::create([
-            'canonical' => 'emas-convergence',
-            'is_active' => false,
-            'class' => "Martingalian\Core\Indicators\RefreshData\EMAsConvergence",
-            'is_computed' => false,
-        ]);
+        Indicator::updateOrCreate(
+            ['canonical' => 'emas-convergence'],
+            [
+                'is_active' => false,
+                'class' => "Martingalian\Core\Indicators\RefreshData\EMAsConvergence",
+                'is_computed' => false,
+            ]
+        );
 
-        Indicator::create([
-            'canonical' => 'ema-40',
-            'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
-            'parameters' => [
-                'backtrack' => 1,
-                'results' => 2,
-                'period' => '40',
-            ],
-        ]);
+        Indicator::updateOrCreate(
+            ['canonical' => 'ema-40'],
+            [
+                'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
+                'parameters' => [
+                    'backtrack' => 1,
+                    'results' => 2,
+                    'period' => '40',
+                ],
+            ]
+        );
 
-        Indicator::create([
-            'canonical' => 'ema-80',
-            'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
-            'parameters' => [
-                'backtrack' => 1,
-                'results' => 2,
-                'period' => '80',
-            ],
-        ]);
+        Indicator::updateOrCreate(
+            ['canonical' => 'ema-80'],
+            [
+                'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
+                'parameters' => [
+                    'backtrack' => 1,
+                    'results' => 2,
+                    'period' => '80',
+                ],
+            ]
+        );
 
-        Indicator::create([
-            'canonical' => 'ema-120',
-            'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
-            'parameters' => [
-                'backtrack' => 1,
-                'results' => 2,
-                'period' => '120',
-            ],
-        ]);
+        Indicator::updateOrCreate(
+            ['canonical' => 'ema-120'],
+            [
+                'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
+                'parameters' => [
+                    'backtrack' => 1,
+                    'results' => 2,
+                    'period' => '120',
+                ],
+            ]
+        );
 
         // From SchemaSeeder9 - Update and Create
         Indicator::query()->where('canonical', 'candle-comparison')
             ->update(['class' => 'Martingalian\Core\Indicators\RefreshData\CandleComparisonIndicator']);
 
-        Indicator::create([
-            'type' => 'history',
-            'is_active' => true,
-            'is_computed' => true,
-            'canonical' => 'candle',
-            'parameters' => ['results' => 1],
-            'class' => "Martingalian\Core\Indicators\History\CandleIndicator",
-        ]);
+        Indicator::updateOrCreate(
+            ['canonical' => 'candle'],
+            [
+                'type' => 'history',
+                'is_active' => true,
+                'is_computed' => true,
+                'parameters' => ['results' => 1],
+                'class' => "Martingalian\Core\Indicators\History\CandleIndicator",
+            ]
+        );
 
         // From SchemaSeeder11
-        Indicator::create([
-            'canonical' => 'price-volatility',
-            'is_active' => true,
-            'type' => 'reports',
-            'class' => "Martingalian\Core\Indicators\Reports\PriceVolatilityIndicator",
-            'is_computed' => true,
-            'parameters' => ['results' => 2000],
-        ]);
+        Indicator::updateOrCreate(
+            ['canonical' => 'price-volatility'],
+            [
+                'is_active' => true,
+                'type' => 'reports',
+                'class' => "Martingalian\Core\Indicators\Reports\PriceVolatilityIndicator",
+                'is_computed' => true,
+                'parameters' => ['results' => 2000],
+            ]
+        );
 
-        Indicator::where('canonical', 'candle')->where('type', 'history')->first()->update(['type' => 'dashboard']);
+        Indicator::where('canonical', 'candle')->where('type', 'history')->first()?->update(['type' => 'dashboard']);
     }
 
     /**
@@ -232,20 +254,20 @@ final class MartingalianSeeder extends Seeder
      */
     public function seedQuotes(): array
     {
-        $usdt = Quote::create([
-            'canonical' => 'USDT',
-            'name' => 'USDT (Tether)',
-        ]);
+        $usdt = Quote::updateOrCreate(
+            ['canonical' => 'USDT'],
+            ['name' => 'USDT (Tether)']
+        );
 
-        $usdc = Quote::create([
-            'canonical' => 'USDC',
-            'name' => 'USDC (USD Coin)',
-        ]);
+        $usdc = Quote::updateOrCreate(
+            ['canonical' => 'USDC'],
+            ['name' => 'USDC (USD Coin)']
+        );
 
-        $bfusdt = Quote::create([
-            'canonical' => 'BFUSDT',
-            'name' => 'BFUSDT (USD Coin)',
-        ]);
+        $bfusdt = Quote::updateOrCreate(
+            ['canonical' => 'BFUSDT'],
+            ['name' => 'BFUSDT (USD Coin)']
+        );
 
         return [
             'usdt' => $usdt,
@@ -269,7 +291,10 @@ final class MartingalianSeeder extends Seeder
             'notification_channels' => ['mail', 'pushover'],
         ];
 
-        return User::create($userData);
+        return User::updateOrCreate(
+            ['email' => $userData['email']],
+            $userData
+        );
     }
 
     /**
@@ -277,12 +302,14 @@ final class MartingalianSeeder extends Seeder
      */
     public function seedTradeConfiguration(): void
     {
-        TradeConfiguration::create([
-            'is_default' => true,
-            'canonical' => 'standard',
-            'description' => 'Standard trade configuration, default for all tokens',
-            'indicator_timeframes' => ['1h', '4h', '6h', '12h', '1d'],
-        ]);
+        TradeConfiguration::updateOrCreate(
+            ['canonical' => 'standard'],
+            [
+                'is_default' => true,
+                'description' => 'Standard trade configuration, default for all tokens',
+                'indicator_timeframes' => ['1h', '4h', '6h', '12h', '1d'],
+            ]
+        );
     }
 
     /**
@@ -290,17 +317,21 @@ final class MartingalianSeeder extends Seeder
      */
     public function seedBinanceAccount(User $trader, ApiSystem $binance, Quote $usdt): void
     {
-        Account::create([
-            'uuid' => (string) Str::uuid(),
-            'name' => 'Main Binance Account',
-            'user_id' => $trader->id,
-            'api_system_id' => $binance->id,
-            'portfolio_quote_id' => $usdt->id,
-            'trading_quote_id' => $usdt->id,
-            'trade_configuration_id' => 1,
-            'binance_api_key' => env('BINANCE_API_KEY'),
-            'binance_api_secret' => env('BINANCE_API_SECRET'),
-        ]);
+        Account::updateOrCreate(
+            [
+                'user_id' => $trader->id,
+                'api_system_id' => $binance->id,
+            ],
+            [
+                'uuid' => (string) Str::uuid(),
+                'name' => 'Main Binance Account',
+                'portfolio_quote_id' => $usdt->id,
+                'trading_quote_id' => $usdt->id,
+                'trade_configuration_id' => 1,
+                'binance_api_key' => env('BINANCE_API_KEY'),
+                'binance_api_secret' => env('BINANCE_API_SECRET'),
+            ]
+        );
     }
 
     /**
@@ -330,18 +361,22 @@ final class MartingalianSeeder extends Seeder
     public function seedBinanceBaseAssetMappers(ApiSystem $binance): void
     {
         // From SchemaSeeder1 - BONK mapping
-        BaseAssetMapper::create([
-            'api_system_id' => $binance->id,
-            'symbol_token' => 'BONK',
-            'exchange_token' => '1000BONK',
-        ]);
+        BaseAssetMapper::updateOrCreate(
+            [
+                'api_system_id' => $binance->id,
+                'symbol_token' => 'BONK',
+            ],
+            ['exchange_token' => '1000BONK']
+        );
 
         // From SchemaSeeder2 - BROCCOLI mapping
-        BaseAssetMapper::create([
-            'api_system_id' => $binance->id,
-            'symbol_token' => 'BROCCOLI',
-            'exchange_token' => 'BROCCOLI714',
-        ]);
+        BaseAssetMapper::updateOrCreate(
+            [
+                'api_system_id' => $binance->id,
+                'symbol_token' => 'BROCCOLI',
+            ],
+            ['exchange_token' => 'BROCCOLI714']
+        );
     }
 
     /**
@@ -396,12 +431,15 @@ final class MartingalianSeeder extends Seeder
      */
     public function seedMartingalian(): void
     {
-        Martingalian::create([
-            'allow_opening_positions' => true,
-            'admin_pushover_application_key' => env('ADMIN_USER_PUSHOVER_APPLICATION_KEY'),
-            'admin_pushover_user_key' => env('ADMIN_USER_PUSHOVER_USER_KEY'),
-            'email' => env('ADMIN_USER_EMAIL'),
-        ]);
+        Martingalian::updateOrCreate(
+            ['id' => 1],
+            [
+                'allow_opening_positions' => true,
+                'admin_pushover_application_key' => env('ADMIN_USER_PUSHOVER_APPLICATION_KEY'),
+                'admin_pushover_user_key' => env('ADMIN_USER_PUSHOVER_USER_KEY'),
+                'email' => env('ADMIN_USER_EMAIL'),
+            ]
+        );
     }
 
     /**
@@ -687,10 +725,13 @@ final class MartingalianSeeder extends Seeder
         ];
 
         foreach ($servers as $server) {
-            DB::table('servers')->insert(array_merge($server, [
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
+            DB::table('servers')->updateOrInsert(
+                ['hostname' => $server['hostname']],
+                array_merge($server, [
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])
+            );
         }
     }
 
@@ -749,8 +790,8 @@ final class MartingalianSeeder extends Seeder
                 'verified' => 1,
             ],
             [
-                'canonical' => 'server_forbidden',
-                'title' => 'Server Forbidden by Exchange',
+                'canonical' => 'server_ip_forbidden',
+                'title' => 'Server IP Forbidden by Exchange',
                 'description' => 'Sent when server/IP is forbidden from accessing exchange API (HTTP 418 IP ban)',
                 'usage_reference' => 'ApiRequestLogObserver line 99',
                 'default_severity' => 'critical',
@@ -767,17 +808,19 @@ final class MartingalianSeeder extends Seeder
         ];
 
         foreach ($notifications as $notification) {
-            DB::table('notifications')->insert([
-                'canonical' => $notification['canonical'],
-                'title' => $notification['title'],
-                'description' => $notification['description'],
-                'detailed_description' => $notification['detailed_description'] ?? $notification['description'],
-                'usage_reference' => $notification['usage_reference'] ?? null,
-                'default_severity' => $notification['default_severity'],
-                'verified' => $notification['verified'] ?? 0,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            DB::table('notifications')->updateOrInsert(
+                ['canonical' => $notification['canonical']],
+                [
+                    'title' => $notification['title'],
+                    'description' => $notification['description'],
+                    'detailed_description' => $notification['detailed_description'] ?? $notification['description'],
+                    'usage_reference' => $notification['usage_reference'] ?? null,
+                    'default_severity' => $notification['default_severity'],
+                    'verified' => $notification['verified'] ?? 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
         }
     }
 

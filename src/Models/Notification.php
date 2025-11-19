@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Martingalian\Core\Concerns\Notification\HasGetters;
 use Martingalian\Core\Concerns\Notification\HasScopes;
+use Martingalian\Core\Database\Factories\NotificationFactory;
 use Martingalian\Core\Enums\NotificationSeverity;
 
 /**
@@ -32,10 +34,19 @@ use Martingalian\Core\Enums\NotificationSeverity;
  */
 final class Notification extends Model
 {
+    use HasFactory;
     use HasGetters;
     use HasScopes;
 
     protected $guarded = [];
+
+    /**
+     * Create a new factory instance for the model.
+     */
+    protected static function newFactory(): NotificationFactory
+    {
+        return NotificationFactory::new();
+    }
 
     protected $casts = [
         'default_severity' => NotificationSeverity::class,

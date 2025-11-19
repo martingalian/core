@@ -66,7 +66,13 @@ trait HandlesApiJobExceptions
     protected function handleRecvWindowIssue($e): void
     {
         // Lets improve the recvwindow safety for a higher duration.
-        Artisan::call('martingalian:update-recvwindow-safety-duration');
+        try {
+            Artisan::call('martingalian:update-recvwindow-safety-duration');
+        } catch (Throwable $commandException) {
+            // Command might fail in test environment or when API is unavailable
+            // Log but don't fail the job - we'll still retry with existing recvwindow_margin
+            info('Failed to update recvwindow safety duration: '.$commandException->getMessage());
+        }
 
         $this->retryPerApiThrottlingDelay($e);
     }

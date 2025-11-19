@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -14,6 +15,7 @@ use Martingalian\Core\Concerns\ExchangeSymbol\HasStatuses;
 use Martingalian\Core\Concerns\ExchangeSymbol\HasTradingComputations;
 use Martingalian\Core\Concerns\ExchangeSymbol\InteractsWithApis;
 use Martingalian\Core\Concerns\ExchangeSymbol\SendsNotifications;
+use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
 
 /**
  * @property int $id
@@ -51,6 +53,7 @@ use Martingalian\Core\Concerns\ExchangeSymbol\SendsNotifications;
 final class ExchangeSymbol extends BaseModel
 {
     use HasAccessors;
+    use HasFactory;
     use HasScopes;
     use HasStatuses;
     use HasTradingComputations;
@@ -80,6 +83,11 @@ final class ExchangeSymbol extends BaseModel
 
         'delivery_ts_ms' => 'integer',
     ];
+
+    protected static function newFactory(): ExchangeSymbolFactory
+    {
+        return ExchangeSymbolFactory::new();
+    }
 
     public function priceHistories(): HasMany
     {

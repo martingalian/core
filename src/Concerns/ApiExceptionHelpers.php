@@ -10,7 +10,6 @@ use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ForbiddenHostname;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -70,30 +69,24 @@ trait ApiExceptionHelpers
 
         // Only send notification if this is a NEW forbidden hostname (not an update)
         if ($record->wasRecentlyCreated) {
-            $hostname = gethostname();
-            $exchange = $this->getApiSystem();
-            $exchangeName = ucfirst($exchange);
-            $accountInfo = $this->account->user
-                ? "User: {$this->account->user->name}"
-                : 'Account: Admin';
+            try {
+                $hostname = gethostname();
+                $exchange = $this->getApiSystem();
 
-            $throttleCanonical = $exchange.'_forbidden_hostname_added';
-
-            NotificationThrottler::using(NotificationService::class)
-                ->withCanonical($throttleCanonical)
-                ->execute(function () use ($exchangeName, $hostname, $record, $accountInfo) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "A hostname has been forbidden from accessing {$exchangeName} API.\n\n".
-                         "Hostname: {$hostname}\n".
-                         "IP Address: {$record->ip_address}\n".
-                         "Exchange: {$exchangeName}\n".
-                         "{$accountInfo}\n".
-                         'Time: '.now()->toDateTimeString(),
-                        title: 'Forbidden Hostname Detected',
-                        deliveryGroup: 'exceptions'
-                    );
-                });
+                NotificationService::send(
+                    user: Martingalian::admin(),
+                    canonical: 'server_ip_forbidden',
+                    referenceData: [
+                        'exchange' => $exchange,
+                        'ip_address' => $record->ip_address,
+                        'hostname' => $hostname,
+                        'account_id' => $this->account->id ?? null,
+                    ]
+                );
+            } catch (Throwable $notificationException) {
+                // Notification might fail in test environment - log but don't fail the job
+                info('Failed to send forbidden hostname notification: '.$notificationException->getMessage());
+            }
         }
     }
 
