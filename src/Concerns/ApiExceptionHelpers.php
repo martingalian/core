@@ -35,12 +35,12 @@ trait ApiExceptionHelpers
 
     public function isRateLimited(Throwable $exception): bool
     {
-        return $this->containsHttpExceptionIn($exception, $this->rateLimitedHttpCodes);
+        return $this->containsHttpExceptionIn($exception, $this->serverRateLimitedHttpCodes);
     }
 
     public function isForbidden(Throwable $exception): bool
     {
-        return $this->containsHttpExceptionIn($exception, $this->forbiddenHttpCodes);
+        return $this->containsHttpExceptionIn($exception, $this->serverForbiddenHttpCodes);
     }
 
     /**

@@ -290,7 +290,7 @@ return new class extends Migration
             $table->json('notification_channels')->nullable();
             $table->longText('admin_pushover_user_key')->nullable();
             $table->longText('admin_pushover_application_key')->nullable();
-            $table->string('admin_user_email')->nullable();
+            $table->string('email')->nullable();
             $table->boolean('allow_opening_positions')->default(false);
             $table->timestamps();
         });
@@ -303,7 +303,6 @@ return new class extends Migration
             $table->text('description')->nullable()->comment('Description of when this notification is sent');
             $table->text('detailed_description')->nullable()->comment('Comprehensive technical details: HTTP codes, vendor error codes, error messages, and triggering conditions from exchange APIs');
             $table->string('default_severity')->nullable()->comment('Default severity level (Critical, High, Medium, Info)');
-            $table->json('user_types')->nullable()->comment('Target recipient types: admin, user, or both (defaults to ["user"] if null)');
             $table->unsignedInteger('default_throttle_duration')->default(600)->comment('Default throttle duration in seconds (600 = 10 minutes default, 0 = no throttle, >0 = throttle window)');
             $table->timestamps();
 

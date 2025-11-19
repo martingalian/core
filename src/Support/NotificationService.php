@@ -15,41 +15,66 @@ use Martingalian\Core\Notifications\AlertNotification;
  * NotificationService
  *
  * Unified notification service that leverages Laravel's notification system.
- * Works with both real User models and virtual admin users (Martingalian::admin()).
  *
  * Usage:
- *   NotificationService::send(
- *       user: $user,  // Real or virtual user
- *       message: 'BTC price reached $50,000',
- *       title: 'Price Alert'
- *   );
- *
- *   // Admin notifications using virtual user:
+ *   // Admin notification
  *   NotificationService::send(
  *       user: Martingalian::admin(),
- *       message: 'System error detected',
- *       title: 'System Alert',
- *       relatable: $apiSystem
+ *       canonical: 'server_rate_limit_exceeded',
+ *       referenceData: ['exchange' => 'binance']
+ *   );
+ *
+ *   // User notification
+ *   NotificationService::send(
+ *       user: $user,
+ *       canonical: 'price_alert',
+ *       referenceData: ['symbol' => 'BTC']
  *   );
  */
 final class NotificationService
 {
     /**
-     * Send a notification to a user (real or virtual admin user).
+     * Send a notification to a specific user.
      *
-     * This unified method handles both regular user notifications and admin notifications
-     * through Laravel's standard notification system. The virtual admin user (Martingalian::admin())
-     * works seamlessly with this approach.
-     *
-     * @param  User  $user  The user to notify (real User or virtual admin via Martingalian::admin())
-     * @param  string  $canonical  Notification canonical identifier (e.g., 'ip_not_whitelisted', 'api_rate_limit_exceeded')
-     * @param  array<string, mixed>  $referenceData  Reference data for template interpolation (e.g., ['exchange' => 'binance', 'ip' => '127.0.0.1'])
-     * @param  object|null  $relatable  Optional relatable model (ApiSystem, Step, Account) for audit trail
+     * @param  User  $user  The user to send to (use Martingalian::admin() for admin notifications)
+     * @param  string  $canonical  Notification canonical identifier (e.g., 'server_rate_limit_exceeded')
+     * @param  array<string, mixed>  $referenceData  Reference data for template interpolation (e.g., ['exchange' => 'binance'])
+     * @param  object|null  $relatable  Optional relatable model for audit trail
      * @param  int|null  $duration  Throttle duration in seconds (null = use default from notifications table, 0 = no throttle, >0 = custom throttle window)
      * @param  string|null  $cacheKey  Optional literal cache key for cache-based throttling (e.g., 'my_custom_key'). If null, uses database-based throttling via notification_logs.
      * @return bool True if notification was sent, false otherwise
      */
     public static function send(
+        User $user,
+        string $canonical,
+        array $referenceData = [],
+        ?object $relatable = null,
+        ?int $duration = null,
+        ?string $cacheKey = null
+    ): bool {
+        return self::sendToSpecificUser(
+            user: $user,
+            canonical: $canonical,
+            referenceData: $referenceData,
+            relatable: $relatable,
+            duration: $duration,
+            cacheKey: $cacheKey
+        );
+    }
+
+    /**
+     * Send notification to a specific user (internal use only).
+     * Handles throttling, message building, and actual notification dispatch.
+     *
+     * @param  User  $user  The user to notify (real User or virtual admin via Martingalian::admin())
+     * @param  string  $canonical  Notification canonical identifier
+     * @param  array<string, mixed>  $referenceData  Reference data for template interpolation
+     * @param  object|null  $relatable  Optional relatable model for audit trail
+     * @param  int|null  $duration  Throttle duration in seconds
+     * @param  string|null  $cacheKey  Optional cache key for throttling
+     * @return bool True if notification was sent, false otherwise
+     */
+    private static function sendToSpecificUser(
         User $user,
         string $canonical,
         array $referenceData = [],
@@ -136,34 +161,5 @@ final class NotificationService
         }
 
         return true;
-    }
-
-    /**
-     * Send a notification to admin using a canonical notification template.
-     * Convenience wrapper for sending to the admin user.
-     *
-     * @param  string  $canonical  Notification canonical identifier (e.g., 'api_rate_limit_exceeded')
-     * @param  array<string, mixed>  $referenceData  Reference data for template interpolation (e.g., ['exchange' => 'binance'])
-     * @param  object|null  $relatable  Optional relatable model for audit trail
-     * @param  int|null  $duration  Throttle duration in seconds (null = use default from notifications table, 0 = no throttle, >0 = custom throttle window)
-     * @param  string|null  $cacheKey  Optional literal cache key for cache-based throttling (e.g., 'my_custom_key'). If null, uses database-based throttling via notification_logs.
-     * @return bool True if notification was sent, false otherwise
-     */
-    public static function sendToAdminByCanonical(
-        string $canonical,
-        array $referenceData = [],
-        ?object $relatable = null,
-        ?int $duration = null,
-        ?string $cacheKey = null
-    ): bool {
-        // Send to admin using virtual user
-        return self::send(
-            user: Martingalian::admin(),
-            canonical: $canonical,
-            referenceData: $referenceData,
-            relatable: $relatable,
-            duration: $duration,
-            cacheKey: $cacheKey
-        );
     }
 }

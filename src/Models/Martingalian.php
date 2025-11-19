@@ -22,7 +22,7 @@ use Throwable;
  * @property string|null $taapi_secret
  * @property string|null $admin_pushover_user_key
  * @property string|null $admin_pushover_application_key
- * @property string|null $admin_user_email
+ * @property string|null $email
  * @property array<int, string> $notification_channels
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at

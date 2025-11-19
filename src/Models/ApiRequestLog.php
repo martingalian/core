@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace Martingalian\Core\Models;
 
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Concerns\ApiRequestLog\SendsNotifications;
 
 final class ApiRequestLog extends BaseModel
 {
-    use SendsNotifications;
-
     protected $table = 'api_request_logs';
 
     protected $casts = [

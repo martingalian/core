@@ -26,7 +26,7 @@ trait HasGetters
                 $user->exists = false;
                 $user->is_virtual = true;
                 $user->setAttribute('name', 'System Administrator');
-                $user->setAttribute('email', $martingalian->admin_user_email);
+                $user->setAttribute('email', $martingalian->email);
                 $user->setAttribute('pushover_key', $martingalian->admin_pushover_user_key);
                 $user->setAttribute('notification_channels', $martingalian->notification_channels ?? ['pushover']);
                 $user->setAttribute('is_active', true);

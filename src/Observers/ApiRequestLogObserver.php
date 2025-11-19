@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Observers;
 
 use DB;
+use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\ApiRequestLog;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
@@ -16,15 +17,111 @@ final class ApiRequestLogObserver
 {
     /**
      * Handle the ApiRequestLog "saved" event.
-     * Triggers notifications for API errors based on HTTP response codes.
+     * Sends notifications for API errors based on HTTP response codes.
      */
     public function saved(ApiRequestLog $log): void
     {
-        // Delegate to the model's notification logic
-        $log->sendNotificationIfNeeded();
+        // Send notification if needed
+        $this->sendNotificationIfNeeded($log);
 
         // Auto-deactivate exchange symbols with no TAAPI data
         $this->deactivateExchangeSymbolIfNoTaapiData($log);
+    }
+
+    /**
+     * Send notification for API errors.
+     * No business logic - just notification routing based on error type.
+     */
+    private function sendNotificationIfNeeded(ApiRequestLog $log): void
+    {
+        // Skip if no HTTP response code yet (request still in progress)
+        if ($log->http_response_code === null) {
+            return;
+        }
+
+        // Skip if successful response (2xx or 3xx)
+        if ($log->http_response_code < 400) {
+            return;
+        }
+
+        // Load API system to determine which exception handler to use
+        $apiSystem = ApiSystem::find($log->api_system_id);
+        if (! $apiSystem) {
+            return;
+        }
+
+        // Create the appropriate exception handler for error code analysis
+        try {
+            $handler = BaseExceptionHandler::make($apiSystem->canonical);
+        } catch (\Exception $e) {
+            return;
+        }
+
+        $httpCode = $log->http_response_code;
+        $vendorCode = $this->extractVendorCode($log);
+        $hostname = $log->hostname ?? gethostname();
+
+        // Build base reference data
+        $baseData = [
+            'exchange' => $apiSystem->canonical,
+            'ip' => Martingalian::ip(),
+            'hostname' => $hostname,
+            'http_code' => $httpCode,
+            'vendor_code' => $vendorCode,
+            'path' => $log->path,
+        ];
+
+        // Server rate limit errors (429, 400 with vendor codes)
+        if ($handler->isServerRateLimitedFromLog($httpCode, $vendorCode)) {
+            // Load account info for context (sent to admin, shows which account hit the limit)
+            $account = $log->account()->with('user')->first();
+            $accountInfo = null;
+            if ($account && $account->user) {
+                $accountInfo = "{$account->user->name} ({$account->name})";
+            }
+
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'server_rate_limit_exceeded',
+                referenceData: array_merge($baseData, array_filter([
+                    'account_info' => $accountInfo,
+                ])),
+                relatable: $apiSystem,
+                cacheKey: $log->account_id
+                    ? $apiSystem->canonical.',account:'.$log->account_id
+                    : $apiSystem->canonical
+            );
+
+            return;
+        }
+
+        // Server forbidden errors (418 and specific vendor codes - server/IP bans)
+        if ($handler->isServerForbiddenFromLog($httpCode, $vendorCode)) {
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'server_forbidden',
+                referenceData: $baseData,
+                relatable: $apiSystem,
+                cacheKey: $apiSystem->canonical.'_forbidden'
+            );
+
+            return;
+        }
+    }
+
+    /**
+     * Extract vendor-specific error code from response body.
+     */
+    private function extractVendorCode(ApiRequestLog $log): ?int
+    {
+        $response = $log->response;
+
+        if (! is_array($response)) {
+            return null;
+        }
+
+        // Binance uses 'code', Bybit uses 'retCode'
+        return $response['code'] ?? $response['retCode'] ?? null;
     }
 
     private function deactivateExchangeSymbolIfNoTaapiData(ApiRequestLog $log): void

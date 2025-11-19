@@ -8,7 +8,6 @@ use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
-use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
 /**
@@ -43,10 +42,10 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
     ];
 
     /**
-     * Forbidden: authentication/plan/permission issues.
+     * Server forbidden: authentication/plan/permission issues (server cannot make ANY calls).
      * Map explicit vendor error codes for clarity.
      */
-    public array $forbiddenHttpCodes = [
+    public array $serverForbiddenHttpCodes = [
         401 => [1001, 1002],       // invalid/missing API key
         402 => [1003, 1004],       // plan requires payment / payment expired
         403 => [1005, 1006, 1007], // key required / plan not authorized / key disabled
@@ -56,7 +55,7 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
     /**
      * Rate-limited: primary signal.
      */
-    public array $rateLimitedHttpCodes = [429];
+    public array $serverRateLimitedHttpCodes = [429];
 
     /**
      * RecvWindow mismatches: not applicable for CMC (keep empty).
@@ -66,21 +65,16 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
     /**
      * Vendor codes for rate limit *types* under HTTP 429.
      */
-    protected array $cmcMinuteCodes = [1008, 1011]; // minute rate limit reached, IP rate limit reached
+    public array $cmcMinuteCodes = [1008, 1011]; // minute rate limit reached, IP rate limit reached
 
-    protected array $cmcDailyCodes = [1009];       // daily cap
+    public array $cmcDailyCodes = [1009];       // daily cap
 
-    protected array $cmcMonthlyCodes = [1010];       // monthly cap
+    public array $cmcMonthlyCodes = [1010];       // monthly cap
 
     public function __construct()
     {
         // Base fallback when no Retry-After is present.
         $this->backoffSeconds = 30;
-    }
-
-    public function ping(): bool
-    {
-        return true;
     }
 
     public function getApiSystem(): string
@@ -146,38 +140,5 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
         }
 
         return $this->backoffSeconds;
-    }
-
-    /**
-     * No-op: CoinMarketCap doesn't require response header tracking.
-     */
-    public function recordResponseHeaders(ResponseInterface $response): void
-    {
-        // No-op - CoinMarketCap uses simple throttling handled by CoinmarketCapThrottler
-    }
-
-    /**
-     * No-op: CoinMarketCap doesn't implement IP bans.
-     */
-    public function isCurrentlyBanned(): bool
-    {
-        return false;
-    }
-
-    /**
-     * No-op: CoinMarketCap doesn't require IP ban recording.
-     */
-    public function recordIpBan(int $retryAfterSeconds): void
-    {
-        // No-op - CoinMarketCap doesn't implement IP bans
-    }
-
-    /**
-     * No-op: CoinMarketCap safety checks are handled by CoinmarketCapThrottler.
-     * Always return true to allow normal throttling to proceed.
-     */
-    public function isSafeToMakeRequest(): bool
-    {
-        return true;
     }
 }

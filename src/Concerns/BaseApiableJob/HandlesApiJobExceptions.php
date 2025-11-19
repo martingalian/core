@@ -53,6 +53,7 @@ trait HandlesApiJobExceptions
 
             if ($this->exceptionHandler->isForbidden($e)) {
                 $this->exceptionHandler->forbid();
+                $this->retryJob(); // Put job back in queue for another worker to pick up
 
                 return;
             }

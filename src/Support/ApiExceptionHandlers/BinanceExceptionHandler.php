@@ -25,9 +25,18 @@ use Throwable;
 final class BinanceExceptionHandler extends BaseExceptionHandler
 {
     use ApiExceptionHelpers {
-        isRateLimited as baseIsRateLimited;
         rateLimitUntil as baseRateLimitUntil;
     }
+
+    // SYNCHRONIZED
+    /**
+     * Server forbidden — real exchange-level IP bans (server cannot make ANY calls).
+     * HTTP 418: IP auto-banned by Binance (temporary ban, 2 minutes to 3 days)
+     *
+     * IMPORTANT:
+     * • 401/-2015 is NOT here (it's an API key config issue, handled separately)
+     */
+    public array $serverForbiddenHttpCodes = [418];
 
     /**
      * Ignorable — no-ops / idempotent.
@@ -57,26 +66,19 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
         -2013,
     ];
 
+    // SYNCHRONIZED
     /**
-     * Forbidden — real exchange-level IP bans.
-     *
-     * IMPORTANT:
-     * • 403 is NOT here (it's treated as rate-limit when it has WAF/forbidden messages)
-     * • 418 is NOT here (it's a temporary rate-limit ban, handled as rate limit)
-     * • 401/-2015 is NOT here (it's an API key config issue, handled separately)
-     */
-    public array $forbiddenHttpCodes = [];
-
-    /**
-     * Rate-limited — slow down and back off.
-     * • 429 Too Many Requests (may or may not carry Retry-After)
-     * • 418 IP ban escalation (temporary, treat as rate-limit with longer backoff)
+     * Server rate-limited — slow down and back off.
+     * • HTTP 429: Too Many Requests (may or may not carry Retry-After)
+     * • HTTP 400 with -1003: Too many requests (WAF limit)
      *
      * NOTE: 401/-2015 is handled separately as an API key configuration issue.
+     * NOTE: 418 is NOT here (it's a server forbidden error, not a rate limit)
+     * NOTE: -1015 (order rate limit) is NOT here (action-specific, not general rate limit)
      */
-    public array $rateLimitedHttpCodes = [
+    public array $serverRateLimitedHttpCodes = [
         429,
-        418,
+        400 => [-1003],
     ];
 
     /**
@@ -86,60 +88,6 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     public $recvWindowMismatchedHttpCodes = [
         400 => [-1021, -5028],
     ];
-
-    /**
-     * Ambiguous credential/IP/permission errors.
-     * -2015 REJECTED_MBX_KEY: "Invalid API-key, IP, or permissions for action"
-     * This single error code covers 3 scenarios:
-     * 1. Invalid API credentials
-     * 2. IP not whitelisted
-     * 3. Insufficient API key permissions
-     */
-    protected array $credentialsOrIpCodes = [
-        -2015,
-    ];
-
-    /**
-     * Account status errors - critical issues requiring account disabling.
-     * These trigger can_trade = 0 on the account.
-     */
-    protected array $accountStatusCodes = [
-        -2017,   // API keys locked
-        -2023,   // User in liquidation
-        -4087,   // Reduce-only order permission
-        -4088,   // No place order permission
-        -4400,   // Trading quantitative rule (risk control)
-        -1002,   // Unauthorized
-    ];
-
-    /**
-     * Balance/margin insufficiency errors.
-     */
-    protected array $insufficientBalanceCodes = [
-        -2018,   // Balance not sufficient
-        -2019,   // Margin not sufficient
-    ];
-
-    /**
-     * KYC verification required errors.
-     */
-    protected array $kycRequiredCodes = [
-        -4202,   // Adjust leverage KYC failed (>20x requires enhanced KYC)
-    ];
-
-    /**
-     * System errors - unknown errors and timeouts.
-     */
-    protected array $systemErrorCodes = [
-        -1000,   // Unknown error
-        -1007,   // Timeout
-        -1008,   // Server overload - request throttled
-    ];
-
-    /**
-     * Binance vendor JSON codes that also indicate rate-limit conditions, even if HTTP isn’t 429.
-     */
-    protected array $binanceRateLimitCodes = [-1003, -1015];
 
     public function __construct()
     {
@@ -170,36 +118,6 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
             && $exception->getResponse()->getStatusCode() === 418;
     }
 
-    /**
-     * Override: in addition to base maps, consider Binance vendor codes and some 403/WAF messages.
-     */
-    public function isRateLimited(Throwable $exception): bool
-    {
-        if ($this->baseIsRateLimited($exception)) {
-            return true;
-        }
-
-        if (! $exception instanceof RequestException || ! $exception->hasResponse()) {
-            return false;
-        }
-
-        $meta = $this->extractHttpMeta($exception);
-
-        // Vendor JSON codes: -1003 (too many requests), -1015 (too many new orders)
-        $vendor = (int) ($meta['status_code'] ?? 0);
-        if (in_array($vendor, $this->binanceRateLimitCodes, true)) {
-            return true;
-        }
-
-        // Some throttles are surfaced as 403 with WAF-ish text; treat them as rate-limit.
-        $http = (int) ($meta['http_code'] ?? 0);
-        $msg = mb_strtolower((string) ($meta['message'] ?? ''));
-        if ($http === 403 && (Str::contains($msg, 'waf') || Str::contains($msg, 'forbidden'))) {
-            return true;
-        }
-
-        return false;
-    }
 
     /**
      * Override: compute a safe retry time using Binance headers when Retry-After is absent.

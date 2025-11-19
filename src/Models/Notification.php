@@ -26,7 +26,6 @@ use Martingalian\Core\Enums\NotificationSeverity;
  * @property string|null $usage_reference
  * @property bool $verified
  * @property NotificationSeverity|null $default_severity
- * @property array<int, string> $user_types
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, NotificationLog> $logs
@@ -40,7 +39,6 @@ final class Notification extends Model
 
     protected $casts = [
         'default_severity' => NotificationSeverity::class,
-        'user_types' => 'array',
         'verified' => 'boolean',
     ];
 

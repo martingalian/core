@@ -65,6 +65,12 @@ final class NotificationMessageBuilder
         $exceptionRaw = $context['exception'] ?? null;
         $exception = is_string($exceptionRaw) ? $exceptionRaw : null;
 
+        $httpCodeRaw = $context['http_code'] ?? null;
+        $httpCode = is_int($httpCodeRaw) ? $httpCodeRaw : (is_string($httpCodeRaw) ? (int) $httpCodeRaw : null);
+
+        $vendorCodeRaw = $context['vendor_code'] ?? null;
+        $vendorCode = is_int($vendorCodeRaw) ? $vendorCodeRaw : (is_string($vendorCodeRaw) ? (int) $vendorCodeRaw : null);
+
         return match ($canonicalString) {
             'ip_not_whitelisted' => [
                 'severity' => NotificationSeverity::High,
@@ -84,11 +90,29 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            'api_rate_limit_exceeded' => [
+            'server_rate_limit_exceeded' => [
                 'severity' => NotificationSeverity::Info,
-                'title' => 'Rate Limit Exceeded',
-                'emailMessage' => "{$exchangeTitle} API rate limit exceeded.\n\n".($accountInfo ? "Account: {$accountInfo}\n" : "Type: System-level API call\n")."\nPlatform automatically implemented request throttling and exponential backoff. Pending operations queued for retry.\n\nResolution steps:\n\n• Check recent API request patterns:\n[CMD]SELECT endpoint, COUNT(*) as requests, AVG(response_time_ms) as avg_ms FROM api_request_logs WHERE exchange = '{$exchange}' AND created_at > NOW() - INTERVAL 5 MINUTE GROUP BY endpoint ORDER BY requests DESC LIMIT 10;[/CMD]\n\n• Monitor rate limit headers in logs:\n[CMD]tail -100 storage/logs/laravel.log | grep -i \"rate\\|limit\\|429\"[/CMD]\n\n• Check {$exchangeTitle} rate limit documentation:\nBinance: binance.com/en/support/faq/rate-limits\nBybit: bybit-exchange.github.io/docs/v5/rate-limit",
+                'title' => 'Server Rate Limit Exceeded',
+                'emailMessage' => "{$exchangeTitle} API rate limit exceeded.\n\n".($accountInfo ? "Account: {$accountInfo}\n" : "Type: System-level API call\n")."\nPlatform automatically implemented request throttling and exponential backoff. Pending operations queued for retry.\n\nResolution steps:\n\n• Check recent API request patterns:\n[CMD]SELECT endpoint, COUNT(*) as requests, AVG(response_time_ms) as avg_ms FROM api_request_logs WHERE exchange = '{$exchange}' AND created_at > NOW() - INTERVAL 5 MINUTE GROUP BY endpoint ORDER BY requests DESC LIMIT 10;[/CMD]\n\n• Monitor rate limit headers in logs:\n[CMD]tail -100 storage/logs/laravel.log | grep -i \"rate\\|limit\\|429\"[/CMD]",
                 'pushoverMessage' => "{$exchangeTitle} rate limit exceeded".($accountInfo ? " - {$accountInfo}" : ''),
+                'actionUrl' => null,
+                'actionLabel' => null,
+            ],
+
+            'server_forbidden' => [
+                'severity' => NotificationSeverity::Critical,
+                'title' => 'Server Forbidden by Exchange',
+                'emailMessage' => "🚨 CRITICAL: Server IP forbidden by {$exchangeTitle}\n\nServer IP: [COPY]{$ip}[/COPY]\nHostname: {$hostname}\nHTTP Code: {$httpCode}\n".($vendorCode ? "Vendor Code: {$vendorCode}\n" : '')."\n".($accountInfo ? "Last request from account: {$accountInfo}\n\n" : '')."The exchange has banned our server IP. This is typically caused by:\n• Repeated rate limit violations (HTTP 418 for Binance - auto-ban 2 min to 3 days)\n• Server/IP-level restrictions (HTTP 403 with specific vendor codes)\n\nIMPACT:\n• All API requests from this server to {$exchangeTitle} are blocked\n• Jobs automatically retry on other workers if available\n• Affects all accounts using this exchange on this worker\n\nRESOLUTION:\n\nFor HTTP 418 (temporary ban):\n• System will auto-retry after ban period expires\n• Review rate limiting patterns to prevent future bans\n\nFor HTTP 403 (permanent restrictions):\n• Contact exchange support with server IP and timestamp\n• May require IP whitelisting or rotation\n\nMonitor recent API errors:\n[CMD]SELECT created_at, http_response_code, path, response FROM api_request_logs WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchange}') AND http_response_code >= 400 ORDER BY created_at DESC LIMIT 20;[/CMD]",
+                'pushoverMessage' => "🚨 {$exchangeTitle} forbidden server {$hostname} ({$ip}) - HTTP {$httpCode}",
+                'actionUrl' => null,
+                'actionLabel' => null,
+            ],
+
+            'ip_banned' => [
+                'severity' => NotificationSeverity::Critical,
+                'title' => 'Server IP Banned by Exchange',
+                'emailMessage' => "🚨 CRITICAL: Server IP banned by {$exchangeTitle}\n\nServer IP: [COPY]{$ip}[/COPY]\nHostname: {$hostname}\n\n".($accountInfo ? "Last request from account: {$accountInfo}\n\n" : '')."The exchange has permanently or temporarily banned our server IP due to:\n• Repeated rate limit violations (HTTP 418 for Binance)\n• Exchange-level IP ban (retCode 10009 for Bybit)\n\nIMPACT:\n• All API requests from this server to {$exchangeTitle} are blocked\n• Trading operations halted on this server\n• Affects all accounts using this exchange on this worker\n\nRESOLUTION:\n\nFor Binance (HTTP 418 - temporary auto-ban):\n• Ban duration: 2 minutes to 3 days depending on violation severity\n• System will auto-retry after ban expires\n• Review rate limiting configuration to prevent future bans\n\nFor Bybit (retCode 10009 - permanent ban):\n• Contact Bybit support immediately\n• Provide server IP and timestamp of ban\n• May require IP rotation or new API keys\n\nMonitor API request patterns:\n[CMD]SELECT created_at, http_response_code, response FROM api_request_logs WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchange}') ORDER BY created_at DESC LIMIT 20;[/CMD]",
+                'pushoverMessage' => "🚨 {$exchangeTitle} banned server IP {$ip}",
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],
@@ -196,31 +220,15 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            'binance_websocket_error', 'bybit_websocket_error' => (function () use ($context, $exchange, $exchangeTitle) {
+            'websocket_error' => (function () use ($context, $exchangeTitle) {
                 $exception = is_string($context['exception'] ?? null) ? $context['exception'] : 'Unknown error';
-                $exchangeLower = mb_strtolower($exchange);
 
                 return [
                     'severity' => NotificationSeverity::High,
                     'title' => "{$exchangeTitle} WebSocket Error",
-                    'emailMessage' => "⚠️ {$exchangeTitle} WebSocket Error\n\n".
-                        "{$exchangeTitle} WebSocket connection error. Real-time price updates interrupted.\n\n".
+                    'emailMessage' => "{$exchangeTitle} WebSocket connection encountered an error. Real-time price updates may be interrupted.\n\n".
                         "📛 EXCEPTION:\n\n".
-                        "{$exception}\n\n".
-                        "✅ AUTOMATIC RECOVERY:\n\n".
-                        "Platform automatically reconnecting with exponential backoff. If reconnection fails, supervisor will restart update-{$exchangeLower}-prices command.\n\n".
-                        "🔍 RESOLUTION STEPS:\n\n".
-                        "• Check supervisor status:\n".
-                        "[CMD]supervisorctl status update-{$exchangeLower}-prices[/CMD]\n\n".
-                        "• Check supervisor logs:\n".
-                        "[CMD]supervisorctl tail update-{$exchangeLower}-prices[/CMD]\n\n".
-                        "• Review full application logs:\n".
-                        "[CMD]tail -100 storage/logs/laravel.log | grep -i \"{$exchangeLower}\"[/CMD]\n\n".
-                        "• Check {$exchangeTitle} API status page for WebSocket service incidents:\n".
-                        "Binance: binance.com/en/support/announcement\n".
-                        "Bybit: bybit-exchange.github.io/docs/v5/sysStatus\n\n".
-                        "• Monitor price sync status:\n".
-                        "[CMD]SELECT parsed_trading_pair, mark_price_synced_at, TIMESTAMPDIFF(SECOND, mark_price_synced_at, NOW()) as seconds_stale FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}') ORDER BY mark_price_synced_at ASC LIMIT 10;[/CMD]",
+                        "{$exception}",
                     'pushoverMessage' => "{$exchangeTitle} WebSocket error: {$exception}",
                     'actionUrl' => null,
                     'actionLabel' => null,
@@ -459,32 +467,6 @@ final class NotificationMessageBuilder
                         "• Check for related errors:\n".
                         '[CMD]php artisan horizon:failed[/CMD]',
                     'pushoverMessage' => "⚠️ Step error - {$jobClass}: {$errorMessage}",
-                    'actionUrl' => null,
-                    'actionLabel' => null,
-                ];
-            })(),
-
-            'unrealized_pnl_alert' => (function () use ($context, $userName) {
-                $accountName = is_string($context['account_name'] ?? null) ? $context['account_name'] : 'Unknown Account';
-                $walletBalance = is_string($context['wallet_balance'] ?? null) ? $context['wallet_balance'] : '$0';
-                $unrealizedPnl = is_string($context['unrealized_pnl'] ?? null) ? $context['unrealized_pnl'] : '$0';
-
-                return [
-                    'severity' => NotificationSeverity::High,
-                    'title' => 'Position Monitoring: P&L Update',
-                    'emailMessage' => "📊 Position Monitoring Alert\n\n".
-                        "Unrealized P&L has exceeded 10% of wallet balance for {$accountName}.\n\n".
-                        "📈 POSITION DETAILS:\n\n".
-                        "• Trader: {$userName}\n".
-                        "• Account: {$accountName}\n".
-                        "• Wallet Balance: {$walletBalance}\n".
-                        "• Unrealized P&L: {$unrealizedPnl}\n\n".
-                        "⚠️ ATTENTION REQUIRED:\n\n".
-                        "This notification is triggered when unrealized profit or loss exceeds 10% of the wallet balance.\n\n".
-                        "• Review open positions in the dashboard\n".
-                        "• Consider taking action if necessary\n".
-                        '• Monitor for further changes',
-                    'pushoverMessage' => "⚠️ P&L Alert: {$unrealizedPnl} on {$accountName}",
                     'actionUrl' => null,
                     'actionLabel' => null,
                 ];

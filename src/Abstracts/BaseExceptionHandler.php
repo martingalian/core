@@ -31,8 +31,15 @@ abstract class BaseExceptionHandler
 
     public ?Account $account = null;
 
-    // Just to confirm it's being used by a child class. Should return true.
-    abstract public function ping(): bool;
+    /**
+     * Health check to confirm handler is operational.
+     * Default implementation returns true.
+     * Override only if custom health checks are needed.
+     */
+    public function ping(): bool
+    {
+        return true;
+    }
 
     // Returns the API system canonical name (e.g., 'taapi', 'coinmarketcap', 'binance')
     abstract public function getApiSystem(): string;
@@ -52,35 +59,48 @@ abstract class BaseExceptionHandler
     /**
      * Record response headers for IP-based rate limiting coordination.
      * Called after every successful API response.
-     * Complex APIs (Binance, Bybit) use this to track rate limits in Redis.
-     * Simple APIs (TAAPI, CoinMarketCap) implement as no-op.
+     * Default implementation is no-op (simple APIs don't need header tracking).
+     * Complex APIs (Binance, Bybit) override to track rate limits in Redis.
      */
-    abstract public function recordResponseHeaders(ResponseInterface $response): void;
+    public function recordResponseHeaders(ResponseInterface $response): void
+    {
+        // No-op by default - only complex APIs need this
+    }
 
     /**
      * Check if the current server IP is currently banned by the API.
-     * Returns true if IP ban is active, false otherwise.
-     * Used by shouldStartOrThrottle() to prevent jobs from running during bans.
+     * Default implementation returns false (simple APIs don't track IP bans).
+     * Complex APIs (Binance, Bybit) override to check ban state in Redis.
      */
-    abstract public function isCurrentlyBanned(): bool;
+    public function isCurrentlyBanned(): bool
+    {
+        return false;
+    }
 
     /**
      * Record an IP ban in shared state (Redis) when 418/429 errors occur.
-     * Allows all workers on the same IP to coordinate and stop making requests.
+     * Default implementation is no-op (simple APIs don't track IP bans).
+     * Complex APIs (Binance, Bybit) override to store ban state in Redis.
      *
      * @param  int  $retryAfterSeconds  Seconds until ban expires
      */
-    abstract public function recordIpBan(int $retryAfterSeconds): void;
+    public function recordIpBan(int $retryAfterSeconds): void
+    {
+        // No-op by default - only complex APIs need this
+    }
 
     /**
      * Pre-flight check before making an API request.
-     * Returns false if:
-     * - IP is currently banned
-     * - Too soon since last request (min delay)
-     * - Approaching rate limits (>80%)
-     * Returns true if safe to proceed.
+     * Default implementation returns true (simple APIs always allow requests).
+     * Complex APIs (Binance, Bybit) override to check:
+     * - IP ban status
+     * - Minimum delay since last request
+     * - Rate limit proximity (>80%)
      */
-    abstract public function isSafeToMakeRequest(): bool;
+    public function isSafeToMakeRequest(): bool
+    {
+        return true;
+    }
 
     final public static function make(string $apiCanonical)
     {
@@ -103,194 +123,61 @@ abstract class BaseExceptionHandler
     }
 
     /**
-     * Check if log represents a rate limit error based on HTTP code and vendor code.
+     * Check if log represents a server forbidden error based on HTTP code and vendor code.
      */
-    final public function isRateLimitedFromLog(int $httpCode, ?int $vendorCode): bool
+    final public function isServerForbiddenFromLog(int $httpCode, ?int $vendorCode): bool
     {
-        // HTTP 429, 418, 403 are rate limits
-        if (in_array($httpCode, [429, 418, 403], true)) {
+        if (! property_exists($this, 'serverForbiddenHttpCodes')) {
+            return false;
+        }
+
+        // Check if httpCode exists as flat element (e.g., [418, 429])
+        if (in_array($httpCode, $this->serverForbiddenHttpCodes, true)) {
             return true;
         }
 
-        // Check vendor-specific rate limit codes
-        if ($vendorCode && property_exists($this, 'rateLimitedHttpCodes')) {
-            return in_array($vendorCode, $this->rateLimitedHttpCodes, true);
-        }
-
-        return false;
-    }
-
-    /**
-     * Check if log represents a forbidden/IP whitelist error based on HTTP code and vendor code.
-     */
-    final public function isForbiddenFromLog(int $httpCode, ?int $vendorCode): bool
-    {
-        if (! in_array($httpCode, [401, 403], true)) {
+        // If no vendor code, we can't check nested structure
+        if (! $vendorCode) {
             return false;
         }
 
-        if (! $vendorCode || ! property_exists($this, 'forbiddenHttpCodes')) {
-            return false;
-        }
-
-        // Check nested array structure (e.g., [401 => [-2015]])
-        if (is_array($this->forbiddenHttpCodes)) {
-            foreach ($this->forbiddenHttpCodes as $code => $subCodes) {
-                if ($code === $httpCode && is_array($subCodes) && in_array($vendorCode, $subCodes, true)) {
-                    return true;
-                }
+        // Check nested array structure (e.g., [403 => [-1004, -1005]])
+        foreach ($this->serverForbiddenHttpCodes as $code => $subCodes) {
+            if ($code === $httpCode && is_array($subCodes) && in_array($vendorCode, $subCodes, true)) {
+                return true;
             }
-
-            // Also check flat array (e.g., [10003, 10004])
-            return in_array($vendorCode, $this->forbiddenHttpCodes, true);
         }
 
         return false;
     }
 
     /**
-     * Check if log represents a server overload/busy error based on HTTP code and vendor code.
-     * These are treated the same as exchange maintenance - server cannot process requests.
+     * Check if log represents a server rate limit error based on HTTP code and vendor code.
      */
-    final public function isServerOverloadFromLog(int $httpCode, ?int $vendorCode): bool
+    final public function isServerRateLimitedFromLog(int $httpCode, ?int $vendorCode): bool
     {
-        // HTTP 503/504 indicate service unavailable or gateway timeout
-        if (in_array($httpCode, [503, 504], true)) {
+        if (! property_exists($this, 'serverRateLimitedHttpCodes')) {
+            return false;
+        }
+
+        // Check if httpCode exists as flat element (e.g., [429])
+        if (in_array($httpCode, $this->serverRateLimitedHttpCodes, true)) {
             return true;
         }
 
-        // Check vendor-specific server overload codes if available
-        if ($vendorCode && property_exists($this, 'serverOverloadCodes')) {
-            return in_array($vendorCode, $this->serverOverloadCodes, true);
+        // If no vendor code, we can't check nested structure
+        if (! $vendorCode) {
+            return false;
+        }
+
+        // Check nested array structure (e.g., [400 => [-1003]])
+        foreach ($this->serverRateLimitedHttpCodes as $code => $subCodes) {
+            if ($code === $httpCode && is_array($subCodes) && in_array($vendorCode, $subCodes, true)) {
+                return true;
+            }
         }
 
         return false;
-    }
-
-    /**
-     * Check if log represents a critical account status error requiring account disabling.
-     * These errors trigger can_trade = 0 on the account.
-     */
-    final public function isAccountStatusErrorFromLog(?int $vendorCode): bool
-    {
-        if (! $vendorCode || ! property_exists($this, 'accountStatusCodes')) {
-            return false;
-        }
-
-        return in_array($vendorCode, $this->accountStatusCodes, true);
-    }
-
-    /**
-     * Check if log represents insufficient balance/margin error.
-     */
-    final public function isInsufficientBalanceFromLog(?int $vendorCode): bool
-    {
-        if (! $vendorCode || ! property_exists($this, 'insufficientBalanceCodes')) {
-            return false;
-        }
-
-        return in_array($vendorCode, $this->insufficientBalanceCodes, true);
-    }
-
-    /**
-     * Check if log represents KYC verification required error.
-     */
-    final public function isKycRequiredFromLog(?int $vendorCode): bool
-    {
-        if (! $vendorCode || ! property_exists($this, 'kycRequiredCodes')) {
-            return false;
-        }
-
-        return in_array($vendorCode, $this->kycRequiredCodes, true);
-    }
-
-    /**
-     * Check if log represents system error (unknown error, timeout).
-     */
-    final public function isSystemErrorFromLog(?int $vendorCode): bool
-    {
-        if (! $vendorCode || ! property_exists($this, 'systemErrorCodes')) {
-            return false;
-        }
-
-        return in_array($vendorCode, $this->systemErrorCodes, true);
-    }
-
-    /**
-     * Check if log represents network error.
-     */
-    final public function isNetworkErrorFromLog(?int $vendorCode): bool
-    {
-        if (! $vendorCode || ! property_exists($this, 'networkErrorCodes')) {
-            return false;
-        }
-
-        return in_array($vendorCode, $this->networkErrorCodes, true);
-    }
-
-    /**
-     * Check if log represents ambiguous credentials/IP/permissions error.
-     * Only used by Binance (-2015) which doesn't distinguish between these scenarios.
-     */
-    final public function isCredentialsOrIpErrorFromLog(?int $vendorCode): bool
-    {
-        if (! $vendorCode || ! property_exists($this, 'credentialsOrIpCodes')) {
-            return false;
-        }
-
-        return in_array($vendorCode, $this->credentialsOrIpCodes, true);
-    }
-
-    /**
-     * Check if log represents invalid API key error.
-     * Used by Bybit (10003) for specific API key validation failures.
-     */
-    final public function isInvalidApiKeyFromLog(?int $vendorCode): bool
-    {
-        if (! $vendorCode || ! property_exists($this, 'invalidApiKeyCodes')) {
-            return false;
-        }
-
-        return in_array($vendorCode, $this->invalidApiKeyCodes, true);
-    }
-
-    /**
-     * Check if log represents invalid signature error.
-     * Used by Bybit (10004) for signature generation/validation failures.
-     */
-    final public function isInvalidSignatureFromLog(?int $vendorCode): bool
-    {
-        if (! $vendorCode || ! property_exists($this, 'invalidSignatureCodes')) {
-            return false;
-        }
-
-        return in_array($vendorCode, $this->invalidSignatureCodes, true);
-    }
-
-    /**
-     * Check if log represents insufficient permissions error.
-     * Used by Bybit (10005) for API key permission restrictions.
-     */
-    final public function isInsufficientPermissionsFromLog(?int $vendorCode): bool
-    {
-        if (! $vendorCode || ! property_exists($this, 'insufficientPermissionsCodes')) {
-            return false;
-        }
-
-        return in_array($vendorCode, $this->insufficientPermissionsCodes, true);
-    }
-
-    /**
-     * Check if log represents IP not whitelisted error.
-     * Used by Bybit (10010) for IP whitelist configuration issues.
-     */
-    final public function isIpNotWhitelistedFromLog(?int $vendorCode): bool
-    {
-        if (! $vendorCode || ! property_exists($this, 'ipNotWhitelistedCodes')) {
-            return false;
-        }
-
-        return in_array($vendorCode, $this->ipNotWhitelistedCodes, true);
     }
 
     /**

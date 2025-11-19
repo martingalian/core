@@ -22,25 +22,33 @@ final class BybitExceptionHandler extends BaseExceptionHandler
 
     /**
      * Errors that should be ignored (no action needed).
+     * HTTP 200 with ignorable retCodes in response body.
      */
-    protected array $ignorableHttpCodes = [
-        34040,   // Not modified (value already set)
-        110025,  // Position mode unchanged
-        110026,  // Margin mode unchanged
-        110043,  // Leverage unchanged
+    public array $ignorableHttpCodes = [
+        200 => [
+            34040,   // Not modified (value already set)
+            110025,  // Position mode unchanged
+            110026,  // Margin mode unchanged
+            110043,  // Leverage unchanged
+        ],
     ];
 
     /**
      * Errors that can be retried (transient issues).
+     * HTTP 200 with retryable retCodes in response body.
      */
-    protected array $retryableHttpCodes = [
-        10019,   // Service restarting
-        170007,  // Backend timeout
-        177002,  // Server busy
+    public array $retryableHttpCodes = [
+        200 => [
+            10019,   // Service restarting
+            170007,  // Backend timeout
+            177002,  // Server busy
+        ],
     ];
 
     /**
-     * Forbidden — real exchange-level IP bans.
+     * Server forbidden — real exchange-level IP bans (server cannot make ANY calls).
+     * HTTP 401: Authentication failed (invalid API key)
+     * HTTP 200 with permanent IP ban retCode.
      *
      * IMPORTANT:
      * • 10009 = IP banned by Bybit exchange (permanent until manual unban)
@@ -48,119 +56,31 @@ final class BybitExceptionHandler extends BaseExceptionHandler
      * • 10003/10004/10005/10007 are NOT here (API key credential issues, not server bans)
      * • 10010 is NOT here (IP whitelist configuration in API key settings, not a server ban)
      */
-    protected array $forbiddenHttpCodes = [
-        10009,   // IP banned by exchange (permanent)
+    public array $serverForbiddenHttpCodes = [
+        401,     // HTTP-level: Authentication failed
+        200 => [
+            10009,   // IP banned by exchange (permanent)
+        ],
     ];
 
     /**
      * Rate limit related error codes.
-     * • 10006 = Too many visits (per-UID limit)
-     * • 10018 = Exceeded IP rate limit
-     * • 403 = HTTP-level IP rate limit (600 req/5s)
+     * • HTTP 200: Too many visits (per-UID limit), exceeded IP rate limit
+     * • HTTP 403: IP rate limit breached (temporary, lifts after 10 minutes)
+     * • HTTP 429: IP auto-banned for continuing after 429 codes
      */
-    protected array $rateLimitedHttpCodes = [
-        403,     // HTTP-level: IP rate limit breached (temporary, lifts after 10 minutes)
-        10006,   // Too many visits (per-UID)
-        10018,   // Exceeded IP rate limit
-        170005,  // Exceeded max orders per time period
-        170222,  // Too many requests
+    public array $serverRateLimitedHttpCodes = [
+        403,     // HTTP-level: IP rate limit breached (temporary)
+        429,     // HTTP-level: IP auto-banned
+        200 => [
+            10006,   // Too many visits (per-UID)
+            10018,   // Exceeded IP rate limit
+            170005,  // Exceeded max orders per time period
+            170222,  // Too many requests
+        ],
     ];
 
-    /**
-     * Bybit-specific rate limit codes from response body.
-     */
-    protected array $bybitRateLimitCodes = [
-        10006,
-        10018,
-        170005,
-        170222,
-    ];
-
-    /**
-     * Server overload/busy codes - treated as maintenance (cannot process requests).
-     * Critical during price crashes when exchanges get overloaded.
-     */
-    protected array $serverOverloadCodes = [
-        10019,   // Service restarting
-        170007,  // Backend timeout
-        177002,  // Server busy
-    ];
-
-    /**
-     * Invalid API key errors (credential issues).
-     */
-    protected array $invalidApiKeyCodes = [
-        10003,   // API key is invalid
-    ];
-
-    /**
-     * Invalid signature errors (credential issues).
-     */
-    protected array $invalidSignatureCodes = [
-        10004,   // Error sign, signature generation issue
-    ];
-
-    /**
-     * Insufficient permissions errors (API key permissions).
-     */
-    protected array $insufficientPermissionsCodes = [
-        10005,   // Permission denied, API key permissions insufficient
-    ];
-
-    /**
-     * IP not whitelisted errors (IP whitelist configuration).
-     */
-    protected array $ipNotWhitelistedCodes = [
-        10010,   // Unmatched IP, IP not in API key whitelist
-    ];
-
-    /**
-     * Account status errors - critical issues requiring account disabling.
-     * These trigger can_trade = 0 on the account.
-     */
-    protected array $accountStatusCodes = [
-        33004,   // API key expired
-        10008,   // Common ban applied
-        10024,   // Compliance rules triggered
-        10027,   // Transactions are banned
-        110023,  // Can only reduce positions
-        110066,  // Trading currently not allowed
-        10007,   // User authentication failed (also in forbidden)
-    ];
-
-    /**
-     * Balance/margin insufficiency errors.
-     */
-    protected array $insufficientBalanceCodes = [
-        110004,  // Insufficient wallet balance
-        110007,  // Insufficient available balance
-        110012,  // Insufficient available balance
-        110044,  // Insufficient available margin
-        110045,  // Insufficient wallet balance
-    ];
-
-    /**
-     * KYC verification required errors.
-     */
-    protected array $kycRequiredCodes = [
-        20096,   // KYC authentication required
-    ];
-
-    /**
-     * System errors - unknown errors and timeouts.
-     */
-    protected array $systemErrorCodes = [
-        10016,   // Internal server error
-        10000,   // Server timeout
-        10002,   // Request time exceeds acceptable window
-    ];
-
-    /**
-     * Network errors - connectivity issues.
-     */
-    protected array $networkErrorCodes = [
-        170032,  // Network error
-    ];
+    public array $recvWindowMismatchedHttpCodes = [];
 
     /**
      * Check if exception represents an IP ban (HTTP 429).
@@ -175,38 +95,6 @@ final class BybitExceptionHandler extends BaseExceptionHandler
             && $exception->getResponse()->getStatusCode() === 429;
     }
 
-    /**
-     * Check if exception is rate limited.
-     */
-    public function isRateLimited(Throwable $exception): bool
-    {
-        if (! $exception instanceof RequestException) {
-            return false;
-        }
-
-        if (! $exception->hasResponse()) {
-            return false;
-        }
-
-        $response = $exception->getResponse();
-        $statusCode = $response->getStatusCode();
-
-        // HTTP 429 is always rate limiting
-        if ($statusCode === 429) {
-            return true;
-        }
-
-        // HTTP 403 can be rate limiting
-        if ($statusCode === 403) {
-            return true;
-        }
-
-        // Check for Bybit retCode in response body
-        $data = $this->extractHttpErrorCodes($exception);
-        $retCode = $data['status_code'] ?? null;
-
-        return $retCode !== null && in_array($retCode, $this->bybitRateLimitCodes, true);
-    }
 
     /**
      * Calculate when to retry after rate limit.
@@ -251,18 +139,7 @@ final class BybitExceptionHandler extends BaseExceptionHandler
      */
     public function retryException(Throwable $exception): bool
     {
-        if (! $exception instanceof RequestException) {
-            return false;
-        }
-
-        if (! $exception->hasResponse()) {
-            return false;
-        }
-
-        $data = $this->extractHttpErrorCodes($exception);
-        $retCode = $data['status_code'] ?? null;
-
-        return $retCode !== null && in_array($retCode, $this->retryableHttpCodes, true);
+        return $this->containsHttpExceptionIn($exception, $this->retryableHttpCodes);
     }
 
     /**
@@ -270,46 +147,9 @@ final class BybitExceptionHandler extends BaseExceptionHandler
      */
     public function ignoreException(Throwable $exception): bool
     {
-        if (! $exception instanceof RequestException) {
-            return false;
-        }
-
-        if (! $exception->hasResponse()) {
-            return false;
-        }
-
-        $data = $this->extractHttpErrorCodes($exception);
-        $retCode = $data['status_code'] ?? null;
-
-        return $retCode !== null && in_array($retCode, $this->ignorableHttpCodes, true);
+        return $this->containsHttpExceptionIn($exception, $this->ignorableHttpCodes);
     }
 
-    /**
-     * Check if exception is forbidden (auth/permission error).
-     */
-    public function isForbidden(Throwable $exception): bool
-    {
-        if (! $exception instanceof RequestException) {
-            return false;
-        }
-
-        if (! $exception->hasResponse()) {
-            return false;
-        }
-
-        $response = $exception->getResponse();
-        $statusCode = $response->getStatusCode();
-
-        // HTTP 401 is always forbidden
-        if ($statusCode === 401) {
-            return true;
-        }
-
-        $data = $this->extractHttpErrorCodes($exception);
-        $retCode = $data['status_code'] ?? null;
-
-        return $retCode !== null && in_array($retCode, $this->forbiddenHttpCodes, true);
-    }
 
     /**
      * Ping the Bybit API to check connectivity.
