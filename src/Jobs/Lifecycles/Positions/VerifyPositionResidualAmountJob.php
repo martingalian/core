@@ -34,16 +34,7 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
         if (is_array($positions) && array_key_exists($this->position->parsed_trading_pair, $positions)) {
             $amount = $positions[$this->position->parsed_trading_pair]['positionAmt'];
 
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'position_residual_amount_detected',
-                referenceData: [
-                    'position_id' => $this->position->id,
-                    'trading_pair' => $this->position->parsed_trading_pair,
-                    'amount' => $amount,
-                ],
-                cacheKey: "position_residual_amount_detected:{$this->position->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: position_residual_amount_detected
 
             return [
                 'message' => "Position {$this->position->parsed_trading_pair} with residual amount detected. Qty: {$amount}",
@@ -57,16 +48,6 @@ final class VerifyPositionResidualAmountJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'position_residual_verification_error',
-            referenceData: [
-                'position_id' => $this->position->id,
-                'trading_pair' => $this->position->parsed_trading_pair,
-                'job_class' => class_basename(self::class),
-                'error_message' => $e->getMessage(),
-            ],
-            cacheKey: "position_residual_verification_error:{$this->position->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: position_residual_verification_error
     }
 }

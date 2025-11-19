@@ -47,18 +47,7 @@ final class PlaceLimitOrderJob extends BaseApiableJob
                 $reason .= 'Position status not in opening';
             }
 
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'place_limit_order_start_failed',
-                referenceData: [
-                    'order_id' => $this->order->id,
-                    'position_id' => $this->order->position->id,
-                    'trading_pair' => $this->order->position->parsed_trading_pair,
-                    'reason' => $reason,
-                    'job_class' => class_basename(self::class),
-                ],
-                cacheKey: "place_limit_order_start_failed:{$this->order->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: place_limit_order_start_failed
 
             return $result;
         }
@@ -97,19 +86,6 @@ final class PlaceLimitOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'limit_order_placement_error',
-            referenceData: [
-                'order_id' => $this->order->id,
-                'step_id' => $this->step->id,
-                'position_id' => $this->order->position->id,
-                'order_type' => $this->order->type,
-                'order_side' => $this->order->side,
-                'job_class' => class_basename(self::class),
-                'error_message' => $e->getMessage(),
-            ],
-            cacheKey: "limit_order_placement_error:{$this->order->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: limit_order_placement_error
     }
 }

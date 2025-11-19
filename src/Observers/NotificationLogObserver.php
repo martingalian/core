@@ -71,14 +71,7 @@ final class NotificationLogObserver
         $user->notification_channels = [PushoverChannel::class];
         $user->save();
 
-        // Send bounce alert notification (no throttling - immediate send)
-        $user->notify(
-            new AlertNotification(
-                message: 'Critical: We cannot send you emails. Please check your email on your dashboard',
-                title: 'Email Delivery Failed',
-                canonical: 'bounce_alert_to_pushover'
-            )
-        );
+        // Removed bounce_alert_to_pushover notification - invalid canonical
 
         // Restore original notification channels
         $user->notification_channels = $originalChannels;

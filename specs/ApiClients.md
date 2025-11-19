@@ -214,8 +214,8 @@ Handles:
 - Connection failures
 
 Canonical examples:
-- `binance_ip_not_whitelisted`
-- `binance_api_rate_limit_exceeded`
+- `server_rate_limit_exceeded`
+- `binance_server_rate_limit_exceeded`
 - `binance_invalid_api_credentials`
 - `binance_api_connection_failed`
 
@@ -231,8 +231,8 @@ Handles:
 - Connection failures
 
 Canonical examples:
-- `bybit_ip_not_whitelisted`
-- `bybit_api_rate_limit_exceeded`
+- `server_rate_limit_exceeded`
+- `bybit_server_rate_limit_exceeded`
 - `bybit_invalid_api_credentials`
 
 ### TaapiExceptionHandler

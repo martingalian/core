@@ -295,18 +295,6 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
         // Use Symbol as relatable for throttling context
         $symbol = Symbol::where('token', mb_strtoupper($canonicalToken))->first();
 
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'symbol_cmc_id_not_found',
-            referenceData: [
-                'canonical_token' => $canonicalToken,
-                'original_token' => $originalToken,
-                'exchange_name' => $exchangeName,
-                'exchange_canonical' => $exchangeCanonical,
-                'message' => $message,
-            ],
-            relatable: $symbol,
-            cacheKey: "symbol_cmc_id_not_found:{$canonicalToken}"
-        );
+        // Removed NotificationService::send - invalid canonical: symbol_cmc_id_not_found
     }
 }

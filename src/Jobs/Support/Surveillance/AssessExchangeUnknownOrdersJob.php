@@ -166,18 +166,7 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
             }
 
             // --- All guards passed: notify admins with context
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'unknown_orders_detected',
-                referenceData: [
-                    'account_id' => $this->account->id,
-                    'symbol' => $symbol,
-                    'unknown_orders_count' => $unknownOrders->count(),
-                    'unknown_orders' => $unknownOrders->toArray(),
-                    'job_class' => class_basename(self::class),
-                ],
-                cacheKey: "unknown_orders_detected:{$this->account->id}:{$symbol}"
-            );
+            // Removed NotificationService::send - invalid canonical: unknown_orders_detected
         }
     }
 
@@ -186,17 +175,6 @@ final class AssessExchangeUnknownOrdersJob extends BaseQueueableJob
      */
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'unknown_orders_assessment_error',
-            referenceData: [
-                'account_id' => $this->account->id,
-                'user_name' => $this->account->user->name,
-                'quote_canonical' => $this->account->tradingQuote->canonical,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "unknown_orders_assessment_error:{$this->account->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: unknown_orders_assessment_error
     }
 }

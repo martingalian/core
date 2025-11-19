@@ -66,17 +66,7 @@ final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'verify_order_notional_market',
-            referenceData: [
-                'position_id' => $this->position->id,
-                'trading_pair' => $this->position->parsed_trading_pair,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "verify_order_notional_market:{$this->position->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: verify_order_notional_market
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

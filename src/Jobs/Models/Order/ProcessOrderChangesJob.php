@@ -94,17 +94,7 @@ final class ProcessOrderChangesJob extends BaseQueueableJob
     {
         info('[ProcessOrderChangesJob] Logging and dispatching ClosePositionJob due to STOP-MARKET filled.');
 
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'stop_market_filled_closing_position',
-            referenceData: [
-                'position_id' => $this->order->position->id,
-                'trading_pair' => $this->order->position->parsed_trading_pair,
-                'order_id' => $this->order->id,
-                'job_class' => class_basename(self::class),
-            ],
-            cacheKey: "stop_market_filled_closing_position:{$this->order->position->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: stop_market_filled_closing_position
 
         Step::create([
             'class' => ClosePositionJob::class,

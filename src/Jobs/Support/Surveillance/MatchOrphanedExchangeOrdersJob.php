@@ -65,33 +65,12 @@ final class MatchOrphanedExchangeOrdersJob extends BaseQueueableJob
             });
 
             // ✅ Alert: Orphaned orders found
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'orphaned_orders_detected',
-                referenceData: [
-                    'account_id' => $this->account->id,
-                    'orphaned_orders_count' => $formattedOrphans->count(),
-                    'orphaned_orders' => $formattedOrphans->toArray(),
-                    'job_class' => class_basename(self::class),
-                ],
-                cacheKey: "orphaned_orders_detected:{$this->account->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: orphaned_orders_detected
         }
     }
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'orphaned_orders_match_error',
-            referenceData: [
-                'account_id' => $this->account->id,
-                'user_name' => $this->account->user->name,
-                'quote_canonical' => $this->account->tradingQuote->canonical,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "orphaned_orders_match_error:{$this->account->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: orphaned_orders_match_error
     }
 }

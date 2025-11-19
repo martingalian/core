@@ -73,17 +73,6 @@ final class ResettleOrderJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'resettle_order',
-            referenceData: [
-                'order_id' => $this->order->id,
-                'step_id' => $this->step->id,
-                'position_id' => $this->order->position->id,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "resettle_order:{$this->order->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: resettle_order
     }
 }

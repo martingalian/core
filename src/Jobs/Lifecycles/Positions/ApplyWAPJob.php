@@ -90,17 +90,7 @@ final class ApplyWAPJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'apply_wap',
-            referenceData: [
-                'position_id' => $this->position->id,
-                'trading_pair' => $this->position->parsed_trading_pair,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "apply_wap:{$this->position->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: apply_wap
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

@@ -127,16 +127,6 @@ final class ConfirmPriceAlignmentsJob extends BaseQueueableJob
     {
         $symbolId = isset($this->exchangeSymbolBeingComputed) ? $this->exchangeSymbolBeingComputed->id : 'unknown';
 
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'confirm_price_alignments',
-            referenceData: [
-                'exchange_symbol_id' => $symbolId,
-                'step_id' => $this->step->id,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "confirm_price_alignments:{$symbolId}"
-        );
+        // Removed NotificationService::send - invalid canonical: confirm_price_alignments
     }
 }

@@ -60,7 +60,7 @@ packages/martingalian/core/src/
 - `user_types` (JSON) - ['user'], ['admin'], or ['admin', 'user']
 
 ### throttle_rules
-- `canonical` - throttle identifier (e.g., 'api_rate_limit_exceeded')
+- `canonical` - throttle identifier (e.g., 'server_rate_limit_exceeded')
 - `throttle_seconds` - minimum time between notifications
 - Database-driven throttling (deprecated `throttle_logs` table removed in favor of `notification_logs`)
 

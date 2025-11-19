@@ -54,16 +54,7 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
 
         // Null-guard before touching exchangeSymbol (is_tradeable controlled manually via backoffice)
 
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'stop_loss_precondition_failed',
-            referenceData: [
-                'position_id' => $this->position->id,
-                'trading_pair' => $this->position->parsed_trading_pair,
-                'job_class' => class_basename(self::class),
-            ],
-            cacheKey: "stop_loss_precondition_failed:{$this->position->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: stop_loss_precondition_failed
 
         return false;
     }
@@ -107,19 +98,7 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
 
         $this->stopLossOrder->apiPlace();
 
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'stop_loss_placed_successfully',
-            referenceData: [
-                'position_id' => $this->position->id,
-                'order_id' => $this->stopLossOrder->id,
-                'trading_pair' => $this->position->parsed_trading_pair,
-                'quantity' => $calc['quantity'],
-                'price' => $calc['price'],
-                'job_class' => class_basename(self::class),
-            ],
-            cacheKey: "stop_loss_placed_successfully:{$this->stopLossOrder->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: stop_loss_placed_successfully
 
         return ['order' => format_model_attributes($this->stopLossOrder)];
     }
@@ -152,16 +131,6 @@ final class PlaceStopLossOrderJob extends BaseApiableJob
     {
         $id = $this->stopLossOrder?->id ?? 'unknown';
 
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'stop_loss_placement_error',
-            referenceData: [
-                'order_id' => $id,
-                'position_id' => $this->position->id,
-                'job_class' => class_basename(self::class),
-                'error_message' => $e->getMessage(),
-            ],
-            cacheKey: "stop_loss_placement_error:{$id}"
-        );
+        // Removed NotificationService::send - invalid canonical: stop_loss_placement_error
     }
 }

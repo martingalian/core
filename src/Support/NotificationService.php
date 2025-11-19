@@ -25,11 +25,7 @@ use Martingalian\Core\Notifications\AlertNotification;
  *   );
  *
  *   // User notification
- *   NotificationService::send(
- *       user: $user,
- *       canonical: 'price_alert',
- *       referenceData: ['symbol' => 'BTC']
- *   );
+ *   // Removed NotificationService::send with invalid canonical: price_alert
  */
 final class NotificationService
 {

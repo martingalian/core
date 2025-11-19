@@ -473,7 +473,7 @@ protected function shouldStartOrThrottle(BaseExceptionHandler $handler): int
 Exception handlers integrate with ThrottleRules to prevent notification spam:
 
 **Throttle Rules** (see ThrottleRulesSeeder.php):
-- `binance_api_rate_limit_exceeded` - 1800s (30 min)
+- `binance_server_rate_limit_exceeded` - 1800s (30 min)
 - `bybit_api_connection_failed` - 900s (15 min)
 - `binance_account_in_liquidation` - 900s (15 min)
 - `taapi_invalid_api_credentials` - 1800s (30 min)
@@ -481,7 +481,7 @@ Exception handlers integrate with ThrottleRules to prevent notification spam:
 **Usage in Exception Handler**:
 ```php
 if ($handler->isRateLimited($e)) {
-    $canonical = "{$this->apiSystem}_api_rate_limit_exceeded";
+    $canonical = "{$this->apiSystem}_server_rate_limit_exceeded";
 
     if (Throttler::canNotify($canonical)) {
         NotificationService::warning("Rate limit exceeded on {$this->apiSystem}");

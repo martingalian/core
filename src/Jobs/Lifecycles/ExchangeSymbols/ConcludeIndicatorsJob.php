@@ -200,16 +200,6 @@ final class ConcludeIndicatorsJob extends BaseQueueableJob
     {
         $symbolId = isset($this->exchangeSymbol) ? $this->exchangeSymbol->id : 'unknown';
 
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'conclude_indicators_error',
-            referenceData: [
-                'exchange_symbol_id' => $symbolId,
-                'step_id' => $this->step->id,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "conclude_indicators_error:{$symbolId}"
-        );
+        // Removed NotificationService::send - invalid canonical: conclude_indicators_error
     }
 }

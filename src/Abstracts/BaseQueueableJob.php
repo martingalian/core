@@ -119,16 +119,7 @@ abstract class BaseQueueableJob extends BaseJob
         $jobClass = class_basename($this);
         $stepId = $step->id ?? 'unknown';
 
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'job_execution_failed',
-            referenceData: [
-                'step_id' => $stepId,
-                'job_class' => $jobClass,
-                'exception_message' => $e->getMessage(),
-            ],
-            cacheKey: "job_execution_failed:{$stepId}"
-        );
+        // Removed NotificationService::send - invalid canonical: job_execution_failed
 
         // Update step state to failed
         $this->step->update(['response' => ['exception' => $e->getMessage()]]);

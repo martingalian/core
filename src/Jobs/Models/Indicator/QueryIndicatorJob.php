@@ -48,16 +48,6 @@ final class QueryIndicatorJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'query_indicator',
-            referenceData: [
-                'indicator_id' => $this->indicator->id,
-                'exchange_symbol_id' => $this->exchangeSymbol->id,
-                'job_class' => class_basename(self::class),
-                'error_message' => $e->getMessage(),
-            ],
-            cacheKey: "query_indicator:{$this->indicator->id}:{$this->exchangeSymbol->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: query_indicator
     }
 }

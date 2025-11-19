@@ -80,17 +80,6 @@ final class AssignTokensToNewPositionsJob extends BaseQueueableJob
          * Notify admins via Pushover if any exception occurs during job.
          * Includes account ID, user name, quote symbol, and error summary.
          */
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'assign_tokens_positions',
-            referenceData: [
-                'account_id' => $this->account->id,
-                'user_name' => $this->account->user->name,
-                'quote_canonical' => $this->account->tradingQuote->canonical,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "assign_tokens_positions:{$this->account->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: assign_tokens_positions
     }
 }

@@ -64,16 +64,7 @@ final class PlaceMarketOrderJob extends BaseApiableJob
 
         // Null-guard: exchange_symbol_id may be null (is_tradeable controlled manually via backoffice)
 
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'place_market_order_start_failed',
-            referenceData: [
-                'position_id' => $this->position->id,
-                'trading_pair' => $this->position->parsed_trading_pair,
-                'job_class' => class_basename(self::class),
-            ],
-            cacheKey: "place_market_order_start_failed:{$this->position->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: place_market_order_start_failed
 
         return false;
     }
@@ -180,30 +171,9 @@ final class PlaceMarketOrderJob extends BaseApiableJob
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->marketOrder) {
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'market_order_placement_error',
-                referenceData: [
-                    'order_id' => $this->marketOrder->id,
-                    'order_type' => $this->marketOrder->type,
-                    'order_side' => $this->marketOrder->side,
-                    'position_id' => $this->position->id,
-                    'job_class' => class_basename(self::class),
-                    'error_message' => $e->getMessage(),
-                ],
-                cacheKey: "market_order_placement_error:{$this->marketOrder->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: market_order_placement_error
         } else {
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'market_order_placement_error_no_order',
-                referenceData: [
-                    'position_id' => $this->position->id,
-                    'job_class' => class_basename(self::class),
-                    'error_message' => $e->getMessage(),
-                ],
-                cacheKey: "market_order_placement_error_no_order:{$this->position->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: market_order_placement_error_no_order
         }
     }
 }

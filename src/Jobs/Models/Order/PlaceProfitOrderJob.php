@@ -51,17 +51,7 @@ final class PlaceProfitOrderJob extends BaseApiableJob
                 $reason .= 'Position status not in opening';
             }
 
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'place_profit_order_start_failed',
-                referenceData: [
-                    'position_id' => $this->position->id,
-                    'trading_pair' => $this->position->parsed_trading_pair,
-                    'reason' => $reason,
-                    'job_class' => class_basename(self::class),
-                ],
-                cacheKey: "place_profit_order_start_failed:{$this->position->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: place_profit_order_start_failed
 
             return $result;
         }
@@ -143,30 +133,9 @@ final class PlaceProfitOrderJob extends BaseApiableJob
         $this->step->updateSaving(['error_message' => $e->getMessage()]);
 
         if ($this->profitOrder) {
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'profit_order_placement_error',
-                referenceData: [
-                    'order_id' => $this->profitOrder->id,
-                    'order_type' => $this->profitOrder->type,
-                    'order_side' => $this->profitOrder->side,
-                    'position_id' => $this->position->id,
-                    'job_class' => class_basename(self::class),
-                    'error_message' => $e->getMessage(),
-                ],
-                cacheKey: "profit_order_placement_error:{$this->profitOrder->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: profit_order_placement_error
         } else {
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'profit_order_placement_error_no_order',
-                referenceData: [
-                    'position_id' => $this->position->id,
-                    'job_class' => class_basename(self::class),
-                    'error_message' => $e->getMessage(),
-                ],
-                cacheKey: "profit_order_placement_error_no_order:{$this->position->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: profit_order_placement_error_no_order
         }
     }
 }

@@ -209,7 +209,7 @@ if (isset($notifiable->relatable) && is_object($notifiable->relatable)) {
 ```php
 NotificationService::send(
     user: Martingalian::admin(),
-    canonical: 'api_rate_limit_exceeded',
+    canonical: 'server_rate_limit_exceeded',
     referenceData: [
         'exchange' => 'binance',
         'ip' => '127.0.0.1',
@@ -232,7 +232,7 @@ NotificationService::send(
 ```php
 NotificationService::send(
     user: $user,
-    canonical: 'ip_not_whitelisted',
+    canonical: 'websocket_error',
     referenceData: [
         'exchange' => 'binance',
         'ip' => Martingalian::ip(),
@@ -393,19 +393,19 @@ CREATE TABLE notification_logs (
 **Usage**:
 ```bash
 # Admin notification with database throttling
-php artisan test:notification --canonical=api_rate_limit_exceeded
+php artisan test:notification --canonical=server_rate_limit_exceeded
 
 # Admin notification with cache throttling
-php artisan test:notification --canonical=api_rate_limit_exceeded --cache_key=my_key
+php artisan test:notification --canonical=server_rate_limit_exceeded --cache_key=my_key
 
 # Bypass throttling
-php artisan test:notification --canonical=api_rate_limit_exceeded --duration=0
+php artisan test:notification --canonical=server_rate_limit_exceeded --duration=0
 
 # Clean logs
 php artisan test:notification --clean
 
 # User notification
-php artisan test:notification --account_id=1 --canonical=ip_not_whitelisted
+php artisan test:notification --account_id=1 --canonical=websocket_error
 ```
 
 ---

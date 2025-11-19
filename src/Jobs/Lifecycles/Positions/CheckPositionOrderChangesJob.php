@@ -49,17 +49,7 @@ final class CheckPositionOrderChangesJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'check_position_order_changes',
-            referenceData: [
-                'position_id' => $this->position->id,
-                'trading_pair' => $this->position->parsed_trading_pair,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "check_position_order_changes:{$this->position->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: check_position_order_changes
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

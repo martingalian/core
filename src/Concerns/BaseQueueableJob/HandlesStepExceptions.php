@@ -41,16 +41,7 @@ trait HandlesStepExceptions
         }
 
         if (! $e instanceof NonNotifiableException) {
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'step_error',
-                referenceData: [
-                    'step_id' => $this->step->id,
-                    'job_class' => class_basename(static::class),
-                    'error_message' => $parser->friendlyMessage(),
-                ],
-                cacheKey: "step_error:{$this->step->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: step_error
         }
 
         $this->finalizeDuration();

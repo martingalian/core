@@ -47,18 +47,6 @@ final class DispatchNewPositionsWithTokensAssignedJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'dispatch_new_positions_tokens_assigned',
-            referenceData: [
-                'account_id' => $this->account->id,
-                'step_id' => $this->step->id,
-                'user_name' => $this->account->user->name,
-                'quote_canonical' => $this->account->tradingQuote->canonical,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "dispatch_new_positions_tokens_assigned:{$this->account->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: dispatch_new_positions_tokens_assigned
     }
 }

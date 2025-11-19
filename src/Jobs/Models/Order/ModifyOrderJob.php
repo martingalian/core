@@ -51,17 +51,6 @@ final class ModifyOrderJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'modify_order',
-            referenceData: [
-                'order_id' => $this->order->id,
-                'order_type' => $this->order->type,
-                'order_side' => $this->order->side,
-                'job_class' => class_basename(self::class),
-                'error_message' => $e->getMessage(),
-            ],
-            cacheKey: "modify_order:{$this->order->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: modify_order
     }
 }

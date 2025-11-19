@@ -115,17 +115,7 @@ final class QueryIndicatorsByChunkJob extends BaseApiableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'query_indicators_chunk',
-            referenceData: [
-                'indicator_id' => $this->indicatorId,
-                'exchange_symbol_count' => count($this->exchangeSymbolIds),
-                'job_class' => class_basename(self::class),
-                'error_message' => $e->getMessage(),
-            ],
-            cacheKey: "query_indicators_chunk:{$this->indicatorId}"
-        );
+        // Removed NotificationService::send - invalid canonical: query_indicators_chunk
     }
 
     /**

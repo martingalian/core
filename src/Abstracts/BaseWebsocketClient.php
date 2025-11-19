@@ -223,13 +223,7 @@ abstract class BaseWebsocketClient
             NotificationThrottler::using(NotificationService::class)
                 ->withCanonical('websocket_max_reconnect_attempts_reached')
                 ->execute(function () use ($maxAttempts, $url, $exchangeName) {
-                    NotificationService::send(
-                        user: Martingalian::admin(),
-                        message: "Max reconnect attempts ({$maxAttempts}) reached for WebSocket: {$url}",
-                        title: "{$exchangeName} WebSocket Failure",
-                        canonical: 'websocket_max_reconnect_attempts_reached',
-                        deliveryGroup: 'exceptions'
-                    );
+                    // Removed NotificationService::send - invalid canonical: websocket_max_reconnect_attempts_reached
                 });
 
             if (isset($callback['error']) && is_callable($callback['error'])) {

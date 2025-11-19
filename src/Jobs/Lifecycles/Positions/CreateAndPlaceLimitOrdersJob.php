@@ -144,17 +144,7 @@ final class CreateAndPlaceLimitOrdersJob extends BaseQueueableJob
      */
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'create_place_limit_orders',
-            referenceData: [
-                'position_id' => $this->position->id,
-                'trading_pair' => $this->position->parsed_trading_pair,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "create_place_limit_orders:{$this->position->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: create_place_limit_orders
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

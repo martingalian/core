@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Observers;
 
 use DB;
+use Exception;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\ApiRequestLog;
 use Martingalian\Core\Models\ApiSystem;
@@ -53,7 +54,7 @@ final class ApiRequestLogObserver
         // Create the appropriate exception handler for error code analysis
         try {
             $handler = BaseExceptionHandler::make($apiSystem->canonical);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return;
         }
 
@@ -102,7 +103,9 @@ final class ApiRequestLogObserver
                 canonical: 'server_forbidden',
                 referenceData: $baseData,
                 relatable: $apiSystem,
-                cacheKey: $apiSystem->canonical.'_forbidden'
+                cacheKey: $log->account_id
+                    ? "account:{$log->account_id},server:{$hostname}"
+                    : "server:{$hostname}"
             );
 
             return;

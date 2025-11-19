@@ -59,32 +59,13 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 
         // Sanity checks.
         if (bccomp($breakEvenPrice, '0', $scale) !== 1) {
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'wap_calculation_invalid_break_even_price',
-                referenceData: [
-                    'position_id' => $this->position->id,
-                    'trading_pair' => $this->position->parsed_trading_pair,
-                    'break_even_price' => $breakEvenPrice,
-                    'job_class' => class_basename(self::class),
-                ],
-                cacheKey: "wap_calculation_invalid_break_even_price:{$this->position->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: wap_calculation_invalid_break_even_price
 
             return;
         }
 
         if (bccomp($rawQty, '0', $scale) === 0) {
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'wap_calculation_zero_quantity',
-                referenceData: [
-                    'position_id' => $this->position->id,
-                    'trading_pair' => $this->position->parsed_trading_pair,
-                    'job_class' => class_basename(self::class),
-                ],
-                cacheKey: "wap_calculation_zero_quantity:{$this->position->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: wap_calculation_zero_quantity
 
             return;
         }
@@ -122,16 +103,7 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
         // 7) Fetch profit order and modify.
         $profitOrder = $this->position->profitOrder();
         if (! $profitOrder) {
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'wap_calculation_profit_order_missing',
-                referenceData: [
-                    'position_id' => $this->position->id,
-                    'trading_pair' => $this->position->parsed_trading_pair,
-                    'job_class' => class_basename(self::class),
-                ],
-                cacheKey: "wap_calculation_profit_order_missing:{$this->position->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: wap_calculation_profit_order_missing
 
             return;
         }
@@ -161,38 +133,13 @@ final class CalculateWAPAndModifyProfitOrderJob extends BaseApiableJob
 
         // Notify once the ladder threshold is met.
         if ($this->position->totalLimitOrdersFilled() >= $this->position->account->total_limit_orders_filled_to_notify) {
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'wap_profit_order_updated_successfully',
-                referenceData: [
-                    'position_id' => $this->position->id,
-                    'order_id' => $profitOrder->id,
-                    'trading_pair' => $this->position->parsed_trading_pair_extended,
-                    'old_price' => $oldPrice,
-                    'new_price' => $profitOrder->price,
-                    'old_quantity' => $oldQty,
-                    'new_quantity' => $profitOrder->quantity,
-                    'break_even_price' => $formattedBEP,
-                    'job_class' => class_basename(self::class),
-                ],
-                cacheKey: "wap_profit_order_updated_successfully:{$profitOrder->id}"
-            );
+            // Removed NotificationService::send - invalid canonical: wap_profit_order_updated_successfully
         }
     }
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'wap_calculation_error',
-            referenceData: [
-                'position_id' => $this->position->id,
-                'trading_pair' => $this->position->parsed_trading_pair,
-                'job_class' => class_basename(self::class),
-                'error_message' => ExceptionParser::with($e)->friendlyMessage(),
-            ],
-            cacheKey: "wap_calculation_error:{$this->position->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: wap_calculation_error
 
         $this->position->updateSaving([
             'error_message' => ExceptionParser::with($e)->friendlyMessage(),

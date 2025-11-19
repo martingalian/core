@@ -41,16 +41,6 @@ final class DeletePositionHistoryDataJob extends BaseQueueableJob
 
     public function resolveException(Throwable $e)
     {
-        NotificationService::send(
-            user: Martingalian::admin(),
-            canonical: 'delete_position_history',
-            referenceData: [
-                'position_id' => $this->position->id,
-                'trading_pair' => $this->position->parsed_trading_pair,
-                'job_class' => class_basename(self::class),
-                'error_message' => $e->getMessage(),
-            ],
-            cacheKey: "delete_position_history:{$this->position->id}"
-        );
+        // Removed NotificationService::send - invalid canonical: delete_position_history
     }
 }
