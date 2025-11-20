@@ -98,8 +98,6 @@ final class NotificationMessageBuilder
                 $oldestSymbol = is_string($context['oldest_symbol'] ?? null) ? $context['oldest_symbol'] : 'N/A';
                 $oldestPrice = is_string($context['oldest_price'] ?? null) ? $context['oldest_price'] : 'N/A';
                 $oldestMinutes = is_numeric($context['oldest_minutes'] ?? null) ? (int) $context['oldest_minutes'] : 0;
-                $newestSymbol = is_string($context['newest_symbol'] ?? null) ? $context['newest_symbol'] : 'N/A';
-                $newestSeconds = is_numeric($context['newest_seconds'] ?? null) ? (int) $context['newest_seconds'] : 0;
 
                 $exchangeLower = mb_strtolower($exchange);
 
@@ -108,12 +106,10 @@ final class NotificationMessageBuilder
                     'title' => "{$exchangeTitle} Stale Prices Detected",
                     'emailMessage' => "⚠️ {$exchangeTitle} Stale Prices Detected\n\n".
                         "{$exchangeTitle} price updates not received within expected timeframe. WebSocket connection may be stalled or {$exchangeTitle} API experiencing issues.\n\n".
-                        "📊 STALE PRICE DETAILS:\n\n".
-                        "• Most Stale Symbol: {$oldestSymbol}\n".
+                        "📊 STALE PRICE EXAMPLE:\n\n".
+                        "• Symbol: {$oldestSymbol}\n".
                         "• Last Price: {$oldestPrice}\n".
                         "• Last Updated: {$oldestMinutes} minutes ago\n\n".
-                        "• Newest Symbol: {$newestSymbol}\n".
-                        "• Last Updated: {$newestSeconds} seconds ago\n\n".
                         "🔍 RESOLUTION STEPS:\n\n".
                         "• Check stale prices:\n".
                         "[CMD]SELECT parsed_trading_pair, mark_price, mark_price_synced_at, TIMESTAMPDIFF(SECOND, mark_price_synced_at, NOW()) as seconds_stale FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}') ORDER BY mark_price_synced_at ASC LIMIT 10;[/CMD]\n\n".
@@ -124,8 +120,7 @@ final class NotificationMessageBuilder
                         "• Restart supervisor if needed:\n".
                         "[CMD]supervisorctl restart update-{$exchangeLower}-prices[/CMD]",
                     'pushoverMessage' => "⚠️ {$exchangeTitle} stale prices detected\n".
-                        "Most stale: {$oldestSymbol} ({$oldestMinutes}m ago)\n".
-                        "Newest: {$newestSymbol} ({$newestSeconds}s ago)\n".
+                        "Example: {$oldestSymbol} ({$oldestMinutes}m ago)\n".
                         'Manual supervisor restart may be required',
                     'actionUrl' => null,
                     'actionLabel' => null,

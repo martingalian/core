@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Commands;
 
-use Illuminate\Console\Command;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
+use Martingalian\Core\Support\BaseCommand;
 
-final class UpdateRecvwindowSafetyDurationCommand extends Command
+final class UpdateRecvwindowSafetyDurationCommand extends BaseCommand
 {
     protected $signature = 'martingalian:update-recvwindow-safety-duration';
 

@@ -809,7 +809,7 @@ final class MartingalianSeeder extends Seeder
                 'default_severity' => 'critical',
                 'verified' => 1,
                 'cache_duration' => 60,
-                'cache_key' => ['account', 'server'],
+                'cache_key' => ['api_system', 'server'],
             ],
             [
                 'canonical' => 'exchange_symbol_no_taapi_data',

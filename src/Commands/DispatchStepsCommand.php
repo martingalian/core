@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Commands;
 
-use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Martingalian\Core\Support\BaseCommand;
 use Martingalian\Core\Support\StepDispatcher;
 use Throwable;
 
-final class DispatchStepsCommand extends Command
+final class DispatchStepsCommand extends BaseCommand
 {
     /**
      * Usage:
@@ -24,7 +24,7 @@ final class DispatchStepsCommand extends Command
      *  php artisan core:dispatch-steps --group="alpha beta|gamma"
      *      → Dispatches for each listed name (comma/colon/semicolon/pipe/whitespace separated).
      */
-    protected $signature = 'core:dispatch-steps {--group= : Single group or a list (comma/colon/semicolon/pipe/space separated)}';
+    protected $signature = 'core:dispatch-steps {--group= : Single group or a list (comma/colon/semicolon/pipe/space separated)} {--output : Display command output (silent by default)}';
 
     protected $description = 'Dispatch all possible step entries (optionally filtered by --group).';
 
@@ -72,11 +72,11 @@ final class DispatchStepsCommand extends Command
 
             foreach ($groups as $group) {
                 StepDispatcher::dispatch($group);
-                $this->info('Dispatched steps for group: '.($group === null ? 'NULL' : $group));
+                $this->verboseInfo('Dispatched steps for group: '.($group === null ? 'NULL' : $group));
             }
         } catch (Throwable $e) {
             report($e);
-            $this->error($e->getMessage());
+            $this->verboseError($e->getMessage());
 
             return self::SUCCESS;
         }
@@ -100,11 +100,11 @@ final class DispatchStepsCommand extends Command
         // Truncate or create the file.
         $ok = @file_put_contents($path, '');
         if ($ok === false) {
-            $this->warn('Could not clear laravel.log (permission or path issue).');
+            $this->verboseWarn('Could not clear laravel.log (permission or path issue).');
 
             return;
         }
 
-        $this->info('laravel.log cleared.');
+        $this->verboseInfo('laravel.log cleared.');
     }
 }

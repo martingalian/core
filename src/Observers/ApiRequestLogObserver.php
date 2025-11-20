@@ -106,7 +106,7 @@ final class ApiRequestLogObserver
                 referenceData: $baseData,
                 relatable: $apiSystem,
                 cacheKey: [
-                    'account' => $log->account_id ?? 0,
+                    'api_system' => $apiSystem->canonical,
                     'server' => $hostname,
                 ]
             );

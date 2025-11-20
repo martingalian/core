@@ -64,7 +64,7 @@ final class NotificationFactory extends Factory
                 'default_severity' => NotificationSeverity::Critical,
                 'verified' => true,
                 'cache_duration' => 60,
-                'cache_key' => ['account', 'server'],
+                'cache_key' => ['api_system', 'server'],
             ];
         });
     }
