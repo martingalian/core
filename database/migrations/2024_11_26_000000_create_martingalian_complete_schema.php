@@ -303,7 +303,7 @@ return new class extends Migration
             $table->text('description')->nullable()->comment('Description of when this notification is sent');
             $table->text('detailed_description')->nullable()->comment('Comprehensive technical details: HTTP codes, vendor error codes, error messages, and triggering conditions from exchange APIs');
             $table->string('default_severity')->nullable()->comment('Default severity level (Critical, High, Medium, Info)');
-            $table->unsignedInteger('default_throttle_duration')->default(600)->comment('Default throttle duration in seconds (600 = 10 minutes default, 0 = no throttle, >0 = throttle window)');
+            $table->unsignedInteger('cache_duration')->default(600)->comment('Cache duration in seconds for throttling (600 = 10 minutes default, 0 = no throttle, >0 = throttle window)');
             $table->json('cache_key')->nullable()->comment('Array of required cache key parameters (e.g., ["api_system", "account"]) used to build unique cache key for throttling');
             $table->timestamps();
 

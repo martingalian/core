@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support;
 
 use Illuminate\Support\Facades\Cache;
+use InvalidArgumentException;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Notification;
 use Martingalian\Core\Models\NotificationLog;
@@ -85,7 +86,7 @@ final class NotificationService
         // - null: use default from notifications table
         // - 0: no throttling (send immediately)
         // - >0: use custom duration
-        $throttleDuration = $duration ?? $notification?->default_throttle_duration;
+        $throttleDuration = $duration ?? $notification?->cache_duration;
 
         // Build cache key string if cacheKey data is provided
         $builtCacheKey = null;
@@ -96,11 +97,15 @@ final class NotificationService
         // Throttle check: only if throttleDuration is set and > 0
         if ($throttleDuration !== null && $throttleDuration > 0) {
             if ($builtCacheKey) {
-                // Cache-based throttling
-                if (Cache::has($builtCacheKey)) {
-                    // Still within throttle window - skip sending
+                // Cache-based throttling with atomic operation
+                // Cache::add() only sets the key if it doesn't exist (atomic SETNX operation in Redis)
+                // Returns true if key was successfully set (we won the race), false if key already exists
+                if (! Cache::add($builtCacheKey, true, $throttleDuration)) {
+                    // Key already existed - another worker got here first
+                    // This prevents race conditions across multiple worker servers
                     return false;
                 }
+                // Key was set successfully - we won the race, continue to send notification
             } else {
                 // Database-based throttling (default fallback)
                 // Use $relatable if provided, otherwise use $user as the throttle relatable
@@ -151,10 +156,8 @@ final class NotificationService
             )
         );
 
-        // Set cache throttle after successful send (cache-based throttling only)
-        if ($builtCacheKey && $throttleDuration) {
-            Cache::put($builtCacheKey, true, $throttleDuration);
-        }
+        // Cache key already set atomically before sending (for cache-based throttling)
+        // No need to set it again here
 
         return true;
     }
@@ -169,7 +172,8 @@ final class NotificationService
      * @param  array<string, mixed>  $data  The cache key data provided by caller (e.g., ['api_system' => 'binance', 'account' => 1])
      * @param  array<int, string>  $template  The required keys from notifications table (e.g., ['api_system', 'account'])
      * @return string The built cache key
-     * @throws \InvalidArgumentException If required keys are missing
+     *
+     * @throws InvalidArgumentException If required keys are missing
      */
     private static function buildCacheKey(string $canonical, array $data, array $template): string
     {
@@ -182,7 +186,7 @@ final class NotificationService
         }
 
         if (! empty($missingKeys)) {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 "Missing required cache keys for canonical '{$canonical}': ".implode(', ', $missingKeys)
             );
         }

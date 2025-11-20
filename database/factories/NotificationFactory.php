@@ -45,6 +45,8 @@ final class NotificationFactory extends Factory
                 'description' => 'Sent when exchange API returns 429 (rate limit)',
                 'default_severity' => NotificationSeverity::High,
                 'verified' => true,
+                'cache_duration' => 600,
+                'cache_key' => ['api_system', 'account'],
             ];
         });
     }
@@ -61,6 +63,8 @@ final class NotificationFactory extends Factory
                 'description' => 'Sent when server/IP is forbidden from accessing exchange API (HTTP 418 IP ban)',
                 'default_severity' => NotificationSeverity::Critical,
                 'verified' => true,
+                'cache_duration' => 600,
+                'cache_key' => ['account', 'server'],
             ];
         });
     }
@@ -77,6 +81,98 @@ final class NotificationFactory extends Factory
                 'description' => 'Sent when an exchange symbol is automatically deactivated due to consistent TAAPI data failures',
                 'default_severity' => NotificationSeverity::Medium,
                 'verified' => true,
+                'cache_duration' => 600,
+                'cache_key' => ['exchange_symbol', 'exchange'],
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the notification is for stale price detected.
+     */
+    public function stalePriceDetected(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'canonical' => 'stale_price_detected',
+                'title' => 'Stale Price Detected',
+                'description' => 'Sent when exchange symbol prices have not been updated within expected timeframe',
+                'default_severity' => NotificationSeverity::High,
+                'verified' => true,
+                'cache_duration' => 600,
+                'cache_key' => ['api_system'],
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the notification is for update prices restart.
+     */
+    public function updatePricesRestart(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'canonical' => 'update_prices_restart',
+                'title' => 'Price Stream Restart',
+                'description' => 'Sent when price monitoring restarts due to symbol changes',
+                'default_severity' => NotificationSeverity::Info,
+                'verified' => true,
+                'cache_duration' => 600,
+                'cache_key' => ['api_system'],
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the notification is for websocket error.
+     */
+    public function websocketError(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'canonical' => 'websocket_error',
+                'title' => 'WebSocket Error',
+                'description' => 'Sent when WebSocket connection encounters errors',
+                'default_severity' => NotificationSeverity::Critical,
+                'verified' => true,
+                'cache_duration' => 600,
+                'cache_key' => ['api_system'],
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the notification is for websocket invalid JSON.
+     */
+    public function websocketInvalidJson(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'canonical' => 'websocket_invalid_json',
+                'title' => 'WebSocket: Invalid JSON Response',
+                'description' => 'Sent when exchange WebSocket returns invalid JSON',
+                'default_severity' => NotificationSeverity::Medium,
+                'verified' => true,
+                'cache_duration' => 600,
+                'cache_key' => ['api_system'],
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the notification is for websocket prices update error.
+     */
+    public function websocketPricesUpdateError(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'canonical' => 'websocket_prices_update_error',
+                'title' => 'WebSocket Prices: Database Update Error',
+                'description' => 'Sent when database update fails for WebSocket price data',
+                'default_severity' => NotificationSeverity::Critical,
+                'verified' => true,
+                'cache_duration' => 600,
+                'cache_key' => ['api_system'],
             ];
         });
     }
