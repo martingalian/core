@@ -74,6 +74,10 @@ final class AlertNotification extends Notification
      * The application token and routing (group key vs user key) is determined by
      * User::routeNotificationForPushover() based on this notification's deliveryGroup property.
      *
+     * Priority is determined by severity:
+     * - Critical = Emergency priority (2)
+     * - All others = Normal priority (0)
+     *
      * @param  mixed  $notifiable
      */
     public function toPushover($notifiable): PushoverMessage
@@ -84,8 +88,14 @@ final class AlertNotification extends Notification
         $message = PushoverMessage::create($pushoverText)
             ->title($this->title);
 
-        // Get priority from delivery group config, or use additionalParameters
-        $priority = $this->getDeliveryGroupPriority() ?? $this->additionalParameters['priority'] ?? 0;
+        // Determine priority based on severity
+        // Critical = emergency priority (2), all others = normal priority (0)
+        $priority = ($this->severity === \Martingalian\Core\Enums\NotificationSeverity::Critical) ? 2 : 0;
+
+        // Allow manual override via additionalParameters if explicitly provided
+        if (isset($this->additionalParameters['priority'])) {
+            $priority = $this->additionalParameters['priority'];
+        }
 
         // Apply priority
         match ($priority) {

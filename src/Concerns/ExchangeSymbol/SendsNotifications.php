@@ -7,7 +7,7 @@ namespace Martingalian\Core\Concerns\ExchangeSymbol;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Notifications\AlertNotification;
+use Martingalian\Core\Support\NotificationService;
 
 /**
  * SendsNotifications
@@ -85,7 +85,6 @@ trait SendsNotifications
     {
         // Get symbol information
         $pairText = $this->parsed_trading_pair ?? 'N/A';
-        $exchangeName = $this->apiSystem->name ?? 'Unknown Exchange';
         $deliveryDate = Carbon::createFromTimestampMs($deliveryTimestampMs)->utc()->format('j M Y H:i');
 
         // Find all open positions for this exchange symbol
@@ -97,20 +96,9 @@ trait SendsNotifications
             })
             ->get();
 
-        // Build notification message
-        $message = sprintf(
-            "Token delisting detected: %s on %s\n\nDelivery Date: %s UTC\n\n",
-            $pairText,
-            $exchangeName,
-            $deliveryDate
-        );
-
-        // Add position details if any exist
-        if ($positions->isEmpty()) {
-            $message .= 'No open positions for this symbol.';
-        } else {
-            $message .= "Open positions requiring manual review:\n\n";
-
+        // Build position details string
+        $positionsDetails = '';
+        if ($positions->isNotEmpty()) {
             foreach ($positions as $position) {
                 $account = $position->account;
                 $user = $account->user;
@@ -118,7 +106,7 @@ trait SendsNotifications
                 $accountName = $account->name ?? "Account #{$account->id}";
                 $direction = mb_strtoupper((string) $position->direction);
 
-                $message .= sprintf(
+                $positionsDetails .= sprintf(
                     "• Position #%d (%s)\n  Account: %s\n  User: %s\n\n",
                     $position->id,
                     $direction,
@@ -126,18 +114,23 @@ trait SendsNotifications
                     $userName
                 );
             }
-
-            $message .= sprintf('Total positions requiring attention: %d', $positions->count());
         }
 
-        $title = 'Token Delisting Detected';
-
-        // Send immediate notification to admin (no throttling - critical event)
-        Martingalian::admin()->notify(
-            new AlertNotification(
-                message: $message,
-                title: $title
-            )
+        // Send notification using NotificationService with throttling
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: 'token_delisting',
+            referenceData: [
+                'exchange' => $this->apiSystem,
+                'pair_text' => $pairText,
+                'delivery_date' => $deliveryDate,
+                'positions_count' => $positions->count(),
+                'positions_details' => $positionsDetails,
+            ],
+            relatable: $this,
+            cacheKey: [
+                'exchange_symbol' => $this->id,
+            ]
         );
     }
 }

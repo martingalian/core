@@ -76,8 +76,8 @@ final class NotificationMessageBuilder
             'server_rate_limit_exceeded' => [
                 'severity' => NotificationSeverity::Info,
                 'title' => 'Rate Limit Exceeded',
-                'emailMessage' => "{$exchangeTitle} API rate limit exceeded.\n\n".($accountInfo ? "Account: {$accountInfo}\n" : "Type: System-level API call\n")."\nPlatform automatically implemented request throttling and exponential backoff. Pending operations queued for retry.\n\nResolution steps:\n\n• Check recent API request patterns:\n[CMD]SELECT endpoint, COUNT(*) as requests, AVG(response_time_ms) as avg_ms FROM api_request_logs WHERE exchange = '{$exchange}' AND created_at > NOW() - INTERVAL 5 MINUTE GROUP BY endpoint ORDER BY requests DESC LIMIT 10;[/CMD]\n\n• Monitor rate limit headers in logs:\n[CMD]tail -100 storage/logs/laravel.log | grep -i \"rate\\|limit\\|429\"[/CMD]",
-                'pushoverMessage' => "{$exchangeTitle} rate limit exceeded".($accountInfo ? " - {$accountInfo}" : ''),
+                'emailMessage' => "{$exchangeTitle} API rate limit exceeded.\n\n".($accountInfo ? "Account: {$accountInfo}\n" : "Type: System-level API call\n")."Server: {$hostname}\n\nPlatform automatically implemented request throttling and exponential backoff. Pending operations queued for retry.\n\nResolution steps:\n\n• Check recent API request patterns:\n[CMD]SELECT endpoint, COUNT(*) as requests, AVG(response_time_ms) as avg_ms FROM api_request_logs WHERE exchange = '{$exchange}' AND created_at > NOW() - INTERVAL 5 MINUTE GROUP BY endpoint ORDER BY requests DESC LIMIT 10;[/CMD]\n\n• Monitor rate limit headers in logs:\n[CMD]tail -100 storage/logs/laravel.log | grep -i \"rate\\|limit\\|429\"[/CMD]",
+                'pushoverMessage' => "{$exchangeTitle} rate limit exceeded - {$hostname}".($accountInfo ? " - {$accountInfo}" : ''),
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],
@@ -205,6 +205,39 @@ final class NotificationMessageBuilder
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],
+
+            'token_delisting' => (function () use ($context, $exchangeTitle) {
+                // Extract delisting details
+                $pairText = is_string($context['pair_text'] ?? null) ? $context['pair_text'] : 'N/A';
+                $deliveryDate = is_string($context['delivery_date'] ?? null) ? $context['delivery_date'] : 'N/A';
+                $positionsCount = is_int($context['positions_count'] ?? null) ? $context['positions_count'] : 0;
+                $positionsDetails = is_string($context['positions_details'] ?? null) ? $context['positions_details'] : '';
+
+                $message = "🚨 Token Delisting Detected\n\n".
+                    "Token: {$pairText}\n".
+                    "Exchange: {$exchangeTitle}\n".
+                    "Delivery Date: {$deliveryDate} UTC\n\n";
+
+                if ($positionsCount === 0) {
+                    $message .= 'No open positions for this symbol.';
+                } else {
+                    $message .= "Open positions requiring manual review:\n\n{$positionsDetails}\n".
+                        "Total positions requiring attention: {$positionsCount}";
+                }
+
+                $pushoverMessage = "{$exchangeTitle} delisting: {$pairText}\n".
+                    "Delivery: {$deliveryDate}\n".
+                    ($positionsCount > 0 ? "{$positionsCount} open position(s)" : 'No open positions');
+
+                return [
+                    'severity' => NotificationSeverity::High,
+                    'title' => 'Token Delisting Detected',
+                    'emailMessage' => $message,
+                    'pushoverMessage' => $pushoverMessage,
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
 
             // Default fallback for unknown canonicals
             default => [

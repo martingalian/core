@@ -91,6 +91,7 @@ final class ApiRequestLogObserver
                 cacheKey: [
                     'api_system' => $apiSystem->canonical,
                     'account' => $log->account_id ?? 0,
+                    'server' => $hostname,
                 ]
             );
 

@@ -46,7 +46,7 @@ final class NotificationFactory extends Factory
                 'default_severity' => NotificationSeverity::High,
                 'verified' => true,
                 'cache_duration' => 600,
-                'cache_key' => ['api_system', 'account'],
+                'cache_key' => ['api_system', 'account', 'server'],
             ];
         });
     }
@@ -63,7 +63,7 @@ final class NotificationFactory extends Factory
                 'description' => 'Sent when server/IP is forbidden from accessing exchange API (HTTP 418 IP ban)',
                 'default_severity' => NotificationSeverity::Critical,
                 'verified' => true,
-                'cache_duration' => 600,
+                'cache_duration' => 60,
                 'cache_key' => ['account', 'server'],
             ];
         });
@@ -135,7 +135,7 @@ final class NotificationFactory extends Factory
                 'description' => 'Sent when WebSocket connection encounters errors',
                 'default_severity' => NotificationSeverity::Critical,
                 'verified' => true,
-                'cache_duration' => 600,
+                'cache_duration' => 60,
                 'cache_key' => ['api_system'],
             ];
         });
@@ -171,8 +171,26 @@ final class NotificationFactory extends Factory
                 'description' => 'Sent when database update fails for WebSocket price data',
                 'default_severity' => NotificationSeverity::Critical,
                 'verified' => true,
-                'cache_duration' => 600,
+                'cache_duration' => 60,
                 'cache_key' => ['api_system'],
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the notification is for token delisting.
+     */
+    public function tokenDelisting(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'canonical' => 'token_delisting',
+                'title' => 'Token Delisting Detected',
+                'description' => 'Sent when a token delisting is detected (contract rollover for Binance, perpetual delisting for Bybit)',
+                'default_severity' => NotificationSeverity::High,
+                'verified' => true,
+                'cache_duration' => 600,
+                'cache_key' => ['exchange_symbol'],
             ];
         });
     }
