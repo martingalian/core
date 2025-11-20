@@ -37,7 +37,7 @@ final class NotificationService
      * @param  array<string, mixed>  $referenceData  Reference data for template interpolation (e.g., ['exchange' => 'binance'])
      * @param  object|null  $relatable  Optional relatable model for audit trail
      * @param  int|null  $duration  Throttle duration in seconds (null = use default from notifications table, 0 = no throttle, >0 = custom throttle window)
-     * @param  string|null  $cacheKey  Optional literal cache key for cache-based throttling (e.g., 'my_custom_key'). If null, uses database-based throttling via notification_logs.
+     * @param  array<string, mixed>|null  $cacheKey  Optional cache key data for cache-based throttling (e.g., ['api_system' => 'binance', 'account' => 1]). If null, uses database-based throttling via notification_logs.
      * @return bool True if notification was sent, false otherwise
      */
     public static function send(
@@ -46,7 +46,7 @@ final class NotificationService
         array $referenceData = [],
         ?object $relatable = null,
         ?int $duration = null,
-        ?string $cacheKey = null
+        ?array $cacheKey = null
     ): bool {
         return self::sendToSpecificUser(
             user: $user,
@@ -67,7 +67,7 @@ final class NotificationService
      * @param  array<string, mixed>  $referenceData  Reference data for template interpolation
      * @param  object|null  $relatable  Optional relatable model for audit trail
      * @param  int|null  $duration  Throttle duration in seconds
-     * @param  string|null  $cacheKey  Optional cache key for throttling
+     * @param  array<string, mixed>|null  $cacheKey  Optional cache key data for throttling
      * @return bool True if notification was sent, false otherwise
      */
     private static function sendToSpecificUser(
@@ -76,27 +76,28 @@ final class NotificationService
         array $referenceData = [],
         ?object $relatable = null,
         ?int $duration = null,
-        ?string $cacheKey = null
+        ?array $cacheKey = null
     ): bool {
+        // Load notification for throttle duration and cache key template
+        $notification = Notification::where('canonical', $canonical)->first();
+
         // Determine throttle duration:
         // - null: use default from notifications table
         // - 0: no throttling (send immediately)
         // - >0: use custom duration
-        $throttleDuration = $duration;
+        $throttleDuration = $duration ?? $notification?->default_throttle_duration;
 
-        if ($duration === null) {
-            // Look up default throttle duration from notifications table
-            $notification = Notification::where('canonical', $canonical)->first();
-            $throttleDuration = $notification?->default_throttle_duration;
+        // Build cache key string if cacheKey data is provided
+        $builtCacheKey = null;
+        if ($cacheKey && $notification && $notification->cache_key) {
+            $builtCacheKey = self::buildCacheKey($canonical, $cacheKey, $notification->cache_key);
         }
 
         // Throttle check: only if throttleDuration is set and > 0
         if ($throttleDuration !== null && $throttleDuration > 0) {
-            if ($cacheKey) {
-                // Cache-based throttling - prefix cache key with canonical
-                $prefixedCacheKey = "{$canonical}_{$cacheKey}";
-
-                if (Cache::has($prefixedCacheKey)) {
+            if ($builtCacheKey) {
+                // Cache-based throttling
+                if (Cache::has($builtCacheKey)) {
                     // Still within throttle window - skip sending
                     return false;
                 }
@@ -151,11 +152,51 @@ final class NotificationService
         );
 
         // Set cache throttle after successful send (cache-based throttling only)
-        if ($cacheKey && $throttleDuration) {
-            $prefixedCacheKey = "{$canonical}_{$cacheKey}";
-            Cache::put($prefixedCacheKey, true, $throttleDuration);
+        if ($builtCacheKey && $throttleDuration) {
+            Cache::put($builtCacheKey, true, $throttleDuration);
         }
 
         return true;
+    }
+
+    /**
+     * Build cache key string from canonical, data array, and template array.
+     *
+     * Format: {canonical}-{key1}:{value1},{key2}:{value2}
+     * Example: server_rate_limit_exceeded-api_system:binance,account:1
+     *
+     * @param  string  $canonical  The notification canonical
+     * @param  array<string, mixed>  $data  The cache key data provided by caller (e.g., ['api_system' => 'binance', 'account' => 1])
+     * @param  array<int, string>  $template  The required keys from notifications table (e.g., ['api_system', 'account'])
+     * @return string The built cache key
+     * @throws \InvalidArgumentException If required keys are missing
+     */
+    private static function buildCacheKey(string $canonical, array $data, array $template): string
+    {
+        // Validate all required keys are present
+        $missingKeys = [];
+        foreach ($template as $requiredKey) {
+            if (! array_key_exists($requiredKey, $data)) {
+                $missingKeys[] = $requiredKey;
+            }
+        }
+
+        if (! empty($missingKeys)) {
+            throw new \InvalidArgumentException(
+                "Missing required cache keys for canonical '{$canonical}': ".implode(', ', $missingKeys)
+            );
+        }
+
+        // Build key construction: key1:value1,key2:value2
+        $parts = [];
+        foreach ($template as $key) {
+            $value = $data[$key];
+            $parts[] = "{$key}:{$value}";
+        }
+
+        $construction = implode(',', $parts);
+
+        // Final format: {canonical}-{construction}
+        return "{$canonical}-{$construction}";
     }
 }

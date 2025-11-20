@@ -88,9 +88,10 @@ final class ApiRequestLogObserver
                     'account_info' => $accountInfo,
                 ])),
                 relatable: $apiSystem,
-                cacheKey: $log->account_id
-                    ? $apiSystem->canonical.',account:'.$log->account_id
-                    : $apiSystem->canonical
+                cacheKey: [
+                    'api_system' => $apiSystem->canonical,
+                    'account' => $log->account_id ?? 0,
+                ]
             );
 
             return;
@@ -103,9 +104,10 @@ final class ApiRequestLogObserver
                 canonical: 'server_ip_forbidden',
                 referenceData: $baseData,
                 relatable: $apiSystem,
-                cacheKey: $log->account_id
-                    ? "account:{$log->account_id},server:{$hostname}"
-                    : "server:{$hostname}"
+                cacheKey: [
+                    'account' => $log->account_id ?? 0,
+                    'server' => $hostname,
+                ]
             );
 
             return;
@@ -322,7 +324,10 @@ final class ApiRequestLogObserver
                 'failure_count' => $failureCount,
             ],
             relatable: $exchangeSymbol,
-            cacheKey: "exchange_symbol:{$exchangeSymbol->id},exchange:{$exchangeSymbol->apiSystem->canonical}"
+            cacheKey: [
+                'exchange_symbol' => $exchangeSymbol->id,
+                'exchange' => $exchangeSymbol->apiSystem->canonical,
+            ]
         );
     }
 }

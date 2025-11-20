@@ -748,6 +748,7 @@ final class MartingalianSeeder extends Seeder
                 'usage_reference' => 'MonitorDataCoherencyCommand::checkAndNotifyStaleIssues() line 188',
                 'default_severity' => 'high',
                 'verified' => 1,
+                'cache_key' => ['api_system'],
             ],
             [
                 'canonical' => 'update_prices_restart',
@@ -756,6 +757,7 @@ final class MartingalianSeeder extends Seeder
                 'usage_reference' => 'Binance/UpdatePricesCommand line 117, Bybit/UpdatePricesCommand line 119',
                 'default_severity' => 'info',
                 'verified' => 1,
+                'cache_key' => ['api_system'],
             ],
             [
                 'canonical' => 'websocket_error',
@@ -764,6 +766,7 @@ final class MartingalianSeeder extends Seeder
                 'usage_reference' => 'Binance/UpdatePricesCommand WebSocket error callback, Bybit/UpdatePricesCommand WebSocket error callback',
                 'default_severity' => 'critical',
                 'verified' => 1,
+                'cache_key' => ['api_system'],
             ],
             [
                 'canonical' => 'websocket_invalid_json',
@@ -772,6 +775,7 @@ final class MartingalianSeeder extends Seeder
                 'usage_reference' => 'Binance/UpdatePricesCommand::processWebSocketMessage() line 165, Bybit/UpdatePricesCommand::processWebSocketMessage() line 166',
                 'default_severity' => 'medium',
                 'verified' => 1,
+                'cache_key' => ['api_system'],
             ],
             [
                 'canonical' => 'websocket_prices_update_error',
@@ -780,6 +784,7 @@ final class MartingalianSeeder extends Seeder
                 'usage_reference' => 'Binance/UpdatePricesCommand::updateExchangeSymbol(), Bybit/UpdatePricesCommand::updateExchangeSymbol()',
                 'default_severity' => 'critical',
                 'verified' => 1,
+                'cache_key' => ['api_system'],
             ],
             [
                 'canonical' => 'server_rate_limit_exceeded',
@@ -788,6 +793,7 @@ final class MartingalianSeeder extends Seeder
                 'usage_reference' => 'ApiRequestLogObserver line 84',
                 'default_severity' => 'high',
                 'verified' => 1,
+                'cache_key' => ['api_system', 'account'],
             ],
             [
                 'canonical' => 'server_ip_forbidden',
@@ -796,6 +802,7 @@ final class MartingalianSeeder extends Seeder
                 'usage_reference' => 'ApiRequestLogObserver line 99',
                 'default_severity' => 'critical',
                 'verified' => 1,
+                'cache_key' => ['account', 'server'],
             ],
             [
                 'canonical' => 'exchange_symbol_no_taapi_data',
@@ -804,6 +811,7 @@ final class MartingalianSeeder extends Seeder
                 'usage_reference' => 'ApiRequestLogObserver::sendDeactivationNotification() line 201',
                 'default_severity' => 'info',
                 'verified' => 1,
+                'cache_key' => ['exchange_symbol', 'exchange'],
             ],
         ];
 
@@ -817,6 +825,7 @@ final class MartingalianSeeder extends Seeder
                     'usage_reference' => $notification['usage_reference'] ?? null,
                     'default_severity' => $notification['default_severity'],
                     'verified' => $notification['verified'] ?? 0,
+                    'cache_key' => isset($notification['cache_key']) ? json_encode($notification['cache_key']) : null,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]
