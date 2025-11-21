@@ -25,6 +25,7 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property bool|null $is_manually_enabled
  * @property bool $auto_disabled
  * @property string|null $auto_disabled_reason
+ * @property bool $receives_indicator_data
  * @property string|null $direction
  * @property float $percentage_gap_long
  * @property float $percentage_gap_short
@@ -65,6 +66,7 @@ final class ExchangeSymbol extends BaseModel
     protected $casts = [
         'is_manually_enabled' => 'boolean',
         'auto_disabled' => 'boolean',
+        'receives_indicator_data' => 'boolean',
 
         'symbol_information' => 'array',
         'leverage_brackets' => 'array',

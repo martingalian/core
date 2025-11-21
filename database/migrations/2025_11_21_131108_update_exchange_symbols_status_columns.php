@@ -14,7 +14,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Check if old columns exist (migration not yet run)
+        // Check if old columns exist (migration from old schema)
         $hasOldColumns = Schema::hasColumn('exchange_symbols', 'is_active');
 
         if ($hasOldColumns) {
@@ -53,6 +53,18 @@ return new class extends Migration
                 // Drop old columns
                 $table->dropColumn(['is_active', 'is_eligible', 'is_tradeable', 'ineligible_reason']);
             });
+        } else {
+            // Fresh migration (no old columns) - only add receives_indicator_data if it doesn't exist
+            if (! Schema::hasColumn('exchange_symbols', 'receives_indicator_data')) {
+                Schema::table('exchange_symbols', function (Blueprint $table) {
+                    $table->boolean('receives_indicator_data')
+                        ->default(true)
+                        ->after('auto_disabled_reason')
+                        ->comment('Whether this symbol should receive indicator data from Taapi');
+
+                    $table->index('receives_indicator_data', 'idx_exchange_symbols_receives_indicator_data');
+                });
+            }
         }
     }
 
