@@ -574,7 +574,7 @@ foreach (['1h', '4h', '6h', '12h', '1d'] as $tf) {
 ```php
 $bestShorts = ExchangeSymbol::query()
     ->where('direction', 'SHORT')
-    ->where('is_tradeable', true)
+    ->tradeable()
     ->get()
     ->map(function ($symbol) {
         $bestScore = 0;
@@ -595,7 +595,7 @@ $bestShorts = ExchangeSymbol::query()
 ```php
 $bestLongs = ExchangeSymbol::query()
     ->where('direction', 'LONG')
-    ->where('is_tradeable', true)
+    ->tradeable()
     ->get()
     ->map(function ($symbol) {
         $bestScore = 0;
@@ -711,7 +711,7 @@ Result: STABLE selected despite lower elasticity due to reliable correlation
    ```
 3. Are there available symbols in the correct direction?
    ```bash
-   >>> ExchangeSymbol::where('direction', 'SHORT')->where('is_tradeable', true)->count();
+   >>> ExchangeSymbol::where('direction', 'SHORT')->tradeable()->count();
    ```
 
 ### Calculations Not Running

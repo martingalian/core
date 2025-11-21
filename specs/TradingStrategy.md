@@ -196,8 +196,13 @@ Before opening a position, all conditions must be met:
 - Price alignment must be confirmed
 
 #### 2. Symbol Status
-- ExchangeSymbol.is_active = true
-- Symbol must be tradeable (not delisted, not maintenance)
+- Symbol must pass `tradeable()` scope check:
+  - Manually enabled (is_manually_enabled is NULL or true)
+  - Auto-enabled (auto_disabled = false)
+  - Receives indicator data (receives_indicator_data = true)
+  - Has trading direction assigned (direction is not NULL)
+  - Respects cooldown periods (tradeable_at is NULL or <= now)
+- Symbol must not be delisted or in maintenance
 - Sufficient liquidity (check volume and order book depth)
 
 #### 3. Account Eligibility

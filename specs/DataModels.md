@@ -238,7 +238,10 @@ $quote = Quote::where('token', 'USDT')->first();  // Field doesn't exist!
 - `symbol_id` - FK to symbols (base asset)
 - `quote_id` - FK to quotes (quote asset)
 - `api_system_id` - FK to api_systems (exchange)
-- `is_active` - Trading enabled
+- `is_manually_enabled` (nullable boolean) - Admin override (NULL=follow auto, true=force enable, false=force disable)
+- `auto_disabled` (boolean) - System automatic deactivation flag
+- `auto_disabled_reason` (nullable string) - Why system deactivated (no_indicator_data, no_valid_direction, path_inconsistency)
+- `receives_indicator_data` (boolean) - Whether to fetch indicators from Taapi API (prevents wasting API calls on symbols without data)
 - `direction` - Trading direction (LONG, SHORT, NULL)
 - `percentage_gap_long` - Entry threshold for LONG
 - `percentage_gap_short` - Entry threshold for SHORT
@@ -255,6 +258,20 @@ $quote = Quote::where('token', 'USDT')->first();  // Field doesn't exist!
 - `mark_price_synced_at` - Last price update
 - `created_at`, `updated_at`
 
+**Three-Tier Status System**:
+1. **Manual Control** (`is_manually_enabled`): Admin override with three states
+   - `NULL` = Follow automatic system decisions (default)
+   - `true` = Force enabled regardless of automatic state
+   - `false` = Force disabled regardless of automatic state
+
+2. **Automatic Control** (`auto_disabled`): System-driven deactivation
+   - `false` = System considers symbol operational
+   - `true` = System detected issue (see `auto_disabled_reason`)
+
+3. **Data Fetching Control** (`receives_indicator_data`): Independent from trading status
+   - `true` = Attempt to fetch indicators from Taapi API (default)
+   - `false` = Skip indicator fetching (set by ApiRequestLogObserver after 3+ consecutive failures)
+
 **Relationships**:
 - `belongsTo(Symbol)` - Base asset
 - `belongsTo(Quote)` - Quote asset
@@ -269,10 +286,14 @@ $quote = Quote::where('token', 'USDT')->first();  // Field doesn't exist!
 
 **Concerns**:
 - `HasAccessors` - Computed properties (`parsed_trading_pair`)
-- `HasScopes` - Query scopes (`active()`, `byDirection()`, `bySymbol()`)
-- `HasStatuses` - Status checks
+- `HasScopes` - Query scopes:
+  - `tradeable()` - Symbols eligible to open positions (manually enabled, auto-enabled, receives indicators, has direction, respects cooldowns)
+  - `needsPriceUpdates()` - Symbols for WebSocket price streaming (has/trying to get indicator data, not manually disabled)
+  - `needsIndicatorAttempt()` - Symbols that should fetch indicators (`receives_indicator_data = true`)
+- `HasStatuses` - Status checks (`isManuallyEnabled()`, `isAutoDisabled()`, etc.)
 - `HasTradingComputations` - Position sizing, risk calculations
 - `InteractsWithApis` - Exchange API interactions
+- `SendsNotifications` - Notification dispatching
 
 **Critical HasAccessors Pattern**:
 The `HasAccessors` trait provides the `parsed_trading_pair` accessor which accesses:
