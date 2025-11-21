@@ -79,6 +79,11 @@ final class NotificationService
         ?int $duration = null,
         ?array $cacheKey = null
     ): bool {
+        // Check if notifications are globally enabled
+        if (! config('martingalian.notifications_enabled', true)) {
+            return false;
+        }
+
         // Load notification for throttle duration and cache key template
         $notification = Notification::where('canonical', $canonical)->first();
 
