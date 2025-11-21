@@ -1,6 +1,6 @@
 # Notification System - Current Implementation
 
-**Last Updated**: 2025-11-17
+**Last Updated**: 2025-11-21
 **Status**: Production
 
 ---
@@ -19,12 +19,12 @@ The Martingalian notification system is a unified notification framework built o
 **Primary Method**:
 ```php
 public static function send(
-    User $user,                    // Real or virtual admin user
-    string $canonical,             // Notification template identifier
-    array $referenceData = [],     // Data for template interpolation
-    ?object $relatable = null,     // Context model (Account, ApiSystem, etc.)
-    ?int $duration = null,         // Throttle duration override
-    ?string $cacheKey = null       // Literal cache key for cache-based throttling
+    User $user,                           // Real or virtual admin user
+    string $canonical,                    // Notification template identifier
+    array $referenceData = [],            // Data for template interpolation
+    ?object $relatable = null,            // Context model (Account, ApiSystem, etc.)
+    ?int $duration = null,                // Throttle duration override
+    ?array $cacheKey = null               // Cache key data array for cache-based throttling
 ): bool
 ```
 
@@ -36,7 +36,7 @@ public static function send(
 - `$duration = null` → Use default from `notifications` table
 - `$duration = 0` → No throttling (always send)
 - `$duration > 0` → Custom throttle window in seconds
-- If `$cacheKey` provided → Use cache-based throttling
+- If `$cacheKey` provided → Use cache-based throttling (builds key from array + template)
 - If `$cacheKey` is null → Use database-based throttling
 
 ---
@@ -126,40 +126,68 @@ if ($lastNotification && $lastNotification->created_at->isAfter($throttleWindow)
 **When**: `$cacheKey` parameter provided
 
 **How It Works**:
-1. Uses LITERAL cache key provided (no building/parsing)
-2. Checks if key exists in Redis
-3. Blocks if exists, otherwise sends
-4. Sets cache key with TTL after successful send
+1. Takes `$cacheKey` array and builds string using template from `notifications` table
+2. Uses atomic `Cache::add()` operation (SETNX in Redis) for race condition prevention
+3. If key doesn't exist → Sets key and sends notification
+4. If key exists → Returns false (throttled)
+
+**Cache Key Building**:
+```php
+// Input parameters
+$canonical = 'server_rate_limit_exceeded';
+$cacheKey = ['api_system' => 'binance', 'account' => 1];
+
+// Template from notifications.cache_key column
+$template = ['api_system', 'account'];
+
+// Built cache key format: {canonical}-{key1}:{value1},{key2}:{value2}
+// Result: "server_rate_limit_exceeded-api_system:binance,account:1"
+```
 
 **Redis Key Structure**:
 ```
-{laravel_prefix}{your_literal_key}
+{laravel_prefix}{built_cache_key}
 
 Example:
-cacheKey = "my_test_key"
-→ Redis: martingalian_database_my_test_key
+cacheKey = ['api_system' => 'binance']
+template = ['api_system']
+→ Built: "server_rate_limit_exceeded-api_system:binance"
+→ Redis: "martingalian_database_server_rate_limit_exceeded-api_system:binance"
 ```
 
-**Code**:
+**Code Flow**:
 ```php
-if ($cacheKey) {
-    if (Cache::has($cacheKey)) {
-        return false; // Throttled
-    }
+// 1. Build cache key from array + template
+$builtCacheKey = self::buildCacheKey($canonical, $cacheKey, $notification->cache_key);
+// Result: "server_rate_limit_exceeded-api_system:binance,account:1"
+
+// 2. Atomic check-and-set (prevents race conditions across workers)
+if (!Cache::add($builtCacheKey, true, $throttleDuration)) {
+    return false; // Key already exists - throttled
 }
 
-// After sending...
-if ($cacheKey && $throttleDuration) {
-    Cache::put($cacheKey, true, $throttleDuration);
-}
+// 3. Key was set successfully - continue to send notification
+// Cache::add() returns true only if key didn't exist (atomic SETNX)
 ```
+
+**Race Condition Prevention**:
+- Uses `Cache::add()` (atomic SETNX operation in Redis)
+- Returns `true` only if key was successfully created
+- Returns `false` if key already exists (another worker got there first)
+- Prevents duplicate notifications across multiple worker servers
 
 **Redis Configuration**:
 - Database: 1 (`database.redis.cache.database`)
 - Prefix: `martingalian_database_`
 - Value: `b:1;` (PHP serialized boolean)
+- Operation: Atomic SETNX via `Cache::add()`
 
-**Use Case**: Custom throttling keys for specific scenarios (e.g., per-exchange, per-operation)
+**Use Case**: Multi-component cache keys for fine-grained throttling (per-exchange AND per-account scenarios)
+
+**Template Validation**:
+- If required keys are missing from `$cacheKey` array, throws `InvalidArgumentException`
+- Template is stored in `notifications.cache_key` column as JSON array
+- Must provide all keys specified in template
 
 ---
 
@@ -220,12 +248,14 @@ NotificationService::send(
 
 ### Admin Notification with Cache Throttling
 ```php
+// Requires: notifications.cache_key = ['api_system'] for this canonical
 NotificationService::send(
     user: Martingalian::admin(),
     canonical: 'system_error',
     referenceData: ['error' => 'Connection failed'],
-    cacheKey: 'system_error_binance'  // Literal cache key
+    cacheKey: ['api_system' => 'binance']  // Cache key data array
 );
+// Builds: "system_error-api_system:binance"
 ```
 
 ### User Notification
@@ -281,7 +311,8 @@ protected function processWebSocketMessage(string $msg): void
         // Notify if threshold reached (3+ hits per minute)
         if ($hits >= 3) {
             $binanceSystem = ApiSystem::firstWhere('canonical', 'binance');
-            NotificationService::sendToAdminByCanonical(
+            NotificationService::send(
+                user: Martingalian::admin(),
                 canonical: 'websocket_invalid_json',
                 referenceData: [
                     'exchange' => 'BINANCE',  // or 'BYBIT'
@@ -289,7 +320,7 @@ protected function processWebSocketMessage(string $msg): void
                 ],
                 relatable: $binanceSystem,
                 duration: 60,
-                cacheKey: 'binance'  // or 'bybit'
+                cacheKey: ['api_system' => 'binance']  // or ['api_system' => 'bybit']
             );
         }
 
@@ -310,7 +341,7 @@ protected function processWebSocketMessage(string $msg): void
 
 **2. Dual Caching Strategy**
 - **Error Counter Cache**: `{exchange}_invalid_json_hits` (60s TTL, separate per exchange)
-- **Notification Throttle Cache**: `{exchange}` via cacheKey parameter (60s TTL, separate per exchange)
+- **Notification Throttle Cache**: Built from `['api_system' => '{exchange}']` → `"websocket_invalid_json-api_system:{exchange}"` (60s TTL, separate per exchange)
 
 **3. Self-Healing**
 - Errors 1-2 within 60s: Silently discarded, counter expires naturally
@@ -330,14 +361,14 @@ This renders as: "Received 5 invalid JSON payload(s) in less than 60 seconds fro
 
 ### Cache Keys Explained
 
-| Purpose | Cache Key | TTL | Scope |
-|---------|-----------|-----|-------|
-| Error counting | `binance_invalid_json_hits` | 60s | Per exchange |
-| Notification throttle | `binance` (via cacheKey param) | 60s | Per exchange |
+| Purpose | Cache Key Input | Built Cache Key | TTL | Scope |
+|---------|----------------|-----------------|-----|-------|
+| Error counting | N/A (manual) | `binance_invalid_json_hits` | 60s | Per exchange |
+| Notification throttle | `['api_system' => 'binance']` | `websocket_invalid_json-api_system:binance` | 60s | Per exchange |
 
 **Why separate keys?**
-- Error counter tracks ALL invalid JSON occurrences
-- Notification throttle prevents spam after threshold reached
+- Error counter tracks ALL invalid JSON occurrences (manual counter, not via NotificationService)
+- Notification throttle prevents spam after threshold reached (built by NotificationService)
 - Both expire independently, allowing fresh detection cycles
 
 ### Related Patterns
@@ -414,17 +445,17 @@ php artisan test:notification --account_id=1 --canonical=websocket_error
 
 ### ❌ **REMOVED**:
 1. `Throttler` class and deprecated `throttle_logs` database table
-2. `NotificationMessageBuilder` complexity
-3. `buildThrottleCacheKey()` method (component-based key building)
-4. Separate `_admin` suffix conventions
+2. Separate `_admin` suffix conventions
 
 ### ✅ **NEW**:
 1. Unified `NotificationService::send()` with simpler signature
 2. Database throttling uses `notification_logs` (dual purpose: audit + throttle)
-3. Cache throttling uses LITERAL cache keys (no building)
+3. Cache throttling uses **array-based cache keys** with template building from `notifications.cache_key` column
 4. `user_id` vs `relatable` separation in notification_logs
 5. Dynamic property detection using `isset()` instead of `property_exists()`
 6. Streamlined test command
+7. `buildCacheKey()` method constructs cache keys from array data + JSON template
+8. Atomic `Cache::add()` for race condition prevention across multiple workers
 
 ---
 

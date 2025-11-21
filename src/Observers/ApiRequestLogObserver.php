@@ -150,8 +150,8 @@ final class ApiRequestLogObserver
         }
 
         // Use transaction with pessimistic locking to prevent race conditions
-        // Multiple concurrent API requests might all see is_active=true before any can update it
-        $shouldNotify = DB::transaction(function () use ($exchangeSymbol, $log) {
+        // Send notification INSIDE transaction to ensure atomicity with deactivation check
+        DB::transaction(function () use ($exchangeSymbol, $log) {
             // Lock the row for update - prevents concurrent deactivations
             $lockedSymbol = ExchangeSymbol::where('id', $exchangeSymbol->id)
                 ->lockForUpdate()
@@ -159,12 +159,12 @@ final class ApiRequestLogObserver
 
             // Skip if already deactivated (checked inside transaction after lock acquired)
             if (! $lockedSymbol || ! $lockedSymbol->is_active) {
-                return false;
+                return;
             }
 
             // Check if this is a consistent pattern (last N requests all failed)
             if (! $this->hasConsistentFailurePattern($lockedSymbol, $log)) {
-                return false;
+                return;
             }
 
             // Deactivate the ExchangeSymbol
@@ -173,13 +173,9 @@ final class ApiRequestLogObserver
                 'is_eligible' => false,
             ]);
 
-            return true;
+            // Send notification INSIDE transaction (prevents duplicate notifications from concurrent requests)
+            $this->sendDeactivationNotification($lockedSymbol->fresh(), $log);
         });
-
-        // Send notification outside transaction (only if we deactivated the symbol)
-        if ($shouldNotify) {
-            $this->sendDeactivationNotification($exchangeSymbol->fresh(), $log);
-        }
     }
 
     private function isPermanentNoDataError(ApiRequestLog $log): bool
