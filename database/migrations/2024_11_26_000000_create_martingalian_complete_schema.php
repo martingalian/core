@@ -191,6 +191,12 @@ return new class extends Migration
             $table->unsignedTinyInteger('price_spike_cooldown_hours')->default(72);
             $table->string('indicators_timeframe')->nullable();
             $table->timestamp('indicators_synced_at')->nullable()->comment('When indicators were last fetched/synced');
+            $table->json('btc_correlation_pearson')->nullable();
+            $table->json('btc_correlation_spearman')->nullable();
+            $table->json('btc_correlation_rolling')->nullable();
+            $table->json('btc_elasticity_long')->nullable();
+            $table->json('btc_elasticity_short')->nullable();
+            $table->boolean('receives_indicator_data')->default(true)->comment('Whether this symbol should receive indicator data from Taapi');
             $table->timestamp('mark_price_synced_at')->nullable()->index('idx_mark_price_synced_at');
             $table->timestamp('tradeable_at')->nullable()->comment('Cooldown timestamp so a symbol cannot be tradeable until a certain moment');
             $table->timestamps();
@@ -199,6 +205,7 @@ return new class extends Migration
             $table->index('auto_disabled', 'idx_exchange_symbols_auto_disabled');
             $table->index(['api_system_id', 'auto_disabled'], 'idx_exchange_symbols_api_auto_disabled');
             $table->index('direction', 'idx_exchange_symbols_direction');
+            $table->index('receives_indicator_data', 'idx_exchange_symbols_receives_indicator_data');
         });
 
         // candles table (requires exchange_symbols to exist first)
@@ -299,6 +306,8 @@ return new class extends Migration
             $table->string('title')->comment('Human-readable notification title');
             $table->text('description')->nullable()->comment('Description of when this notification is sent');
             $table->text('detailed_description')->nullable()->comment('Comprehensive technical details: HTTP codes, vendor error codes, error messages, and triggering conditions from exchange APIs');
+            $table->text('usage_reference')->nullable()->comment('Where this notification is used (e.g., "Used in ApplicationLogObserver, method handleException")');
+            $table->boolean('verified')->default(false)->comment('Whether this notification has been tested and verified with real-world usage');
             $table->string('default_severity')->nullable()->comment('Default severity level (Critical, High, Medium, Info)');
             $table->unsignedInteger('cache_duration')->default(600)->comment('Cache duration in seconds for throttling (600 = 10 minutes default, 0 = no throttle, >0 = throttle window)');
             $table->json('cache_key')->nullable()->comment('Array of required cache key parameters (e.g., ["api_system", "account"]) used to build unique cache key for throttling');
@@ -645,6 +654,37 @@ return new class extends Migration
             $table->index('can_trade', 'idx_users_can_trade');
             $table->index('is_admin', 'idx_users_is_admin');
         });
+
+        // application_logs table
+        Schema::create('application_logs', function (Blueprint $table) {
+            $table->id();
+
+            // SOURCE MODEL: The model being changed (automatic)
+            $table->morphs('loggable'); // loggable_type, loggable_id
+
+            // RELATABLE MODEL: The model that triggered this change (manual/optional)
+            $table->nullableMorphs('relatable'); // relatable_type, relatable_id
+
+            // Event information
+            $table->string('event_type'); // 'attribute_created', 'attribute_changed', 'job_failed', etc.
+            $table->string('attribute_name')->nullable(); // For attribute changes
+
+            // Human-readable message
+            $table->text('message')->nullable(); // "Attribute 'status' changed from 'pending' to 'completed'"
+
+            // Values (stored as JSON for flexibility)
+            $table->json('previous_value')->nullable(); // The old value
+            $table->json('new_value')->nullable();      // The new value
+
+            // Metadata for custom manual logs
+            $table->json('metadata')->nullable();
+
+            $table->timestamps();
+
+            // Indexes (morphs/nullableMorphs already create loggable/relatable indexes)
+            $table->index('event_type');
+            $table->index('created_at');
+        });
     }
 
     /**
@@ -652,6 +692,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('application_logs');
         Schema::dropIfExists('slow_queries');
         Schema::dropIfExists('steps');
         Schema::dropIfExists('steps_dispatcher_ticks');

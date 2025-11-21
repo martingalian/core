@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Database\Seeders;
 
+use Exception;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\Account;
@@ -28,6 +30,9 @@ final class MartingalianSeeder extends Seeder
      */
     public function run(): void
     {
+        // Disable ApplicationLog during seeding
+        \Martingalian\Core\Models\ApplicationLog::disable();
+
         // Disable observers during seeding to prevent notification spam
         ExchangeSymbol::withoutEvents(function () {
             Account::withoutEvents(function () {
@@ -38,6 +43,9 @@ final class MartingalianSeeder extends Seeder
                 });
             });
         });
+
+        // Re-enable ApplicationLog after seeding
+        \Martingalian\Core\Models\ApplicationLog::enable();
     }
 
     /**
@@ -918,5 +926,59 @@ final class MartingalianSeeder extends Seeder
 
         // SECTION 22: Seed Notifications
         $this->seedNotifications();
+
+        // SECTION 23: Seed Core Symbol Data (symbols, exchange_symbols, base_asset_mappers)
+        $this->seedCoreSymbolData();
+    }
+
+    /**
+     * Seed core symbol data from SQL dumps.
+     * This avoids running the 3-hour refresh-core-data discovery process.
+     * If dumps don't exist or are incompatible, seeding is skipped.
+     */
+    private function seedCoreSymbolData(): void
+    {
+        $dumpsPath = __DIR__.'/../dumps';
+
+        $dumps = [
+            'symbols' => $dumpsPath.'/symbols.sql',
+            'exchange_symbols' => $dumpsPath.'/exchange_symbols.sql',
+            'base_asset_mappers' => $dumpsPath.'/base_asset_mappers.sql',
+        ];
+
+        // Check if all dump files exist
+        foreach ($dumps as $table => $file) {
+            if (! File::exists($file)) {
+                // Dumps don't exist - skip seeding (use refresh-core-data command instead)
+                return;
+            }
+        }
+
+        try {
+            // Execute each dump file in order
+            foreach ($dumps as $table => $file) {
+                $sql = File::get($file);
+
+                // Remove mysqldump warnings from SQL
+                $sql = preg_replace('/^mysqldump:.*$/m', '', $sql);
+
+                // Execute SQL using unprepared statements (faster for bulk inserts)
+                DB::unprepared($sql);
+            }
+
+            // Set default status for exchange_symbols with CMC IDs (not auto-disabled)
+            DB::unprepared('
+                UPDATE exchange_symbols es
+                INNER JOIN symbols s ON es.symbol_id = s.id
+                SET es.auto_disabled = 0,
+                    es.auto_disabled_reason = NULL,
+                    es.is_manually_enabled = NULL
+                WHERE s.cmc_id IS NOT NULL
+            ');
+        } catch (\Throwable $e) {
+            // Dump files are incompatible with current schema - skip seeding
+            // User needs to regenerate dumps with: php artisan refresh-core-data
+            return;
+        }
     }
 }
