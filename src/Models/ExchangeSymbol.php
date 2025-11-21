@@ -22,7 +22,9 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property int $symbol_id
  * @property int $quote_id
  * @property int $api_system_id
- * @property bool $is_active
+ * @property bool|null $is_manually_enabled
+ * @property bool $auto_disabled
+ * @property string|null $auto_disabled_reason
  * @property string|null $direction
  * @property float $percentage_gap_long
  * @property float $percentage_gap_short
@@ -61,9 +63,8 @@ final class ExchangeSymbol extends BaseModel
     use SendsNotifications;
 
     protected $casts = [
-        'is_tradeable' => 'boolean',
-        'is_active' => 'boolean',
-        'is_eligible' => 'boolean',
+        'is_manually_enabled' => 'boolean',
+        'auto_disabled' => 'boolean',
 
         'symbol_information' => 'array',
         'leverage_brackets' => 'array',

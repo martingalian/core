@@ -167,10 +167,9 @@ return new class extends Migration
             $table->unsignedBigInteger('symbol_id');
             $table->unsignedBigInteger('quote_id');
             $table->unsignedInteger('api_system_id');
-            $table->boolean('is_active')->default(false)->comment('If this exchange symbol will be available for trading');
-            $table->boolean('is_tradeable')->default(false);
-            $table->boolean('is_eligible')->default(false)->comment('If this symbol meets eligibility criteria (TAAPI data, etc.)');
-            $table->text('ineligible_reason')->nullable()->comment('Reason why symbol is not eligible');
+            $table->boolean('is_manually_enabled')->nullable()->default(null)->comment('Manual admin override: null=no override, true=force enabled, false=force disabled');
+            $table->boolean('auto_disabled')->default(false)->comment('System automatic disable flag');
+            $table->string('auto_disabled_reason')->nullable()->comment('Why system disabled it: no_indicator_data, insufficient_liquidity, excessive_spread, etc');
             $table->string('direction')->nullable()->comment('The exchange symbol open position direction (LONG, SHORT)');
             $table->decimal('percentage_gap_long', 5, 2)->default(8.50);
             $table->decimal('percentage_gap_short', 5, 2)->default(9.50);
@@ -191,16 +190,14 @@ return new class extends Migration
             $table->decimal('disable_on_price_spike_percentage', 4, 2)->default(15.00);
             $table->unsignedTinyInteger('price_spike_cooldown_hours')->default(72);
             $table->string('indicators_timeframe')->nullable();
-            $table->timestamp('indicators_synced_at')->nullable();
+            $table->timestamp('indicators_synced_at')->nullable()->comment('When indicators were last fetched/synced');
             $table->timestamp('mark_price_synced_at')->nullable()->index('idx_mark_price_synced_at');
             $table->timestamp('tradeable_at')->nullable()->comment('Cooldown timestamp so a symbol cannot be tradeable until a certain moment');
             $table->timestamps();
 
             $table->unique(['symbol_id', 'api_system_id', 'quote_id'], 'exchange_symbols_symbol_id_api_system_id_quote_id_unique');
-            $table->index('is_active', 'idx_exchange_symbols_is_active');
-            $table->index('is_tradeable', 'idx_exchange_symbols_is_tradeable');
-            $table->index('is_eligible', 'idx_exchange_symbols_is_eligible');
-            $table->index(['api_system_id', 'is_active'], 'idx_exchange_symbols_api_active');
+            $table->index('auto_disabled', 'idx_exchange_symbols_auto_disabled');
+            $table->index(['api_system_id', 'auto_disabled'], 'idx_exchange_symbols_api_auto_disabled');
             $table->index('direction', 'idx_exchange_symbols_direction');
         });
 

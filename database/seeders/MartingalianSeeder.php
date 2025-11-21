@@ -487,10 +487,6 @@ final class MartingalianSeeder extends Seeder
      */
     public function updateExchangeSymbols(): void
     {
-        // From SchemaSeeder2 - Disable all current tokens
-        // NOTE: Commented out because CoreSymbolDataSeeder now handles is_active correctly
-        // ExchangeSymbol::query()->update(['is_tradeable' => false, 'is_active' => false]);
-
         // From SchemaSeeder12 - Set limit quantity multipliers
         ExchangeSymbol::query()->update([
             'limit_quantity_multipliers' => [2, 2, 2, 2],

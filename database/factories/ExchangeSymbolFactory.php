@@ -26,10 +26,9 @@ final class ExchangeSymbolFactory extends Factory
             'symbol_id' => Symbol::factory(),
             'quote_id' => Quote::factory(),
             'api_system_id' => ApiSystem::factory(),
-            'is_active' => false,
-            'is_tradeable' => false,
-            'is_eligible' => false,
-            'ineligible_reason' => null,
+            'is_manually_enabled' => null,
+            'auto_disabled' => false,
+            'auto_disabled_reason' => null,
             'direction' => null,
             'percentage_gap_long' => 8.50,
             'percentage_gap_short' => 9.50,
@@ -62,10 +61,9 @@ final class ExchangeSymbolFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             return [
-                'is_active' => true,
-                'is_tradeable' => true,
-                'is_eligible' => true,
-                'ineligible_reason' => null,
+                'is_manually_enabled' => null,
+                'auto_disabled' => false,
+                'auto_disabled_reason' => null,
             ];
         });
     }
@@ -77,9 +75,8 @@ final class ExchangeSymbolFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             return [
-                'is_active' => false,
-                'is_eligible' => false,
-                'ineligible_reason' => 'No TAAPI data available',
+                'auto_disabled' => true,
+                'auto_disabled_reason' => 'no_indicator_data',
             ];
         });
     }

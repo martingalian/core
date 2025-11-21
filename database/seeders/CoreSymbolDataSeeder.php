@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Database\Seeders;
 
+use Exception;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -35,18 +36,18 @@ final class CoreSymbolDataSeeder extends Seeder
      */
     private function runSeeding(): void
     {
-        $dumpsPath = __DIR__ . '/../dumps';
+        $dumpsPath = __DIR__.'/../dumps';
 
         $dumps = [
-            'symbols' => $dumpsPath . '/symbols.sql',
-            'exchange_symbols' => $dumpsPath . '/exchange_symbols.sql',
-            'base_asset_mappers' => $dumpsPath . '/base_asset_mappers.sql',
+            'symbols' => $dumpsPath.'/symbols.sql',
+            'exchange_symbols' => $dumpsPath.'/exchange_symbols.sql',
+            'base_asset_mappers' => $dumpsPath.'/base_asset_mappers.sql',
         ];
 
         // Verify all dump files exist
         foreach ($dumps as $table => $file) {
             if (! File::exists($file)) {
-                throw new \Exception("Dump file not found for {$table}: {$file}");
+                throw new Exception("Dump file not found for {$table}: {$file}");
             }
         }
 
@@ -61,11 +62,13 @@ final class CoreSymbolDataSeeder extends Seeder
             DB::unprepared($sql);
         }
 
-        // Activate exchange_symbols for symbols that have CMC IDs
+        // Set default status for exchange_symbols with CMC IDs (not auto-disabled)
         DB::unprepared('
             UPDATE exchange_symbols es
             INNER JOIN symbols s ON es.symbol_id = s.id
-            SET es.is_active = 1
+            SET es.auto_disabled = 0,
+                es.auto_disabled_reason = NULL,
+                es.is_manually_enabled = NULL
             WHERE s.cmc_id IS NOT NULL
         ');
     }
