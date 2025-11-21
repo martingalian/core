@@ -238,7 +238,8 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
                 'indicators_values' => null,
                 'indicators_timeframe' => null,
                 'indicators_synced_at' => null,
-                'is_active' => false,
+                'auto_disabled' => true,
+                'auto_disabled_reason' => 'no_valid_direction',
             ]);
 
             // Notify admin when direction is invalidated after exhausting all timeframes
@@ -317,7 +318,8 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
                 'indicators_values' => null,
                 'indicators_timeframe' => null,
                 'indicators_synced_at' => null,
-                'is_active' => false,
+                'auto_disabled' => true,
+                'auto_disabled_reason' => 'path_inconsistency',
             ]);
 
             // Notify admin when direction is invalidated due to path inconsistency
@@ -370,7 +372,8 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
             'indicators_timeframe' => $this->timeframe,
             'indicators_values' => $indicatorData,
             'indicators_synced_at' => Carbon::now(),
-            'is_active' => true,
+            'auto_disabled' => false,
+            'auto_disabled_reason' => null,
         ]);
     }
 

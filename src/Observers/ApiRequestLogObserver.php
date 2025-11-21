@@ -157,8 +157,8 @@ final class ApiRequestLogObserver
                 ->lockForUpdate()
                 ->first();
 
-            // Skip if already deactivated (checked inside transaction after lock acquired)
-            if (! $lockedSymbol || $lockedSymbol->auto_disabled) {
+            // Skip if already stopped receiving indicator data (checked inside transaction after lock acquired)
+            if (! $lockedSymbol || ! $lockedSymbol->receives_indicator_data) {
                 return;
             }
 
@@ -167,10 +167,11 @@ final class ApiRequestLogObserver
                 return;
             }
 
-            // Deactivate the ExchangeSymbol
+            // Deactivate the ExchangeSymbol and stop receiving indicator data
             $lockedSymbol->update([
                 'auto_disabled' => true,
                 'auto_disabled_reason' => 'no_indicator_data',
+                'receives_indicator_data' => false,
             ]);
 
             // Send notification INSIDE transaction (prevents duplicate notifications from concurrent requests)

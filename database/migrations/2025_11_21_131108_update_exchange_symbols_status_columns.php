@@ -23,10 +23,15 @@ return new class extends Migration
                 $table->boolean('is_manually_enabled')->nullable()->default(null)->after('api_system_id');
                 $table->boolean('auto_disabled')->default(false)->after('is_manually_enabled');
                 $table->string('auto_disabled_reason')->nullable()->after('auto_disabled');
+                $table->boolean('receives_indicator_data')
+                    ->default(true)
+                    ->after('auto_disabled_reason')
+                    ->comment('Whether this symbol should receive indicator data from Taapi');
 
                 // Add indexes for new columns
                 $table->index('auto_disabled', 'idx_exchange_symbols_auto_disabled');
                 $table->index(['api_system_id', 'auto_disabled'], 'idx_exchange_symbols_api_auto_disabled');
+                $table->index('receives_indicator_data', 'idx_exchange_symbols_receives_indicator_data');
             });
 
             // Migrate data from old columns to new columns
@@ -78,7 +83,8 @@ return new class extends Migration
             // Drop new columns and their indexes
             $table->dropIndex('idx_exchange_symbols_auto_disabled');
             $table->dropIndex('idx_exchange_symbols_api_auto_disabled');
-            $table->dropColumn(['is_manually_enabled', 'auto_disabled', 'auto_disabled_reason']);
+            $table->dropIndex('idx_exchange_symbols_receives_indicator_data');
+            $table->dropColumn(['is_manually_enabled', 'auto_disabled', 'auto_disabled_reason', 'receives_indicator_data']);
         });
     }
 };

@@ -29,6 +29,7 @@ final class ExchangeSymbolFactory extends Factory
             'is_manually_enabled' => null,
             'auto_disabled' => false,
             'auto_disabled_reason' => null,
+            'receives_indicator_data' => true,
             'direction' => null,
             'percentage_gap_long' => 8.50,
             'percentage_gap_short' => 9.50,
