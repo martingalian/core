@@ -370,11 +370,30 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         $exchangeSymbol->updateSaving([
             'direction' => $direction,
             'indicators_timeframe' => $this->timeframe,
-            'indicators_values' => $indicatorData,
+            'indicators_values' => $this->normalizeScientificNotation($indicatorData),
             'indicators_synced_at' => Carbon::now(),
             'auto_disabled' => false,
             'auto_disabled_reason' => null,
         ]);
+    }
+
+    /**
+     * Recursively convert scientific notation floats to decimal strings.
+     * Prevents JSON from storing numbers like 1.849344254358247e-8 instead of 0.00000001849344254358247
+     */
+    private function normalizeScientificNotation(mixed $data): mixed
+    {
+        if (is_array($data)) {
+            return array_map(function ($value) {
+                return $this->normalizeScientificNotation($value);
+            }, $data);
+        }
+
+        if (is_float($data)) {
+            return sprintf('%.20f', $data);
+        }
+
+        return $data;
     }
 
     /**
