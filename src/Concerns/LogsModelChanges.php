@@ -1,0 +1,50 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Martingalian\Core\Concerns;
+
+use Martingalian\Core\Abstracts\BaseModel;
+use Martingalian\Core\Observers\ApplicationLogObserver;
+
+/**
+ * Trait to enable Application Logging in Model Observers.
+ *
+ * Add this trait to any Observer to automatically log model changes.
+ *
+ * Usage:
+ *   final class ExchangeSymbolObserver
+ *   {
+ *       use LogsModelChanges;
+ *
+ *       public function created(ExchangeSymbol $model): void
+ *       {
+ *           $this->logModelCreation($model);
+ *       }
+ *
+ *       public function updated(ExchangeSymbol $model): void
+ *       {
+ *           $this->logModelUpdate($model);
+ *       }
+ *   }
+ */
+trait LogsModelChanges
+{
+    /**
+     * Log model creation event.
+     * Call this in the observer's created() method.
+     */
+    protected function logModelCreation(BaseModel $model): void
+    {
+        app(ApplicationLogObserver::class)->created($model);
+    }
+
+    /**
+     * Log model update event.
+     * Call this in the observer's updated() method.
+     */
+    protected function logModelUpdate(BaseModel $model): void
+    {
+        app(ApplicationLogObserver::class)->updated($model);
+    }
+}

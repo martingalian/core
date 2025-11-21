@@ -9,7 +9,6 @@ use Martingalian\Core\Exceptions\JustEndException;
 use Martingalian\Core\Exceptions\JustResolveException;
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
 use Martingalian\Core\Exceptions\NonNotifiableException;
-use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\Support\NotificationService;
@@ -253,6 +252,30 @@ trait HandlesStepExceptions
 
     protected function logExceptionToRelatable(Throwable $e): void
     {
-        // Intentionally empty - no longer logging to relatable
+        // Guard against accessing step before initialization
+        if (! isset($this->step)) {
+            return;
+        }
+
+        // Get the relatable model from the step
+        $relatable = $this->step->relatable;
+
+        // Only log if relatable exists and has the appLog method
+        if (! $relatable || ! method_exists($relatable, 'appLog')) {
+            return;
+        }
+
+        $parser = ExceptionParser::with($e);
+
+        // Create ApplicationLog entry on the relatable model
+        $relatable->appLog(
+            eventType: 'step_failed',
+            metadata: [
+                'exception_class' => get_class($e),
+                'exception_message' => $parser->friendlyMessage(),
+            ],
+            relatable: $this->step,
+            message: $parser->friendlyMessage()
+        );
     }
 }

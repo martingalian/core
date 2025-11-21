@@ -37,6 +37,7 @@ use Martingalian\Core\Observers\AccountObserver;
 use Martingalian\Core\Observers\ApiRequestLogObserver;
 use Martingalian\Core\Observers\ApiSnapshotObserver;
 use Martingalian\Core\Observers\ApiSystemObserver;
+use Martingalian\Core\Observers\ApplicationLogObserver;
 use Martingalian\Core\Observers\BaseAssetMapperObserver;
 use Martingalian\Core\Observers\ExchangeSymbolObserver;
 use Martingalian\Core\Observers\ForbiddenHostnameObserver;

@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Str;
+use Martingalian\Core\Concerns\LogsModelChanges;
 use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Models\Order;
 
 final class OrderObserver
 {
+    use LogsModelChanges;
+
     public function creating(Order $model): void
     {
 
@@ -104,11 +107,17 @@ final class OrderObserver
 
     }
 
-    public function created(Order $model): void {}
+    public function created(Order $model): void
+    {
+        $this->logModelCreation($model);
+    }
 
     public function saved(Order $model): void {}
 
-    public function updated(Order $model): void {}
+    public function updated(Order $model): void
+    {
+        $this->logModelUpdate($model);
+    }
 
     public function deleted(Order $model): void {}
 
