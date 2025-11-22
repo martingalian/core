@@ -30,6 +30,10 @@ use Martingalian\Core\Concerns\Account\InteractsWithApis;
  * @property int|null $last_notified_account_balance_history_id
  * @property array|null $credentials
  * @property array|null $credentials_testing
+ * @property string|null $binance_api_key
+ * @property string|null $binance_api_secret
+ * @property string|null $bybit_api_key
+ * @property string|null $bybit_api_secret
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at

@@ -43,22 +43,29 @@ abstract class BaseApiThrottler
      *
      * @param  int  $retryCount  Number of retries already attempted (for exponential backoff)
      * @param  int|null  $accountId  Optional account ID for UID-based rate limits (e.g., ORDER limits)
+     * @param  int|string|null  $stepId  Optional step ID for throttle logging
      */
-    final public static function canDispatch(int $retryCount = 0, ?int $accountId = null): int
+    final public static function canDispatch(int $retryCount = 0, ?int $accountId = null, int|string|null $stepId = null): int
     {
         $config = static::getRateLimitConfig();
         $prefix = static::getCacheKeyPrefix();
 
-        Log::channel('jobs')->info("[THROTTLER] {$prefix} | canDispatch() called");
+        throttle_log($stepId, "   └─ {$prefix}::canDispatch() called");
+        throttle_log($stepId, "      ├─ Retry count: {$retryCount}");
+        throttle_log($stepId, "      └─ Account ID: ".($accountId ?? 'null'));
 
         // Check minimum delay between requests (if configured)
         if (isset($config['min_delay_between_requests_ms'])) {
+            throttle_log($stepId, "      [Check] Minimum delay between requests...");
+            throttle_log($stepId, "         └─ Min delay configured: {$config['min_delay_between_requests_ms']}ms");
             $secondsToWait = static::checkMinimumDelay($prefix, $config['min_delay_between_requests_ms']);
             if ($secondsToWait > 0) {
-                Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by min delay: {$secondsToWait}s");
+                throttle_log($stepId, "         ❌ THROTTLED by minimum delay");
+                throttle_log($stepId, "            └─ Must wait: {$secondsToWait}s");
 
                 return $secondsToWait;
             }
+            throttle_log($stepId, "         ✓ Minimum delay check passed");
         }
 
         // Check requests per window limit
@@ -66,21 +73,31 @@ abstract class BaseApiThrottler
         $currentCount = Cache::get($windowKey, 0);
         $safetyThreshold = $config['safety_threshold'] ?? 1.0;
         $effectiveLimit = (int) floor($config['requests_per_window'] * $safetyThreshold);
-        Log::channel('jobs')->info("[THROTTLER] {$prefix} | Window: {$windowKey} | Count: {$currentCount}/{$effectiveLimit} (safety: ".($safetyThreshold * 100).'%)');
+
+        throttle_log($stepId, "      [Check] Requests per window limit...");
+        throttle_log($stepId, "         ├─ Window key: {$windowKey}");
+        throttle_log($stepId, "         ├─ Current count: {$currentCount}");
+        throttle_log($stepId, "         ├─ Effective limit: {$effectiveLimit}");
+        throttle_log($stepId, "         ├─ Max requests: {$config['requests_per_window']}");
+        throttle_log($stepId, "         └─ Safety threshold: ".($safetyThreshold * 100).'%');
 
         $secondsToWait = static::checkWindowLimit($prefix, $config['requests_per_window'], $config['window_seconds'], $safetyThreshold);
 
         if ($secondsToWait > 0) {
-            Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by window limit: {$secondsToWait}s");
+            throttle_log($stepId, "         ❌ THROTTLED by window limit");
+            throttle_log($stepId, "            └─ Must wait: {$secondsToWait}s until window resets");
         } else {
-            Log::channel('jobs')->info("[THROTTLER] {$prefix} | OK to dispatch");
+            throttle_log($stepId, "         ✓ Window limit check passed");
         }
 
         // Apply exponential backoff if this is a retry
         if ($retryCount > 0 && $secondsToWait > 0) {
             $exponentialDelay = static::calculateExponentialBackoff($retryCount);
             $secondsToWait += $exponentialDelay;
-            Log::channel('jobs')->info("[THROTTLER] {$prefix} | Retry #{$retryCount} | Added exponential backoff: +{$exponentialDelay}s | Total: {$secondsToWait}s");
+            throttle_log($stepId, "      [Backoff] Exponential backoff applied (retry #{$retryCount})");
+            throttle_log($stepId, "         ├─ Base delay: ".($secondsToWait - $exponentialDelay)."s");
+            throttle_log($stepId, "         ├─ Exponential delay: +{$exponentialDelay}s");
+            throttle_log($stepId, "         └─ Total delay: {$secondsToWait}s");
         }
 
         return $secondsToWait;
@@ -90,8 +107,9 @@ abstract class BaseApiThrottler
      * Record that a dispatch happened right now
      *
      * @param  int|null  $accountId  Optional account ID for UID-based rate limits (e.g., ORDER limits)
+     * @param  int|string|null  $stepId  Optional step ID for throttle logging
      */
-    final public static function recordDispatch(?int $accountId = null): void
+    final public static function recordDispatch(?int $accountId = null, int|string|null $stepId = null): void
     {
         $prefix = static::getCacheKeyPrefix();
         $config = static::getRateLimitConfig();
@@ -105,7 +123,11 @@ abstract class BaseApiThrottler
         $newCount = $currentCount + 1;
         Cache::put($windowKey, $newCount, $config['window_seconds'] * 2);
 
-        Log::channel('jobs')->info("[THROTTLER] {$prefix} | recordDispatch() | Window: {$windowKey} | New count: {$newCount}/{$config['requests_per_window']}");
+        throttle_log($stepId, "   └─ {$prefix}::recordDispatch() called");
+        throttle_log($stepId, "      ├─ Window key: {$windowKey}");
+        throttle_log($stepId, "      ├─ Previous count: {$currentCount}");
+        throttle_log($stepId, "      ├─ New count: {$newCount}");
+        throttle_log($stepId, "      └─ Max requests: {$config['requests_per_window']}");
     }
 
     /**

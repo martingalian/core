@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\Throttlers;
 
 use Illuminate\Support\Facades\Cache;
-use Log;
 use Martingalian\Core\Abstracts\BaseApiThrottler;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -45,17 +44,22 @@ final class BybitThrottler extends BaseApiThrottler
      * Checks IP ban status, minimum delay, and rate limit threshold.
      *
      * @param  int|null  $accountId  Optional account ID (not used by Bybit - all limits are IP-based)
+     * @param  int|string|null  $stepId  Optional step ID for throttle logging
      * @return int Seconds to wait, or 0 if safe to proceed
      */
-    public static function isSafeToDispatch(?int $accountId = null): int
+    public static function isSafeToDispatch(?int $accountId = null, int|string|null $stepId = null): int
     {
         $prefix = self::getCacheKeyPrefix();
 
-        Log::channel('jobs')->info('[BYBIT-THROTTLER] isSafeToDispatch() called');
+        throttle_log($stepId, "   └─ BybitThrottler::isSafeToDispatch() called");
 
         // 1. Check minimum delay between requests
         $ip = self::getCurrentIp();
         $minDelayMs = config('martingalian.throttlers.bybit.min_delay_ms', 0);
+
+        throttle_log($stepId, "      [Check] Minimum delay between requests...");
+        throttle_log($stepId, "         ├─ Server IP: {$ip}");
+        throttle_log($stepId, "         └─ Min delay configured: {$minDelayMs}ms");
 
         if ($minDelayMs > 0) {
             // Check both IP-based timestamp (from recordResponseHeaders)
@@ -74,69 +78,87 @@ final class BybitThrottler extends BaseApiThrottler
                 $minDelaySeconds = $minDelayMs / 1000;
                 $elapsedSeconds = now()->timestamp - $lastTimestamp;
 
+                throttle_log($stepId, "         ├─ Last request timestamp: {$lastTimestamp}");
+                throttle_log($stepId, "         ├─ Elapsed since last: {$elapsedSeconds}s");
+                throttle_log($stepId, "         └─ Min delay required: {$minDelaySeconds}s");
+
                 if ($elapsedSeconds < $minDelaySeconds) {
                     $waitSeconds = (int) ceil($minDelaySeconds - $elapsedSeconds);
-                    Log::channel('jobs')->info("[BYBIT-THROTTLER] Minimum delay not met | Wait: {$waitSeconds}s");
+                    throttle_log($stepId, "         ❌ THROTTLED by minimum delay");
+                    throttle_log($stepId, "            └─ Must wait: {$waitSeconds}s");
 
                     return $waitSeconds;
                 }
             }
+            throttle_log($stepId, "         ✓ Minimum delay check passed");
+        } else {
+            throttle_log($stepId, "         ✓ No minimum delay configured - skipping");
         }
 
         // 2. Check if IP is currently banned (403 response)
+        throttle_log($stepId, "      [Check] IP ban status...");
         if (self::isCurrentlyBanned()) {
             $secondsRemaining = self::getSecondsUntilBanLifts();
-            Log::channel('jobs')->info("[BYBIT-THROTTLER] IP currently banned | Wait: {$secondsRemaining}s");
+            throttle_log($stepId, "         ❌ THROTTLED by IP ban");
+            throttle_log($stepId, "            ├─ IP: {$ip}");
+            throttle_log($stepId, "            └─ Ban lifts in: {$secondsRemaining}s");
 
             return $secondsRemaining;
         }
+        throttle_log($stepId, "         ✓ IP not banned");
 
         try {
             $ip = self::getCurrentIp();
 
             // 3. Check rate limit threshold
+            throttle_log($stepId, "      [Check] Rate limit threshold...");
             $safetyThreshold = config('martingalian.throttlers.bybit.safety_threshold', 0.1);
             $limitStatus = Cache::get("bybit:{$ip}:limit:status");
             $limitMax = Cache::get("bybit:{$ip}:limit:max");
 
-            Log::channel('jobs')->info('[BYBIT-THROTTLER] Rate limit headers | Status: '.($limitStatus ?? 'NULL').' | Max: '.($limitMax ?? 'NULL')." | Safety threshold: {$safetyThreshold}");
+            throttle_log($stepId, "         ├─ X-Bapi-Limit-Status (remaining): ".($limitStatus ?? 'NULL'));
+            throttle_log($stepId, "         ├─ X-Bapi-Limit (max): ".($limitMax ?? 'NULL'));
+            throttle_log($stepId, "         └─ Safety threshold: ".($safetyThreshold * 100).'%');
 
             // If no rate limit data exists, allow request (fail-safe)
             if ($limitStatus === null || $limitMax === null) {
-                Log::channel('jobs')->info('[BYBIT-THROTTLER] No rate limit data - allowing request');
+                throttle_log($stepId, "         ✓ No rate limit data - allowing request (fail-safe)");
 
                 return 0;
             }
 
             // If max is 0, allow request (avoid division by zero)
             if ($limitMax === 0) {
-                Log::channel('jobs')->info('[BYBIT-THROTTLER] Max is 0 - allowing request');
+                throttle_log($stepId, "         ✓ Max is 0 - allowing request (fail-safe)");
 
                 return 0;
             }
 
             // If status is 0 or negative, we're at or over limit
             if ($limitStatus <= 0) {
-                Log::channel('jobs')->info('[BYBIT-THROTTLER] STATUS THROTTLE! Status <= 0');
+                throttle_log($stepId, "         ❌ THROTTLED by rate limit");
+                throttle_log($stepId, "            └─ Status <= 0 (at or over limit)");
 
                 return 1; // Wait at least 1 second
             }
 
             // Calculate remaining percentage
             $remainingPercentage = $limitStatus / $limitMax;
-            Log::channel('jobs')->info('[BYBIT-THROTTLER] Remaining percentage: '.round($remainingPercentage * 100, 2).'%');
+            throttle_log($stepId, "         ├─ Remaining percentage: ".round($remainingPercentage * 100, 2).'%');
 
             // If below safety threshold, wait
             if ($remainingPercentage < $safetyThreshold) {
-                Log::channel('jobs')->info("[BYBIT-THROTTLER] SAFETY THRESHOLD THROTTLE! {$remainingPercentage} < {$safetyThreshold}");
+                throttle_log($stepId, "         ❌ THROTTLED by safety threshold");
+                throttle_log($stepId, "            └─ ".round($remainingPercentage * 100, 2).'% < '.($safetyThreshold * 100).'%');
 
                 return 1; // Wait at least 1 second
             }
 
-            Log::channel('jobs')->info('[BYBIT-THROTTLER] isSafeToDispatch() = OK (0 seconds wait)');
+            throttle_log($stepId, "         ✓ Rate limit threshold check passed");
         } catch (Throwable $e) {
             // Fail-safe: allow request on error
-            Log::warning("Failed to check Bybit safety: {$e->getMessage()}");
+            throttle_log($stepId, "         ⚠️ Exception in rate limit check: ".$e->getMessage());
+            throttle_log($stepId, "         └─ Failing safe - allowing request");
 
             return 0;
         }
@@ -175,7 +197,6 @@ final class BybitThrottler extends BaseApiThrottler
             }
         } catch (Throwable $e) {
             // Fail silently - don't break the application if Cache fails
-            Log::warning("Failed to record Bybit response headers: {$e->getMessage()}");
         }
     }
 
@@ -191,8 +212,6 @@ final class BybitThrottler extends BaseApiThrottler
             return $bannedUntil && now()->timestamp < (int) $bannedUntil;
         } catch (Throwable $e) {
             // Fail safe - if Cache fails, allow the request
-            Log::warning("Failed to check Bybit ban status: {$e->getMessage()}");
-
             return false;
         }
     }
@@ -214,11 +233,8 @@ final class BybitThrottler extends BaseApiThrottler
                 $expiresAt->timestamp,
                 $retryAfterSeconds
             );
-
-            Log::warning("Bybit IP ban recorded for {$ip} until {$expiresAt->toDateTimeString()}");
         } catch (Throwable $e) {
-            // Log but don't throw - failing to record ban shouldn't break the app
-            Log::error("Failed to record Bybit IP ban: {$e->getMessage()}");
+            // Fail silently - failing to record ban shouldn't break the app
         }
     }
 

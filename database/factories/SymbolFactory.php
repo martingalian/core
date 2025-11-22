@@ -20,7 +20,7 @@ final class SymbolFactory extends Factory
     public function definition(): array
     {
         return [
-            'token' => strtoupper(fake()->unique()->lexify('???')),
+            'token' => strtoupper(fake()->unique()->bothify('???##')),
             'name' => fake()->words(2, true),
             'description' => fake()->sentence(),
             'site_url' => fake()->url(),

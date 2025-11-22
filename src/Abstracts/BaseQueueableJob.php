@@ -10,11 +10,9 @@ use Martingalian\Core\Concerns\BaseQueueableJob\FormatsStepResult;
 use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepExceptions;
 use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepLifecycle;
 use Martingalian\Core\Exceptions\NonNotifiableException;
-use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\Running;
-use Martingalian\Core\Support\NotificationService;
 use Throwable;
 
 /*
@@ -52,51 +50,70 @@ abstract class BaseQueueableJob extends BaseJob
         $stepId = $this->step->id ?? 'unknown';
         $jobClass = class_basename($this);
 
-        Log::channel('jobs')->info("[JOB START] Step #{$stepId} | {$jobClass} | Starting...");
+        log_step($stepId, '╔═══════════════════════════════════════════════════════════╗');
+        log_step($stepId, '║       BASE-QUEUEABLE-JOB: handle() START                 ║');
+        log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
+        log_step($stepId, 'Job class: '.$jobClass);
+        log_step($stepId, 'Step ID: '.$stepId);
 
         try {
-            $prepareStart = microtime(true);
+            log_step($stepId, 'Calling prepareJobExecution()...');
             $this->prepareJobExecution();
-            $prepareTime = round((microtime(true) - $prepareStart) * 1000, 2);
-            Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | prepareJobExecution: {$prepareTime}ms");
+            log_step($stepId, 'prepareJobExecution() completed');
 
+            log_step($stepId, 'Checking if in confirmation mode...');
             if ($this->isInConfirmationMode()) {
-                Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | In confirmation mode, handling...");
+                log_step($stepId, '✓ In confirmation mode - calling handleConfirmationMode()');
                 $this->handleConfirmationMode();
-                Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | Completed (confirmation mode)");
-
+                log_step($stepId, '✓ handle() completed (confirmation mode)');
+                log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
                 return;
             }
+            log_step($stepId, '✗ Not in confirmation mode');
 
+            log_step($stepId, 'Checking if should exit early...');
             if ($this->shouldExitEarly()) {
-                Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | Exited early");
-
+                log_step($stepId, '✓ Should exit early - returning');
+                log_step($stepId, '✓ handle() completed (early exit)');
+                log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
                 return;
             }
+            log_step($stepId, '✗ Not exiting early');
 
-            $executeStart = microtime(true);
+            log_step($stepId, 'Calling executeJobLogic()...');
             $this->executeJobLogic();
-            $executeTime = round((microtime(true) - $executeStart) * 1000, 2);
-            Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | executeJobLogic: {$executeTime}ms");
+            log_step($stepId, 'executeJobLogic() completed');
 
+            log_step($stepId, 'Checking if needs verification...');
             if ($this->needsVerification()) {
-                Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | Needs verification, returning");
-
+                log_step($stepId, '✓ Needs verification - returning');
+                log_step($stepId, '✓ handle() completed (needs verification)');
+                log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
                 return;
             }
+            log_step($stepId, '✗ Does not need verification');
 
-            $finalizeStart = microtime(true);
+            log_step($stepId, 'Calling finalizeJobExecution()...');
             $this->finalizeJobExecution();
-            $finalizeTime = round((microtime(true) - $finalizeStart) * 1000, 2);
-            Log::channel('jobs')->info("[JOB] Step #{$stepId} | {$jobClass} | finalizeJobExecution: {$finalizeTime}ms");
+            log_step($stepId, 'finalizeJobExecution() completed');
 
-            $totalTime = round((microtime(true) - $startTime) * 1000, 2);
-            Log::channel('jobs')->info("[JOB END] Step #{$stepId} | {$jobClass} | TOTAL: {$totalTime}ms");
+            log_step($stepId, '✓ handle() completed successfully');
+            log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
         } catch (Throwable $e) {
             $errorTime = round((microtime(true) - $startTime) * 1000, 2);
             Log::channel('jobs')->error("[JOB ERROR] Step #{$stepId} | {$jobClass} | After {$errorTime}ms | Error: ".$e->getMessage());
+            log_step($stepId, '⚠️⚠️⚠️ EXCEPTION CAUGHT IN handle() ⚠️⚠️⚠️');
+            log_step($stepId, 'Exception details:');
+            log_step($stepId, '  - Exception class: '.get_class($e));
+            log_step($stepId, '  - Exception message: '.$e->getMessage());
+            log_step($stepId, '  - Exception file: '.$e->getFile().':'.$e->getLine());
+            log_step($stepId, '  - After: '.$errorTime.'ms');
+            log_step($stepId, 'Calling handleException()...');
 
             $this->handleException($e);
+
+            log_step($stepId, 'handleException() completed');
+            log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
         }
     }
 
@@ -112,25 +129,48 @@ abstract class BaseQueueableJob extends BaseJob
         if (! isset($this->step)) {
             // Job failed before step was initialized - log and exit
             Log::channel('jobs')->error('[JOB FAILED] Job failed before step initialization: '.$e->getMessage());
+            log_step('unknown', '⚠️⚠️⚠️ JOB FAILED - STEP NOT INITIALIZED ⚠️⚠️⚠️');
+            log_step('unknown', 'Exception: '.$e->getMessage());
 
             return;
         }
 
+        $stepId = $this->step->id;
+        log_step($stepId, '╔═══════════════════════════════════════════════════════════╗');
+        log_step($stepId, '║   BASE-QUEUEABLE-JOB: failed() - LARAVEL FALLBACK       ║');
+        log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
+        log_step($stepId, '⚠️⚠️⚠️ LARAVEL CAUGHT UNHANDLED EXCEPTION ⚠️⚠️⚠️');
+        log_step($stepId, 'This is called when Horizon kills a job due to timeout or crash');
+        log_step($stepId, 'Exception details:');
+        log_step($stepId, '  - Exception class: '.get_class($e));
+        log_step($stepId, '  - Exception message: '.$e->getMessage());
+        log_step($stepId, '  - Exception file: '.$e->getFile().':'.$e->getLine());
+
         // Parse exception for friendly message and stack trace
+        log_step($stepId, 'Parsing exception with ExceptionParser...');
         $parser = \Martingalian\Core\Exceptions\ExceptionParser::with($e);
 
         // Update error_message, error_stack_trace, and response
+        log_step($stepId, 'Updating step with error information...');
         $this->step->update([
             'error_message' => $parser->friendlyMessage(),
             'error_stack_trace' => $parser->stackTrace(),
             'response' => ['exception' => $e->getMessage()],
         ]);
+        log_step($stepId, 'Step updated with error information');
 
         // Finalize duration
+        log_step($stepId, 'Calling finalizeDuration()...');
         $this->finalizeDuration();
+        log_step($stepId, 'Duration finalized');
 
         // Transition to Failed state
+        log_step($stepId, 'Transitioning to Failed state...');
+        log_step($stepId, 'Current state: '.$this->step->state);
         $this->step->state->transitionTo(Failed::class);
+        log_step($stepId, 'Transitioned to Failed state');
+        log_step($stepId, '✓ failed() method completed');
+        log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
     }
 
     final public function startDuration(): void

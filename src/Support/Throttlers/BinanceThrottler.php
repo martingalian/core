@@ -6,7 +6,6 @@ namespace Martingalian\Core\Support\Throttlers;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
-use Log;
 use Martingalian\Core\Abstracts\BaseApiThrottler;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -46,15 +45,22 @@ final class BinanceThrottler extends BaseApiThrottler
      * Checks IP ban status and rate limit proximity.
      *
      * @param  int|null  $accountId  Optional account ID for UID-based ORDER limits
+     * @param  int|string|null  $stepId  Optional step ID for throttle logging
      * @return int Seconds to wait, or 0 if safe to proceed
      */
-    public static function isSafeToDispatch(?int $accountId = null): int
+    public static function isSafeToDispatch(?int $accountId = null, int|string|null $stepId = null): int
     {
         $prefix = self::getCacheKeyPrefix();
+
+        throttle_log($stepId, "   └─ BinanceThrottler::isSafeToDispatch() called");
 
         // 1. Check minimum delay between requests
         $ip = self::getCurrentIp();
         $minDelayMs = config('martingalian.throttlers.binance.min_delay_ms', 0);
+
+        throttle_log($stepId, "      [Check] Minimum delay between requests...");
+        throttle_log($stepId, "         ├─ Server IP: {$ip}");
+        throttle_log($stepId, "         └─ Min delay configured: {$minDelayMs}ms");
 
         if ($minDelayMs > 0) {
             // Check both IP-based timestamp (from recordResponseHeaders)
@@ -73,30 +79,45 @@ final class BinanceThrottler extends BaseApiThrottler
                 $minDelaySeconds = $minDelayMs / 1000;
                 $elapsedSeconds = now()->timestamp - $lastTimestamp;
 
+                throttle_log($stepId, "         ├─ Last request timestamp: {$lastTimestamp}");
+                throttle_log($stepId, "         ├─ Elapsed since last: {$elapsedSeconds}s");
+                throttle_log($stepId, "         └─ Min delay required: {$minDelaySeconds}s");
+
                 if ($elapsedSeconds < $minDelaySeconds) {
                     $waitSeconds = (int) ceil($minDelaySeconds - $elapsedSeconds);
-                    Log::channel('jobs')->info("[THROTTLER] {$prefix} | Minimum delay not met | Wait: {$waitSeconds}s");
+                    throttle_log($stepId, "         ❌ THROTTLED by minimum delay");
+                    throttle_log($stepId, "            └─ Must wait: {$waitSeconds}s");
 
                     return $waitSeconds;
                 }
             }
+            throttle_log($stepId, "         ✓ Minimum delay check passed");
+        } else {
+            throttle_log($stepId, "         ✓ No minimum delay configured - skipping");
         }
 
         // 2. Check if IP is currently banned (418 response)
+        throttle_log($stepId, "      [Check] IP ban status...");
         if (self::isCurrentlyBanned()) {
             $secondsRemaining = self::getSecondsUntilBanLifts();
-            Log::channel('jobs')->info("[THROTTLER] {$prefix} | IP currently banned | Wait: {$secondsRemaining}s");
+            throttle_log($stepId, "         ❌ THROTTLED by IP ban");
+            throttle_log($stepId, "            ├─ IP: {$ip}");
+            throttle_log($stepId, "            └─ Ban lifts in: {$secondsRemaining}s");
 
             return $secondsRemaining;
         }
+        throttle_log($stepId, "         ✓ IP not banned");
 
         // 3. Check if approaching any rate limit (>80% threshold)
-        $secondsToWait = self::checkRateLimitProximity($accountId);
+        throttle_log($stepId, "      [Check] Rate limit proximity...");
+        $secondsToWait = self::checkRateLimitProximity($accountId, $stepId);
         if ($secondsToWait > 0) {
-            Log::channel('jobs')->info("[THROTTLER] {$prefix} | Throttled by rate limit proximity: {$secondsToWait}s");
+            throttle_log($stepId, "         ❌ THROTTLED by rate limit proximity");
+            throttle_log($stepId, "            └─ Must wait: {$secondsToWait}s");
 
             return $secondsToWait;
         }
+        throttle_log($stepId, "         ✓ Rate limit proximity check passed");
 
         return 0;
     }
@@ -146,7 +167,6 @@ final class BinanceThrottler extends BaseApiThrottler
             }
         } catch (Throwable $e) {
             // Fail silently - don't break the application if Cache fails
-            Log::warning("Failed to record Binance response headers: {$e->getMessage()}");
         }
     }
 
@@ -162,8 +182,6 @@ final class BinanceThrottler extends BaseApiThrottler
             return $bannedUntil && now()->timestamp < (int) $bannedUntil;
         } catch (Throwable $e) {
             // Fail safe - if Cache fails, allow the request
-            Log::warning("Failed to check Binance ban status: {$e->getMessage()}");
-
             return false;
         }
     }
@@ -183,11 +201,8 @@ final class BinanceThrottler extends BaseApiThrottler
                 $expiresAt->timestamp,
                 $retryAfterSeconds
             );
-
-            Log::warning("Binance IP ban recorded for {$ip} until {$expiresAt->toDateTimeString()}");
         } catch (Throwable $e) {
-            // Log but don't throw - failing to record ban shouldn't break the app
-            Log::error("Failed to record Binance IP ban: {$e->getMessage()}");
+            // Fail silently - failing to record ban shouldn't break the app
         }
     }
 
@@ -237,8 +252,9 @@ final class BinanceThrottler extends BaseApiThrottler
      * Returns seconds to wait if too close to limits.
      *
      * @param  int|null  $accountId  Optional account ID for UID-based ORDER limits
+     * @param  int|string|null  $stepId  Optional step ID for throttle logging
      */
-    protected static function checkRateLimitProximity(?int $accountId = null): int
+    protected static function checkRateLimitProximity(?int $accountId = null, int|string|null $stepId = null): int
     {
         try {
             $ip = self::getCurrentIp();
@@ -250,6 +266,9 @@ final class BinanceThrottler extends BaseApiThrottler
                 ['type' => 'REQUEST_WEIGHT', 'interval' => '10s', 'limit' => 100],
                 ['type' => 'ORDERS', 'interval' => '10s', 'limit' => 50],
             ]);
+
+            throttle_log($stepId, "         ├─ Safety threshold: ".($safetyThreshold * 100).'%');
+            throttle_log($stepId, "         └─ Checking ".count($rateLimits).' rate limit windows...');
 
             foreach ($rateLimits as $rateLimit) {
                 $interval = $rateLimit['interval'];
@@ -266,19 +285,27 @@ final class BinanceThrottler extends BaseApiThrottler
                 }
 
                 $current = Cache::get($key) ?? 0;
+                $percentage = $limit > 0 ? ($current / $limit) : 0;
 
-                if ($current / $limit > $safetyThreshold) {
-                    Log::info("Binance rate limit safety threshold exceeded for {$interval}: {$current}/{$limit}");
+                throttle_log($stepId, "            [{$type} - {$interval}] Current: {$current}/{$limit} (".round($percentage * 100, 1).'%)');
+
+                if ($percentage > $safetyThreshold) {
+                    throttle_log($stepId, "            ❌ Safety threshold exceeded for {$type} {$interval}");
+                    throttle_log($stepId, "               └─ {$current}/{$limit} = ".round($percentage * 100, 1).'% > '.($safetyThreshold * 100).'%');
 
                     // Calculate time until this window resets
-                    return self::calculateWindowResetTime($interval);
+                    $waitTime = self::calculateWindowResetTime($interval);
+                    throttle_log($stepId, "               └─ Window resets in: {$waitTime}s");
+
+                    return $waitTime;
                 }
             }
 
             return 0;
         } catch (Throwable $e) {
             // Fail safe - if Cache fails, allow the request
-            Log::warning("Failed to check Binance rate limit proximity: {$e->getMessage()}");
+            throttle_log($stepId, "         ⚠️ Exception in checkRateLimitProximity: ".$e->getMessage());
+            throttle_log($stepId, "         └─ Failing safe - allowing request");
 
             return 0;
         }

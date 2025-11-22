@@ -177,3 +177,54 @@ function api_format_price($price, ExchangeSymbol $exchangeSymbol): string
 
     return $floored === '-0' ? '0' : $floored;
 }
+
+/**
+ * Log a message to a step-specific log file for debugging.
+ * Creates one file per step ID in storage/logs/steps/<step-id>.txt
+ *
+ * @param  int|string  $stepId  The step ID to log for
+ * @param  string  $message  The message to log
+ */
+function log_step(int|string $stepId, string $message): void
+{
+    $logsPath = storage_path('logs/steps');
+
+    // Ensure the directory exists
+    if (! is_dir($logsPath)) {
+        mkdir($logsPath, 0755, true);
+    }
+
+    $timestamp = now()->format('Y-m-d H:i:s.u');
+    $logFile = "{$logsPath}/{$stepId}.txt";
+    $logMessage = "[{$timestamp}] {$message}".PHP_EOL;
+
+    file_put_contents($logFile, $logMessage, FILE_APPEND | LOCK_EX);
+}
+
+/**
+ * Log a throttling decision to a throttle-specific log file for debugging.
+ * Creates one file per step ID in storage/logs/throttles/<step-id>.txt
+ *
+ * @param  int|string|null  $stepId  The step ID to log for
+ * @param  string  $message  The message to log
+ */
+function throttle_log(int|string|null $stepId, string $message): void
+{
+    // If no step ID provided, skip logging
+    if ($stepId === null) {
+        return;
+    }
+
+    $logsPath = storage_path('logs/throttles');
+
+    // Ensure the directory exists
+    if (! is_dir($logsPath)) {
+        mkdir($logsPath, 0755, true);
+    }
+
+    $timestamp = now()->format('Y-m-d H:i:s.u');
+    $logFile = "{$logsPath}/{$stepId}.txt";
+    $logMessage = "[{$timestamp}] {$message}".PHP_EOL;
+
+    file_put_contents($logFile, $logMessage, FILE_APPEND | LOCK_EX);
+}

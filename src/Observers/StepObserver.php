@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Observers;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\NotRunnable;
 use Martingalian\Core\States\Pending;
+use Martingalian\Core\States\Skipped;
 
 final class StepObserver
 {
@@ -129,5 +132,50 @@ final class StepObserver
     public function created(Step $step): void
     {
         // info_if("[StepObserver.created] Step created with id={$step->id}, block_uuid={$step->block_uuid}, state={$step->state}, index={$step->index}, class={$step->class}, queue={$step->queue}, arguments=".json_encode($step->arguments).", child_block_uuid={$step->child_block_uuid}, created_at={$step->created_at}, updated_at={$step->updated_at}");
+    }
+
+    public function updated(Step $step): void
+    {
+        // Circuit breaker: When ANY step fails, skip ALL other non-completed steps
+        // This allows calm analysis of failures without StepDispatcher continuing to process
+        if ($step->isDirty('state') && $step->state instanceof Failed) {
+            log_step($step->id, '🚨🚨🚨 CIRCUIT BREAKER TRIGGERED 🚨🚨🚨');
+            log_step($step->id, "Step #{$step->id} transitioned to FAILED state");
+            log_step($step->id, 'Skipping ALL non-completed steps to halt processing...');
+
+            // Get all steps that are NOT in concluded states (Completed, Failed, Stopped, Skipped)
+            $concludedStates = [
+                \Martingalian\Core\States\Completed::class,
+                Failed::class,
+                \Martingalian\Core\States\Stopped::class,
+                Skipped::class,
+            ];
+
+            $nonCompletedStepIds = Step::query()
+                ->whereNotIn('state', $concludedStates)
+                ->where('id', '!=', $step->id) // Don't update the step that just failed
+                ->pluck('id')
+                ->all();
+
+            if (! empty($nonCompletedStepIds)) {
+                log_step($step->id, 'Found '.count($nonCompletedStepIds).' non-completed steps to skip');
+                log_step($step->id, 'Step IDs to skip: ['.implode(', ', $nonCompletedStepIds).']');
+
+                // Bulk update all non-completed steps to Skipped state
+                DB::table('steps')
+                    ->whereIn('id', $nonCompletedStepIds)
+                    ->update([
+                        'state' => Skipped::class,
+                        'updated_at' => now(),
+                    ]);
+
+                log_step($step->id, '✓ Successfully skipped '.count($nonCompletedStepIds).' steps');
+                log_step($step->id, '═══════════════════════════════════════════════════════════');
+                log_step($step->id, '→→→ CIRCUIT BREAKER: ALL PROCESSING HALTED ←←←');
+                log_step($step->id, '═══════════════════════════════════════════════════════════');
+            } else {
+                log_step($step->id, 'No non-completed steps found - nothing to skip');
+            }
+        }
     }
 }

@@ -65,7 +65,7 @@ trait ApiExceptionHelpers
             ]
         );
 
-        info("----- HOSTNAME WAS FORBIDDEN: {$record->ip_address}");
+        log_step('api-exceptions', "----- HOSTNAME WAS FORBIDDEN: {$record->ip_address}");
 
         // Only send notification if this is a NEW forbidden hostname (not an update)
         if ($record->wasRecentlyCreated) {
@@ -85,7 +85,7 @@ trait ApiExceptionHelpers
                 );
             } catch (Throwable $notificationException) {
                 // Notification might fail in test environment - log but don't fail the job
-                info('Failed to send forbidden hostname notification: '.$notificationException->getMessage());
+                log_step('api-exceptions', 'Failed to send forbidden hostname notification: '.$notificationException->getMessage());
             }
         }
     }

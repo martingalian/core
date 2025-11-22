@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Martingalian\Core\Abstracts;
 
 use Exception;
-use Log;
 use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobExceptions;
 use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobLifecycle;
 use Martingalian\Core\Exceptions\NonNotifiableException;
@@ -24,20 +23,13 @@ abstract class BaseApiableJob extends BaseQueueableJob
 
     protected function compute()
     {
-        $stepId = $this->step->id ?? 'unknown';
-        $jobClass = class_basename($this);
-
         if (! method_exists($this, 'assignExceptionHandler')) {
             throw new Exception('Exception handler not instanciated!');
         }
 
-        $handlerStart = microtime(true);
         $this->assignExceptionHandler();
-        $handlerTime = round((microtime(true) - $handlerStart) * 1000, 2);
-        Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | assignExceptionHandler: {$handlerTime}ms");
 
         // Is this hostname forbidden for this API system and account?
-        $forbiddenStart = microtime(true);
         $apiSystemCanonical = $this->exceptionHandler->getApiSystem();
         $apiSystem = \Martingalian\Core\Models\ApiSystem::where('canonical', $apiSystemCanonical)->firstOrFail();
         $accountId = $this->exceptionHandler->account->id;
@@ -65,9 +57,6 @@ abstract class BaseApiableJob extends BaseQueueableJob
                 ->exists();
         }
 
-        $forbiddenTime = round((microtime(true) - $forbiddenStart) * 1000, 2);
-        Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | Forbidden check: {$forbiddenTime}ms | Result: ".($isForbidden ? 'YES' : 'NO'));
-
         if ($isForbidden) {
             // Place back the job in the queue;
             $this->retryJob();
@@ -76,11 +65,7 @@ abstract class BaseApiableJob extends BaseQueueableJob
         }
 
         try {
-            $apiableStart = microtime(true);
-            Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | Starting computeApiable()...");
             $result = $this->computeApiable();
-            $apiableTime = round((microtime(true) - $apiableStart) * 1000, 2);
-            Log::channel('jobs')->info("[COMPUTE] Step #{$stepId} | {$jobClass} | computeApiable() completed: {$apiableTime}ms");
 
             return $result;
         } catch (Throwable $e) {
@@ -96,7 +81,11 @@ abstract class BaseApiableJob extends BaseQueueableJob
      */
     protected function shouldStartOrThrottle(): bool
     {
-        Log::info("[API-THROTTLE-CHECK] Step #{$this->step->id} | Starting throttle check");
+        $stepId = $this->step->id;
+
+        throttle_log($stepId, "╔═══════════════════════════════════════════════════════════╗");
+        throttle_log($stepId, "║   BaseApiableJob::shouldStartOrThrottle() START          ║");
+        throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
 
         // Ensure exception handler is assigned before safety checks
         if (! isset($this->exceptionHandler)) {
@@ -104,50 +93,74 @@ abstract class BaseApiableJob extends BaseQueueableJob
         }
 
         // 0. First check exception handler's pre-flight safety check
+        throttle_log($stepId, "[0] Exception handler pre-flight safety check...");
         if (isset($this->exceptionHandler) && ! $this->exceptionHandler->isSafeToMakeRequest()) {
             $this->jobBackoffSeconds = 5; // Default 5 second backoff when not safe
-            Log::info("[API-THROTTLE-CHECK] Step #{$this->step->id} | Not safe to make request, backoff: 5s");
+            throttle_log($stepId, "   ❌ Exception handler says NOT SAFE to make request");
+            throttle_log($stepId, "   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
+            throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
 
             return false; // Not safe - wait and retry
         }
+        throttle_log($stepId, "   ✓ Exception handler says safe to proceed");
 
         // Get throttler for this API system
         $throttler = $this->getThrottlerForApiSystem();
 
         if (! $throttler) {
-            Log::info("[API-THROTTLE-CHECK] Step #{$this->step->id} | No throttler found, OK to proceed");
+            throttle_log($stepId, "[1] No throttler for API system");
+            throttle_log($stepId, "   └─ DECISION: PROCEED (no throttler)");
+            throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
+
             return true; // No throttler = proceed
         }
 
-        Log::info("[API-THROTTLE-CHECK] Step #{$this->step->id} | Using throttler: ".class_basename($throttler));
+        $throttlerClass = class_basename($throttler);
+        throttle_log($stepId, "[1] Throttler found: {$throttlerClass}");
 
         // Extract account ID for per-account rate limit tracking (e.g., Binance ORDER limits)
         $accountId = $this->exceptionHandler->account?->id;
+        throttle_log($stepId, "   └─ Account ID: ".($accountId ?? 'NULL'));
 
         // 1. First check IP-based safety (bans, rate limit proximity) if throttler supports it
         if (method_exists($throttler, 'isSafeToDispatch')) {
-            $secondsToWait = $throttler::isSafeToDispatch($accountId);
+            throttle_log($stepId, "[2] Calling {$throttlerClass}::isSafeToDispatch()...");
+            $secondsToWait = $throttler::isSafeToDispatch($accountId, $stepId);
+
             if ($secondsToWait > 0) {
                 $this->jobBackoffSeconds = $secondsToWait;
-                Log::info("[API-THROTTLE-CHECK] Step #{$this->step->id} | IP-based safety check failed, backoff: {$secondsToWait}s");
+                throttle_log($stepId, "   ❌ isSafeToDispatch() returned: {$secondsToWait}s");
+                throttle_log($stepId, "   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
+                throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
 
                 return false; // Not safe - wait and retry
             }
+
+            throttle_log($stepId, "   ✓ isSafeToDispatch() returned: 0s (safe to proceed)");
+        } else {
+            throttle_log($stepId, "[2] Throttler does not support isSafeToDispatch() - skipping");
         }
 
         // 2. Then check standard throttling (rate limits, min delays, etc.)
         $retryCount = $this->step->retries ?? 0;
-        Log::info("[API-THROTTLE-CHECK] Step #{$this->step->id} | Calling canDispatch(retryCount={$retryCount}, accountId={$accountId})");
-        $secondsToWait = $throttler::canDispatch($retryCount, $accountId);
+        throttle_log($stepId, "[3] Calling {$throttlerClass}::canDispatch()...");
+        throttle_log($stepId, "   ├─ Retry count: {$retryCount}");
+        throttle_log($stepId, "   └─ Account ID: ".($accountId ?? 'NULL'));
+        $secondsToWait = $throttler::canDispatch($retryCount, $accountId, $stepId);
 
         if ($secondsToWait > 0) {
             $this->jobBackoffSeconds = $secondsToWait;
-            Log::info("[API-THROTTLE-CHECK] Step #{$this->step->id} | Throttled! Wait: {$secondsToWait}s | Will set backoff to {$this->jobBackoffSeconds}s");
+            throttle_log($stepId, "   ❌ canDispatch() returned: {$secondsToWait}s");
+            throttle_log($stepId, "   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
+            throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
 
             return false; // Throttled - retry
         }
 
-        Log::info("[API-THROTTLE-CHECK] Step #{$this->step->id} | Throttle check passed, OK to proceed");
+        throttle_log($stepId, "   ✓ canDispatch() returned: 0s (proceed)");
+        throttle_log($stepId, "└─ DECISION: PROCEED");
+        throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
+
         return true; // OK to proceed
     }
 
@@ -172,46 +185,35 @@ abstract class BaseApiableJob extends BaseQueueableJob
      */
     protected function shouldExitEarly(): bool
     {
-        Log::info("[API-LIFECYCLE] Step #{$this->step->id} | ".class_basename($this)." | State: {$this->step->state} | Retries: {$this->step->retries} | Checking shouldExitEarly");
-
         // Run standard lifecycle checks first
         if (! $this->shouldStartOrStop()) {
-            Log::info("[API-LIFECYCLE] Step #{$this->step->id} | shouldStartOrStop = false, calling stopJob()");
             $this->stopJob();
 
             return true;
         }
 
         if (! $this->shouldStartOrFail()) {
-            Log::info("[API-LIFECYCLE] Step #{$this->step->id} | shouldStartOrFail = false, throwing exception");
             throw new NonNotifiableException("startOrFail() returned false for Step ID {$this->step->id}");
         }
 
         if (! $this->shouldStartOrSkip()) {
-            Log::info("[API-LIFECYCLE] Step #{$this->step->id} | shouldStartOrSkip = false, calling skipJob()");
             $this->skipJob();
 
             return true;
         }
 
         if (! $this->shouldStartOrRetry()) {
-            Log::info("[API-LIFECYCLE] Step #{$this->step->id} | shouldStartOrRetry = false, calling retryJob()");
             $this->retryJob();
 
             return true;
         }
 
         // API-specific: Check throttling
-        Log::info("[API-LIFECYCLE] Step #{$this->step->id} | Checking shouldStartOrThrottle()...");
         if (! $this->shouldStartOrThrottle()) {
-            Log::info("[API-LIFECYCLE] Step #{$this->step->id} | THROTTLED! Backoff: {$this->jobBackoffSeconds}s | Current retries: {$this->step->retries} | Calling rescheduleWithoutRetry()");
             $this->rescheduleWithoutRetry();
-            Log::info("[API-LIFECYCLE] Step #{$this->step->id} | After rescheduleWithoutRetry() | Retries: {$this->step->fresh()->retries} | New state: {$this->step->fresh()->state}");
 
             return true;
         }
-
-        Log::info("[API-LIFECYCLE] Step #{$this->step->id} | NOT throttled, OK to proceed");
 
         // Check max retries AFTER throttle check to avoid failing jobs that are just waiting for rate limit
         $this->checkMaxRetries();
@@ -231,7 +233,8 @@ abstract class BaseApiableJob extends BaseQueueableJob
             if ($throttler) {
                 // Extract account ID for per-account rate limit tracking
                 $accountId = $this->exceptionHandler->account?->id;
-                $throttler::recordDispatch($accountId);
+                $stepId = $this->step->id;
+                $throttler::recordDispatch($accountId, $stepId);
             }
 
             // Now call the parent implementation
