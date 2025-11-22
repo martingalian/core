@@ -82,6 +82,7 @@ trait HandlesApiJobExceptions
         /*
          * Set a future dispatch_after time and mark the step as pending.
          * This defers job execution based on rateLimiter's exchange policy.
+         * Uses rescheduleWithoutRetry() because rate limits are not failures.
          */
         $retryAt = $this->exceptionHandler->rateLimitUntil($e);
 
@@ -103,7 +104,10 @@ trait HandlesApiJobExceptions
             }
         }
 
-        $this->retryJob($retryAt);
+        // Use rescheduleWithoutRetry() instead of retryJob()
+        // Rate limits and recvWindow issues are throttling conditions, not failures
+        // This prevents retry counter increment and eventual max retries exhaustion
+        $this->rescheduleWithoutRetry($retryAt);
     }
 
     protected function retryDueToNetworkGlitch(): void
