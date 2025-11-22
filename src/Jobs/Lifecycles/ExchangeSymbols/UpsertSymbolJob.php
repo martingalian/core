@@ -52,14 +52,22 @@ final class UpsertSymbolJob extends BaseQueueableJob
         $symbol = Symbol::getByExchangeBaseAsset($baseAsset, $this->apiSystem);
 
         if ($symbol) {
-            // Symbol exists, nothing to do
-            return [
-                'symbol_id' => $symbol->id,
-                'message' => 'Symbol already exists in database',
-            ];
+            // Symbol exists - check if it's COMPLETE (has description AND image_url)
+            $isComplete = ! empty($symbol->description) && ! empty($symbol->image_url);
+
+            if ($isComplete) {
+                // Symbol is complete, nothing to do
+                return [
+                    'symbol_id' => $symbol->id,
+                    'message' => 'Symbol already exists and is complete',
+                ];
+            }
+
+            // Symbol exists but is INCOMPLETE - fetch missing metadata
+            // Fall through to dispatch CMC jobs below
         }
 
-        // Symbol doesn't exist - dispatch child jobs to fetch from CMC
+        // Symbol doesn't exist OR is incomplete - dispatch child jobs to fetch from CMC
         // IMPORTANT: Mark this step as a parent before creating children
         $childBlockUuid = $this->step->makeItAParent();
 
@@ -85,7 +93,10 @@ final class UpsertSymbolJob extends BaseQueueableJob
 
         return [
             'base_asset' => $baseAsset,
-            'message' => 'Symbol not found - CMC lookup jobs dispatched',
+            'symbol_id' => $symbol->id ?? null,
+            'message' => $symbol
+                ? 'Symbol incomplete (missing description or image_url) - CMC lookup jobs dispatched'
+                : 'Symbol not found - CMC lookup jobs dispatched',
         ];
     }
 

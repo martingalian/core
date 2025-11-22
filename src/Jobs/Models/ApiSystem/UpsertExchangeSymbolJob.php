@@ -91,7 +91,9 @@ final class UpsertExchangeSymbolJob extends BaseQueueableJob
                 'delivery_at' => $symbolData['deliveryDate'] > 0
                     ? Carbon::createFromTimestampMs($symbolData['deliveryDate'])
                     : null,
-                'symbol_information' => json_encode($symbolData),
+                // Fixed: Remove json_encode() - Laravel's 'array' cast handles encoding automatically
+                // Previously this caused double-encoding: array → json_encode → Laravel cast → double-encoded string
+                'symbol_information' => $symbolData,
             ]
         );
 
