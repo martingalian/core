@@ -45,6 +45,7 @@ final class RunningToCompleted extends Transition
 
         $this->step->state = new Completed($this->step);
         $this->step->completed_at = now();
+        $this->step->is_throttled = false; // Clear throttle flag - step is no longer waiting
         $this->step->save();
 
         // Log after the state is saved

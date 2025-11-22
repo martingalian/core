@@ -27,6 +27,7 @@ final class RunningToSkipped extends Transition
         // Transition to Skipped state
         $this->step->state = new Skipped($this->step);
         $this->step->completed_at = now();
+        $this->step->is_throttled = false; // Clear throttle flag - step is no longer waiting
         $this->step->save(); // Save the transition
 
         // Log after the state is saved

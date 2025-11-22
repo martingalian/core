@@ -39,10 +39,6 @@ trait HandlesStepExceptions
             ]);
         }
 
-        if (! $e instanceof NonNotifiableException) {
-            // Removed NotificationService::send - invalid canonical: step_error
-        }
-
         $this->finalizeDuration();
         $this->step->state->transitionTo(Failed::class);
     }

@@ -19,5 +19,7 @@ abstract class BaseJob implements ShouldQueue
     public int $retries = 20;
 
     // Laravel job timeout configuration.
-    public $timeout = 60;
+    // Set to 0 to rely on Horizon's supervisor timeout instead of job-level timeout.
+    // This ensures Laravel properly recognizes Horizon timeouts and calls failed() method.
+    public $timeout = 0;
 }

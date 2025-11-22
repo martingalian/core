@@ -275,14 +275,16 @@ final class Step extends BaseModel
 
     public function childStepsAreConcludedFromMap($childStepsByBlock): bool
     {
-        info_if("➡️ [Step.childStepsAreConcludedFromMap] START check for parent ID {$this->id} / child_block_uuid: {$this->child_block_uuid}");
+        log_step($this->id, "➡️ [Step.childStepsAreConcludedFromMap] START check / child_block_uuid: {$this->child_block_uuid}");
+        info("➡️ [Step.childStepsAreConcludedFromMap] START check for parent ID {$this->id} / child_block_uuid: {$this->child_block_uuid}");
 
         // Accept either array-accessible or Collection maps.
         $children = $childStepsByBlock[$this->child_block_uuid]
         ?? (method_exists($childStepsByBlock, 'get') ? $childStepsByBlock->get($this->child_block_uuid) : null);
 
         if (empty($children)) {
-            info_if("⛔ No children found for block {$this->child_block_uuid}, returning FALSE.");
+            log_step($this->id, "⛔ [Step.childStepsAreConcludedFromMap] No children found for block {$this->child_block_uuid}, returning FALSE");
+            info("⛔ [Step.childStepsAreConcludedFromMap] No children found for block {$this->child_block_uuid}, returning FALSE.");
 
             return false;
         }
@@ -292,31 +294,38 @@ final class Step extends BaseModel
             $children = collect($children);
         }
 
-        info_if('🔍 Found '.$children->count()." children for block {$this->child_block_uuid}");
+        log_step($this->id, '[Step.childStepsAreConcludedFromMap] 🔍 Found '.$children->count()." children for block {$this->child_block_uuid}");
+        info('[Step.childStepsAreConcludedFromMap] 🔍 Found '.$children->count()." children for block {$this->child_block_uuid}");
 
         foreach ($children as $child) {
             $stateClass = get_class($child->state);
-            info_if("🧒 Child ID {$child->id} | State: ".class_basename($stateClass));
+            log_step($this->id, "[Step.childStepsAreConcludedFromMap] 🧒 Child ID {$child->id} | State: ".class_basename($stateClass));
+            info("[Step.childStepsAreConcludedFromMap] 🧒 Child ID {$child->id} | State: ".class_basename($stateClass));
 
             if (! in_array($stateClass, $this->concludedStepStates(), true)) {
-                info_if("❌ Child ID {$child->id} is NOT in concluded states. Returning FALSE.");
+                log_step($this->id, "[Step.childStepsAreConcludedFromMap] ❌ Child ID {$child->id} is NOT in concluded states. Returning FALSE");
+                info("[Step.childStepsAreConcludedFromMap] ❌ Child ID {$child->id} is NOT in concluded states. Returning FALSE.");
 
                 return false;
             }
 
             if ($child->isParent()) {
-                info_if("🔁 Child ID {$child->id} is a parent. Recursing into its children.");
+                log_step($this->id, "[Step.childStepsAreConcludedFromMap] 🔁 Child ID {$child->id} is a parent. Recursing into its children");
+                info("[Step.childStepsAreConcludedFromMap] 🔁 Child ID {$child->id} is a parent. Recursing into its children.");
                 $recurse = $child->childStepsAreConcludedFromMap($childStepsByBlock);
-                info_if("🔁 Recursion result for child ID {$child->id}: ".($recurse ? '✅ TRUE' : '❌ FALSE'));
+                log_step($this->id, "[Step.childStepsAreConcludedFromMap] 🔁 Recursion result for child ID {$child->id}: ".($recurse ? '✅ TRUE' : '❌ FALSE'));
+                info("[Step.childStepsAreConcludedFromMap] 🔁 Recursion result for child ID {$child->id}: ".($recurse ? '✅ TRUE' : '❌ FALSE'));
                 if (! $recurse) {
-                    info_if("⛔ Recursion failed for child ID {$child->id}. Returning FALSE.");
+                    log_step($this->id, "[Step.childStepsAreConcludedFromMap] ⛔ Recursion failed for child ID {$child->id}. Returning FALSE");
+                    info("[Step.childStepsAreConcludedFromMap] ⛔ Recursion failed for child ID {$child->id}. Returning FALSE.");
 
                     return false;
                 }
             }
         }
 
-        info_if("✅ All children (and grandchildren) of parent ID {$this->id} are concluded. Returning TRUE.");
+        log_step($this->id, "[Step.childStepsAreConcludedFromMap] ✅ All children (and grandchildren) are concluded. Returning TRUE");
+        info("[Step.childStepsAreConcludedFromMap] ✅ All children (and grandchildren) of parent ID {$this->id} are concluded. Returning TRUE.");
 
         return true;
     }

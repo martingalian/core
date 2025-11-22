@@ -95,6 +95,7 @@ abstract class BaseQueueableJob extends BaseJob
         } catch (Throwable $e) {
             $errorTime = round((microtime(true) - $startTime) * 1000, 2);
             Log::channel('jobs')->error("[JOB ERROR] Step #{$stepId} | {$jobClass} | After {$errorTime}ms | Error: ".$e->getMessage());
+
             $this->handleException($e);
         }
     }
@@ -103,7 +104,8 @@ abstract class BaseQueueableJob extends BaseJob
     {
         /*
          * Last-resort handler if the Laravel queue system catches an unhandled error.
-         * Notify admins about the failure and update step state.
+         * This is called when Horizon kills a job due to timeout or other unhandled exceptions.
+         * Update step error_message, error_stack_trace, and transition to Failed state.
          */
 
         // Check if step property is initialized before accessing it
@@ -114,15 +116,20 @@ abstract class BaseQueueableJob extends BaseJob
             return;
         }
 
-        // Notify admins about unhandled job exceptions
-        $step = $this->step;
-        $jobClass = class_basename($this);
-        $stepId = $step->id ?? 'unknown';
+        // Parse exception for friendly message and stack trace
+        $parser = \Martingalian\Core\Exceptions\ExceptionParser::with($e);
 
-        // Removed NotificationService::send - invalid canonical: job_execution_failed
+        // Update error_message, error_stack_trace, and response
+        $this->step->update([
+            'error_message' => $parser->friendlyMessage(),
+            'error_stack_trace' => $parser->stackTrace(),
+            'response' => ['exception' => $e->getMessage()],
+        ]);
 
-        // Update step state to failed
-        $this->step->update(['response' => ['exception' => $e->getMessage()]]);
+        // Finalize duration
+        $this->finalizeDuration();
+
+        // Transition to Failed state
         $this->step->state->transitionTo(Failed::class);
     }
 

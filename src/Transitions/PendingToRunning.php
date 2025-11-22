@@ -16,8 +16,12 @@ final class PendingToRunning extends Transition
 
     public function handle(): Step
     {
+        log_step($this->step->id, "[PendingToRunning.handle] Transitioning to Running");
+
         $this->step->state = new Running($this->step);
         $this->step->save();
+
+        log_step($this->step->id, "[PendingToRunning.handle] SUCCESS - Transitioned to Running");
 
         return $this->step;
     }

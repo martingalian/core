@@ -24,7 +24,7 @@ final class DispatchedToRunning extends Transition
 
     public function handle(): Step
     {
-        info_if('[DispatchedToRunning.handle] Step ID trying to transition to Running');
+        log_step($this->step->id, "[DispatchedToRunning.handle] Transitioning to Running");
 
         $this->step->hostname = gethostname();
         $this->step->started_at = now();
@@ -32,7 +32,7 @@ final class DispatchedToRunning extends Transition
         $this->step->state = new Running($this->step);
         $this->step->save();
 
-        info_if("[DispatchedToRunning.handle] Step ID {$this->step->id} successfully transitioned to Running");
+        log_step($this->step->id, "[DispatchedToRunning.handle] SUCCESS - Transitioned to Running | hostname: {$this->step->hostname}");
 
         /*
         $this->step->logApplicationEvent(

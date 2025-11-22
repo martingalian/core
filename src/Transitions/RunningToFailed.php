@@ -42,6 +42,7 @@ final class RunningToFailed extends Transition
         // Transition to Failed state
         $this->step->state = new Failed($this->step);
         $this->step->completed_at = now();
+        $this->step->is_throttled = false; // Clear throttle flag - step is no longer waiting
 
         $this->step->save(); // Save the step after state transition
 
