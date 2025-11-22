@@ -177,27 +177,21 @@ final class StepDispatcher
         $changed = false;
 
         foreach ($runningParents as $step) {
-            log_step($step->id, "[StepDispatcher.transitionParentsToComplete] Checking parent | CLASS: {$step->class} | child_block_uuid: {$step->child_block_uuid}");
             info("[StepDispatcher.transitionParentsToComplete] Checking Parent Step #{$step->id} | CLASS: {$step->class} | child_block_uuid: {$step->child_block_uuid}");
 
             try {
                 $areConcluded = $step->childStepsAreConcludedFromMap($childStepsByBlock);
-                log_step($step->id, "[StepDispatcher.transitionParentsToComplete] childStepsAreConcludedFromMap returned: " . ($areConcluded ? 'TRUE' : 'FALSE'));
                 info("[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | childStepsAreConcludedFromMap returned: " . ($areConcluded ? 'TRUE' : 'FALSE'));
 
                 if ($areConcluded) {
-                    log_step($step->id, "[StepDispatcher.transitionParentsToComplete] DECISION: TRANSITION TO COMPLETED");
                     info("[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | DECISION: TRANSITION TO COMPLETED");
                     $step->state->transitionTo(Completed::class);
                     $changed = true;
-                    log_step($step->id, "[StepDispatcher.transitionParentsToComplete] SUCCESS - Transitioned to Completed");
                     info("[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | SUCCESS - Transitioned to Completed");
                 } else {
-                    log_step($step->id, "[StepDispatcher.transitionParentsToComplete] DECISION: SKIP - Children not concluded yet");
                     info("[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | DECISION: SKIP - Children not concluded yet");
                 }
             } catch (\Exception $e) {
-                log_step($step->id, "[StepDispatcher.transitionParentsToComplete] EXCEPTION during transition: " . $e->getMessage() . " | File: " . $e->getFile() . ":" . $e->getLine());
                 info("[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | EXCEPTION during transition: " . $e->getMessage() . " | File: " . $e->getFile() . ":" . $e->getLine());
             }
         }
@@ -262,17 +256,14 @@ final class StepDispatcher
         foreach ($runningParents as $parentStep) {
             $childSteps = $childStepsByBlock->get($parentStep->child_block_uuid, collect());
 
-            log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Checking parent | CLASS: {$parentStep->class} | child_block_uuid: {$parentStep->child_block_uuid} | Children count: " . $childSteps->count());
             info("[StepDispatcher.transitionParentsToFailed] Checking Parent Step #{$parentStep->id} | CLASS: {$parentStep->class} | child_block_uuid: {$parentStep->child_block_uuid} | Children count: " . $childSteps->count());
 
             if ($childSteps->isEmpty()) {
-                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] WARNING: No children found for child_block_uuid");
                 info("[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | WARNING: No children found for child_block_uuid");
                 continue;
             }
 
             $allChildStates = $childSteps->map(fn($s) => "ID:{$s->id}=" . class_basename($s->state))->join(', ');
-            log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] All child states: [{$allChildStates}]");
             info("[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | All child states: [{$allChildStates}]");
 
             $failedChildSteps = $childSteps->filter(
@@ -282,14 +273,12 @@ final class StepDispatcher
             if ($failedChildSteps->isNotEmpty()) {
                 $failedIds = $failedChildSteps->pluck('id')->join(', ');
                 $failedStates = $failedChildSteps->map(fn($s) => class_basename($s->state))->join(', ');
-                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] DECISION: TRANSITION TO FAILED | Failed children: [{$failedIds}] | States: [{$failedStates}]");
                 info("[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: TRANSITION TO FAILED | Failed children: [{$failedIds}] | States: [{$failedStates}]");
                 $parentStep->state->transitionTo(Failed::class);
 
                 return true;
             }
 
-            log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] DECISION: SKIP - No failed children");
             info("[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: SKIP - No failed children");
         }
 

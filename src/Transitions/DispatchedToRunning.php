@@ -24,15 +24,11 @@ final class DispatchedToRunning extends Transition
 
     public function handle(): Step
     {
-        log_step($this->step->id, "[DispatchedToRunning.handle] Transitioning to Running");
-
         $this->step->hostname = gethostname();
         $this->step->started_at = now();
         $this->step->is_throttled = false; // Step is no longer waiting due to throttling
         $this->step->state = new Running($this->step);
         $this->step->save();
-
-        log_step($this->step->id, "[DispatchedToRunning.handle] SUCCESS - Transitioned to Running | hostname: {$this->step->hostname}");
 
         /*
         $this->step->logApplicationEvent(

@@ -7,14 +7,12 @@ namespace Martingalian\Core;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\QueryExecuted;
-use Illuminate\Queue\Events\JobTimedOut;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Martingalian\Core\Commands\DispatchStepsCommand;
 use Martingalian\Core\Commands\UpdateRecvwindowSafetyDurationCommand;
-use Martingalian\Core\Listeners\HandleJobTimedOut;
 use Martingalian\Core\Listeners\NotificationLogListener;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\AccountBalanceHistory;
@@ -84,9 +82,6 @@ final class CoreServiceProvider extends ServiceProvider
 
         // Register NotificationLogListener as event subscriber
         Event::subscribe(NotificationLogListener::class);
-
-        // Listen to JobTimedOut event to update step error_message
-        Event::listen(JobTimedOut::class, HandleJobTimedOut::class);
 
         AccountBalanceHistory::observe(AccountBalanceHistoryObserver::class);
         Account::observe(AccountObserver::class);

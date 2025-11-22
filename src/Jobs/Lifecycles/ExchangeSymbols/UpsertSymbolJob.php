@@ -38,25 +38,20 @@ final class UpsertSymbolJob extends BaseQueueableJob
 
     public function compute()
     {
-        log_step($this->step->id, "[UpsertSymbolJob.compute] START | token: {$this->token}");
-
         // Get symbolData from grandparent step (GetAllSymbolsFromExchangeJob)
         $symbolData = $this->getSymbolDataFromGrandparent();
 
         if (! $symbolData) {
-            log_step($this->step->id, "[UpsertSymbolJob.compute] ERROR: Could not find symbol data from GetAllSymbolsFromExchangeJob");
             return ['error' => 'Could not find symbol data from GetAllSymbolsFromExchangeJob'];
         }
 
         // Extract baseAsset from symbolData (handles special cases like SOLPERP)
         $baseAsset = $symbolData['baseAsset'];
-        log_step($this->step->id, "[UpsertSymbolJob.compute] baseAsset extracted: {$baseAsset}");
 
         // Check if Symbol exists (handles BaseAssetMapper for tokens like 1000BONK → BONK)
         $symbol = Symbol::getByExchangeBaseAsset($baseAsset, $this->apiSystem);
 
         if ($symbol) {
-            log_step($this->step->id, "[UpsertSymbolJob.compute] Symbol already exists (ID: {$symbol->id}), returning early");
             // Symbol exists, nothing to do
             return [
                 'symbol_id' => $symbol->id,
@@ -64,12 +59,9 @@ final class UpsertSymbolJob extends BaseQueueableJob
             ];
         }
 
-        log_step($this->step->id, "[UpsertSymbolJob.compute] Symbol doesn't exist, creating children");
-
         // Symbol doesn't exist - dispatch child jobs to fetch from CMC
         // IMPORTANT: Mark this step as a parent before creating children
         $childBlockUuid = $this->step->makeItAParent();
-        log_step($this->step->id, "[UpsertSymbolJob.compute] Made parent | child_block_uuid: {$childBlockUuid}");
 
         $child1 = Step::create([
             'class' => GetCMCIDForSymbolJob::class,
@@ -80,7 +72,6 @@ final class UpsertSymbolJob extends BaseQueueableJob
             'block_uuid' => $this->uuid(),
             'index' => 1,
         ]);
-        log_step($this->step->id, "[UpsertSymbolJob.compute] Created child 1 (GetCMCIDForSymbolJob) | ID: {$child1->id} | block_uuid: " . $child1->block_uuid);
 
         $child2 = Step::create([
             'class' => GetCMCRemainingSymbolDataJob::class,
@@ -91,9 +82,6 @@ final class UpsertSymbolJob extends BaseQueueableJob
             'block_uuid' => $childBlockUuid,
             'index' => 2,
         ]);
-        log_step($this->step->id, "[UpsertSymbolJob.compute] Created child 2 (GetCMCRemainingSymbolDataJob) | ID: {$child2->id} | block_uuid: " . $child2->block_uuid);
-
-        log_step($this->step->id, "[UpsertSymbolJob.compute] About to return success response");
 
         return [
             'base_asset' => $baseAsset,
