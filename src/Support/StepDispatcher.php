@@ -44,18 +44,6 @@ final class StepDispatcher
         $progress = 0;
         log_step('dispatcher', 'Progress: 0 - Lock acquired, starting dispatcher cycle');
 
-        // CIRCUIT BREAKER: Check if step dispatching is globally enabled
-        $martingalian = Martingalian::first();
-        if (! $martingalian || ! $martingalian->can_dispatch_steps) {
-            log_step('dispatcher', '🔴 [TICK SKIPPED] CIRCUIT BREAKER: Step dispatching is DISABLED globally (can_dispatch_steps = false)');
-
-            // Release lock before returning
-            StepsDispatcher::endDispatch(0, $group);
-
-            return;
-        }
-        log_step('dispatcher', '✓ Circuit breaker check passed - can_dispatch_steps = true');
-
         try {
             // Marks as skipped all children steps on a skipped step.
             log_step('dispatcher', '→ Calling skipAllChildStepsOnParentAndChildSingleStep()');
@@ -144,6 +132,21 @@ final class StepDispatcher
 
             $progress = 6;
             log_step('dispatcher', 'Progress: 6 - Transition parents to complete check complete');
+
+            // CIRCUIT BREAKER: Check if step dispatching is globally enabled
+            // This ONLY prevents Pending → Dispatched transitions, all other state management continues
+            $martingalian = Martingalian::first();
+            if (! $martingalian || ! $martingalian->can_dispatch_steps) {
+                log_step('dispatcher', '🔴 CIRCUIT BREAKER: Step dispatching is DISABLED globally (can_dispatch_steps = false)');
+                log_step('dispatcher', '→ All state management phases completed successfully');
+                log_step('dispatcher', '→ Skipping pending step dispatch phase (circuit breaker active)');
+                info_if('-= TICK ENDED (circuit breaker - no new dispatches) =-');
+                log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+                log_step('dispatcher', '  TICK ENDED at progress 6 (circuit breaker active - state management completed, dispatch skipped)');
+
+                return;
+            }
+            log_step('dispatcher', '✓ Circuit breaker check passed - can_dispatch_steps = true');
 
             // Distribute the steps to be dispatched (only if no cancellations or failures happened)
             log_step('dispatcher', '→ Starting pending step evaluation and dispatch');

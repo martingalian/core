@@ -84,6 +84,12 @@ final class StepObserver
 
     public function saving(Step $step): void
     {
+        // Clear hostname when step transitions to Pending state (e.g., throttled jobs, retries)
+        // This ensures the step can be picked up by any worker server, not tied to a specific host
+        if ($step->state instanceof Pending || get_class($step->state) === Pending::class) {
+            $step->hostname = null;
+        }
+
         // Automatically route high priority steps to the priority queue
         if ($step->priority === 'high') {
             $step->queue = 'priority';

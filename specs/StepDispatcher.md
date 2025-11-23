@@ -505,27 +505,32 @@ UPDATE martingalian SET can_dispatch_steps = true;
 
 ### How It Works
 
-**Dispatcher Check** (runs after lock acquisition, before any dispatch phases):
+**Dispatcher Check** (runs after all state management phases, before pending step dispatch):
 
 ```php
-// Location: StepDispatcher.php (lines 49-60)
+// Location: StepDispatcher.php (after progress 6)
 $martingalian = Martingalian::first();
 if (! $martingalian || ! $martingalian->can_dispatch_steps) {
     log_step('dispatcher', '🔴 CIRCUIT BREAKER: Step dispatching is DISABLED globally');
-    Log::channel('dispatcher')->warning('[TICK SKIPPED] Circuit breaker active');
+    log_step('dispatcher', '→ All state management phases completed successfully');
+    log_step('dispatcher', '→ Skipping pending step dispatch phase (circuit breaker active)');
 
-    // Release lock before returning
-    StepsDispatcher::endDispatch($group);
-
-    return; // Skip entire dispatcher tick
+    return; // Skip only the dispatch phase
 }
 ```
 
-**When Disabled**:
+**When Disabled** (can_dispatch_steps = false):
 - ✅ Dispatcher acquires lock (prevents race conditions)
-- ✅ Circuit breaker check fails
-- ✅ Releases lock immediately
-- ✅ Skips all 8 dispatch phases
+- ✅ All state management phases execute normally:
+  - ✅ Skip children processing (Skipped parents → Skipped children)
+  - ✅ Cascade cancellations (Cancelled parents → Cancelled children)
+  - ✅ Promote resolve-exception steps (Failed blocks → Pending exception handlers)
+  - ✅ Transition parents to Failed (All children failed → Parent failed)
+  - ✅ Cascade failures to children (Failed parents → Failed children)
+  - ✅ Transition parents to Completed (All children concluded → Parent completed)
+- ✅ Circuit breaker check fails at progress 6
+- ✅ Releases lock and returns
+- ❌ **Skips ONLY the pending step dispatch phase (Pending → Dispatched)**
 - ✅ Running jobs continue normally
 - ✅ No new jobs dispatched
 
@@ -653,15 +658,22 @@ SELECT COUNT(*) FROM steps WHERE state LIKE '%Dispatched%';
 **The Problem**: Without circuit breaker, Horizon could be killed mid-transaction during state transitions, leaving steps stuck in `Running` state with no active process.
 
 **The Solution**: Circuit breaker ensures:
-1. **No new dispatches** → No new jobs enter the system
-2. **Jobs drain naturally** → Active jobs complete normally
-3. **Safe restart point** → `canSafelyRestart()` confirms no active jobs
-4. **No orphaned steps** → All transitions complete before Horizon restart
+1. **No new dispatches** → No new jobs enter the system (Pending → Dispatched blocked)
+2. **State management continues** → Parents complete, failures cascade, system reaches clean final state
+3. **Jobs drain naturally** → Active jobs complete normally
+4. **Safe restart point** → `canSafelyRestart()` confirms no active jobs
+5. **No orphaned steps** → All transitions complete before Horizon restart
+
+**Why State Management Must Continue**:
+- Running jobs may complete and their parent steps need to transition to Completed
+- Failed jobs may cascade their failures to children
+- The system needs to "settle" into terminal states for all active work
+- Freezing state management would leave parents stuck in Running even after children complete
 
 **Real Incident** (2025-11-23):
 - Horizon crashed at 00:10:58 during Running → Pending transition
 - 10 steps orphaned in Running state for 10+ hours
-- Circuit breaker prevents this by ensuring clean shutdown
+- Circuit breaker prevents this by allowing clean drainage while blocking new dispatches
 
 See `Problem.md` for detailed root cause analysis.
 
