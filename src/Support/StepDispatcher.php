@@ -133,44 +133,12 @@ final class StepDispatcher
             $progress = 6;
             log_step('dispatcher', 'Progress: 6 - Transition parents to complete check complete');
 
-            // CIRCUIT BREAKER: Check if step dispatching is globally enabled
-            // This ONLY prevents Pending → Dispatched transitions, all other state management continues
-            $martingalian = Martingalian::first();
-            if (! $martingalian || ! $martingalian->can_dispatch_steps) {
-                log_step('dispatcher', '🔴 CIRCUIT BREAKER: Step dispatching is DISABLED globally (can_dispatch_steps = false)');
-                log_step('dispatcher', '→ All state management phases completed successfully');
-                log_step('dispatcher', '→ Skipping pending step dispatch phase (circuit breaker active)');
-                info_if('-= TICK ENDED (circuit breaker - no new dispatches) =-');
-                log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-                log_step('dispatcher', '  TICK ENDED at progress 6 (circuit breaker active - state management completed, dispatch skipped)');
-
-                return;
-            }
-            log_step('dispatcher', '✓ Circuit breaker check passed - can_dispatch_steps = true');
-
             // Distribute the steps to be dispatched (only if no cancellations or failures happened)
             log_step('dispatcher', '→ Starting pending step evaluation and dispatch');
             log_step('dispatcher', '═══════════════════════════════════════════════════════════');
             log_step('dispatcher', '→→→ PENDING STEP SELECTION DIAGNOSTICS ←←←');
             log_step('dispatcher', '═══════════════════════════════════════════════════════════');
             $dispatchedSteps = collect();
-
-            // DIAGNOSTIC: Check how many Dispatched steps with expired dispatch_after exist
-            $dispatchedExpiredCount = Step::where('state', 'Martingalian\\Core\\States\\Dispatched')
-                ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
-                ->where('dispatch_after', '<=', now())
-                ->count();
-            log_step('dispatcher', '🔍 DIAGNOSTIC: Found '.$dispatchedExpiredCount.' steps in DISPATCHED state with expired dispatch_after (WILL BE IGNORED)');
-
-            // DIAGNOSTIC: Check if Step 13795 specifically is in this category
-            $step13795State = Step::where('id', 13795)->value('state');
-            $step13795DispatchAfter = Step::where('id', 13795)->value('dispatch_after');
-            if ($step13795State) {
-                log_step('dispatcher', '🔍 DIAGNOSTIC: Step 13795 state = '.$step13795State.', dispatch_after = '.($step13795DispatchAfter ?? 'NULL'));
-                if ($step13795State === 'Martingalian\\Core\\States\\Dispatched') {
-                    log_step('dispatcher', '⚠️  PROBLEM DETECTED: Step 13795 is in Dispatched state and will NOT be selected by Step::pending() scope!');
-                }
-            }
 
             $pendingQuery = Step::pending()
                 ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
@@ -184,6 +152,59 @@ final class StepDispatcher
 
             $pendingSteps = $pendingQuery->get();
             log_step('dispatcher', 'Found '.$pendingSteps->count().' PENDING steps ready for evaluation');
+
+            // CIRCUIT BREAKER: Check if step dispatching is globally enabled
+            // When disabled, only dispatch in-flight work (throttled steps + children of Running parents)
+            $martingalian = Martingalian::first();
+            $circuitBreakerDisabled = ! $martingalian || ! $martingalian->can_dispatch_steps;
+
+            if ($circuitBreakerDisabled) {
+                $originalCount = $pendingSteps->count();
+                log_step('dispatcher', '🔴 CIRCUIT BREAKER: Step dispatching is DISABLED globally (can_dispatch_steps = false)');
+                log_step('dispatcher', '→ All state management phases completed successfully');
+                log_step('dispatcher', '→ Filtering pending steps to in-flight work only (throttled + children of Running parents)');
+
+                // Filter to only in-flight work
+                $pendingSteps = $pendingSteps->filter(function (Step $step) {
+                    // Allow throttled steps to complete
+                    if ($step->is_throttled) {
+                        log_step($step->id, '✅ CIRCUIT BREAKER FILTER: Step #'.$step->id.' allowed (is_throttled = true)');
+                        return true;
+                    }
+
+                    // Allow children of Running parents to complete
+                    if ($step->parentIsRunning()) {
+                        log_step($step->id, '✅ CIRCUIT BREAKER FILTER: Step #'.$step->id.' allowed (parent is Running)');
+                        return true;
+                    }
+
+                    // Block new top-level work
+                    log_step($step->id, '❌ CIRCUIT BREAKER FILTER: Step #'.$step->id.' blocked (new work - not throttled, parent not Running)');
+                    return false;
+                });
+
+                $filteredCount = $pendingSteps->count();
+                $blockedCount = $originalCount - $filteredCount;
+
+                log_step('dispatcher', '→ Filtered results:');
+                log_step('dispatcher', '  - Original pending steps: '.$originalCount);
+                log_step('dispatcher', '  - In-flight steps allowed: '.$filteredCount);
+                log_step('dispatcher', '  - New work blocked: '.$blockedCount);
+
+                if ($filteredCount === 0) {
+                    log_step('dispatcher', '→ No in-flight steps to dispatch - ending tick');
+                    info_if('-= TICK ENDED (circuit breaker - no in-flight work to dispatch) =-');
+                    log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+                    log_step('dispatcher', '  TICK ENDED at progress 6 (circuit breaker active - no in-flight work)');
+
+                    return;
+                }
+
+                log_step('dispatcher', '→ Continuing with '.$filteredCount.' in-flight steps');
+            } else {
+                log_step('dispatcher', '✓ Circuit breaker check passed - can_dispatch_steps = true (normal operation)');
+            }
+
             log_step('dispatcher', '═══════════════════════════════════════════════════════════');
 
             // Priority Queue System: If any high-priority steps exist, filter to only those
