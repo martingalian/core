@@ -187,6 +187,11 @@ function api_format_price($price, ExchangeSymbol $exchangeSymbol): string
  */
 function log_step(int|string $stepId, string $message): void
 {
+    // Check if step logging is enabled
+    if (! config('martingalian.step_logging_enabled', false)) {
+        return;
+    }
+
     $logsPath = storage_path('logs/steps');
 
     // Ensure the directory exists
@@ -210,6 +215,11 @@ function log_step(int|string $stepId, string $message): void
  */
 function throttle_log(int|string|null $stepId, string $message): void
 {
+    // Check if throttler logging is enabled
+    if (! config('martingalian.throttler_logging_enabled', false)) {
+        return;
+    }
+
     // If no step ID provided, skip logging
     if ($stepId === null) {
         return;

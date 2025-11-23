@@ -71,15 +71,16 @@ Step::terminalStepStates()   // [Completed, Skipped, Cancelled, Failed, Stopped]
 
 **Execution Flow** (runs sequentially until early return):
 1. **Acquire lock** - `StepsDispatcher::startDispatch($group)` (pessimistic)
-2. **Step 0**: `skipAllChildStepsOnParentAndChildSingleStep()` - Mark children as Skipped if parent is Skipped
-3. **Step 1**: `cascadeCancelledSteps()` - Cascade Cancelled state to children
-4. **Step 2**: `promoteResolveExceptionSteps()` - Handle JustResolveException recovery
-5. **Step 3**: `transitionParentsToFailed()` - Mark parents Failed if all children failed
-6. **Step 4**: `cascadeFailureToChildren()` - Mark children Failed if parent is Failed
-7. **Step 5**: `transitionParentStepsToCompleted()` - Mark parents Completed if all children concluded
-8. **Step 6**: `retryExhaustedSteps()` - Transition to Failed if max retries reached
-9. **Step 7**: `pickDispatchableSteps()` - Find Pending steps ready to dispatch
-10. **Step 8**: `dispatchSteps()` - Dispatch jobs to queue
+2. **Circuit breaker check** - Verify `can_dispatch_steps` is enabled (skip tick if disabled)
+3. **Step 0**: `skipAllChildStepsOnParentAndChildSingleStep()` - Mark children as Skipped if parent is Skipped
+4. **Step 1**: `cascadeCancelledSteps()` - Cascade Cancelled state to children
+5. **Step 2**: `promoteResolveExceptionSteps()` - Handle JustResolveException recovery
+6. **Step 3**: `transitionParentsToFailed()` - Mark parents Failed if all children failed
+7. **Step 4**: `cascadeFailureToChildren()` - Mark children Failed if parent is Failed
+8. **Step 5**: `transitionParentStepsToCompleted()` - Mark parents Completed if all children concluded
+9. **Step 6**: `retryExhaustedSteps()` - Transition to Failed if max retries reached
+10. **Step 7**: `pickDispatchableSteps()` - Find Pending steps ready to dispatch
+11. **Step 8**: `dispatchSteps()` - Dispatch jobs to queue
 
 Each step can return early if it performs work, preventing cascading effects in same tick.
 
@@ -481,3 +482,203 @@ $step->state->transitionTo(Failed::class);
 // Mark as skipped
 $step->state->transitionTo(Skipped::class);
 ```
+
+## Circuit Breaker Pattern
+
+### Overview
+
+The circuit breaker is a global kill switch that prevents the StepDispatcher from dispatching new jobs while allowing currently running jobs to complete. This enables graceful Horizon restarts and code deployments without orphaning steps.
+
+**Purpose**: Prevent orphaned steps during Horizon restarts or deployments by ensuring no new jobs are dispatched while allowing active jobs to drain naturally.
+
+### Database Configuration
+
+**Column**: `martingalian.can_dispatch_steps` (boolean, default: `true`)
+
+```sql
+-- Disable circuit breaker (stop new dispatches)
+UPDATE martingalian SET can_dispatch_steps = false;
+
+-- Enable circuit breaker (resume normal operation)
+UPDATE martingalian SET can_dispatch_steps = true;
+```
+
+### How It Works
+
+**Dispatcher Check** (runs after lock acquisition, before any dispatch phases):
+
+```php
+// Location: StepDispatcher.php (lines 49-60)
+$martingalian = Martingalian::first();
+if (! $martingalian || ! $martingalian->can_dispatch_steps) {
+    log_step('dispatcher', '🔴 CIRCUIT BREAKER: Step dispatching is DISABLED globally');
+    Log::channel('dispatcher')->warning('[TICK SKIPPED] Circuit breaker active');
+
+    // Release lock before returning
+    StepsDispatcher::endDispatch($group);
+
+    return; // Skip entire dispatcher tick
+}
+```
+
+**When Disabled**:
+- ✅ Dispatcher acquires lock (prevents race conditions)
+- ✅ Circuit breaker check fails
+- ✅ Releases lock immediately
+- ✅ Skips all 8 dispatch phases
+- ✅ Running jobs continue normally
+- ✅ No new jobs dispatched
+
+**When Enabled** (default):
+- ✅ Normal operation resumes
+- ✅ All dispatch phases execute
+- ✅ New jobs dispatched as usual
+
+### Safe Restart Detection
+
+**Method**: `StepDispatcher::canSafelyRestart(?string $group = null): bool`
+
+Returns `true` only when ALL conditions are met:
+1. Circuit breaker is **DISABLED** (`can_dispatch_steps = false`)
+2. No steps in `Running` state
+3. No steps in `Dispatched` state
+
+**Usage**:
+```php
+// Check if safe to restart Horizon
+if (StepDispatcher::canSafelyRestart()) {
+    // ✅ Safe to restart
+    php artisan horizon:terminate
+} else {
+    // ❌ Wait for jobs to complete
+}
+```
+
+**Optional Group Filtering**:
+```php
+// Check specific dispatch group
+StepDispatcher::canSafelyRestart('high');
+```
+
+### Deployment Workflow
+
+**Complete Safe Deployment Process**:
+
+```bash
+# 1. Disable circuit breaker
+php artisan tinker
+>>> Martingalian::first()->update(['can_dispatch_steps' => false])
+=> true
+
+# 2. Wait for active jobs to drain
+>>> StepDispatcher::canSafelyRestart()
+=> false  # Wait...
+
+# Keep checking every 10-30 seconds
+>>> StepDispatcher::canSafelyRestart()
+=> true  # ✅ Safe to restart!
+
+# 3. Restart Horizon safely
+php artisan horizon:terminate
+
+# 4. Deploy code changes (if needed)
+git pull
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan optimize:clear
+php artisan config:cache
+php artisan route:cache
+
+# 5. Re-enable circuit breaker
+php artisan tinker
+>>> Martingalian::first()->update(['can_dispatch_steps' => true])
+=> true
+
+# 6. Verify dispatcher resumed
+tail -f storage/logs/dispatcher.log
+# Look for: "[TICK START]" messages
+```
+
+### Common Use Cases
+
+**1. Code Deployment**:
+- Disable circuit breaker
+- Wait for jobs to complete
+- Deploy new code
+- Restart Horizon
+- Re-enable circuit breaker
+
+**2. Horizon Configuration Changes**:
+- Disable circuit breaker
+- Wait for jobs to complete
+- Update `config/horizon.php`
+- Restart Horizon
+- Re-enable circuit breaker
+
+**3. Emergency Stop**:
+- Disable circuit breaker immediately
+- Investigate issues while jobs complete
+- Fix problems
+- Re-enable when ready
+
+**4. Maintenance Window**:
+- Disable circuit breaker
+- Let system drain completely
+- Perform database maintenance
+- Re-enable when done
+
+### Monitoring
+
+**Dispatcher Logs** (`storage/logs/dispatcher.log`):
+
+```
+[TICK START] Group: default | Time: 14:23:45.123456
+[LOCK ACQUIRED] Starting dispatch cycle
+🔴 CIRCUIT BREAKER: Step dispatching is DISABLED globally
+[TICK SKIPPED] Circuit breaker active - can_dispatch_steps = false
+```
+
+**Database Check**:
+```sql
+-- Check circuit breaker status
+SELECT can_dispatch_steps FROM martingalian LIMIT 1;
+
+-- Check active jobs
+SELECT COUNT(*) FROM steps WHERE state LIKE '%Running%';
+SELECT COUNT(*) FROM steps WHERE state LIKE '%Dispatched%';
+```
+
+### Why This Prevents Orphaned Steps
+
+**The Problem**: Without circuit breaker, Horizon could be killed mid-transaction during state transitions, leaving steps stuck in `Running` state with no active process.
+
+**The Solution**: Circuit breaker ensures:
+1. **No new dispatches** → No new jobs enter the system
+2. **Jobs drain naturally** → Active jobs complete normally
+3. **Safe restart point** → `canSafelyRestart()` confirms no active jobs
+4. **No orphaned steps** → All transitions complete before Horizon restart
+
+**Real Incident** (2025-11-23):
+- Horizon crashed at 00:10:58 during Running → Pending transition
+- 10 steps orphaned in Running state for 10+ hours
+- Circuit breaker prevents this by ensuring clean shutdown
+
+See `Problem.md` for detailed root cause analysis.
+
+### Performance Impact
+
+**Negligible**:
+- Single database read per dispatcher tick
+- Cached in Eloquent model instance
+- Adds ~1-2ms to tick duration
+- No impact when enabled (default state)
+
+### Important Notes
+
+⚠️ **Remember to re-enable** after deployment! Forgot to re-enable? Your steps won't dispatch.
+
+✅ **Safe to leave disabled temporarily** - Running jobs continue, no data loss
+
+❌ **Don't force-restart Horizon** when circuit breaker disabled - defeats the purpose
+
+✅ **Use `canSafelyRestart()`** - Don't guess when it's safe

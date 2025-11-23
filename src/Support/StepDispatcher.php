@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support;
 
 use Illuminate\Support\Facades\DB;
-use Log;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\StepsDispatcher;
 use Martingalian\Core\States\Cancelled;
@@ -36,14 +36,25 @@ final class StepDispatcher
 
         // Acquire the DB lock authoritatively; bail if already running.
         if (! StepsDispatcher::startDispatch($group)) {
-            Log::channel('dispatcher')->warning('[TICK SKIPPED] Already running');
-            log_step('dispatcher', '⚠️ TICK SKIPPED - Already running');
+            log_step('dispatcher', '⚠️ [TICK SKIPPED] Already running');
 
             return;
         }
 
         $progress = 0;
         log_step('dispatcher', 'Progress: 0 - Lock acquired, starting dispatcher cycle');
+
+        // CIRCUIT BREAKER: Check if step dispatching is globally enabled
+        $martingalian = Martingalian::first();
+        if (! $martingalian || ! $martingalian->can_dispatch_steps) {
+            log_step('dispatcher', '🔴 [TICK SKIPPED] CIRCUIT BREAKER: Step dispatching is DISABLED globally (can_dispatch_steps = false)');
+
+            // Release lock before returning
+            StepsDispatcher::endDispatch(0, $group);
+
+            return;
+        }
+        log_step('dispatcher', '✓ Circuit breaker check passed - can_dispatch_steps = true');
 
         try {
             // Marks as skipped all children steps on a skipped step.
@@ -768,5 +779,82 @@ final class StepDispatcher
         log_step('dispatcher', "  - Succeeded: {$successCount} steps");
         log_step('dispatcher', "  - Failed: {$failureCount} steps");
         log_step('dispatcher', '╚═══════════════════════════════════════════════════════════╝');
+    }
+
+    /**
+     * Check if it's safe to restart Horizon/queues and deploy new code.
+     *
+     * Returns true only when ALL conditions are met:
+     * 1. No steps are in Running state
+     * 2. No steps are in Dispatched state
+     *
+     * This ensures a graceful shutdown with no orphaned or interrupted jobs.
+     *
+     * @param  string|null  $group  Optional group filter (null = all groups)
+     * @return bool True if safe to restart, false otherwise
+     */
+    public static function canSafelyRestart(?string $group = null): bool
+    {
+        log_step('dispatcher', '╔══════════════════════════════════════════════════════════════╗');
+        log_step('dispatcher', '║         CHECKING IF SAFE TO RESTART HORIZON              ║');
+        log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+        log_step('dispatcher', 'Group filter: '.($group ?? 'null (all groups)'));
+
+        // 1. Check for Running steps
+        $runningCount = Step::where('state', Running::class)
+            ->when($group !== null, static fn ($q) => $q->where('group', $group))
+            ->count();
+
+        log_step('dispatcher', '');
+        log_step('dispatcher', '1️⃣ RUNNING STEPS CHECK:');
+        log_step('dispatcher', '   Found '.$runningCount.' Running steps');
+
+        if ($runningCount > 0) {
+            log_step('dispatcher', '   ❌ UNSAFE: Still have '.$runningCount.' steps actively running');
+            log_step('dispatcher', '   → Wait for these to complete before restarting');
+            log_step('dispatcher', '');
+            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            log_step('dispatcher', '🔴 RESULT: NOT SAFE TO RESTART ('.$runningCount.' running)');
+            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+
+            return false;
+        }
+        log_step('dispatcher', '   ✅ No Running steps (good)');
+
+        // 2. Check for Dispatched steps (orphaned from previous issues)
+        $dispatchedCount = Step::where('state', 'Martingalian\\Core\\States\\Dispatched')
+            ->when($group !== null, static fn ($q) => $q->where('group', $group))
+            ->count();
+
+        log_step('dispatcher', '');
+        log_step('dispatcher', '2️⃣ DISPATCHED STEPS CHECK:');
+        log_step('dispatcher', '   Found '.$dispatchedCount.' Dispatched steps');
+
+        if ($dispatchedCount > 0) {
+            log_step('dispatcher', '   ⚠️  WARNING: '.$dispatchedCount.' steps in Dispatched state (possibly orphaned)');
+            log_step('dispatcher', '   → These may be stuck from a previous Horizon crash');
+            log_step('dispatcher', '   → Consider resetting them to Pending before restart');
+            log_step('dispatcher', '');
+            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            log_step('dispatcher', '🟡 RESULT: NOT SAFE TO RESTART ('.$dispatchedCount.' dispatched)');
+            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+
+            return false;
+        }
+        log_step('dispatcher', '   ✅ No Dispatched steps (good)');
+
+        // All checks passed!
+        log_step('dispatcher', '');
+        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+        log_step('dispatcher', '✅ ALL CHECKS PASSED - SAFE TO RESTART HORIZON!');
+        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+        log_step('dispatcher', '');
+        log_step('dispatcher', 'You can now safely:');
+        log_step('dispatcher', '  1. Stop Horizon/supervisors');
+        log_step('dispatcher', '  2. Deploy new code');
+        log_step('dispatcher', '  3. Restart Horizon/supervisors');
+        log_step('dispatcher', '');
+
+        return true;
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Database\Seeders;
 
-use Exception;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -21,6 +20,7 @@ use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Models\TradeConfiguration;
 use Martingalian\Core\Models\User;
+use Throwable;
 
 final class MartingalianSeeder extends Seeder
 {
@@ -646,47 +646,47 @@ final class MartingalianSeeder extends Seeder
     {
         $servers = [
             [
-                'hostname' => 'worker-5',
+                'hostname' => 'worker5',
                 'ip_address' => '157.180.69.25',
                 'is_apiable' => true,
                 'needs_whitelisting' => true,
-                'own_queue_name' => 'worker-5',
+                'own_queue_name' => 'worker5',
                 'description' => 'Worker server for job processing',
                 'type' => 'worker',
             ],
             [
-                'hostname' => 'worker-4',
+                'hostname' => 'worker4',
                 'ip_address' => '46.62.156.246',
                 'is_apiable' => true,
                 'needs_whitelisting' => true,
-                'own_queue_name' => 'worker-4',
+                'own_queue_name' => 'worker4',
                 'description' => 'Worker server for job processing',
                 'type' => 'worker',
             ],
             [
-                'hostname' => 'worker-3',
+                'hostname' => 'worker3',
                 'ip_address' => '46.62.255.137',
                 'is_apiable' => true,
                 'needs_whitelisting' => true,
-                'own_queue_name' => 'worker-3',
+                'own_queue_name' => 'worker3',
                 'description' => 'Worker server for job processing',
                 'type' => 'worker',
             ],
             [
-                'hostname' => 'worker-2',
+                'hostname' => 'worker2',
                 'ip_address' => '37.27.83.74',
                 'is_apiable' => true,
                 'needs_whitelisting' => true,
-                'own_queue_name' => 'worker-2',
+                'own_queue_name' => 'worker2',
                 'description' => 'Worker server for job processing',
                 'type' => 'worker',
             ],
             [
-                'hostname' => 'worker-1',
+                'hostname' => 'worker1',
                 'ip_address' => '46.62.215.85',
                 'is_apiable' => true,
                 'needs_whitelisting' => true,
-                'own_queue_name' => 'worker-1',
+                'own_queue_name' => 'worker1',
                 'description' => 'Worker server for job processing',
                 'type' => 'worker',
             ],
@@ -975,7 +975,7 @@ final class MartingalianSeeder extends Seeder
                     es.is_manually_enabled = NULL
                 WHERE s.cmc_id IS NOT NULL
             ');
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Dump files are incompatible with current schema - skip seeding
             // User needs to regenerate dumps with: php artisan refresh-core-data
             return;

@@ -234,6 +234,43 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
+            'slow_query_detected' => (function () use ($context) {
+                $sqlFull = is_string($context['sql_full'] ?? null) ? $context['sql_full'] : 'N/A';
+                $timeMs = is_int($context['time_ms'] ?? null) ? $context['time_ms'] : 0;
+                $connection = is_string($context['connection'] ?? null) ? $context['connection'] : 'unknown';
+                $thresholdMs = is_int($context['threshold_ms'] ?? null) ? $context['threshold_ms'] : 2500;
+
+                // Truncate SQL for pushover (max ~256 chars recommended)
+                $truncatedSql = mb_strlen($sqlFull) > 100 ? mb_substr($sqlFull, 0, 100).'...' : $sqlFull;
+
+                return [
+                    'severity' => NotificationSeverity::High,
+                    'title' => 'Slow Database Query Detected',
+                    'emailMessage' => "⚠️ Slow Database Query Detected\n\n".
+                        "A database query exceeded the configured threshold and requires attention.\n\n".
+                        "📊 QUERY DETAILS:\n\n".
+                        "• Execution Time: {$timeMs}ms (threshold: {$thresholdMs}ms)\n".
+                        "• Connection: {$connection}\n".
+                        "• Slowdown Factor: ".round($timeMs / $thresholdMs, 2)."x threshold\n\n".
+                        "🔍 SQL QUERY (ready to copy-paste):\n\n".
+                        "[COPY]{$sqlFull}[/COPY]\n\n".
+                        "✅ RESOLUTION STEPS:\n\n".
+                        "• Analyze query execution plan:\n".
+                        "[CMD]EXPLAIN {$sqlFull}[/CMD]\n\n".
+                        "• Check for missing indexes:\n".
+                        "[CMD]SHOW INDEX FROM <table_name>;[/CMD]\n\n".
+                        "• Review recent slow queries:\n".
+                        "[CMD]SELECT sql_full, time_ms, created_at FROM slow_queries ORDER BY created_at DESC LIMIT 10;[/CMD]\n\n".
+                        "• Monitor slow query patterns:\n".
+                        "[CMD]SELECT connection, AVG(time_ms) as avg_ms, COUNT(*) as count FROM slow_queries WHERE created_at > NOW() - INTERVAL 1 HOUR GROUP BY connection;[/CMD]",
+                    'pushoverMessage' => "⚠️ Slow query: {$timeMs}ms ({$connection})\n".
+                        "Threshold: {$thresholdMs}ms\n".
+                        "Query: {$truncatedSql}",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
             // Default fallback for unknown canonicals
             default => [
                 'severity' => NotificationSeverity::Info,

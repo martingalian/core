@@ -23,6 +23,7 @@ use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\ForbiddenHostname;
 use Martingalian\Core\Models\Indicator;
+use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\NotificationLog;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
@@ -32,6 +33,7 @@ use Martingalian\Core\Models\SlowQuery;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Models\User;
+use Martingalian\Core\Support\NotificationService;
 use Martingalian\Core\Observers\AccountBalanceHistoryObserver;
 use Martingalian\Core\Observers\AccountObserver;
 use Martingalian\Core\Observers\ApiRequestLogObserver;
@@ -100,6 +102,9 @@ final class CoreServiceProvider extends ServiceProvider
         ForbiddenHostname::observe(ForbiddenHostnameObserver::class);
         Symbol::observe(SymbolObserver::class);
         User::observe(UserObserver::class);
+
+        // Register slow query listener
+        $this->registerSlowQueryListener();
     }
 
     public function register(): void
@@ -144,6 +149,18 @@ final class CoreServiceProvider extends ServiceProvider
                 'sql_full' => $sqlFull,
                 'bindings' => $bindings,
             ]);
+
+            // Send notification to admin about slow query
+            NotificationService::send(
+                user: Martingalian::admin(),
+                canonical: 'slow_query_detected',
+                referenceData: [
+                    'sql_full' => $sqlFull,
+                    'time_ms' => (int) $query->time,
+                    'connection' => $query->connectionName,
+                    'threshold_ms' => $threshold,
+                ]
+            );
         });
     }
 }

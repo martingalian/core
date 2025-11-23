@@ -6,12 +6,67 @@ MySQL 8.0+ database schema for cryptocurrency trading automation. Schema focuses
 ## Important Notes
 
 - **ALL migrations live in**: `packages/martingalian/core/database/migrations/`
-- **NEVER create migrations** in main Laravel project
-- Use `php artisan make:migration` which respects package configuration
+- Use `php artisan make:migration` which respects package configuration and will create migrations in the correct location
+- **Seeders should be called from migrations**: Migration files should directly call their corresponding seeder in the `up()` method after creating tables. We no longer use `--seeder` flag when running migrations.
 - Always use `DB::transaction()` for related operations
 - Always use pessimistic locking for concurrent updates: `->lockForUpdate()`
 
 ## Core Tables
+
+### martingalian
+
+Global application configuration (singleton table - only 1 row).
+
+```sql
+CREATE TABLE martingalian (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    allow_opening_positions BOOLEAN DEFAULT TRUE,
+    can_dispatch_steps BOOLEAN DEFAULT TRUE COMMENT 'Global circuit breaker: stops step dispatcher from dispatching new steps (allows graceful Horizon restarts)',
+    binance_api_key TEXT NULL COMMENT 'Encrypted',
+    binance_api_secret TEXT NULL COMMENT 'Encrypted',
+    bybit_api_key TEXT NULL COMMENT 'Encrypted',
+    bybit_api_secret TEXT NULL COMMENT 'Encrypted',
+    coinmarketcap_api_key TEXT NULL COMMENT 'Encrypted',
+    taapi_secret TEXT NULL COMMENT 'Encrypted',
+    admin_pushover_user_key TEXT NULL COMMENT 'Encrypted',
+    admin_pushover_application_key TEXT NULL COMMENT 'Encrypted',
+    email VARCHAR(255) NULL,
+    notification_channels JSON NULL COMMENT '["mail", "pushover"]',
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL
+);
+```
+
+**Key Fields**:
+- `allow_opening_positions`: Global toggle for opening new trading positions
+- `can_dispatch_steps`: **Circuit breaker** - When `false`, StepDispatcher stops dispatching new jobs (enables graceful Horizon restarts)
+- `binance_api_key`/`binance_api_secret`: Default Binance credentials (encrypted)
+- `bybit_api_key`/`bybit_api_secret`: Default Bybit credentials (encrypted)
+- `coinmarketcap_api_key`: CoinMarketCap API key (encrypted)
+- `taapi_secret`: TaaPI indicator service secret (encrypted)
+- `admin_pushover_user_key`/`admin_pushover_application_key`: Admin notification credentials (encrypted)
+- `email`: Admin email address
+- `notification_channels`: JSON array of enabled notification channels
+
+**Usage**:
+```php
+// Get global config (singleton)
+$config = Martingalian::first();
+
+// Disable circuit breaker (stop new job dispatches)
+$config->update(['can_dispatch_steps' => false]);
+
+// Enable circuit breaker (resume normal operation)
+$config->update(['can_dispatch_steps' => true]);
+
+// Check if safe to restart Horizon
+if (StepDispatcher::canSafelyRestart()) {
+    // Safe to restart
+}
+```
+
+**Circuit Breaker Pattern**:
+See `StepDispatcher.md` for detailed circuit breaker documentation and deployment workflow.
 
 ### users
 
