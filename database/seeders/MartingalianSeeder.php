@@ -972,7 +972,7 @@ final class MartingalianSeeder extends Seeder
                 INNER JOIN symbols s ON es.symbol_id = s.id
                 SET es.auto_disabled = 0,
                     es.auto_disabled_reason = NULL,
-                    es.is_manually_enabled = NULL
+                    es.is_manually_enabled = 0
                 WHERE s.cmc_id IS NOT NULL
             ');
         } catch (Throwable $e) {

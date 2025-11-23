@@ -6,12 +6,13 @@ namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Models\ApplicationLog;
+use Martingalian\Core\Support\ValueNormalizer;
 
 final class ApplicationLogObserver
 {
     /**
      * Handle the "created" event - logs all initial attribute values.
-     * Respects skipLogging() logic just like updated() does.
+     * Uses RAW values from getAttributes() (not cast).
      */
     public function created(BaseModel $model): void
     {
@@ -19,6 +20,8 @@ final class ApplicationLogObserver
         if (! ApplicationLog::isEnabled()) {
             return;
         }
+
+        // Use getAttributes() to get RAW database values (no casts)
         foreach ($model->getAttributes() as $attribute => $value) {
             // Check if should skip this attribute
             if ($this->shouldSkipLogging($model, $attribute, null, $value)) {
@@ -39,7 +42,7 @@ final class ApplicationLogObserver
 
     /**
      * Handle the "updated" event - logs attribute changes.
-     * Respects skipLogging() logic.
+     * Uses RAW values from getRawOriginal() and getAttributes() (not cast).
      */
     public function updated(BaseModel $model): void
     {
@@ -54,10 +57,12 @@ final class ApplicationLogObserver
         }
 
         foreach ($model->getChanges() as $attribute => $newValue) {
-            $oldValue = $model->getOriginal($attribute);
+            // Get RAW values (not cast) for accurate comparison
+            $oldValueRaw = $model->getRawOriginal($attribute);
+            $newValueRaw = $model->getAttributes()[$attribute] ?? null;
 
-            // Check if should skip this attribute
-            if ($this->shouldSkipLogging($model, $attribute, $oldValue, $newValue)) {
+            // Check if should skip this attribute (using RAW values)
+            if ($this->shouldSkipLogging($model, $attribute, $oldValueRaw, $newValueRaw)) {
                 continue;
             }
 
@@ -66,9 +71,9 @@ final class ApplicationLogObserver
                 'loggable_id' => $model->getKey(),
                 'event_type' => 'attribute_changed',
                 'attribute_name' => $attribute,
-                'previous_value' => $oldValue,
-                'new_value' => $newValue,
-                'message' => $this->buildChangeMessage($attribute, $oldValue, $newValue),
+                'previous_value' => $oldValueRaw,
+                'new_value' => $newValueRaw,
+                'message' => $this->buildChangeMessage($attribute, $oldValueRaw, $newValueRaw),
             ]);
         }
     }
@@ -81,7 +86,13 @@ final class ApplicationLogObserver
             return true; // Skip it
         }
 
-        // Level 2: Check dynamic skipLogging() method
+        // Level 2: Semantic equality check (handles type coercion for numerics/JSON)
+        // This prevents false positives like "5.00000000" vs 5, or {"a":1,"b":2} vs {"b":2,"a":1}
+        if (ValueNormalizer::areEqual($oldValue, $newValue)) {
+            return true; // Values are semantically equal - skip logging
+        }
+
+        // Level 3: Check dynamic skipLogging() method (model-specific logic)
         if (method_exists($model, 'skipLogging')) {
             // If skipLogging() returns TRUE, we skip logging
             if ($model->skipLogging($attribute, $oldValue, $newValue) === true) {

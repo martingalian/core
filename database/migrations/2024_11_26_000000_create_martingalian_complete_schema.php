@@ -167,7 +167,7 @@ return new class extends Migration
             $table->unsignedBigInteger('symbol_id');
             $table->unsignedBigInteger('quote_id');
             $table->unsignedInteger('api_system_id');
-            $table->boolean('is_manually_enabled')->nullable()->default(null)->comment('Manual admin override: null=no override, true=force enabled, false=force disabled');
+            $table->boolean('is_manually_enabled')->default(0)->comment('Manual admin override: 0=default behavior, 1=force enabled');
             $table->boolean('auto_disabled')->default(false)->comment('System automatic disable flag');
             $table->string('auto_disabled_reason')->nullable()->comment('Why system disabled it: no_indicator_data, insufficient_liquidity, excessive_spread, etc');
             $table->string('direction')->nullable()->comment('The exchange symbol open position direction (LONG, SHORT)');

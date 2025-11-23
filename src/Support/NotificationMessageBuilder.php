@@ -127,8 +127,53 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            
-            
+            'stale_dispatched_steps_detected' => (function () use ($context, $hostname) {
+                // Extract stale step details
+                $count = is_int($context['count'] ?? null) ? $context['count'] : 0;
+                $oldestStepId = is_int($context['oldest_step_id'] ?? null) ? $context['oldest_step_id'] : 0;
+                $oldestCanonical = is_string($context['oldest_canonical'] ?? null) ? $context['oldest_canonical'] : 'N/A';
+                $oldestGroup = is_string($context['oldest_group'] ?? null) ? $context['oldest_group'] : 'N/A';
+                $oldestIndex = is_int($context['oldest_index'] ?? null) ? $context['oldest_index'] : 0;
+                $oldestMinutesStuck = is_int($context['oldest_minutes_stuck'] ?? null) ? $context['oldest_minutes_stuck'] : 0;
+                $oldestDispatchedAt = is_string($context['oldest_dispatched_at'] ?? null) ? $context['oldest_dispatched_at'] : 'N/A';
+                $oldestParameters = is_string($context['oldest_parameters'] ?? null) ? $context['oldest_parameters'] : '{}';
+
+                return [
+                    'severity' => NotificationSeverity::Critical,
+                    'title' => 'Stale Dispatched Steps Detected',
+                    'emailMessage' => "🚨 CRITICAL: Stale Dispatched Steps Detected\n\n".
+                        "{$count} step(s) stuck in Dispatched state for over 5 minutes. These jobs were dispatched but never started processing.\n\n".
+                        "📊 OLDEST STUCK STEP:\n\n".
+                        "• Step ID: {$oldestStepId}\n".
+                        "• Class (Canonical): {$oldestCanonical}\n".
+                        "• Group: {$oldestGroup}\n".
+                        "• Index: {$oldestIndex}\n".
+                        "• Minutes Stuck: {$oldestMinutesStuck}\n".
+                        "• Dispatched At: {$oldestDispatchedAt}\n".
+                        "• Server: {$hostname}\n\n".
+                        "📝 PARAMETERS:\n\n".
+                        "{$oldestParameters}\n\n".
+                        "🔍 RESOLUTION STEPS:\n\n".
+                        "• Check all stale steps:\n".
+                        "[CMD]SELECT id, class, `group`, `index`, updated_at, TIMESTAMPDIFF(MINUTE, updated_at, NOW()) as minutes_stuck FROM steps WHERE state = 'Martingalian\\\\Core\\\\States\\\\Dispatched' AND updated_at < NOW() - INTERVAL 5 MINUTE ORDER BY updated_at ASC;[/CMD]\n\n".
+                        "• Reset stale steps to Pending:\n".
+                        "[CMD]UPDATE steps SET state = 'Martingalian\\\\Core\\\\States\\\\Pending', updated_at = NOW() WHERE state = 'Martingalian\\\\Core\\\\States\\\\Dispatched' AND updated_at < NOW() - INTERVAL 5 MINUTE;[/CMD]\n\n".
+                        "⚠️ LIKELY CAUSES:\n\n".
+                        "• Redis connection issues\n".
+                        "• Circuit breaker enabled (can_dispatch_steps = false)\n".
+                        "• Step dispatcher not running properly\n".
+                        "• Database connectivity issues",
+                    'pushoverMessage' => "🚨 {$count} step(s) stuck in Dispatched\n".
+                        "Oldest: Step #{$oldestStepId} ({$oldestCanonical})\n".
+                        "Stuck for: {$oldestMinutesStuck}m\n".
+                        "Server: {$hostname}",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
+
+
             'exchange_symbol_no_taapi_data' => (function () use ($context) {
                 $exchangeSymbol = $context['exchange_symbol'] ?? null;
 
