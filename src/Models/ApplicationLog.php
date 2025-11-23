@@ -58,8 +58,8 @@ final class ApplicationLog extends BaseModel
     protected function casts(): array
     {
         return [
-            'previous_value' => 'array',
-            'new_value' => 'array',
+            // Do NOT cast previous_value and new_value - store raw database values as-is
+            // Casting causes type coercion (0 -> false, etc.) which creates confusion
             'metadata' => 'array',
         ];
     }

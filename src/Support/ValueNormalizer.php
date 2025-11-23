@@ -43,19 +43,26 @@ final class ValueNormalizer
             return false;
         }
 
-        // STRATEGY 1: Both numeric? Compare as floats
+        // STRATEGY 1: Boolean/Numeric coercion
+        // Handles: 0 vs false, 1 vs true, "0" vs false, "" vs false
+        // Only apply if BOTH values are boolean-like (prevents 5 == true)
+        if (self::isBooleanLike($oldValue) && self::isBooleanLike($newValue)) {
+            return self::toBooleanValue($oldValue) === self::toBooleanValue($newValue);
+        }
+
+        // STRATEGY 2: Both numeric? Compare as floats
         // Handles: "5.00000000" vs 5, "0.00001000" vs 0.00001
         if (is_numeric($oldValue) && is_numeric($newValue)) {
             return (float) $oldValue === (float) $newValue;
         }
 
-        // STRATEGY 2: Both JSON-like? Normalize and compare
+        // STRATEGY 3: Both JSON-like? Normalize and compare
         // Handles: {"a":1,"b":2} vs {"b":2,"a":1}
         if (self::isJsonLike($oldValue) && self::isJsonLike($newValue)) {
             return self::normalizeJson($oldValue) === self::normalizeJson($newValue);
         }
 
-        // STRATEGY 3: Both Carbon instances? Compare timestamps
+        // STRATEGY 4: Both Carbon instances? Compare timestamps
         if ($oldValue instanceof Carbon && $newValue instanceof Carbon) {
             return $oldValue->equalTo($newValue);
         }
@@ -109,5 +116,58 @@ final class ValueNormalizer
         }
 
         return $array;
+    }
+
+    /**
+     * Check if a value should be treated as boolean-like.
+     * Includes actual booleans, 0, 1, "0", "1", and empty string.
+     */
+    protected static function isBooleanLike(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return true;
+        }
+
+        // Integer 0 or 1
+        if ($value === 0 || $value === 1) {
+            return true;
+        }
+
+        // String "0", "1", or empty string
+        if ($value === '0' || $value === '1' || $value === '') {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Convert a value to its boolean representation using PHP's truthiness rules.
+     * This matches how Eloquent casts boolean attributes.
+     */
+    protected static function toBooleanValue(mixed $value): bool
+    {
+        // Direct boolean
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        // Integer or numeric string: 0 = false, 1 = true
+        if (is_numeric($value)) {
+            return (int) $value !== 0;
+        }
+
+        // String: empty = false, non-empty = true
+        if (is_string($value)) {
+            return $value !== '';
+        }
+
+        // Null = false
+        if ($value === null) {
+            return false;
+        }
+
+        // Fallback: use PHP's truthiness
+        return (bool) $value;
     }
 }
