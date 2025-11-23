@@ -51,7 +51,6 @@ final class NotificationWebhookController extends Controller
         return response()->json(['status' => 'success'], 200);
 
         // TEMPORARILY DISABLED - Will re-enable after webhook is configured
-        /*
         try {
             // DEBUG: Log raw webhook received
             Log::info('[ZEPTOMAIL WEBHOOK] === RAW WEBHOOK RECEIVED ===', [
@@ -71,7 +70,6 @@ final class NotificationWebhookController extends Controller
 
                 return response()->json(['status' => 'error', 'message' => 'Invalid signature'], 401);
             }
-        */
 
             Log::info('[ZEPTOMAIL WEBHOOK] ✓ Signature verified successfully');
 
