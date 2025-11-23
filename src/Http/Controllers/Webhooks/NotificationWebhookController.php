@@ -31,6 +31,15 @@ final class NotificationWebhookController extends Controller
      */
     public function zeptomail(Request $request): JsonResponse
     {
+        // Handle GET request for Zeptomail's webhook verification test
+        if ($request->isMethod('get')) {
+            return response()->json([
+                'status' => 'ready',
+                'webhook' => 'zeptomail',
+                'message' => 'Webhook endpoint is ready to receive POST requests',
+            ]);
+        }
+
         try {
             // DEBUG: Log raw webhook received
             Log::info('[ZEPTOMAIL WEBHOOK] === RAW WEBHOOK RECEIVED ===', [

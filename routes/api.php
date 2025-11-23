@@ -16,7 +16,8 @@ use Martingalian\Core\Http\Controllers\Webhooks\NotificationWebhookController;
 
 // Zeptomail webhook endpoint
 // Receives: hard bounce, soft bounce, open events
-Route::post('/webhooks/zeptomail/events', [NotificationWebhookController::class, 'zeptomail'])
+// Accepts GET for Zeptomail's verification test, POST for actual webhooks
+Route::match(['get', 'post'], '/webhooks/zeptomail/events', [NotificationWebhookController::class, 'zeptomail'])
     ->name('webhooks.zeptomail');
 
 // Pushover receipt callback endpoint
