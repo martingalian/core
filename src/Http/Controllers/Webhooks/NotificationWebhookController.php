@@ -40,6 +40,18 @@ final class NotificationWebhookController extends Controller
             ]);
         }
 
+        // TODO: Temporary hard return HTTP 200 to configure webhook in Zeptomail
+        // Will implement proper signature verification and event processing later
+        Log::info('[ZEPTOMAIL WEBHOOK] Received POST request (temporarily returning 200)', [
+            'raw_body' => $request->getContent(),
+            'all_headers' => $request->headers->all(),
+            'ip' => $request->ip(),
+        ]);
+
+        return response()->json(['status' => 'success'], 200);
+
+        // TEMPORARILY DISABLED - Will re-enable after webhook is configured
+        /*
         try {
             // DEBUG: Log raw webhook received
             Log::info('[ZEPTOMAIL WEBHOOK] === RAW WEBHOOK RECEIVED ===', [
@@ -59,6 +71,7 @@ final class NotificationWebhookController extends Controller
 
                 return response()->json(['status' => 'error', 'message' => 'Invalid signature'], 401);
             }
+        */
 
             Log::info('[ZEPTOMAIL WEBHOOK] ✓ Signature verified successfully');
 
