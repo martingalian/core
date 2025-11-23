@@ -11,6 +11,17 @@ use Martingalian\Core\Support\ValueNormalizer;
 final class ApplicationLogObserver
 {
     /**
+     * Global blacklist of attributes that should NEVER be logged.
+     * These columns are automatically excluded for all models.
+     */
+    protected const GLOBAL_BLACKLIST = [
+        'updated_at',
+        'created_at',
+        'deleted_at',
+        'remember_token',
+    ];
+
+    /**
      * Handle the "created" event - logs all initial attribute values.
      * Uses RAW values from getAttributes() (not cast).
      */
@@ -80,7 +91,12 @@ final class ApplicationLogObserver
 
     protected function shouldSkipLogging(BaseModel $model, string $attribute, mixed $oldValue, mixed $newValue): bool
     {
-        // Level 1: Check static blacklist
+        // Level 0: Check global blacklist (applies to ALL models)
+        if (in_array($attribute, self::GLOBAL_BLACKLIST)) {
+            return true; // Skip it
+        }
+
+        // Level 1: Check per-model static blacklist
         $skipsLogging = $model->skipsLogging ?? [];
         if (in_array($attribute, $skipsLogging)) {
             return true; // Skip it

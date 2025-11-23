@@ -120,9 +120,25 @@ foreach ($model->getChanges() as $attribute => $newValue) {
 ```
 
 #### `shouldSkipLogging(BaseModel $model, string $attribute, mixed $oldValue, mixed $newValue): bool`
-Three-level filtering system to prevent false positive logs:
+Four-level filtering system to prevent false positive logs:
 
-**Level 1: Static Blacklist**
+**Level 0: Global Blacklist** (applies to ALL models)
+```php
+protected const GLOBAL_BLACKLIST = [
+    'updated_at',
+    'created_at',
+    'deleted_at',
+    'remember_token',
+];
+
+if (in_array($attribute, self::GLOBAL_BLACKLIST)) {
+    return true; // Skip it
+}
+```
+
+These columns are **automatically excluded for all models** and never logged. Add more columns here if needed globally.
+
+**Level 1: Per-Model Static Blacklist**
 ```php
 $skipsLogging = $model->skipsLogging ?? [];
 if (in_array($attribute, $skipsLogging)) {
@@ -134,7 +150,7 @@ Models can define a `$skipsLogging` property to exclude specific attributes:
 ```php
 class MyModel extends BaseModel
 {
-    public array $skipsLogging = ['updated_at', 'last_seen_at'];
+    public array $skipsLogging = ['last_seen_at', 'cached_balance'];
 }
 ```
 
@@ -528,7 +544,7 @@ class User extends BaseModel
 
 ✅ **Semantic equality** - ValueNormalizer prevents false positives from type coercion, JSON key order, and numeric precision differences.
 
-✅ **Three-level filtering** - Combine static blacklist, semantic equality, and dynamic logic for precise control.
+✅ **Four-level filtering** - Combine global blacklist, per-model blacklist, semantic equality, and dynamic logic for precise control.
 
 ❌ **Don't log passwords** - Always blacklist sensitive attributes using `$skipsLogging`.
 
