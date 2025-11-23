@@ -372,6 +372,94 @@ created_at
 
 ## Monitoring
 
+### Step Dispatcher Dashboard (Real-time UI)
+**Location**: `/step-dispatcher` route
+**Controller**: `App\Http\Controllers\StepDispatcherController`
+**View**: `resources/views/step-dispatcher.blade.php`
+
+**Purpose**: Real-time monitoring dashboard for step processing across all worker servers with auto-refresh every 3 seconds.
+
+**Features**:
+- **Global Metrics** (all hostnames combined):
+  - Total steps by state: Pending, Child Pending, Dispatched, Running, Child Running, Completed, Failed, Skipped, Throttled
+  - Circuit breaker toggle: Enable/disable `can_dispatch_steps` via UI switch
+  - Active step classes table (Running, Child Running, Throttled)
+  - Auto-refresh every 3 seconds
+
+- **Per-Hostname Metrics** (worker1, worker2, worker3, ingestion):
+  - Individual server statistics
+  - Active step classes for each server
+  - Collapsible sections for each hostname
+  - Visual indicators for server status
+
+- **Step Classes Tables**:
+  - **Compact 4-column layout**: Class, Running, Child Running, Throttled
+  - **Active-only filtering**: Only shows classes where `running > 0 OR child_running > 0 OR dispatched > 0`
+  - **Dynamic rendering**: Classes appear/disappear automatically without manual page refresh
+  - **Color-coded metrics**: Cyan (Running), Purple (Child Running), Orange (Throttled)
+  - **Applied to**: Both global step classes and per-hostname step classes
+
+**Technical Implementation**:
+- **Auto-refresh**: JavaScript `setInterval` polling API endpoint every 3 seconds
+- **API Endpoint**: `GET /step-dispatcher/api` (returns JSON metrics)
+- **Dynamic HTML rebuild**: Complete section regeneration on each refresh (handles new classes appearing)
+- **Toggle synchronization**: Strict boolean comparison (`=== true`) ensures correct switch state
+- **Smart DOM initialization**: Handles both `DOMContentLoaded` and already-loaded states
+- **MD5 hashing**: Generates unique identifiers for class rows
+
+**SQL Queries** (in `StepDispatcherController::getMetrics()`):
+```php
+// Global step counts by state
+DB::table('steps')
+    ->select('state', DB::raw('count(*) as count'))
+    ->groupBy('state')
+    ->get();
+
+// Per-hostname step counts
+DB::table('steps')
+    ->select('queue as hostname', 'state', DB::raw('count(*) as count'))
+    ->groupBy('queue', 'state')
+    ->get();
+
+// Global step class statistics
+DB::table('steps')
+    ->select('action as class', 'state', DB::raw('count(*) as count'))
+    ->groupBy('action', 'state')
+    ->get();
+
+// Per-hostname class statistics
+DB::table('steps')
+    ->select('queue as hostname', 'action as class', 'state', DB::raw('count(*) as count'))
+    ->groupBy('queue', 'action', 'state')
+    ->get();
+```
+
+**Circuit Breaker Toggle**:
+- POST to `/step-dispatcher/toggle` with `{ enabled: true/false }`
+- Updates `martingalian.can_dispatch_steps` column
+- Returns new state for UI synchronization
+- Toggle reflects current state on page load and after each refresh
+
+**UI Layout**:
+- Glass morphism design with gradient background
+- Responsive grid layout (mobile, tablet, desktop)
+- Tailwind CSS utility classes
+- Collapsible sections with chevron animations
+- Version badge (v1.0.0) displayed in header
+
+**Performance**:
+- Efficient SQL queries with grouping
+- No N+1 queries
+- Minimal DOM manipulation (complete rebuild approach)
+- ~3-second refresh interval balances freshness vs server load
+
+**Use Cases**:
+- Monitor step processing in real-time across all servers
+- Identify bottlenecks (classes with high Running/Throttled counts)
+- Verify circuit breaker state before deployments
+- Track step distribution across worker servers
+- Debug step processing issues (see which classes are active)
+
 ### Horizon Dashboard
 - View queued steps by dispatch group
 - Monitor job failures
