@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Martingalian\Core\Commands\DispatchStepsCommand;
+use Martingalian\Core\Commands\SafeToRestartCommand;
 use Martingalian\Core\Commands\UpdateRecvwindowSafetyDurationCommand;
 use Martingalian\Core\Listeners\NotificationLogListener;
 use Martingalian\Core\Models\Account;
@@ -60,6 +61,7 @@ final class CoreServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 DispatchStepsCommand::class,
+                SafeToRestartCommand::class,
                 UpdateRecvwindowSafetyDurationCommand::class,
             ]);
         }
