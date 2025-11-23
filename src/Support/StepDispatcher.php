@@ -136,7 +136,27 @@ final class StepDispatcher
 
             // Distribute the steps to be dispatched (only if no cancellations or failures happened)
             log_step('dispatcher', '→ Starting pending step evaluation and dispatch');
+            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            log_step('dispatcher', '→→→ PENDING STEP SELECTION DIAGNOSTICS ←←←');
+            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
             $dispatchedSteps = collect();
+
+            // DIAGNOSTIC: Check how many Dispatched steps with expired dispatch_after exist
+            $dispatchedExpiredCount = Step::where('state', 'Martingalian\\Core\\States\\Dispatched')
+                ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
+                ->where('dispatch_after', '<=', now())
+                ->count();
+            log_step('dispatcher', '🔍 DIAGNOSTIC: Found '.$dispatchedExpiredCount.' steps in DISPATCHED state with expired dispatch_after (WILL BE IGNORED)');
+
+            // DIAGNOSTIC: Check if Step 13795 specifically is in this category
+            $step13795State = Step::where('id', 13795)->value('state');
+            $step13795DispatchAfter = Step::where('id', 13795)->value('dispatch_after');
+            if ($step13795State) {
+                log_step('dispatcher', '🔍 DIAGNOSTIC: Step 13795 state = '.$step13795State.', dispatch_after = '.($step13795DispatchAfter ?? 'NULL'));
+                if ($step13795State === 'Martingalian\\Core\\States\\Dispatched') {
+                    log_step('dispatcher', '⚠️  PROBLEM DETECTED: Step 13795 is in Dispatched state and will NOT be selected by Step::pending() scope!');
+                }
+            }
 
             $pendingQuery = Step::pending()
                 ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
@@ -145,8 +165,12 @@ final class StepDispatcher
                         ->orWhere('dispatch_after', '<=', now());
                 });
 
+            log_step('dispatcher', '🔍 DIAGNOSTIC: Step::pending() scope ONLY selects state = Pending::class');
+            log_step('dispatcher', '🔍 DIAGNOSTIC: Query filters: group = '.($group ?? 'NULL').', dispatch_after <= '.now());
+
             $pendingSteps = $pendingQuery->get();
-            log_step('dispatcher', 'Found '.$pendingSteps->count().' pending steps ready for evaluation');
+            log_step('dispatcher', 'Found '.$pendingSteps->count().' PENDING steps ready for evaluation');
+            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
 
             // Priority Queue System: If any high-priority steps exist, filter to only those
             if ($pendingSteps->contains('priority', 'high')) {
@@ -688,7 +712,15 @@ final class StepDispatcher
     }
 
     /**
-     * Batch transition steps to a new state for performance.
+     * Batch transition steps to a new state using proper state machine transitions.
+     *
+     * CRITICAL: Uses $step->state->transitionTo() to ensure:
+     * - Transition classes execute (handle() methods with business logic)
+     * - Observers fire (StepObserver::updated())
+     * - State machine guards enforced (canTransition() checks)
+     * - Additional fields set (completed_at, is_throttled, etc.)
+     *
+     * Previous implementation used DB::table()->update() which bypassed ALL of this.
      */
     public static function batchTransitionSteps(array $stepIds, string $toState): void
     {
@@ -709,16 +741,32 @@ final class StepDispatcher
         log_step('dispatcher', 'Step Count: '.count($stepIds));
         log_step('dispatcher', 'Step IDs: ['.$stepIdsStr.']');
 
-        log_step('dispatcher', 'Executing DB bulk update...');
-        DB::table('steps')
-            ->whereIn('id', $stepIds)
-            ->update([
-                'state' => $toState,
-                'updated_at' => now(),
-            ]);
-        log_step('dispatcher', 'DB bulk update completed');
+        log_step('dispatcher', 'Loading steps and transitioning via state machine...');
+        $steps = Step::whereIn('id', $stepIds)->get();
+        log_step('dispatcher', 'Loaded '.count($steps).' steps');
 
-        log_step('dispatcher', '✓ SUCCESS - Batch transition complete for '.count($stepIds).' steps');
+        $successCount = 0;
+        $failureCount = 0;
+
+        foreach ($steps as $step) {
+            log_step($step->id, "Transitioning Step #{$step->id} from {$step->state} to {$toState} via state machine");
+
+            try {
+                // Use proper state transition - triggers transition class handle() and observers
+                $step->state->transitionTo($toState);
+                log_step($step->id, "✓ Step #{$step->id} successfully transitioned to {$toState}");
+                $successCount++;
+            } catch (\Exception $e) {
+                log_step($step->id, "✗ Step #{$step->id} transition FAILED: {$e->getMessage()}");
+                log_step($step->id, "  └─ Current state: {$step->state} | Target state: {$toState}");
+                $failureCount++;
+                // Log but continue - don't fail entire batch due to one invalid transition
+            }
+        }
+
+        log_step('dispatcher', '✓ Batch transition complete:');
+        log_step('dispatcher', "  - Succeeded: {$successCount} steps");
+        log_step('dispatcher', "  - Failed: {$failureCount} steps");
         log_step('dispatcher', '╚═══════════════════════════════════════════════════════════╝');
     }
 }
