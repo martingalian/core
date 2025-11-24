@@ -50,7 +50,7 @@ final class CheckSymbolEligibilityJob extends BaseApiableJob
     }
 
     /**
-     * Skip this job if the ExchangeSymbol is already eligible.
+     * Skip this job if the ExchangeSymbol already has TAAPI data.
      * This prevents unnecessary Taapi API calls and throttling.
      *
      * @return bool|null Return false to skip, true to proceed
@@ -72,8 +72,8 @@ final class CheckSymbolEligibilityJob extends BaseApiableJob
 
         $exchangeSymbol = ExchangeSymbol::find($exchangeSymbolId);
 
-        // Skip if already eligible (no Taapi call needed, no throttling)
-        if ($exchangeSymbol?->is_eligible) {
+        // Skip if TAAPI data already verified (no Taapi call needed, no throttling)
+        if ($exchangeSymbol?->has_taapi_data) {
             return false; // Return false = skip the job
         }
 
@@ -102,37 +102,31 @@ final class CheckSymbolEligibilityJob extends BaseApiableJob
             return ['error' => 'ExchangeSymbol not found: '.$exchangeSymbolId];
         }
 
-        // Skip if already eligible
-        if ($exchangeSymbol->is_eligible) {
+        // Skip if TAAPI data already verified
+        if ($exchangeSymbol->has_taapi_data) {
             return [
                 'exchange_symbol_id' => $exchangeSymbolId,
-                'is_eligible' => true,
-                'ineligible_reason' => $exchangeSymbol->ineligible_reason,
-                'message' => 'ExchangeSymbol is already eligible',
+                'has_taapi_data' => true,
+                'message' => 'ExchangeSymbol already has TAAPI data verified',
             ];
         }
 
         // Check TAAPI indicator data availability using CandleIndicator
-        $eligibilityResult = $this->checkTaapiIndicatorData($exchangeSymbol);
+        $hasTaapiData = $this->checkTaapiIndicatorData($exchangeSymbol);
 
-        // Update eligibility status
+        // Update TAAPI data availability status
         $exchangeSymbol->update([
-            'is_eligible' => $eligibilityResult['is_eligible'],
-            'ineligible_reason' => $eligibilityResult['ineligible_reason'],
+            'has_taapi_data' => $hasTaapiData,
         ]);
 
         return [
             'exchange_symbol_id' => $exchangeSymbolId,
-            'is_eligible' => $eligibilityResult['is_eligible'],
-            'ineligible_reason' => $eligibilityResult['ineligible_reason'],
-            'message' => $eligibilityResult['is_eligible'] ? 'Symbol is eligible' : 'Symbol is not eligible',
+            'has_taapi_data' => $hasTaapiData,
+            'message' => $hasTaapiData ? 'TAAPI data available' : 'TAAPI data not available',
         ];
     }
 
-    /**
-     * @return array{is_eligible: bool, ineligible_reason: string|null}
-     */
-    private function checkTaapiIndicatorData(ExchangeSymbol $exchangeSymbol): array
+    private function checkTaapiIndicatorData(ExchangeSymbol $exchangeSymbol): bool
     {
         try {
             // Instantiate CandleIndicator with 1h interval
@@ -142,42 +136,10 @@ final class CheckSymbolEligibilityJob extends BaseApiableJob
             $data = $candleIndicator->compute();
 
             // If we got valid data back, TAAPI has data for this symbol
-            if (! empty($data)) {
-                return [
-                    'is_eligible' => true,
-                    'ineligible_reason' => null,
-                ];
-            }
-
-            return [
-                'is_eligible' => false,
-                'ineligible_reason' => 'TAAPI returned empty data',
-            ];
+            return ! empty($data);
         } catch (Throwable $e) {
-            // Extract just the relevant error message from TAAPI response
-            $errorMessage = $this->extractTaapiError($e->getMessage());
-
-            return [
-                'is_eligible' => false,
-                'ineligible_reason' => $errorMessage,
-            ];
+            // If TAAPI throws an exception, it doesn't have data for this symbol
+            return false;
         }
-    }
-
-    private function extractTaapiError(string $fullError): string
-    {
-        // Try to extract JSON error array from the response
-        // Pattern: {"errors":["error1","error2"]}
-        if (preg_match('/\{"errors":\[(.*?)\]\}/', $fullError, $matches)) {
-            $errorsJson = '{"errors":['.$matches[1].']}';
-            $decoded = json_decode($errorsJson, true);
-
-            if (isset($decoded['errors']) && is_array($decoded['errors'])) {
-                return implode('; ', $decoded['errors']);
-            }
-        }
-
-        // Fallback: return full error (TEXT column can handle it)
-        return $fullError;
     }
 }

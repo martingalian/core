@@ -198,7 +198,7 @@ final class NotificationMessageBuilder
                         "After multiple consecutive failures, the platform determined this symbol is not supported by TAAPI and deactivated it to prevent further errors.\n\n".
                         "✅ IMPACT:\n\n".
                         "• Symbol marked as inactive (is_active = false)\n".
-                        "• Symbol marked as ineligible (is_eligible = false)\n".
+                        "• Symbol marked as ineligible (has_taapi_data = false)\n".
                         "• No more TAAPI requests will be made for this symbol\n".
                         "• Trading operations for this symbol will be suspended\n".
                         '• Already ongoing Trading operations will continue',

@@ -11,15 +11,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('exchange_symbols', function (Blueprint $table) {
-            $table->boolean('is_eligible')->default(false)->after('auto_disabled_reason');
-            $table->text('ineligible_reason')->nullable()->after('is_eligible');
+            $table->boolean('has_taapi_data')->default(false)->after('auto_disabled_reason');
         });
     }
 
     public function down(): void
     {
         Schema::table('exchange_symbols', function (Blueprint $table) {
-            $table->dropColumn(['is_eligible', 'ineligible_reason']);
+            $table->dropColumn('has_taapi_data');
         });
     }
 };

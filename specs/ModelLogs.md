@@ -129,7 +129,7 @@ self::$attributesCache[spl_object_id($model)] = $original;
 
 **Why this works**:
 - Before user calls `save()`, model has OLD values in database
-- User sets new values: `$model->is_eligible = true;`
+- User sets new values: `$model->has_taapi_data = true;`
 - `saving()` caches the RAW original values (e.g., 0 for boolean false)
 - Database write happens
 - `saved()` compares RAW cached (0) vs RAW new (1)
@@ -182,23 +182,23 @@ unset(self::$attributesCache[$objectId]);
 
 **Real-World Example**:
 ```php
-// ExchangeSymbol has boolean cast: 'is_eligible' => 'boolean'
+// ExchangeSymbol has boolean cast: 'has_taapi_data' => 'boolean'
 $symbol = ExchangeSymbol::find(1);
-// Database has: is_eligible = 0 (tinyint)
-// Eloquent returns: $symbol->is_eligible = false (boolean)
+// Database has: has_taapi_data = 0 (tinyint)
+// Eloquent returns: $symbol->has_taapi_data = false (boolean)
 
-$symbol->is_eligible = false; // User sets to false (same value)
+$symbol->has_taapi_data = false; // User sets to false (same value)
 $symbol->save();
 
 // ❌ OLD APPROACH (using updated() event):
-// - Compares getRawOriginal('is_eligible') = 0 (integer)
-// - Against getAttributes()['is_eligible'] = false (boolean after casting)
+// - Compares getRawOriginal('has_taapi_data') = 0 (integer)
+// - Against getAttributes()['has_taapi_data'] = false (boolean after casting)
 // - 0 !== false, so creates FALSE POSITIVE log!
 
 // ✅ NEW APPROACH (using saving() and saved() events):
-// - saving(): Caches getRawOriginal('is_eligible') = 0 (integer)
-// - Database write: is_eligible stays 0
-// - saved(): Compares cached 0 vs getAttributes()['is_eligible'] = 0 (integer)
+// - saving(): Caches getRawOriginal('has_taapi_data') = 0 (integer)
+// - Database write: has_taapi_data stays 0
+// - saved(): Compares cached 0 vs getAttributes()['has_taapi_data'] = 0 (integer)
 // - 0 === 0, so NO LOG CREATED! ✅
 ```
 
@@ -626,19 +626,19 @@ ModelLog::enable();
 **Example Test**:
 ```php
 test('does not create false positive log when boolean value does not actually change', function () {
-    // Create a new ExchangeSymbol with is_eligible = false (stored as 0 in DB)
+    // Create a new ExchangeSymbol with has_taapi_data = false (stored as 0 in DB)
     $exchangeSymbol = ExchangeSymbol::factory()->create([
-        'is_eligible' => false,
+        'has_taapi_data' => false,
     ]);
 
     // Get count of logs before the update
     $logCountBefore = ModelLog::where('loggable_type', ExchangeSymbol::class)
         ->where('loggable_id', $exchangeSymbol->id)
         ->where('event_type', 'attribute_changed')
-        ->where('attribute_name', 'is_eligible')
+        ->where('attribute_name', 'has_taapi_data')
         ->count();
 
-    // Save the model again without changing is_eligible
+    // Save the model again without changing has_taapi_data
     $exchangeSymbol->auto_disabled = true; // Change a different field
     $exchangeSymbol->save();
 
@@ -646,10 +646,10 @@ test('does not create false positive log when boolean value does not actually ch
     $logCountAfter = ModelLog::where('loggable_type', ExchangeSymbol::class)
         ->where('loggable_id', $exchangeSymbol->id)
         ->where('event_type', 'attribute_changed')
-        ->where('attribute_name', 'is_eligible')
+        ->where('attribute_name', 'has_taapi_data')
         ->count();
 
-    // Should NOT have created a new log for is_eligible (still 0 in database)
+    // Should NOT have created a new log for has_taapi_data (still 0 in database)
     expect($logCountAfter)->toBe($logCountBefore);
 });
 ```
