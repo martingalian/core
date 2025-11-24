@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Abstracts\BaseModel;
+use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApplicationLog;
-use Martingalian\Core\Models\Step;
-use Martingalian\Core\Models\StepsDispatcherTicks;
+use Martingalian\Core\Models\ExchangeSymbol;
+use Martingalian\Core\Models\Order;
+use Martingalian\Core\Models\Position;
+use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Support\ValueNormalizer;
 
 final class ApplicationLogObserver
@@ -45,8 +48,12 @@ final class ApplicationLogObserver
             return;
         }
 
-        // Skip logging Step and StepsDispatcherTicks models (high frequency, low value)
-        if ($model instanceof Step || $model instanceof StepsDispatcherTicks) {
+        // Only log specific high-value models (allowlist approach)
+        if (!($model instanceof Account ||
+            $model instanceof ExchangeSymbol ||
+            $model instanceof Order ||
+            $model instanceof Position ||
+            $model instanceof Symbol)) {
             return;
         }
 
@@ -89,8 +96,12 @@ final class ApplicationLogObserver
             return;
         }
 
-        // Skip logging Step and StepsDispatcherTicks models (high frequency, low value)
-        if ($model instanceof Step || $model instanceof StepsDispatcherTicks) {
+        // Only log specific high-value models (allowlist approach)
+        if (!($model instanceof Account ||
+            $model instanceof ExchangeSymbol ||
+            $model instanceof Order ||
+            $model instanceof Position ||
+            $model instanceof Symbol)) {
             return;
         }
 
@@ -122,8 +133,12 @@ final class ApplicationLogObserver
             return;
         }
 
-        // Skip logging Step and StepsDispatcherTicks models (high frequency, low value)
-        if ($model instanceof Step || $model instanceof StepsDispatcherTicks) {
+        // Only log specific high-value models (allowlist approach)
+        if (!($model instanceof Account ||
+            $model instanceof ExchangeSymbol ||
+            $model instanceof Order ||
+            $model instanceof Position ||
+            $model instanceof Symbol)) {
             return;
         }
 
