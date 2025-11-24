@@ -140,15 +140,20 @@ final class StepDispatcher
             log_step('dispatcher', '═══════════════════════════════════════════════════════════');
             $dispatchedSteps = collect();
 
+            // Check cooling down status
+            $isCoolingDown = Martingalian::first()?->is_cooling_down ?? false;
+            log_step('dispatcher', '❄️ Cooling down status: '.($isCoolingDown ? 'YES (only non-coolable steps)' : 'NO (all steps)'));
+
             $pendingQuery = Step::pending()
                 ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
                 ->where(function ($q) {
                     $q->whereNull('dispatch_after')
                         ->orWhere('dispatch_after', '<=', now());
-                });
+                })
+                ->when($isCoolingDown, static fn ($q) => $q->where('can_cool_down', false));
 
             log_step('dispatcher', '🔍 DIAGNOSTIC: Step::pending() scope ONLY selects state = Pending::class');
-            log_step('dispatcher', '🔍 DIAGNOSTIC: Query filters: group = '.($group ?? 'NULL').', dispatch_after <= '.now());
+            log_step('dispatcher', '🔍 DIAGNOSTIC: Query filters: group = '.($group ?? 'NULL').', dispatch_after <= '.now().($isCoolingDown ? ', can_cool_down = false' : ''));
 
             $pendingSteps = $pendingQuery->get();
             log_step('dispatcher', 'Found '.$pendingSteps->count().' PENDING steps ready for evaluation');
@@ -756,10 +761,11 @@ final class StepDispatcher
      * Check if it's safe to restart Horizon/queues and deploy new code.
      *
      * Returns true only when ALL conditions are met:
-     * 1. No steps are in Running state
-     * 2. No steps are in Dispatched state
+     * 1. No critical non-parent steps are in Running state (actively executing work)
+     * 2. No critical non-parent steps are in Dispatched state (about to execute)
      *
-     * This ensures a graceful shutdown with no orphaned or interrupted jobs.
+     * Parent steps (with child_block_uuid) are just waiting - they can be interrupted.
+     * Only child steps (without child_block_uuid) are actively doing work.
      *
      * @param  string|null  $group  Optional group filter (null = all groups)
      * @return bool True if safe to restart, false otherwise
@@ -770,49 +776,53 @@ final class StepDispatcher
         log_step('dispatcher', '║         CHECKING IF SAFE TO RESTART HORIZON              ║');
         log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
         log_step('dispatcher', 'Group filter: '.($group ?? 'null (all groups)'));
+        log_step('dispatcher', 'Only checking non-coolable non-parent steps (actual workers)');
 
-        // 1. Check for Running steps
+        // 1. Check for non-coolable Running non-parent steps (actively executing critical work)
         $runningCount = Step::where('state', Running::class)
+            ->where('can_cool_down', false)
+            ->whereNull('child_block_uuid')
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
             ->count();
 
         log_step('dispatcher', '');
-        log_step('dispatcher', '1️⃣ RUNNING STEPS CHECK:');
-        log_step('dispatcher', '   Found '.$runningCount.' Running steps');
+        log_step('dispatcher', '1️⃣ NON-COOLABLE RUNNING STEPS CHECK (non-parent only):');
+        log_step('dispatcher', '   Found '.$runningCount.' non-coolable Running steps');
 
         if ($runningCount > 0) {
-            log_step('dispatcher', '   ❌ UNSAFE: Still have '.$runningCount.' steps actively running');
+            log_step('dispatcher', '   ❌ UNSAFE: Still have '.$runningCount.' non-coolable steps actively running');
             log_step('dispatcher', '   → Wait for these to complete before restarting');
             log_step('dispatcher', '');
             log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-            log_step('dispatcher', '🔴 RESULT: NOT SAFE TO RESTART ('.$runningCount.' running)');
+            log_step('dispatcher', '🔴 RESULT: NOT SAFE TO RESTART ('.$runningCount.' non-coolable running)');
             log_step('dispatcher', '═══════════════════════════════════════════════════════════');
 
             return false;
         }
-        log_step('dispatcher', '   ✅ No Running steps (good)');
+        log_step('dispatcher', '   ✅ No non-coolable Running steps (good)');
 
-        // 2. Check for Dispatched steps (orphaned from previous issues)
+        // 2. Check for non-coolable Dispatched non-parent steps (about to execute)
         $dispatchedCount = Step::where('state', 'Martingalian\\Core\\States\\Dispatched')
+            ->where('can_cool_down', false)
+            ->whereNull('child_block_uuid')
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
             ->count();
 
         log_step('dispatcher', '');
-        log_step('dispatcher', '2️⃣ DISPATCHED STEPS CHECK:');
-        log_step('dispatcher', '   Found '.$dispatchedCount.' Dispatched steps');
+        log_step('dispatcher', '2️⃣ NON-COOLABLE DISPATCHED STEPS CHECK (non-parent only):');
+        log_step('dispatcher', '   Found '.$dispatchedCount.' non-coolable Dispatched steps');
 
         if ($dispatchedCount > 0) {
-            log_step('dispatcher', '   ⚠️  WARNING: '.$dispatchedCount.' steps in Dispatched state (possibly orphaned)');
-            log_step('dispatcher', '   → These may be stuck from a previous Horizon crash');
-            log_step('dispatcher', '   → Consider resetting them to Pending before restart');
+            log_step('dispatcher', '   ⚠️  WARNING: '.$dispatchedCount.' non-coolable steps in Dispatched state');
+            log_step('dispatcher', '   → These are about to execute - wait for them to complete');
             log_step('dispatcher', '');
             log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-            log_step('dispatcher', '🟡 RESULT: NOT SAFE TO RESTART ('.$dispatchedCount.' dispatched)');
+            log_step('dispatcher', '🟡 RESULT: NOT SAFE TO RESTART ('.$dispatchedCount.' non-coolable dispatched)');
             log_step('dispatcher', '═══════════════════════════════════════════════════════════');
 
             return false;
         }
-        log_step('dispatcher', '   ✅ No Dispatched steps (good)');
+        log_step('dispatcher', '   ✅ No non-coolable Dispatched steps (good)');
 
         // All checks passed!
         log_step('dispatcher', '');

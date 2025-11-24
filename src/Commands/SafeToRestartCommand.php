@@ -41,15 +41,15 @@ final class SafeToRestartCommand extends BaseCommand
         if (! $canSafelyRestart) {
             // 4. Take preventative action based on server type
             if ($hostname === 'ingestion') {
-                // Ingestion: Disable step dispatching
+                // Ingestion: Enable cooling down (only critical steps will dispatch)
                 $martingalian = Martingalian::first();
                 if ($martingalian) {
-                    $martingalian->can_dispatch_steps = false;
+                    $martingalian->is_cooling_down = true;
                     $martingalian->save();
 
                     $this->line('false');
-                    $this->error('🛑 Ingestion server: Step dispatching disabled');
-                    $this->warn('⏳ Waiting for running jobs to complete before deployment...');
+                    $this->error('🛑 Ingestion server: Cooling down enabled');
+                    $this->warn('⏳ Only critical steps will dispatch. Waiting for critical jobs to complete...');
                 }
             } else {
                 // Worker: Enable maintenance mode

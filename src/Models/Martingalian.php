@@ -14,7 +14,7 @@ use Throwable;
 /**
  * @property int $id
  * @property bool $allow_opening_positions
- * @property bool $can_dispatch_steps
+ * @property bool $is_cooling_down
  * @property string|null $binance_api_key
  * @property string|null $binance_api_secret
  * @property string|null $bybit_api_key
@@ -37,7 +37,7 @@ final class Martingalian extends BaseModel
 
     protected $casts = [
         'allow_opening_positions' => 'boolean',
-        'can_dispatch_steps' => 'boolean',
+        'is_cooling_down' => 'boolean',
 
         'binance_api_key' => 'encrypted',
         'binance_api_secret' => 'encrypted',

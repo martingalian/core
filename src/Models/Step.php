@@ -34,6 +34,8 @@ use Spatie\ModelStates\HasStates;
  * @property string $execution_mode
  * @property int $double_check
  * @property string $queue
+ * @property string $priority
+ * @property bool $can_cool_down
  * @property array|null $arguments
  * @property int $retries
  * @property \Illuminate\Support\Carbon|null $dispatch_after
@@ -62,6 +64,7 @@ final class Step extends BaseModel
 
         'was_throttled' => 'boolean',
         'is_throttled' => 'boolean',
+        'can_cool_down' => 'boolean',
 
         'state' => StepStatus::class,
     ];
