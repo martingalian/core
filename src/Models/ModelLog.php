@@ -29,6 +29,20 @@ final class ModelLog extends BaseModel
      */
     protected static bool $enabled = true;
 
+    /**
+     * Models that should have their changes automatically logged (allowlist).
+     * Only these models will have audit logs created when they change.
+     *
+     * To add a new model: Add its fully qualified class name to this array.
+     */
+    protected static array $loggableModels = [
+        Account::class,
+        ExchangeSymbol::class,
+        Order::class,
+        Position::class,
+        Symbol::class,
+    ];
+
     protected array $skipsLogging = ['created_at', 'updated_at'];
 
     /**
@@ -53,6 +67,17 @@ final class ModelLog extends BaseModel
     public static function isEnabled(): bool
     {
         return self::$enabled;
+    }
+
+    /**
+     * Check if a model should be logged based on the allowlist.
+     *
+     * @param BaseModel $model The model to check
+     * @return bool True if the model should be logged, false otherwise
+     */
+    public static function shouldLog(BaseModel $model): bool
+    {
+        return in_array(get_class($model), self::$loggableModels);
     }
 
     protected function casts(): array

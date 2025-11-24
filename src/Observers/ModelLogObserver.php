@@ -5,12 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ModelLog;
-use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Models\Order;
-use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Support\ValueNormalizer;
 
 final class ModelLogObserver
@@ -48,12 +43,8 @@ final class ModelLogObserver
             return;
         }
 
-        // Only log specific high-value models (allowlist approach)
-        if (!($model instanceof Account ||
-            $model instanceof ExchangeSymbol ||
-            $model instanceof Order ||
-            $model instanceof Position ||
-            $model instanceof Symbol)) {
+        // Check centralized allowlist
+        if (! ModelLog::shouldLog($model)) {
             return;
         }
 
@@ -96,12 +87,8 @@ final class ModelLogObserver
             return;
         }
 
-        // Only log specific high-value models (allowlist approach)
-        if (!($model instanceof Account ||
-            $model instanceof ExchangeSymbol ||
-            $model instanceof Order ||
-            $model instanceof Position ||
-            $model instanceof Symbol)) {
+        // Check centralized allowlist
+        if (! ModelLog::shouldLog($model)) {
             return;
         }
 
@@ -133,12 +120,8 @@ final class ModelLogObserver
             return;
         }
 
-        // Only log specific high-value models (allowlist approach)
-        if (!($model instanceof Account ||
-            $model instanceof ExchangeSymbol ||
-            $model instanceof Order ||
-            $model instanceof Position ||
-            $model instanceof Symbol)) {
+        // Check centralized allowlist
+        if (! ModelLog::shouldLog($model)) {
             return;
         }
 
