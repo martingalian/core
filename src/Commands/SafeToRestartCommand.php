@@ -65,7 +65,6 @@ final class SafeToRestartCommand extends BaseCommand
 
         // 5. All clear - safe to deploy
         $this->line('true');
-        $this->info('✅ Safe to restart - no active or dispatched jobs');
 
         return 0;
     }
