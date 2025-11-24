@@ -12,7 +12,7 @@ use Carbon\Carbon;
  * Handles type coercion for numeric values and JSON structures,
  * while preserving strict comparison for booleans and strings.
  *
- * Used by ApplicationLogObserver to avoid false positive change logs.
+ * Used by ModelLogObserver to avoid false positive change logs.
  */
 final class ValueNormalizer
 {

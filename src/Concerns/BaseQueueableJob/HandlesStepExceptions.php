@@ -317,7 +317,7 @@ trait HandlesStepExceptions
 
         $parser = ExceptionParser::with($e);
 
-        // Create ApplicationLog entry on the relatable model
+        // Create ModelLog entry on the relatable model
         $relatable->appLog(
             eventType: 'step_failed',
             metadata: [

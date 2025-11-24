@@ -14,7 +14,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('application_logs', function (Blueprint $table) {
+        Schema::table('model_logs', function (Blueprint $table) {
             $table->longText('message')->nullable()->change();
         });
     }
@@ -24,7 +24,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('application_logs', function (Blueprint $table) {
+        Schema::table('model_logs', function (Blueprint $table) {
             $table->text('message')->nullable()->change();
         });
     }

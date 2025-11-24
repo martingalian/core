@@ -6,14 +6,14 @@ namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Models\Account;
-use Martingalian\Core\Models\ApplicationLog;
+use Martingalian\Core\Models\ModelLog;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Support\ValueNormalizer;
 
-final class ApplicationLogObserver
+final class ModelLogObserver
 {
     /**
      * Global blacklist of attributes that should NEVER be logged.
@@ -39,12 +39,12 @@ final class ApplicationLogObserver
     public function created(BaseModel $model): void
     {
         // Skip if logging is globally disabled
-        if (! ApplicationLog::isEnabled()) {
+        if (! ModelLog::isEnabled()) {
             return;
         }
 
-        // Skip logging ApplicationLog itself to prevent infinite recursion
-        if ($model instanceof ApplicationLog) {
+        // Skip logging ModelLog itself to prevent infinite recursion
+        if ($model instanceof ModelLog) {
             return;
         }
 
@@ -64,7 +64,7 @@ final class ApplicationLogObserver
                 continue;
             }
 
-            ApplicationLog::create([
+            ModelLog::create([
                 'loggable_type' => get_class($model),
                 'loggable_id' => $model->getKey(),
                 'event_type' => 'attribute_created',
@@ -87,12 +87,12 @@ final class ApplicationLogObserver
     public function saving(BaseModel $model): void
     {
         // Skip if logging is globally disabled
-        if (! ApplicationLog::isEnabled()) {
+        if (! ModelLog::isEnabled()) {
             return;
         }
 
-        // Skip logging ApplicationLog itself to prevent infinite recursion
-        if ($model instanceof ApplicationLog) {
+        // Skip logging ModelLog itself to prevent infinite recursion
+        if ($model instanceof ModelLog) {
             return;
         }
 
@@ -124,12 +124,12 @@ final class ApplicationLogObserver
     public function saved(BaseModel $model): void
     {
         // Skip if logging is globally disabled
-        if (! ApplicationLog::isEnabled()) {
+        if (! ModelLog::isEnabled()) {
             return;
         }
 
-        // Skip logging ApplicationLog itself to prevent infinite recursion
-        if ($model instanceof ApplicationLog) {
+        // Skip logging ModelLog itself to prevent infinite recursion
+        if ($model instanceof ModelLog) {
             return;
         }
 
@@ -167,7 +167,7 @@ final class ApplicationLogObserver
                 continue;
             }
 
-            ApplicationLog::create([
+            ModelLog::create([
                 'loggable_type' => get_class($model),
                 'loggable_id' => $model->getKey(),
                 'event_type' => 'attribute_changed',

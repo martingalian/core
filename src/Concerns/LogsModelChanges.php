@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Martingalian\Core\Concerns;
 
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Observers\ApplicationLogObserver;
+use Martingalian\Core\Observers\ModelLogObserver;
 
 /**
- * Trait to enable Application Logging in Model Observers.
+ * Trait to enable Model Logging in Model Observers.
  *
  * Add this trait to any Observer to automatically log model changes.
  *
@@ -36,7 +36,7 @@ trait LogsModelChanges
      */
     protected function logModelCreation(BaseModel $model): void
     {
-        app(ApplicationLogObserver::class)->created($model);
+        app(ModelLogObserver::class)->created($model);
     }
 
     /**
@@ -45,6 +45,6 @@ trait LogsModelChanges
      */
     protected function logModelUpdate(BaseModel $model): void
     {
-        app(ApplicationLogObserver::class)->updated($model);
+        app(ModelLogObserver::class)->updated($model);
     }
 }

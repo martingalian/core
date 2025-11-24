@@ -30,8 +30,8 @@ final class MartingalianSeeder extends Seeder
      */
     public function run(): void
     {
-        // Disable ApplicationLog during seeding
-        \Martingalian\Core\Models\ApplicationLog::disable();
+        // Disable ModelLog during seeding
+        \Martingalian\Core\Models\ModelLog::disable();
 
         // Disable observers during seeding to prevent notification spam
         ExchangeSymbol::withoutEvents(function () {
@@ -44,8 +44,8 @@ final class MartingalianSeeder extends Seeder
             });
         });
 
-        // Re-enable ApplicationLog after seeding
-        \Martingalian\Core\Models\ApplicationLog::enable();
+        // Re-enable ModelLog after seeding
+        \Martingalian\Core\Models\ModelLog::enable();
     }
 
     /**

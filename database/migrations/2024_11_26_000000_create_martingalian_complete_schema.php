@@ -655,8 +655,8 @@ return new class extends Migration
             $table->index('is_admin', 'idx_users_is_admin');
         });
 
-        // application_logs table
-        Schema::create('application_logs', function (Blueprint $table) {
+        // model_logs table
+        Schema::create('model_logs', function (Blueprint $table) {
             $table->id();
 
             // SOURCE MODEL: The model being changed (automatic)
@@ -692,7 +692,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('application_logs');
+        Schema::dropIfExists('model_logs');
         Schema::dropIfExists('slow_queries');
         Schema::dropIfExists('steps');
         Schema::dropIfExists('steps_dispatcher_ticks');

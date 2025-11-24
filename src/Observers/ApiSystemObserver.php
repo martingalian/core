@@ -9,7 +9,7 @@ use Martingalian\Core\Models\ApiSystem;
 /**
  * ApiSystemObserver - placeholder for future model-specific logic.
  *
- * Note: Application logging is handled automatically by ApplicationLogObserver
+ * Note: Model logging is handled automatically by ModelLogObserver
  * via the LogsApplicationEvents trait on BaseModel. Only add methods here
  * if you need model-specific business logic for ApiSystems.
  */

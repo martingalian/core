@@ -1,12 +1,12 @@
-# Application Logs System
+# Model Logs System
 
 ## Overview
 Comprehensive model change tracking system that automatically logs all attribute changes across all models using Laravel observers. Provides a complete audit trail of data modifications with intelligent false positive prevention and RAW value comparison to prevent type casting issues.
 
 ## Core Components
 
-### ApplicationLog Model
-**Location**: `packages/martingalian/core/src/Models/ApplicationLog.php`
+### ModelLog Model
+**Location**: `packages/martingalian/core/src/Models/ModelLog.php`
 
 **Purpose**: Stores audit trail of all model attribute changes
 
@@ -26,11 +26,11 @@ Comprehensive model change tracking system that automatically logs all attribute
 **Static Methods**:
 ```php
 // Enable/disable logging globally
-ApplicationLog::enable();
-ApplicationLog::disable();
+ModelLog::enable();
+ModelLog::disable();
 
 // Check if logging is enabled
-ApplicationLog::isEnabled(); // Returns bool
+ModelLog::isEnabled(); // Returns bool
 ```
 
 **Indexes**:
@@ -38,10 +38,10 @@ ApplicationLog::isEnabled(); // Returns bool
 - `created_at` - for time-based queries
 - `attribute_name` - for filtering by specific attributes
 
-### ApplicationLogObserver
-**Location**: `packages/martingalian/core/src/Observers/ApplicationLogObserver.php`
+### ModelLogObserver
+**Location**: `packages/martingalian/core/src/Observers/ModelLogObserver.php`
 
-**Purpose**: Observes all model events and creates ApplicationLog entries
+**Purpose**: Observes all model events and creates ModelLog entries
 
 **Events Handled**:
 1. **`created`** - Logs all initial attribute values
@@ -54,32 +54,32 @@ ApplicationLog::isEnabled(); // Returns bool
 ```php
 Model::create([...])
     ↓
-ApplicationLogObserver::created()
+ModelLogObserver::created()
     ↓
 For each attribute in model->getAttributes()
     ↓
 Check shouldSkipLogging()
     ↓
-Create ApplicationLog with event_type='attribute_created'
+Create ModelLog with event_type='attribute_created'
     ↓
 Clear cache to prevent saved() from running
 
 Model->attribute = newValue
 Model->save()
     ↓
-ApplicationLogObserver::saving()
+ModelLogObserver::saving()
     ↓
 Cache RAW original values using getRawOriginal()
     ↓
 Database write happens
     ↓
-ApplicationLogObserver::saved()
+ModelLogObserver::saved()
     ↓
 Compare RAW cached values vs RAW new values (both integers/strings)
     ↓
 Check shouldSkipLogging()
     ↓
-Create ApplicationLog with event_type='attribute_changed'
+Create ModelLog with event_type='attribute_changed'
 ```
 
 **Key Methods**:
@@ -95,7 +95,7 @@ foreach ($model->getAttributes() as $attribute => $value) {
         continue;
     }
 
-    ApplicationLog::create([
+    ModelLog::create([
         'loggable_type' => get_class($model),
         'loggable_id' => $model->getKey(),
         'event_type' => 'attribute_created',
@@ -165,7 +165,7 @@ foreach ($rawAfterSave as $attribute => $newRawValue) {
         continue;
     }
 
-    ApplicationLog::create([
+    ModelLog::create([
         'loggable_type' => get_class($model),
         'loggable_id' => $model->getKey(),
         'event_type' => 'attribute_changed',
@@ -352,7 +352,7 @@ $step->save();
 $step->arguments = ['exchange' => 'binance', 'symbol' => 'BTCUSDT']; // Different key order!
 $step->save();
 
-// ❌ Creates ApplicationLog showing "change" from:
+// ❌ Creates ModelLog showing "change" from:
 // previous_value: '{"symbol":"BTCUSDT","exchange":"binance"}'
 // new_value:      '{"exchange":"binance","symbol":"BTCUSDT"}'
 ```
@@ -366,7 +366,7 @@ $step->save();
 $step->arguments = ['exchange' => 'binance', 'symbol' => 'BTCUSDT'];
 $step->save();
 
-// ✅ No ApplicationLog created - ValueNormalizer recognizes semantic equality
+// ✅ No ModelLog created - ValueNormalizer recognizes semantic equality
 // Both JSON strings decode to same array structure
 ```
 
@@ -378,11 +378,11 @@ $step->save();
 **Purpose**: Provides automatic observer registration and unified logging interface for all models
 
 **Automatic Registration**:
-The trait automatically registers `ApplicationLogObserver` when the model boots:
+The trait automatically registers `ModelLogObserver` when the model boots:
 ```php
 protected static function bootLogsApplicationEvents(): void
 {
-    static::observe(ApplicationLogObserver::class);
+    static::observe(ModelLogObserver::class);
 }
 ```
 
@@ -393,7 +393,7 @@ use Martingalian\Core\Abstracts\BaseModel;
 class Step extends BaseModel
 {
     // LogsApplicationEvents trait is already included in BaseModel
-    // ApplicationLogObserver is automatically registered
+    // ModelLogObserver is automatically registered
 
     // Optional: Skip specific attributes
     public array $skipsLogging = [
@@ -427,7 +427,7 @@ $model->appLog(
 ## Model Observers
 
 ### Best Practices
-Model observers should **ONLY** contain model-specific business logic. Application logging is handled automatically by ApplicationLogObserver.
+Model observers should **ONLY** contain model-specific business logic. Application logging is handled automatically by ModelLogObserver.
 
 **❌ DEPRECATED** (no longer needed):
 ```php
@@ -479,9 +479,9 @@ class OrderObserver
 
 ## Database Schema
 
-### application_logs
+### model_logs
 ```sql
-CREATE TABLE application_logs (
+CREATE TABLE model_logs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     loggable_type VARCHAR(255) NOT NULL,
     loggable_id BIGINT UNSIGNED NOT NULL,
@@ -499,7 +499,7 @@ CREATE TABLE application_logs (
 );
 ```
 
-**Migration**: `2025_11_24_003611_change_application_logs_value_columns_to_text.php`
+**Migration**: `2025_11_24_003611_change_model_logs_value_columns_to_text.php`
 
 Changed `previous_value` and `new_value` from JSON to LONGTEXT to store RAW values without JSON encoding. LONGTEXT supports up to 4GB of data, necessary for large array values. Values are stored as strings (e.g., '0', '1', '3.14', 'LONG', or serialized arrays).
 
@@ -508,10 +508,10 @@ Changed `previous_value` and `new_value` from JSON to LONGTEXT to store RAW valu
 ### Global Enable/Disable
 ```php
 // In AppServiceProvider or config file
-use Martingalian\Core\Models\ApplicationLog;
+use Martingalian\Core\Models\ModelLog;
 
 // Disable logging globally (e.g., for seeders)
-ApplicationLog::disable();
+ModelLog::disable();
 
 // Run operations without logging
 DB::transaction(function () {
@@ -519,7 +519,7 @@ DB::transaction(function () {
 });
 
 // Re-enable logging
-ApplicationLog::enable();
+ModelLog::enable();
 ```
 
 ### Per-Model Configuration
@@ -546,7 +546,7 @@ class MyModel extends BaseModel
 ### Get All Changes for a Model
 ```php
 $step = Step::find(1);
-$logs = ApplicationLog::where('loggable_type', Step::class)
+$logs = ModelLog::where('loggable_type', Step::class)
     ->where('loggable_id', $step->id)
     ->orderBy('created_at', 'desc')
     ->get();
@@ -554,7 +554,7 @@ $logs = ApplicationLog::where('loggable_type', Step::class)
 
 ### Get Changes for Specific Attribute
 ```php
-$logs = ApplicationLog::where('loggable_type', Step::class)
+$logs = ModelLog::where('loggable_type', Step::class)
     ->where('loggable_id', $step->id)
     ->where('attribute_name', 'state')
     ->get();
@@ -562,14 +562,14 @@ $logs = ApplicationLog::where('loggable_type', Step::class)
 
 ### Get Recent Changes Across All Models
 ```php
-$recentChanges = ApplicationLog::orderBy('created_at', 'desc')
+$recentChanges = ModelLog::orderBy('created_at', 'desc')
     ->limit(100)
     ->get();
 ```
 
 ### Get Changes in Date Range
 ```php
-$logs = ApplicationLog::whereBetween('created_at', [
+$logs = ModelLog::whereBetween('created_at', [
     now()->subDays(7),
     now(),
 ])->get();
@@ -594,11 +594,11 @@ $logs = ApplicationLog::whereBetween('created_at', [
 ### Optimization 3: Bulk Disable
 ```php
 // Disable for seeders/migrations
-ApplicationLog::disable();
+ModelLog::disable();
 DB::transaction(function () {
     // Bulk insert 10,000 records
 });
-ApplicationLog::enable();
+ModelLog::enable();
 ```
 
 ### Optimization 4: Indexed Queries
@@ -613,7 +613,7 @@ ApplicationLog::enable();
 ## Testing
 
 ### Feature Tests
-**Location**: `tests/Feature/ApplicationLogObserverTest.php`
+**Location**: `tests/Feature/ModelLogObserverTest.php`
 
 **Key Tests**:
 ✅ Logs all initial attribute values when model is created
@@ -632,7 +632,7 @@ test('does not create false positive log when boolean value does not actually ch
     ]);
 
     // Get count of logs before the update
-    $logCountBefore = ApplicationLog::where('loggable_type', ExchangeSymbol::class)
+    $logCountBefore = ModelLog::where('loggable_type', ExchangeSymbol::class)
         ->where('loggable_id', $exchangeSymbol->id)
         ->where('event_type', 'attribute_changed')
         ->where('attribute_name', 'is_eligible')
@@ -643,7 +643,7 @@ test('does not create false positive log when boolean value does not actually ch
     $exchangeSymbol->save();
 
     // Get count of logs after the update
-    $logCountAfter = ApplicationLog::where('loggable_type', ExchangeSymbol::class)
+    $logCountAfter = ModelLog::where('loggable_type', ExchangeSymbol::class)
         ->where('loggable_id', $exchangeSymbol->id)
         ->where('event_type', 'attribute_changed')
         ->where('attribute_name', 'is_eligible')
@@ -658,20 +658,20 @@ test('does not create false positive log when boolean value does not actually ch
 
 ### Temporarily Disable Logging
 ```php
-ApplicationLog::disable();
+ModelLog::disable();
 
 try {
     // Operations without logging
     Model::insert([...]); // No logs created
 } finally {
-    ApplicationLog::enable();
+    ModelLog::enable();
 }
 ```
 
 ### Audit Trail for User Actions
 ```php
 $step = Step::find(1);
-$history = ApplicationLog::where('loggable_type', Step::class)
+$history = ModelLog::where('loggable_type', Step::class)
     ->where('loggable_id', $step->id)
     ->where('attribute_name', 'state')
     ->orderBy('created_at', 'desc')
@@ -712,7 +712,7 @@ class User extends BaseModel
 
 ❌ **Don't Log Passwords** - Always blacklist sensitive attributes using `$skipsLogging`.
 
-✅ **Disable for Seeders** - Use `ApplicationLog::disable()` during bulk operations to improve performance.
+✅ **Disable for Seeders** - Use `ModelLog::disable()` during bulk operations to improve performance.
 
 ✅ **Clean Observers** - Model observers should only contain business logic. Remove LogsModelChanges trait and manual logging calls.
 
@@ -734,7 +734,7 @@ class User extends BaseModel
 3. Implement custom `skipLogging()` method for edge cases
 
 ### Missing Logs
-1. Verify `ApplicationLog::isEnabled()` returns `true`
+1. Verify `ModelLog::isEnabled()` returns `true`
 2. Check if attribute is in `$skipsLogging` blacklist
 3. Verify model extends `BaseModel` (which includes `LogsApplicationEvents` trait)
 4. Check if `skipLogging()` method is returning `true` unexpectedly

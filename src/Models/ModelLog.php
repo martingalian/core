@@ -21,10 +21,10 @@ use Martingalian\Core\Abstracts\BaseModel;
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  */
-final class ApplicationLog extends BaseModel
+final class ModelLog extends BaseModel
 {
     /**
-     * Global flag to enable/disable all application logging.
+     * Global flag to enable/disable all model logging.
      * Set to false to disable logging (useful during seeding/migrations).
      */
     protected static bool $enabled = true;
@@ -32,7 +32,7 @@ final class ApplicationLog extends BaseModel
     protected array $skipsLogging = ['created_at', 'updated_at'];
 
     /**
-     * Disable all application logging globally.
+     * Disable all model logging globally.
      */
     public static function disable(): void
     {
@@ -40,7 +40,7 @@ final class ApplicationLog extends BaseModel
     }
 
     /**
-     * Enable all application logging globally.
+     * Enable all model logging globally.
      */
     public static function enable(): void
     {
@@ -48,7 +48,7 @@ final class ApplicationLog extends BaseModel
     }
 
     /**
-     * Check if application logging is enabled.
+     * Check if model logging is enabled.
      */
     public static function isEnabled(): bool
     {

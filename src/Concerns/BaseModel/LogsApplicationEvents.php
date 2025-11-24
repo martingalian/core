@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Martingalian\Core\Concerns\BaseModel;
 
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Models\ApplicationLog;
-use Martingalian\Core\Observers\ApplicationLogObserver;
+use Martingalian\Core\Models\ModelLog;
+use Martingalian\Core\Observers\ModelLogObserver;
 
 /**
- * Trait for application logging functionality on BaseModel.
+ * Trait for model logging functionality on BaseModel.
  *
  * This trait provides:
- * - Automatic observer registration for ApplicationLogObserver
+ * - Automatic observer registration for ModelLogObserver
  * - Default blacklist for timestamp columns
  * - skipLogging() method for conditional filtering
  * - appLog() method for manual logging
@@ -21,14 +21,14 @@ trait LogsApplicationEvents
 {
     /**
      * Boot the LogsApplicationEvents trait for a model.
-     * Registers ApplicationLogObserver for automatic change tracking.
+     * Registers ModelLogObserver for automatic change tracking.
      */
     protected static function bootLogsApplicationEvents(): void
     {
-        static::observe(ApplicationLogObserver::class);
+        static::observe(ModelLogObserver::class);
     }
     /**
-     * Default blacklist - skip timestamp columns by default for application logging.
+     * Default blacklist - skip timestamp columns by default for model logging.
      */
     protected array $skipsLogging = ['created_at', 'updated_at', 'deleted_at'];
 
@@ -46,7 +46,7 @@ trait LogsApplicationEvents
     }
 
     /**
-     * Manually log an application event for this model.
+     * Manually log a model event for this model.
      *
      * @param  string  $eventType  The type of event (e.g., 'job_failed', 'order_filled')
      * @param  array  $metadata  Additional data to store with the log
@@ -58,13 +58,13 @@ trait LogsApplicationEvents
         array $metadata = [],
         ?BaseModel $relatable = null,
         ?string $message = null
-    ): ?ApplicationLog {
+    ): ?ModelLog {
         // Skip if logging is globally disabled
-        if (! ApplicationLog::isEnabled()) {
+        if (! ModelLog::isEnabled()) {
             return null;
         }
 
-        return ApplicationLog::create([
+        return ModelLog::create([
             'loggable_type' => static::class,
             'loggable_id' => $this->getKey(),
             'relatable_type' => $relatable ? get_class($relatable) : null,

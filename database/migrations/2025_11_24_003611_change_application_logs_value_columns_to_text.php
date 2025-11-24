@@ -17,7 +17,7 @@ return new class extends Migration
     public function up(): void
     {
         // For MySQL, we need to alter the column type from JSON to LONGTEXT
-        Schema::table('application_logs', function (Blueprint $table) {
+        Schema::table('model_logs', function (Blueprint $table) {
             $table->longText('previous_value')->nullable()->change();
             $table->longText('new_value')->nullable()->change();
         });
@@ -28,7 +28,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('application_logs', function (Blueprint $table) {
+        Schema::table('model_logs', function (Blueprint $table) {
             $table->json('previous_value')->nullable()->change();
             $table->json('new_value')->nullable()->change();
         });
