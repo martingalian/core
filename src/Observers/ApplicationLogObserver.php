@@ -6,6 +6,8 @@ namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Models\ApplicationLog;
+use Martingalian\Core\Models\Step;
+use Martingalian\Core\Models\StepsDispatcherTicks;
 use Martingalian\Core\Support\ValueNormalizer;
 
 final class ApplicationLogObserver
@@ -40,6 +42,11 @@ final class ApplicationLogObserver
 
         // Skip logging ApplicationLog itself to prevent infinite recursion
         if ($model instanceof ApplicationLog) {
+            return;
+        }
+
+        // Skip logging Step and StepsDispatcherTicks models (high frequency, low value)
+        if ($model instanceof Step || $model instanceof StepsDispatcherTicks) {
             return;
         }
 
@@ -82,6 +89,11 @@ final class ApplicationLogObserver
             return;
         }
 
+        // Skip logging Step and StepsDispatcherTicks models (high frequency, low value)
+        if ($model instanceof Step || $model instanceof StepsDispatcherTicks) {
+            return;
+        }
+
         // Cache the ORIGINAL RAW attributes from the database (before any changes)
         // We need to manually get raw values without casts for accurate comparison
         $original = [];
@@ -107,6 +119,11 @@ final class ApplicationLogObserver
 
         // Skip logging ApplicationLog itself to prevent infinite recursion
         if ($model instanceof ApplicationLog) {
+            return;
+        }
+
+        // Skip logging Step and StepsDispatcherTicks models (high frequency, low value)
+        if ($model instanceof Step || $model instanceof StepsDispatcherTicks) {
             return;
         }
 
