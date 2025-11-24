@@ -56,7 +56,7 @@ final class ApplicationLogObserver
                 'event_type' => 'attribute_created',
                 'attribute_name' => $attribute,
                 'previous_value' => null,
-                'new_value' => $value,
+                'new_value' => $this->convertValueForStorage($value),
                 'message' => "Attribute \"{$attribute}\" created with value: ".$this->formatValue($value),
             ]);
         }
@@ -140,8 +140,8 @@ final class ApplicationLogObserver
                 'loggable_id' => $model->getKey(),
                 'event_type' => 'attribute_changed',
                 'attribute_name' => $attribute,
-                'previous_value' => $oldRawValue,  // RAW database value
-                'new_value' => $newRawValue,       // RAW database value
+                'previous_value' => $this->convertValueForStorage($oldRawValue),
+                'new_value' => $this->convertValueForStorage($newRawValue),
                 'message' => $this->buildChangeMessage($attribute, $oldRawValue, $newRawValue),
             ]);
         }
@@ -161,6 +161,21 @@ final class ApplicationLogObserver
     {
         // Do nothing - saving() and saved() handle all logging automatically
         // This method exists only for backwards compatibility with existing observers
+    }
+
+    /**
+     * Convert a value for storage in the LONGTEXT previous_value/new_value columns.
+     * Arrays and objects are JSON encoded, all other types are stored as-is.
+     */
+    protected function convertValueForStorage(mixed $value): mixed
+    {
+        // Arrays and objects need to be JSON encoded for storage in LONGTEXT columns
+        if (is_array($value) || is_object($value)) {
+            return json_encode($value);
+        }
+
+        // All other types (string, int, float, bool, null) can be stored directly
+        return $value;
     }
 
     protected function shouldSkipLogging(BaseModel $model, string $attribute, mixed $oldValue, mixed $newValue): bool
