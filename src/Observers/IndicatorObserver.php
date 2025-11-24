@@ -4,28 +4,16 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Observers;
 
-use Martingalian\Core\Concerns\LogsModelChanges;
 use Martingalian\Core\Models\Indicator;
 
+/**
+ * IndicatorObserver - placeholder for future model-specific logic.
+ *
+ * Note: Application logging is handled automatically by ApplicationLogObserver
+ * via the LogsApplicationEvents trait on BaseModel. Only add methods here
+ * if you need model-specific business logic for Indicators.
+ */
 final class IndicatorObserver
 {
-    use LogsModelChanges;
-
-    public function creating(Indicator $model): void {}
-
-    public function updating(Indicator $model): void {}
-
-    public function created(Indicator $model): void
-    {
-        $this->logModelCreation($model);
-    }
-
-    public function updated(Indicator $model): void
-    {
-        $this->logModelUpdate($model);
-    }
-
-    public function deleted(Indicator $model): void {}
-
-    public function forceDeleted(Indicator $model): void {}
+    // Add model-specific business logic methods here as needed
 }

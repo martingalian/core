@@ -22,6 +22,12 @@ final class ApplicationLogObserver
     ];
 
     /**
+     * Cache for storing RAW attributes before save.
+     * Keyed by spl_object_id() to avoid database column conflicts.
+     */
+    protected static array $attributesCache = [];
+
+    /**
      * Handle the "created" event - logs all initial attribute values.
      * Uses RAW values from getAttributes() (not cast).
      */
@@ -29,6 +35,11 @@ final class ApplicationLogObserver
     {
         // Skip if logging is globally disabled
         if (! ApplicationLog::isEnabled()) {
+            return;
+        }
+
+        // Skip logging ApplicationLog itself to prevent infinite recursion
+        if ($model instanceof ApplicationLog) {
             return;
         }
 
@@ -49,31 +60,78 @@ final class ApplicationLogObserver
                 'message' => "Attribute \"{$attribute}\" created with value: ".$this->formatValue($value),
             ]);
         }
+
+        // Clear the cache to prevent saved() from running during creation
+        $objectId = spl_object_id($model);
+        unset(self::$attributesCache[$objectId]);
     }
 
     /**
-     * Handle the "updated" event - logs attribute changes.
-     * Uses RAW values from getRawOriginal() and getAttributes() (not cast).
+     * Handle the "saving" event - cache RAW attribute values BEFORE database write.
+     * This captures the state before Eloquent writes to database.
      */
-    public function updated(BaseModel $model): void
+    public function saving(BaseModel $model): void
     {
         // Skip if logging is globally disabled
         if (! ApplicationLog::isEnabled()) {
             return;
         }
 
-        // Only log if there were actual changes
-        if (empty($model->getChanges())) {
+        // Skip logging ApplicationLog itself to prevent infinite recursion
+        if ($model instanceof ApplicationLog) {
             return;
         }
 
-        foreach ($model->getChanges() as $attribute => $newValue) {
-            // Get RAW values (not cast) for accurate comparison
-            $oldValueRaw = $model->getRawOriginal($attribute);
-            $newValueRaw = $model->getAttributes()[$attribute] ?? null;
+        // Cache the ORIGINAL RAW attributes from the database (before any changes)
+        // We need to manually get raw values without casts for accurate comparison
+        $original = [];
+        foreach ($model->getOriginal() as $key => $value) {
+            // getOriginal() might apply casts, so we need the raw DB value
+            // Use getRawOriginal() if available, otherwise getOriginal()
+            $original[$key] = $model->getRawOriginal($key);
+        }
+
+        self::$attributesCache[spl_object_id($model)] = $original;
+    }
+
+    /**
+     * Handle the "saved" event - compare RAW values before and after save.
+     * This ensures we compare actual database values (0 vs 0) not casted values (0 vs false).
+     */
+    public function saved(BaseModel $model): void
+    {
+        // Skip if logging is globally disabled
+        if (! ApplicationLog::isEnabled()) {
+            return;
+        }
+
+        // Skip logging ApplicationLog itself to prevent infinite recursion
+        if ($model instanceof ApplicationLog) {
+            return;
+        }
+
+        $objectId = spl_object_id($model);
+
+        // No cached before state? Skip
+        if (! isset(self::$attributesCache[$objectId])) {
+            return;
+        }
+
+        // Get RAW attributes AFTER save (no casts applied)
+        $rawAfterSave = $model->getAttributes();
+        $rawBeforeSave = self::$attributesCache[$objectId];
+
+        // Compare each attribute for changes (RAW vs RAW)
+        foreach ($rawAfterSave as $attribute => $newRawValue) {
+            $oldRawValue = $rawBeforeSave[$attribute] ?? null;
+
+            // No change? Skip
+            if ($oldRawValue === $newRawValue) {
+                continue;
+            }
 
             // Check if should skip this attribute (using RAW values)
-            if ($this->shouldSkipLogging($model, $attribute, $oldValueRaw, $newValueRaw)) {
+            if ($this->shouldSkipLogging($model, $attribute, $oldRawValue, $newRawValue)) {
                 continue;
             }
 
@@ -82,11 +140,27 @@ final class ApplicationLogObserver
                 'loggable_id' => $model->getKey(),
                 'event_type' => 'attribute_changed',
                 'attribute_name' => $attribute,
-                'previous_value' => $oldValueRaw,
-                'new_value' => $newValueRaw,
-                'message' => $this->buildChangeMessage($attribute, $oldValueRaw, $newValueRaw),
+                'previous_value' => $oldRawValue,  // RAW database value
+                'new_value' => $newRawValue,       // RAW database value
+                'message' => $this->buildChangeMessage($attribute, $oldRawValue, $newRawValue),
             ]);
         }
+
+        // Clean up cached attributes
+        unset(self::$attributesCache[$objectId]);
+    }
+
+    /**
+     * Compatibility method for LogsModelChanges trait.
+     * This method is deprecated - logging is now handled automatically via saving() and saved() events.
+     * Kept for backwards compatibility.
+     *
+     * @deprecated Use automatic logging instead. Remove manual logModelUpdate() calls.
+     */
+    public function updated(BaseModel $model): void
+    {
+        // Do nothing - saving() and saved() handle all logging automatically
+        // This method exists only for backwards compatibility with existing observers
     }
 
     protected function shouldSkipLogging(BaseModel $model, string $attribute, mixed $oldValue, mixed $newValue): bool

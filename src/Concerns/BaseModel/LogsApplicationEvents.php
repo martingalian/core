@@ -6,17 +6,27 @@ namespace Martingalian\Core\Concerns\BaseModel;
 
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Models\ApplicationLog;
+use Martingalian\Core\Observers\ApplicationLogObserver;
 
 /**
  * Trait for application logging functionality on BaseModel.
  *
  * This trait provides:
+ * - Automatic observer registration for ApplicationLogObserver
  * - Default blacklist for timestamp columns
  * - skipLogging() method for conditional filtering
  * - appLog() method for manual logging
  */
 trait LogsApplicationEvents
 {
+    /**
+     * Boot the LogsApplicationEvents trait for a model.
+     * Registers ApplicationLogObserver for automatic change tracking.
+     */
+    protected static function bootLogsApplicationEvents(): void
+    {
+        static::observe(ApplicationLogObserver::class);
+    }
     /**
      * Default blacklist - skip timestamp columns by default for application logging.
      */

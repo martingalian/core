@@ -66,6 +66,7 @@ final class ExchangeSymbol extends BaseModel
     protected $casts = [
         'is_manually_enabled' => 'boolean',
         'auto_disabled' => 'boolean',
+        'is_eligible' => 'boolean',
         'receives_indicator_data' => 'boolean',
 
         'symbol_information' => 'array',

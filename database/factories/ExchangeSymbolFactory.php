@@ -26,9 +26,10 @@ final class ExchangeSymbolFactory extends Factory
             'symbol_id' => Symbol::factory(),
             'quote_id' => Quote::factory(),
             'api_system_id' => ApiSystem::factory(),
-            'is_manually_enabled' => null,
+            'is_manually_enabled' => false,
             'auto_disabled' => false,
             'auto_disabled_reason' => null,
+            'is_eligible' => false,
             'receives_indicator_data' => true,
             'direction' => null,
             'percentage_gap_long' => 8.50,
@@ -62,7 +63,7 @@ final class ExchangeSymbolFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             return [
-                'is_manually_enabled' => null,
+                'is_manually_enabled' => false,
                 'auto_disabled' => false,
                 'auto_disabled_reason' => null,
             ];

@@ -5,17 +5,13 @@ declare(strict_types=1);
 namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Str;
-use Martingalian\Core\Concerns\LogsModelChanges;
 use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Models\Order;
 
 final class OrderObserver
 {
-    use LogsModelChanges;
-
     public function creating(Order $model): void
     {
-
         if (empty($model->uuid)) {
             $model->uuid = Str::uuid()->toString();
         }
@@ -37,14 +33,6 @@ final class OrderObserver
             && $existingStop
             && ! in_array($existingStop->status, ['CANCELLED', 'EXPIRED'], true)
             ) {
-                /*
-                Martingalian::notifyAdmins(
-                    message: "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingStop->id}",
-                    title: 'Order creation blocked - STOP-MARKET',
-                    deliveryGroup: 'exceptions'
-                );
-                */
-
                 throw new NonNotifiableException('STOP-MARKET order creation blocked because it exceed its threshold');
             }
 
@@ -53,14 +41,6 @@ final class OrderObserver
             && $existingMarket
             && ! in_array($existingMarket->status, ['CANCELLED', 'EXPIRED'], true)
             ) {
-                /*
-                Martingalian::notifyAdmins(
-                    message: "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingMarket->id}",
-                    title: 'Order creation blocked - MARKET',
-                    deliveryGroup: 'exceptions'
-                );
-                */
-
                 throw new NonNotifiableException('MARKET order creation blocked because it exceed its threshold');
             }
 
@@ -69,14 +49,6 @@ final class OrderObserver
             && $existingProfit
             && ! in_array($existingProfit->status, ['CANCELLED', 'EXPIRED'], true)
             ) {
-                /*
-                Martingalian::notifyAdmins(
-                    message: "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$existingProfit->id}",
-                    title: 'Order creation blocked - PROFIT',
-                    deliveryGroup: 'exceptions'
-                );
-                */
-
                 throw new NonNotifiableException('PROFIT-LIMIT order creation blocked because it exceed its threshold');
             }
 
@@ -84,16 +56,6 @@ final class OrderObserver
             if ($model->type === 'LIMIT'
             && $existingLimits->count() >= (int) $model->position->total_limit_orders
             ) {
-                $ids = $existingLimits->pluck('id')->join(', ');
-
-                /*
-                Martingalian::notifyAdmins(
-                    message: "Type: {$model->type}\nPosition ID: {$model->position_id}\nBlocking order IDs: {$ids}",
-                    title: 'Order creation blocked - LIMIT',
-                    deliveryGroup: 'exceptions'
-                );
-                */
-
                 throw new NonNotifiableException('LIMIT order creation blocked because it exceed its threshold');
             }
         }
@@ -104,22 +66,5 @@ final class OrderObserver
         if ($model->status === 'FILLED') {
             $model->filled_at = now();
         }
-
     }
-
-    public function created(Order $model): void
-    {
-        $this->logModelCreation($model);
-    }
-
-    public function saved(Order $model): void {}
-
-    public function updated(Order $model): void
-    {
-        $this->logModelUpdate($model);
-    }
-
-    public function deleted(Order $model): void {}
-
-    public function forceDeleted(Order $model): void {}
 }
