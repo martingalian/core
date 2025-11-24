@@ -16,12 +16,12 @@ Comprehensive model change tracking system that automatically logs all attribute
 - `loggable_id` - Model ID (polymorphic)
 - `event_type` - Type of event: `attribute_created`, `attribute_changed`
 - `attribute_name` - Name of the changed attribute
-- `previous_value` - Old value (TEXT column, stores RAW database value as string)
-- `new_value` - New value (TEXT column, stores RAW database value as string)
+- `previous_value` - Old value (LONGTEXT column, stores RAW database value as string, supports up to 4GB)
+- `new_value` - New value (LONGTEXT column, stores RAW database value as string, supports up to 4GB)
 - `message` - Human-readable description of change
 - `created_at` - Timestamp of change
 
-**Important**: `previous_value` and `new_value` are TEXT columns (not JSON) to store RAW database values without type casting. Values are stored as strings (e.g., '0' for integer 0, '1' for integer 1).
+**Important**: `previous_value` and `new_value` are LONGTEXT columns (not JSON) to store RAW database values without type casting. Values are stored as strings (e.g., '0' for integer 0, '1' for integer 1). LONGTEXT supports up to 4GB of data, necessary for large array values like symbols_data.
 
 **Static Methods**:
 ```php
@@ -487,8 +487,8 @@ CREATE TABLE application_logs (
     loggable_id BIGINT UNSIGNED NOT NULL,
     event_type VARCHAR(50) NOT NULL,
     attribute_name VARCHAR(255) NOT NULL,
-    previous_value TEXT NULL,  -- Changed from JSON to TEXT
-    new_value TEXT NULL,        -- Changed from JSON to TEXT
+    previous_value LONGTEXT NULL,  -- Changed from JSON to LONGTEXT
+    new_value LONGTEXT NULL,        -- Changed from JSON to LONGTEXT
     message TEXT NULL,
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL,
@@ -501,7 +501,7 @@ CREATE TABLE application_logs (
 
 **Migration**: `2025_11_24_003611_change_application_logs_value_columns_to_text.php`
 
-Changed `previous_value` and `new_value` from JSON to TEXT to store RAW scalar values without JSON encoding. Values are stored as strings (e.g., '0', '1', '3.14', 'LONG').
+Changed `previous_value` and `new_value` from JSON to LONGTEXT to store RAW values without JSON encoding. LONGTEXT supports up to 4GB of data, necessary for large array values. Values are stored as strings (e.g., '0', '1', '3.14', 'LONG', or serialized arrays).
 
 ## Configuration
 
@@ -579,9 +579,10 @@ $logs = ApplicationLog::whereBetween('created_at', [
 
 ### Optimization 1: Raw Values
 - Observer uses `getAttributes()` and `getRawOriginal()` to avoid Eloquent casting overhead
-- Stores actual database values in TEXT columns, not PHP representations
+- Stores actual database values in LONGTEXT columns, not PHP representations
 - Prevents type juggling during comparison
 - Compares integer vs integer (0 vs 0), not integer vs boolean (0 vs false)
+- LONGTEXT supports large values (up to 4GB) for array/object attributes
 
 ### Optimization 2: Early Returns
 - Static blacklist checked first (fastest)
