@@ -24,24 +24,36 @@ final class StepsDispatcher extends BaseModel
     /**
      * Selects a random dispatch group.
      * Skips the NULL group and only returns named groups (alpha, beta, gamma, etc.).
+     * Always returns a valid group - falls back to any named group if all busy,
+     * or "alpha" if the table is empty.
      *
-     * @return string|null A random group name to dispatch (never returns NULL group, only named groups)
+     * @return string A random group name to dispatch (never returns NULL)
      */
-    public static function getDispatchGroup(): ?string
+    public static function getDispatchGroup(): string
     {
-        // Get all available named groups (exclude NULL group)
+        // First, try to get groups that can dispatch (not busy)
         $groups = self::query()
             ->where('can_dispatch', true)
             ->whereNotNull('group')
             ->pluck('group')
             ->all();
 
-        if (empty($groups)) {
-            return null;
+        if (! empty($groups)) {
+            return collect($groups)->random();
         }
 
-        // Use PHP's random selection for true randomness
-        return collect($groups)->random();
+        // Fallback: All groups are busy, pick any named group (will be dispatched when group frees up)
+        $anyGroup = self::query()
+            ->whereNotNull('group')
+            ->pluck('group')
+            ->first();
+
+        if ($anyGroup !== null) {
+            return $anyGroup;
+        }
+
+        // Ultimate fallback: Table is empty, return default group
+        return 'alpha';
     }
 
     /**

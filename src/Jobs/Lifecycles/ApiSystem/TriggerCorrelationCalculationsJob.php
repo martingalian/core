@@ -47,6 +47,7 @@ final class TriggerCorrelationCalculationsJob extends BaseQueueableJob
         $elasticityJobsCount = 0;
 
         // Create correlation and elasticity jobs for each USDT symbol on this exchange
+        // Note: Group is automatically assigned by StepObserver via round-robin
         ExchangeSymbol::query()
             ->where('api_system_id', $this->apiSystemId)
             ->each(function ($exchangeSymbol) use (&$correlationJobsCount, &$elasticityJobsCount, $correlationEnabled, $elasticityEnabled): void {
