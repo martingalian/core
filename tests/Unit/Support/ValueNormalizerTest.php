@@ -88,15 +88,15 @@ test('different json values are different', function () {
 });
 
 test('carbon instances with same time are equal', function () {
-    $time1 = \Carbon\Carbon::parse('2025-11-23 20:00:00');
-    $time2 = \Carbon\Carbon::parse('2025-11-23 20:00:00');
+    $time1 = Carbon\Carbon::parse('2025-11-23 20:00:00');
+    $time2 = Carbon\Carbon::parse('2025-11-23 20:00:00');
 
     expect(ValueNormalizer::areEqual($time1, $time2))->toBeTrue();
 });
 
 test('carbon instances with different times are different', function () {
-    $time1 = \Carbon\Carbon::parse('2025-11-23 20:00:00');
-    $time2 = \Carbon\Carbon::parse('2025-11-23 20:00:01');
+    $time1 = Carbon\Carbon::parse('2025-11-23 20:00:00');
+    $time2 = Carbon\Carbon::parse('2025-11-23 20:00:01');
 
     expect(ValueNormalizer::areEqual($time1, $time2))->toBeFalse();
 });

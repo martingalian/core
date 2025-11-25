@@ -270,7 +270,7 @@ final class BaseAssetMappersSeeder extends Seeder
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
         if ($this->command) {
-            $this->command->info('Seeded ' . count($data) . ' base asset mappers');
+            $this->command->info('Seeded '.count($data).' base asset mappers');
         }
     }
 }
