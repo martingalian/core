@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Commands;
 
-use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\Facades\DB;
+use Martingalian\Core\Models\Step;
+use Martingalian\Core\States\Completed;
+use Martingalian\Core\States\Failed;
 use Martingalian\Core\Support\BaseCommand;
 use Martingalian\Core\Support\StepDispatcher;
 use Throwable;
@@ -16,7 +18,6 @@ final class DispatchStepsCommand extends BaseCommand
      * Usage:
      *  php artisan core:dispatch-steps
      *      → Dispatches for ALL groups found in steps_dispatcher.group (including NULL/global if present).
-     *      → All groups are dispatched IN PARALLEL using Laravel's Concurrency facade.
      *
      *  php artisan core:dispatch-steps --group=alpha
      *      → Dispatches only for "alpha".
@@ -25,45 +26,35 @@ final class DispatchStepsCommand extends BaseCommand
      *  php artisan core:dispatch-steps --group=alpha:beta
      *  php artisan core:dispatch-steps --group="alpha beta|gamma"
      *      → Dispatches for each listed name (comma/colon/semicolon/pipe/whitespace separated).
-     *      → All specified groups are dispatched IN PARALLEL.
+     *
+     *  php artisan core:dispatch-steps --group=alpha --daemon
+     *      → Runs continuously for "alpha" group (for supervisor workers).
+     *      → Sleeps 1 second when work exists, 5 seconds when idle.
+     *
+     * Note: When using supervisor, each worker should target a single group (e.g., --group=alpha --daemon)
+     * to distribute load across multiple processes.
      */
-    protected $signature = 'core:dispatch-steps {--group= : Single group or a list (comma/colon/semicolon/pipe/space separated)} {--output : Display command output (silent by default)}';
+    protected $signature = 'core:dispatch-steps {--group= : Single group or a list (comma/colon/semicolon/pipe/space separated)} {--daemon : Run continuously with adaptive sleep intervals} {--output : Display command output (silent by default)}';
 
-    protected $description = 'Dispatch all possible step entries in parallel (optionally filtered by --group).';
+    protected $description = 'Dispatch step entries for specified group(s) or all groups if none specified.';
 
     public function handle(): int
     {
-        try {
-            $groups = $this->resolveGroups();
+        // Daemon mode: run continuously with adaptive sleep intervals
+        if ($this->option('daemon')) {
+            while (true) {
+                $groups = $this->resolveGroups();
+                $this->dispatchSteps($groups);
 
-            // Dispatch all groups IN PARALLEL using Laravel's Concurrency facade.
-            // Each group runs in its own PHP process, so:
-            // - If delta takes 9 seconds, it doesn't block alpha, beta, etc.
-            // - Per-group locking (StepsDispatcher::startDispatch) prevents race conditions
-            // - Each closure is wrapped in try-catch for error isolation
-            Concurrency::run(
-                collect($groups)
-                    ->map(function ($group) {
-                        return function () use ($group) {
-                            try {
-                                StepDispatcher::dispatch($group);
-                                info('Dispatched steps for group: '.($group === null ? 'NULL' : $group));
-                            } catch (Throwable $e) {
-                                // Report but don't rethrow - let other groups continue
-                                report($e);
-                            }
-                        };
-                    })
-                    ->all()
-            );
-
-            $this->verboseInfo('Dispatched steps for '.count($groups).' group(s) in parallel.');
-        } catch (Throwable $e) {
-            report($e);
-            $this->verboseError($e->getMessage());
-
-            return self::SUCCESS;
+                $sleepDuration = $this->getSleepDuration($groups);
+                // $this->verboseInfo("Sleeping for {$sleepDuration} second(s)...");
+                sleep($sleepDuration);
+            }
         }
+
+        // Single run mode (for cron or manual execution)
+        $groups = $this->resolveGroups();
+        $this->dispatchSteps($groups);
 
         return self::SUCCESS;
     }
@@ -90,6 +81,52 @@ final class DispatchStepsCommand extends BaseCommand
         }
 
         $this->verboseInfo('laravel.log cleared.');
+    }
+
+    /**
+     * Dispatch steps for the specified groups.
+     *
+     * @param  array<int, string|null>  $groups
+     */
+    private function dispatchSteps(array $groups): void
+    {
+        try {
+            // Dispatch each group sequentially
+            // When run via supervisor, each worker handles one specific group
+            foreach ($groups as $group) {
+                try {
+                    StepDispatcher::dispatch($group);
+                    $this->verboseInfo('Dispatched steps for group: '.($group === null ? 'NULL' : $group));
+                } catch (Throwable $e) {
+                    // Report but continue to next group
+                    report($e);
+                    $this->verboseError('Error dispatching group '.($group === null ? 'NULL' : $group).': '.$e->getMessage());
+                }
+            }
+
+            $this->verboseInfo('Dispatched steps for '.count($groups).' group(s).');
+        } catch (Throwable $e) {
+            report($e);
+            $this->verboseError($e->getMessage());
+        }
+    }
+
+    /**
+     * Determine sleep duration based on pending work.
+     * Returns 1 second if work exists, 5 seconds if idle.
+     *
+     * @param  array<int, string|null>  $groups
+     */
+    private function getSleepDuration(array $groups): int
+    {
+        // Check if any of the dispatched groups have work to do
+        // (steps that are NOT completed and NOT failed)
+        $hasPendingWork = Step::query()
+            ->whereIn('group', $groups)
+            ->whereNotIn('state', [Completed::class, Failed::class])
+            ->exists();
+
+        return $hasPendingWork ? 1 : 5;
     }
 
     /**
