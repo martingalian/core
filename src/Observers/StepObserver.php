@@ -7,9 +7,11 @@ namespace Martingalian\Core\Observers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\NotRunnable;
 use Martingalian\Core\States\Pending;
+use Martingalian\Core\States\Running;
 use Martingalian\Core\States\Skipped;
 
 final class StepObserver
@@ -100,6 +102,23 @@ final class StepObserver
         $validQueues = ['default', 'priority', mb_strtolower(gethostname())];
         if (empty($step->queue) || ! in_array($step->queue, $validQueues, true)) {
             $step->queue = 'default';
+        }
+
+        // Set started_at when transitioning TO Running state (if not already set)
+        // This covers transitions like PendingToRunning that don't set started_at
+        $isNowRunning = $step->state instanceof Running || get_class($step->state) === Running::class;
+        $wasRunningBefore = $step->getOriginal('state') === Running::class;
+
+        if ($isNowRunning && ! $wasRunningBefore && $step->started_at === null) {
+            $step->started_at = now();
+        }
+
+        // Clear is_throttled when step transitions to Completed state
+        // This ensures throttled steps that complete have their flag cleared
+        $isNowCompleted = $step->state instanceof Completed || get_class($step->state) === Completed::class;
+
+        if ($isNowCompleted) {
+            $step->is_throttled = false;
         }
 
         // Ensure group is never null on updates
