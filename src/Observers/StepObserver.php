@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Observers;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\Models\StepsDispatcher;
 use Martingalian\Core\States\Completed;
-use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\NotRunnable;
 use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Running;
-use Martingalian\Core\States\Skipped;
 
 final class StepObserver
 {
@@ -48,38 +46,26 @@ final class StepObserver
             $step->index = 1;
         }
 
-        // Intelligent group assignment:
-        // 1) If no group is set, try to inherit from parent step (where parent.child_block_uuid = this.block_uuid)
-        // 2) If no parent, try to inherit from sibling steps with same block_uuid
-        // 3) If still no group, assign via round-robin
+        // Group assignment for workflow-level parallelism:
+        // 1) If parent exists (where parent.child_block_uuid = my block_uuid) → inherit parent's group
+        // 2) No parent → I'm a root step → select group via round-robin from steps_dispatcher
+        // This ensures all steps in a workflow share the same group for coherent processing
         if (empty($step->group)) {
+            // Only look for parent if block_uuid is set (otherwise NULL = NULL matches everything)
+            $parentStep = null;
             if (! empty($step->block_uuid)) {
-                // First, check if there's a parent step that spawned this child block
                 $parentStep = Step::query()
                     ->where('child_block_uuid', $step->block_uuid)
                     ->whereNotNull('group')
                     ->first();
-
-                if ($parentStep) {
-                    $step->group = $parentStep->group;
-                }
-
-                // If no parent, look for siblings in the same block
-                if (empty($step->group)) {
-                    $siblingStep = Step::query()
-                        ->where('block_uuid', $step->block_uuid)
-                        ->whereNotNull('group')
-                        ->first();
-
-                    if ($siblingStep) {
-                        $step->group = $siblingStep->group;
-                    }
-                }
             }
 
-            // If still no group (no parent/sibling found or first step in chain), assign via round-robin
-            if (empty($step->group)) {
-                $step->group = Step::getDispatchGroup();
+            if ($parentStep) {
+                // I'm a child → inherit parent's group
+                $step->group = $parentStep->group;
+            } else {
+                // I'm a root step → select group via round-robin from steps_dispatcher
+                $step->group = StepsDispatcher::getNextGroup();
             }
         }
     }
@@ -121,35 +107,22 @@ final class StepObserver
             $step->is_throttled = false;
         }
 
-        // Ensure group is never null on updates
+        // Ensure group is never null on updates (same logic as creating)
         if (empty($step->group)) {
+            // Only look for parent if block_uuid is set (otherwise NULL = NULL matches everything)
+            $parentStep = null;
             if (! empty($step->block_uuid)) {
-                // First, check if there's a parent step that spawned this child block
                 $parentStep = Step::query()
                     ->where('child_block_uuid', $step->block_uuid)
                     ->whereNotNull('group')
                     ->first();
-
-                if ($parentStep) {
-                    $step->group = $parentStep->group;
-                }
-
-                // If no parent, look for siblings in the same block
-                if (empty($step->group)) {
-                    $siblingStep = Step::query()
-                        ->where('block_uuid', $step->block_uuid)
-                        ->whereNotNull('group')
-                        ->first();
-
-                    if ($siblingStep) {
-                        $step->group = $siblingStep->group;
-                    }
-                }
             }
 
-            // If still no group (no parent/sibling found or first step in chain), assign via round-robin
-            if (empty($step->group)) {
-                $step->group = Step::getDispatchGroup();
+            if ($parentStep) {
+                $step->group = $parentStep->group;
+            } else {
+                // Root step → select group via round-robin from steps_dispatcher
+                $step->group = StepsDispatcher::getNextGroup();
             }
         }
     }

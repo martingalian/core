@@ -348,6 +348,9 @@ final class StepDispatcher
 
     /**
      * Transition running parents to Failed if any child in their block failed.
+     *
+     * IMPORTANT: Waits for child block's resolve-exception steps to complete before
+     * transitioning the parent to Failed. This allows error handlers to run first.
      */
     public static function transitionParentsToFailed(?string $group = null): bool
     {
@@ -387,7 +390,24 @@ final class StepDispatcher
             if ($failedChildSteps->isNotEmpty()) {
                 $failedIds = $failedChildSteps->pluck('id')->join(', ');
                 $failedStates = $failedChildSteps->map(fn($s) => class_basename($s->state))->join(', ');
-                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: TRANSITION TO FAILED | Failed children: [{$failedIds}] | States: [{$failedStates}]");
+                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | Failed children detected: [{$failedIds}] | States: [{$failedStates}]");
+
+                // Check if there are any non-terminal resolve-exception steps in the child block.
+                // If so, wait for them to complete before failing the parent.
+                $nonTerminalResolveExceptions = $childSteps->filter(
+                    fn ($step) => $step->type === 'resolve-exception'
+                        && ! in_array(get_class($step->state), Step::terminalStepStates(), true)
+                );
+
+                if ($nonTerminalResolveExceptions->isNotEmpty()) {
+                    $resolveIds = $nonTerminalResolveExceptions->pluck('id')->join(', ');
+                    $resolveStates = $nonTerminalResolveExceptions->map(fn($s) => "ID:{$s->id}=" . class_basename($s->state))->join(', ');
+                    log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: WAIT - Child block has non-terminal resolve-exception steps: [{$resolveStates}]");
+                    log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | Waiting for resolve-exceptions [{$resolveIds}] to complete before failing parent");
+                    continue;
+                }
+
+                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: TRANSITION TO FAILED | No pending resolve-exceptions in child block");
                 $parentStep->state->transitionTo(Failed::class);
 
                 return true;

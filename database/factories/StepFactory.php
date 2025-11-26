@@ -25,7 +25,7 @@ final class StepFactory extends Factory
         return [
             'state' => Pending::class,
             'class' => 'App\Support\Tests\EchoJob',
-            'queue' => 'sync',
+            'queue' => 'default',
             'block_uuid' => null,
             'child_block_uuid' => null,
             'index' => null,

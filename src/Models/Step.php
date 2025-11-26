@@ -90,15 +90,6 @@ final class Step extends BaseModel
         ];
     }
 
-    /**
-     * Get a random dispatch group from available groups.
-     * Delegates to StepsDispatcher::getDispatchGroup().
-     */
-    public static function getDispatchGroup(): ?string
-    {
-        return StepsDispatcher::getDispatchGroup();
-    }
-
     public function stepTick()
     {
         return $this->belongsTo(StepsDispatcherTicks::class, 'tick_id');

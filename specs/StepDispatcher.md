@@ -39,17 +39,57 @@ Step::terminalStepStates()   // [Completed, Skipped, Cancelled, Failed, Stopped]
 ### StepsDispatcher Model
 **Location**: `packages/martingalian/core/src/Models/StepsDispatcher.php`
 
-**Purpose**: Manages dispatcher locks and active groups per server
+**Purpose**: Manages per-group dispatcher locks and round-robin group selection for workflow-level parallelism
+
+**Named Groups** (10 total):
+- `alpha`, `beta`, `gamma`, `delta`, `epsilon`
+- `zeta`, `eta`, `theta`, `iota`, `kappa`
 
 **Key Methods**:
-- `startDispatch(?string $group)` - Acquire lock, return true if successful
-- `endDispatch(?string $group)` - Release lock
-- `getDispatchGroup()` - Get random active dispatch group
+- `startDispatch(?string $group)` - Acquire per-group lock, create tick, return true if successful
+- `endDispatch(int $progress, ?string $group)` - Complete tick, release lock
+- `getNextGroup(): string` - Round-robin group selection with microsecond precision
+
+**Round-Robin Selection** (`getNextGroup()`):
+```php
+public static function getNextGroup(): string
+{
+    return DB::transaction(function () {
+        // Select group with oldest last_selected_at (NULL = never selected = highest priority)
+        // lockForUpdate() ensures only one process at a time can select this row
+        $dispatcher = self::query()
+            ->whereNotNull('group')
+            ->orderByRaw('last_selected_at IS NULL DESC') // NULLs first
+            ->orderBy('last_selected_at', 'asc')
+            ->lockForUpdate()
+            ->first();
+
+        if (! $dispatcher) {
+            return 'alpha'; // Fallback
+        }
+
+        // Update with microsecond precision for unique timestamps
+        DB::table('steps_dispatcher')
+            ->where('id', $dispatcher->id)
+            ->update(['last_selected_at' => DB::raw('NOW(6)')]);
+
+        return $dispatcher->group;
+    });
+}
+```
+
+**Why `NOW(6)` instead of `now()`**:
+- Laravel's `now()` doesn't preserve microseconds when saving to MySQL
+- All timestamps become identical (`.000000`), breaking round-robin ordering
+- MySQL's `NOW(6)` returns current time with microsecond precision
+- Ensures unique `last_selected_at` values for proper group rotation
 
 **Fields**:
-- `dispatch_group` (which group this server handles)
-- `is_dispatching` (lock flag)
-- `started_at`, `ended_at`
+- `group` (named group: alpha through kappa)
+- `can_dispatch` (per-group lock flag)
+- `current_tick_id` (foreign key to steps_dispatcher_ticks)
+- `last_tick_completed` (datetime)
+- `last_selected_at` (datetime with microseconds - for round-robin ordering)
 
 ### StepsDispatcherTicks Model
 **Location**: `packages/martingalian/core/src/Models/StepsDispatcherTicks.php`
@@ -182,6 +222,123 @@ Running → Pending (job calls retryJob())
 - Each retry can set custom `dispatch_after`
 - Allows exponential backoff
 
+## Group Assignment (StepObserver)
+
+**Location**: `packages/martingalian/core/src/Observers/StepObserver.php`
+
+**Purpose**: Automatically assign groups to steps for workflow-level parallelism. All steps in a workflow share the same group for coherent processing.
+
+### Assignment Logic
+
+**In `creating()` event** (and mirrored in `saving()` for updates):
+
+```php
+// Group assignment for workflow-level parallelism:
+// 1) If parent exists (where parent.child_block_uuid = my block_uuid) → inherit parent's group
+// 2) No parent → I'm a root step → select group via round-robin from steps_dispatcher
+if (empty($step->group)) {
+    // CRITICAL: Only look for parent if block_uuid is set
+    // Otherwise NULL = NULL matches everything (SQL: WHERE column IS NULL)
+    $parentStep = null;
+    if (! empty($step->block_uuid)) {
+        $parentStep = Step::query()
+            ->where('child_block_uuid', $step->block_uuid)
+            ->whereNotNull('group')
+            ->first();
+    }
+
+    if ($parentStep) {
+        // Child step → inherit parent's group
+        $step->group = $parentStep->group;
+    } else {
+        // Root step → select group via round-robin
+        $step->group = StepsDispatcher::getNextGroup();
+    }
+}
+```
+
+### Parent-Child Linking via `block_uuid`
+
+**How it works**:
+- Parent step sets `child_block_uuid` pointing to child block
+- Child steps have their own `block_uuid`
+- Query: `WHERE child_block_uuid = $step->block_uuid` finds the parent
+
+**Example workflow**:
+```
+Parent Step (block_uuid=A, child_block_uuid=B, group=alpha)
+    └── Child Step 1 (block_uuid=B, group=alpha) ← inherits from parent
+    └── Child Step 2 (block_uuid=B, group=alpha) ← inherits from parent
+        └── Grandchild Step (block_uuid=C, group=alpha) ← inherits from Child Step 2
+```
+
+### Critical Bug Fix: NULL block_uuid
+
+**The Problem**:
+When `block_uuid` is NULL (or empty), the query:
+```php
+Step::query()->where('child_block_uuid', $step->block_uuid)->first();
+```
+Becomes:
+```sql
+WHERE child_block_uuid IS NULL
+```
+This matches ANY step without a child block, causing ALL subsequent steps to inherit the first step's group.
+
+**The Fix**:
+```php
+// Skip parent lookup if block_uuid is empty
+if (! empty($step->block_uuid)) {
+    $parentStep = Step::query()
+        ->where('child_block_uuid', $step->block_uuid)
+        ->first();
+}
+```
+
+### Distribution Results
+
+With proper group assignment, steps distribute evenly:
+```
+Group     | Count
+----------|-------
+alpha     | 464
+beta      | 464
+gamma     | 464
+delta     | 464
+epsilon   | 464
+zeta      | 464
+eta       | 464
+theta     | 464
+iota      | 464
+kappa     | 464
+----------|-------
+Total     | 4640
+```
+
+### Important: Transaction Isolation
+
+**⚠️ Do NOT wrap `Step::create()` calls in `DB::transaction()`**
+
+When step creation is wrapped in an outer transaction, Laravel uses savepoints instead of real transactions. The `lockForUpdate()` in `getNextGroup()` doesn't serialize properly with savepoints, causing all steps to get the same group.
+
+**Bad** (all steps get same group):
+```php
+DB::transaction(function () {
+    foreach ($items as $item) {
+        Step::create([...]);  // All get 'alpha'
+    }
+});
+```
+
+**Good** (proper round-robin):
+```php
+foreach ($items as $item) {
+    Step::create([...]);  // Each gets different group
+}
+```
+
+Each `Step::create()` runs its own `getNextGroup()` transaction independently, ensuring proper serialization and group rotation.
+
 ## Key Traits
 
 ### BaseQueueableJob
@@ -249,36 +406,113 @@ public final function handle(): void
 
 ## Commands
 
-### steps:dispatch
-**Location**: `app/Console/Commands/StepsDispatchCommand.php`
+### core:dispatch-steps
+**Location**: `packages/martingalian/core/src/Console/DispatchStepsCommand.php`
 
-**Purpose**: Scheduled command that runs every second
+**Purpose**: Scheduled command that dispatches `ProcessGroupTickJob` for each named group
 
 **Usage**:
 ```bash
-php artisan steps:dispatch              # All groups
-php artisan steps:dispatch --group=high # Specific group
+php artisan core:dispatch-steps
 ```
 
 **Schedule** (in `routes/console.php`):
 ```php
-Schedule::command('steps:dispatch')->everySecond();
+Schedule::command('core:dispatch-steps')->everySecond();
 ```
+
+**How It Works**:
+```php
+public function handle(): int
+{
+    // Dispatch ProcessGroupTickJob for each of the 10 named groups
+    $groups = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota', 'kappa'];
+
+    foreach ($groups as $group) {
+        ProcessGroupTickJob::dispatch($group);
+    }
+
+    return self::SUCCESS;
+}
+```
+
+### ProcessGroupTickJob
+**Location**: `packages/martingalian/core/src/Jobs/ProcessGroupTickJob.php`
+
+**Purpose**: Process one dispatcher tick for a specific group. Runs on 'default' queue.
+
+**Key Behavior**:
+- Acquires per-group lock via `StepsDispatcher::startDispatch($group)`
+- Executes all dispatcher phases (state management + dispatch)
+- Releases lock via `StepsDispatcher::endDispatch($progress, $group)`
+- Multiple groups can process in parallel (10 concurrent ticks possible)
+
+```php
+class ProcessGroupTickJob implements ShouldQueue
+{
+    public $queue = 'default';
+
+    public function __construct(
+        public string $group
+    ) {}
+
+    public function handle(): void
+    {
+        StepDispatcher::dispatch($this->group);
+    }
+}
+```
+
+**Parallelism Architecture**:
+```
+cron (every second)
+    └── core:dispatch-steps
+        ├── ProcessGroupTickJob(alpha)  → Worker A
+        ├── ProcessGroupTickJob(beta)   → Worker B
+        ├── ProcessGroupTickJob(gamma)  → Worker C
+        ├── ProcessGroupTickJob(delta)  → Worker A
+        ├── ProcessGroupTickJob(epsilon)→ Worker B
+        ├── ProcessGroupTickJob(zeta)   → Worker C
+        ├── ProcessGroupTickJob(eta)    → Worker A
+        ├── ProcessGroupTickJob(theta)  → Worker B
+        ├── ProcessGroupTickJob(iota)   → Worker C
+        └── ProcessGroupTickJob(kappa)  → Worker A
+```
+
+Each group processes independently, enabling 10x workflow parallelism.
 
 ## Configuration
 
-### Dispatch Groups
-**Location**: `config/martingalian.php`
+### Dispatch Groups (Workflow-Level Parallelism)
 
-```php
-'dispatch_groups' => [
-    'default' => ['weight' => 70],
-    'low'     => ['weight' => 20],
-    'high'    => ['weight' => 10],
-]
+**Purpose**: Steps are assigned to named groups for parallel processing. Each group has its own dispatcher tick, allowing 10 workflows to run simultaneously.
+
+**10 Named Groups**:
+```
+alpha, beta, gamma, delta, epsilon, zeta, eta, theta, iota, kappa
 ```
 
-**Weight**: Probability of group selection for server assignment
+**Group Assignment Rules** (in StepObserver):
+1. **Root step** (no parent) → Assigned via round-robin from `StepsDispatcher::getNextGroup()`
+2. **Child step** → Inherits parent's group via `child_block_uuid` lookup
+3. **All descendants** → Share the root step's group for coherent workflow processing
+
+**Database Seeding** (in seeder):
+```php
+$groups = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota', 'kappa'];
+foreach ($groups as $group) {
+    StepsDispatcher::firstOrCreate(
+        ['group' => $group],
+        ['can_dispatch' => true, 'last_selected_at' => null]
+    );
+}
+```
+
+**Why 10 Groups?**
+- Provides sufficient parallelism for multi-workflow processing
+- Each group processes independently via `ProcessGroupTickJob`
+- Named groups are human-readable for debugging
+- Round-robin ensures even distribution across groups
 
 ### Queue System
 **Location**: `packages/martingalian/core/src/Observers/StepObserver.php`
@@ -332,13 +566,20 @@ created_at, updated_at
 - `dispatch_after` - for delayed execution
 - `dispatch_group` - for group filtering
 
-### steps_dispatchers
+### steps_dispatcher
 ```sql
 id
-dispatch_group (varchar)
-is_dispatching (boolean)
-started_at, ended_at (datetime)
+group (varchar) -- Named group: alpha, beta, gamma, delta, epsilon, zeta, eta, theta, iota, kappa
+can_dispatch (boolean) -- Per-group lock flag
+current_tick_id (bigint, nullable) -- FK to steps_dispatcher_ticks.id
+last_tick_completed (datetime) -- When last tick finished
+last_selected_at (datetime(6)) -- Microsecond precision for round-robin ordering
+created_at, updated_at
 ```
+
+**Indexes**:
+- `group` (unique) - One row per named group
+- `last_selected_at` - For round-robin ordering
 
 ### steps_dispatcher_ticks
 ```sql
@@ -350,6 +591,58 @@ created_at
 ```
 
 ## Testing
+
+### Feature Tests
+**Location**: `tests/Feature/StepDispatcher/`
+
+**Key Test Files**:
+- `StepObserverGroupAssignmentTest.php` - Group assignment and round-robin distribution
+- `StepDispatcherTest.php` - Core dispatcher logic
+- `StepStateTransitionTest.php` - State machine transitions
+
+### StepObserverGroupAssignmentTest.php
+
+**Group Inheritance Tests**:
+- `root step gets a group from steps_dispatcher via round-robin`
+- `root step with explicit group keeps that group`
+- `child step inherits parent group`
+- `grandchild step inherits root group (2 levels deep)`
+- `5 levels deep all inherit root group`
+- `multiple children in same block all inherit parent group`
+- `parallel children at same index all inherit parent group`
+- `group is preserved on step update`
+
+**Round-Robin Distribution Tests**:
+- `round-robin cycles through groups` - Verifies 10 consecutive steps get all 10 groups
+- `many steps distribute evenly across all 10 groups` - 30 steps → 3 per group
+- `100 steps distribute evenly across all 10 groups` - 100 steps → 10 per group
+- `steps created without transaction wrapper distribute correctly`
+- `steps created inside collection each() distribute correctly`
+- `nested transaction with savepoints breaks round-robin distribution` - Documents known issue
+
+**Index Assignment Tests**:
+- `orphan step defaults to index 1`
+- `orphan step with index 0 gets index 1`
+- `step with explicit index keeps that index`
+
+**Test Setup** (beforeEach):
+```php
+beforeEach(function (): void {
+    // Clean up steps from previous tests
+    Step::query()->delete();
+
+    // Seed all 10 groups for round-robin selection
+    $groups = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota', 'kappa'];
+    foreach ($groups as $group) {
+        StepsDispatcher::firstOrCreate(
+            ['group' => $group],
+            ['can_dispatch' => true, 'last_selected_at' => null]
+        );
+    }
+    // Reset for predictable round-robin
+    StepsDispatcher::query()->update(['last_selected_at' => null]);
+});
+```
 
 ### Integration Tests
 **Location**: `tests/Integration/StepDispatcher/`

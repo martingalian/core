@@ -22,41 +22,6 @@ final class StepsDispatcher extends BaseModel
     ];
 
     /**
-     * Selects a random dispatch group.
-     * Skips the NULL group and only returns named groups (alpha, beta, gamma, etc.).
-     * Always returns a valid group - falls back to any named group if all busy,
-     * or "alpha" if the table is empty.
-     *
-     * @return string A random group name to dispatch (never returns NULL)
-     */
-    public static function getDispatchGroup(): string
-    {
-        // First, try to get groups that can dispatch (not busy)
-        $groups = self::query()
-            ->where('can_dispatch', true)
-            ->whereNotNull('group')
-            ->pluck('group')
-            ->all();
-
-        if (! empty($groups)) {
-            return collect($groups)->random();
-        }
-
-        // Fallback: All groups are busy, pick any named group (will be dispatched when group frees up)
-        $anyGroup = self::query()
-            ->whereNotNull('group')
-            ->pluck('group')
-            ->first();
-
-        if ($anyGroup !== null) {
-            return $anyGroup;
-        }
-
-        // Ultimate fallback: Table is empty, return default group
-        return 'alpha';
-    }
-
-    /**
      * Acquire a per-group lock (creates the group row if missing), open a tick, and record linkage.
      * Adds info() logs whenever can_dispatch flips TRUE/FALSE.
      */
@@ -207,5 +172,41 @@ final class StepsDispatcher extends BaseModel
     public static function label(?string $group): string
     {
         return $group === null ? 'NULL' : $group;
+    }
+
+    /**
+     * Get the next group using round-robin selection (oldest last_selected_at).
+     * Updates last_selected_at for the selected group.
+     * Falls back to 'alpha' if no groups exist in the table.
+     *
+     * @return string The selected group name
+     */
+    public static function getNextGroup(): string
+    {
+        // Use transaction with row-level locking to prevent race conditions
+        // when multiple steps are created concurrently
+        return DB::transaction(function () {
+            // Select group with oldest last_selected_at (null = never selected = highest priority)
+            // lockForUpdate() ensures only one process at a time can select this row
+            $dispatcher = self::query()
+                ->whereNotNull('group')
+                ->orderByRaw('last_selected_at IS NULL DESC') // NULLs first
+                ->orderBy('last_selected_at', 'asc')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $dispatcher) {
+                // Fallback to 'alpha' if no groups exist (e.g., in tests without seeding)
+                return 'alpha';
+            }
+
+            // Update last_selected_at for round-robin fairness using raw DB expression
+            // to ensure microsecond precision (NOW(6) returns current time with microseconds)
+            DB::table('steps_dispatcher')
+                ->where('id', $dispatcher->id)
+                ->update(['last_selected_at' => DB::raw('NOW(6)')]);
+
+            return $dispatcher->group;
+        });
     }
 }
