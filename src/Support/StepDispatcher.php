@@ -29,120 +29,120 @@ final class StepDispatcher
      */
     public static function dispatch(?string $group = null): void
     {
-        log_step('dispatcher', '╔══════════════════════════════════════════════════════════════╗');
-        log_step('dispatcher', '║              DISPATCHER TICK START                           ║');
-        log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-        log_step('dispatcher', 'Group: '.($group ?? 'null (all groups)'));
+        Step::log(null, 'dispatcher', '╔══════════════════════════════════════════════════════════════╗');
+        Step::log(null, 'dispatcher', '║              DISPATCHER TICK START                           ║');
+        Step::log(null, 'dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+        Step::log(null, 'dispatcher', 'Group: '.($group ?? 'null (all groups)'));
 
         // Acquire the DB lock authoritatively; bail if already running.
         if (! StepsDispatcher::startDispatch($group)) {
-            log_step('dispatcher', '⚠️ [TICK SKIPPED] Already running');
+            Step::log(null, 'dispatcher', '⚠️ [TICK SKIPPED] Already running');
 
             return;
         }
 
         $progress = 0;
-        log_step('dispatcher', 'Progress: 0 - Lock acquired, starting dispatcher cycle');
+        Step::log(null, 'dispatcher', 'Progress: 0 - Lock acquired, starting dispatcher cycle');
 
         try {
             // Marks as skipped all children steps on a skipped step.
-            log_step('dispatcher', '→ Calling skipAllChildStepsOnParentAndChildSingleStep()');
+            Step::log(null, 'dispatcher', '→ Calling skipAllChildStepsOnParentAndChildSingleStep()');
             $result = self::skipAllChildStepsOnParentAndChildSingleStep($group);
-            log_step('dispatcher', '← skipAllChildStepsOnParentAndChildSingleStep() returned: '.($result ? 'true' : 'false'));
+            Step::log(null, 'dispatcher', '← skipAllChildStepsOnParentAndChildSingleStep() returned: '.($result ? 'true' : 'false'));
             if ($result) {
                 info_if('-= TICK ENDED (skipAllChildStepsOnParentAndChildSingleStep = true) =-');
-                log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-                log_step('dispatcher', '  TICK ENDED EARLY at progress 0 (skip children)');
+                Step::log(null, 'dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+                Step::log(null, 'dispatcher', '  TICK ENDED EARLY at progress 0 (skip children)');
 
                 return;
             }
 
             $progress = 1;
-            log_step('dispatcher', 'Progress: 1 - Skip children check complete');
+            Step::log(null, 'dispatcher', 'Progress: 1 - Skip children check complete');
 
             // Perform cascading cancellation for failed steps and return early if needed
-            log_step('dispatcher', '→ Calling cascadeCancelledSteps()');
+            Step::log(null, 'dispatcher', '→ Calling cascadeCancelledSteps()');
             $result = self::cascadeCancelledSteps($group);
-            log_step('dispatcher', '← cascadeCancelledSteps() returned: '.($result ? 'true' : 'false'));
+            Step::log(null, 'dispatcher', '← cascadeCancelledSteps() returned: '.($result ? 'true' : 'false'));
             if ($result) {
                 info_if('-= TICK ENDED (cascadeCancelledSteps = true) =-');
-                log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-                log_step('dispatcher', '  TICK ENDED EARLY at progress 1 (cascade cancelled)');
+                Step::log(null, 'dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+                Step::log(null, 'dispatcher', '  TICK ENDED EARLY at progress 1 (cascade cancelled)');
 
                 return;
             }
 
             $progress = 2;
-            log_step('dispatcher', 'Progress: 2 - Cascade cancelled check complete');
+            Step::log(null, 'dispatcher', 'Progress: 2 - Cascade cancelled check complete');
 
-            log_step('dispatcher', '→ Calling promoteResolveExceptionSteps()');
+            Step::log(null, 'dispatcher', '→ Calling promoteResolveExceptionSteps()');
             $result = self::promoteResolveExceptionSteps($group);
-            log_step('dispatcher', '← promoteResolveExceptionSteps() returned: '.($result ? 'true' : 'false'));
+            Step::log(null, 'dispatcher', '← promoteResolveExceptionSteps() returned: '.($result ? 'true' : 'false'));
             if ($result) {
                 info_if('-= TICK ENDED (promoteResolveExceptionSteps = true) =-');
-                log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-                log_step('dispatcher', '  TICK ENDED EARLY at progress 2 (promote resolve-exception)');
+                Step::log(null, 'dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+                Step::log(null, 'dispatcher', '  TICK ENDED EARLY at progress 2 (promote resolve-exception)');
 
                 return;
             }
 
             $progress = 3;
-            log_step('dispatcher', 'Progress: 3 - Promote resolve-exception check complete');
+            Step::log(null, 'dispatcher', 'Progress: 3 - Promote resolve-exception check complete');
 
             // Check if we need to transition parent steps to Failed first, but only if no cancellations occurred
-            log_step('dispatcher', '→ Calling transitionParentsToFailed()');
+            Step::log(null, 'dispatcher', '→ Calling transitionParentsToFailed()');
             $result = self::transitionParentsToFailed($group);
-            log_step('dispatcher', '← transitionParentsToFailed() returned: '.($result ? 'true' : 'false'));
+            Step::log(null, 'dispatcher', '← transitionParentsToFailed() returned: '.($result ? 'true' : 'false'));
             if ($result) {
                 info_if('-= TICK ENDED (transitionParentsToFailed = true) =-');
-                log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-                log_step('dispatcher', '  TICK ENDED EARLY at progress 3 (transition parents to failed)');
+                Step::log(null, 'dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+                Step::log(null, 'dispatcher', '  TICK ENDED EARLY at progress 3 (transition parents to failed)');
 
                 return;
             }
 
             $progress = 4;
-            log_step('dispatcher', 'Progress: 4 - Transition parents to failed check complete');
+            Step::log(null, 'dispatcher', 'Progress: 4 - Transition parents to failed check complete');
 
-            log_step('dispatcher', '→ Calling cascadeFailureToChildren()');
+            Step::log(null, 'dispatcher', '→ Calling cascadeFailureToChildren()');
             $result = self::cascadeFailureToChildren($group);
-            log_step('dispatcher', '← cascadeFailureToChildren() returned: '.($result ? 'true' : 'false'));
+            Step::log(null, 'dispatcher', '← cascadeFailureToChildren() returned: '.($result ? 'true' : 'false'));
             if ($result) {
                 info_if('-= TICK ENDED (cascadeFailureToChildren = true) =-');
-                log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-                log_step('dispatcher', '  TICK ENDED EARLY at progress 4 (cascade failure to children)');
+                Step::log(null, 'dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+                Step::log(null, 'dispatcher', '  TICK ENDED EARLY at progress 4 (cascade failure to children)');
 
                 return;
             }
 
             $progress = 5;
-            log_step('dispatcher', 'Progress: 5 - Cascade failure to children check complete');
+            Step::log(null, 'dispatcher', 'Progress: 5 - Cascade failure to children check complete');
 
             // Check if we need to transition parent steps to Completed
-            log_step('dispatcher', '→ Calling transitionParentsToComplete()');
+            Step::log(null, 'dispatcher', '→ Calling transitionParentsToComplete()');
             $result = self::transitionParentsToComplete($group);
-            log_step('dispatcher', '← transitionParentsToComplete() returned: '.($result ? 'true' : 'false'));
+            Step::log(null, 'dispatcher', '← transitionParentsToComplete() returned: '.($result ? 'true' : 'false'));
             if ($result) {
                 info_if('-= TICK ENDED (transitionParentsToComplete = true) =-');
-                log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-                log_step('dispatcher', '  TICK ENDED EARLY at progress 5 (transition parents to complete)');
+                Step::log(null, 'dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+                Step::log(null, 'dispatcher', '  TICK ENDED EARLY at progress 5 (transition parents to complete)');
 
                 return;
             }
 
             $progress = 6;
-            log_step('dispatcher', 'Progress: 6 - Transition parents to complete check complete');
+            Step::log(null, 'dispatcher', 'Progress: 6 - Transition parents to complete check complete');
 
             // Distribute the steps to be dispatched (only if no cancellations or failures happened)
-            log_step('dispatcher', '→ Starting pending step evaluation and dispatch');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-            log_step('dispatcher', '→→→ PENDING STEP SELECTION DIAGNOSTICS ←←←');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', '→ Starting pending step evaluation and dispatch');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', '→→→ PENDING STEP SELECTION DIAGNOSTICS ←←←');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
             $dispatchedSteps = collect();
 
             // Check cooling down status
             $isCoolingDown = Martingalian::first()?->is_cooling_down ?? false;
-            log_step('dispatcher', '❄️ Cooling down status: '.($isCoolingDown ? 'YES (only non-coolable steps)' : 'NO (all steps)'));
+            Step::log(null, 'dispatcher', '❄️ Cooling down status: '.($isCoolingDown ? 'YES (only non-coolable steps)' : 'NO (all steps)'));
 
             $pendingQuery = Step::pending()
                 ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
@@ -152,19 +152,19 @@ final class StepDispatcher
                 })
                 ->when($isCoolingDown, static fn ($q) => $q->where('can_cool_down', false));
 
-            log_step('dispatcher', '🔍 DIAGNOSTIC: Step::pending() scope ONLY selects state = Pending::class');
-            log_step('dispatcher', '🔍 DIAGNOSTIC: Query filters: group = '.($group ?? 'NULL').', dispatch_after <= '.now().($isCoolingDown ? ', can_cool_down = false' : ''));
+            Step::log(null, 'dispatcher', '🔍 DIAGNOSTIC: Step::pending() scope ONLY selects state = Pending::class');
+            Step::log(null, 'dispatcher', '🔍 DIAGNOSTIC: Query filters: group = '.($group ?? 'NULL').', dispatch_after <= '.now().($isCoolingDown ? ', can_cool_down = false' : ''));
 
             $pendingSteps = $pendingQuery->get();
-            log_step('dispatcher', 'Found '.$pendingSteps->count().' PENDING steps ready for evaluation');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', 'Found '.$pendingSteps->count().' PENDING steps ready for evaluation');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
             // Priority Queue System: If any high-priority steps exist, filter to only those
             if ($pendingSteps->contains('priority', 'high')) {
                 $totalSteps = $pendingSteps->count();
                 $pendingSteps = $pendingSteps->where('priority', 'high')->values();
                 info_if('[StepDispatcher] High-priority steps detected - filtering to '.$pendingSteps->count().' high-priority steps (from '.$totalSteps.' total pending steps)');
-                log_step('dispatcher', '⬆️ HIGH-PRIORITY FILTERING: '.$pendingSteps->count().' high-priority steps (from '.$totalSteps.' total)');
+                Step::log(null, 'dispatcher', '⬆️ HIGH-PRIORITY FILTERING: '.$pendingSteps->count().' high-priority steps (from '.$totalSteps.' total)');
             }
 
             $canTransitionCount = 0;
@@ -172,58 +172,58 @@ final class StepDispatcher
 
             $pendingSteps->each(static function (Step $step) use ($dispatchedSteps, &$canTransitionCount, &$cannotTransitionCount) {
                 info_if("[StepDispatcher.dispatch] Evaluating Step ID {$step->id} with index {$step->index} in block {$step->block_uuid}");
-                log_step($step->id, '╔═══════════════════════════════════════════════════════════╗');
-                log_step($step->id, '║   DISPATCHER: EVALUATING FOR DISPATCH                     ║');
-                log_step($step->id, '╚═══════════════════════════════════════════════════════════╝');
-                log_step($step->id, 'Step details:');
-                log_step($step->id, '  - Step ID: '.$step->id);
-                log_step($step->id, '  - Class: '.$step->class);
-                log_step($step->id, '  - Index: '.$step->index);
-                log_step($step->id, '  - Block UUID: '.$step->block_uuid);
-                log_step($step->id, '  - Priority: '.$step->priority);
-                log_step($step->id, '  - State: '.$step->state);
-                log_step($step->id, '  - Retries: '.$step->retries);
+                Step::log($step->id, 'job', '╔═══════════════════════════════════════════════════════════╗');
+                Step::log($step->id, 'job', '║   DISPATCHER: EVALUATING FOR DISPATCH                     ║');
+                Step::log($step->id, 'job', '╚═══════════════════════════════════════════════════════════╝');
+                Step::log($step->id, 'job', 'Step details:');
+                Step::log($step->id, 'job', '  - Step ID: '.$step->id);
+                Step::log($step->id, 'job', '  - Class: '.$step->class);
+                Step::log($step->id, 'job', '  - Index: '.$step->index);
+                Step::log($step->id, 'job', '  - Block UUID: '.$step->block_uuid);
+                Step::log($step->id, 'job', '  - Priority: '.$step->priority);
+                Step::log($step->id, 'job', '  - State: '.$step->state);
+                Step::log($step->id, 'job', '  - Retries: '.$step->retries);
 
-                log_step($step->id, 'Creating PendingToDispatched transition...');
+                Step::log($step->id, 'job', 'Creating PendingToDispatched transition...');
                 $transition = new PendingToDispatched($step);
-                log_step($step->id, 'Calling canTransition()...');
+                Step::log($step->id, 'job', 'Calling canTransition()...');
 
                 if ($transition->canTransition()) {
                     info_if("[StepDispatcher.dispatch] -> Step ID {$step->id} CAN transition to DISPATCHED");
-                    log_step($step->id, '✓ canTransition() returned TRUE');
-                    log_step($step->id, 'Calling transition->apply()...');
+                    Step::log($step->id, 'job', '✓ canTransition() returned TRUE');
+                    Step::log($step->id, 'job', 'Calling transition->apply()...');
                     $transition->apply();
-                    log_step($step->id, 'transition->apply() completed');
+                    Step::log($step->id, 'job', 'transition->apply() completed');
                     $dispatchedSteps->push($step->fresh());
                     $canTransitionCount++;
-                    log_step($step->id, '→ Step WILL BE DISPATCHED (added to dispatchedSteps collection)');
+                    Step::log($step->id, 'job', '→ Step WILL BE DISPATCHED (added to dispatchedSteps collection)');
                 } else {
                     info_if("[StepDispatcher.dispatch] -> Step ID {$step->id} cannot transition to DISPATCHED");
-                    log_step($step->id, '✗ canTransition() returned FALSE');
-                    log_step($step->id, '→ Step SKIPPED (not ready for dispatch)');
+                    Step::log($step->id, 'job', '✗ canTransition() returned FALSE');
+                    Step::log($step->id, 'job', '→ Step SKIPPED (not ready for dispatch)');
                     $cannotTransitionCount++;
                 }
-                log_step($step->id, '╚═══════════════════════════════════════════════════════════╝');
+                Step::log($step->id, 'job', '╚═══════════════════════════════════════════════════════════╝');
             });
 
-            log_step('dispatcher', 'Pending step evaluation complete:');
-            log_step('dispatcher', '  - Can transition: '.$canTransitionCount);
-            log_step('dispatcher', '  - Cannot transition: '.$cannotTransitionCount);
-            log_step('dispatcher', '  - Total evaluated: '.($canTransitionCount + $cannotTransitionCount));
+            Step::log(null, 'dispatcher', 'Pending step evaluation complete:');
+            Step::log(null, 'dispatcher', '  - Can transition: '.$canTransitionCount);
+            Step::log(null, 'dispatcher', '  - Cannot transition: '.$cannotTransitionCount);
+            Step::log(null, 'dispatcher', '  - Total evaluated: '.($canTransitionCount + $cannotTransitionCount));
 
             // Dispatch all steps that are ready
-            log_step('dispatcher', 'Dispatching '.$dispatchedSteps->count().' steps to their jobs...');
+            Step::log(null, 'dispatcher', 'Dispatching '.$dispatchedSteps->count().' steps to their jobs...');
             $dispatchedSteps->each(function ($step) {
-                log_step($step->id, 'DISPATCHER: Calling dispatchSingleStep() to dispatch job to queue');
+                Step::log($step->id, 'job', 'DISPATCHER: Calling dispatchSingleStep() to dispatch job to queue');
                 (new self)->dispatchSingleStep($step);
-                log_step($step->id, 'DISPATCHER: dispatchSingleStep() completed - job queued');
+                Step::log($step->id, 'job', 'DISPATCHER: dispatchSingleStep() completed - job queued');
             });
 
             info_if('Total steps dispatched: '.$dispatchedSteps->count().($group ? " [group={$group}]" : ''));
             info_if('-= TICK ENDED (full cycle) =-');
-            log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-            log_step('dispatcher', '  TICK ENDED NORMALLY at progress 6 (full cycle complete)');
-            log_step('dispatcher', '  Total steps dispatched: '.$dispatchedSteps->count());
+            Step::log(null, 'dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+            Step::log(null, 'dispatcher', '  TICK ENDED NORMALLY at progress 6 (full cycle complete)');
+            Step::log(null, 'dispatcher', '  Total steps dispatched: '.$dispatchedSteps->count());
 
             $progress = 7;
         } finally {
@@ -243,41 +243,41 @@ final class StepDispatcher
             ->orderBy('id')
             ->get();
 
-        log_step('dispatcher', "[StepDispatcher.transitionParentsToComplete] Found " . $runningParents->count() . " running parents");
+        Step::log(null, 'dispatcher', "[StepDispatcher.transitionParentsToComplete] Found " . $runningParents->count() . " running parents");
 
         if ($runningParents->isEmpty()) {
             return false;
         }
 
         $childBlockUuids = self::collectAllNestedChildBlocks($runningParents, $group);
-        log_step('dispatcher', "[StepDispatcher.transitionParentsToComplete] Collected " . count($childBlockUuids) . " nested child block UUIDs");
+        Step::log(null, 'dispatcher', "[StepDispatcher.transitionParentsToComplete] Collected " . count($childBlockUuids) . " nested child block UUIDs");
 
         $childStepsByBlock = Step::whereIn('block_uuid', $childBlockUuids)
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
             ->get()
             ->groupBy('block_uuid');
 
-        log_step('dispatcher', "[StepDispatcher.transitionParentsToComplete] Loaded child steps for " . $childStepsByBlock->count() . " blocks");
+        Step::log(null, 'dispatcher', "[StepDispatcher.transitionParentsToComplete] Loaded child steps for " . $childStepsByBlock->count() . " blocks");
 
         $changed = false;
 
         foreach ($runningParents as $step) {
-            log_step($step->id, "[StepDispatcher.transitionParentsToComplete] Checking Parent Step #{$step->id} | CLASS: {$step->class} | child_block_uuid: {$step->child_block_uuid}");
+            Step::log($step->id, 'job', "[StepDispatcher.transitionParentsToComplete] Checking Parent Step #{$step->id} | CLASS: {$step->class} | child_block_uuid: {$step->child_block_uuid}");
 
             try {
                 $areConcluded = $step->childStepsAreConcludedFromMap($childStepsByBlock);
-                log_step($step->id, "[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | childStepsAreConcludedFromMap returned: " . ($areConcluded ? 'TRUE' : 'FALSE'));
+                Step::log($step->id, 'job', "[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | childStepsAreConcludedFromMap returned: " . ($areConcluded ? 'TRUE' : 'FALSE'));
 
                 if ($areConcluded) {
-                    log_step($step->id, "[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | DECISION: TRANSITION TO COMPLETED");
+                    Step::log($step->id, 'job', "[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | DECISION: TRANSITION TO COMPLETED");
                     $step->state->transitionTo(Completed::class);
                     $changed = true;
-                    log_step($step->id, "[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | SUCCESS - Transitioned to Completed");
+                    Step::log($step->id, 'job', "[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | SUCCESS - Transitioned to Completed");
                 } else {
-                    log_step($step->id, "[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | DECISION: SKIP - Children not concluded yet");
+                    Step::log($step->id, 'job', "[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | DECISION: SKIP - Children not concluded yet");
                 }
             } catch (\Exception $e) {
-                log_step($step->id, "[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | EXCEPTION during transition: " . $e->getMessage() . " | File: " . $e->getFile() . ":" . $e->getLine());
+                Step::log($step->id, 'job', "[StepDispatcher.transitionParentsToComplete] Parent Step #{$step->id} | EXCEPTION during transition: " . $e->getMessage() . " | File: " . $e->getFile() . ":" . $e->getLine());
             }
         }
 
@@ -289,33 +289,33 @@ final class StepDispatcher
      */
     public static function skipAllChildStepsOnParentAndChildSingleStep(?string $group = null): bool
     {
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '→→→ skipAllChildStepsOnParentAndChildSingleStep START ←←←');
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '→→→ skipAllChildStepsOnParentAndChildSingleStep START ←←←');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
         $skippedParents = Step::where('state', Skipped::class)
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
             ->whereNotNull('child_block_uuid')
             ->get();
 
-        log_step('dispatcher', 'Found '.$skippedParents->count().' skipped parent steps with children');
+        Step::log(null, 'dispatcher', 'Found '.$skippedParents->count().' skipped parent steps with children');
 
         if ($skippedParents->isEmpty()) {
-            log_step('dispatcher', 'No skipped parents found - returning false');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', 'No skipped parents found - returning false');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
             return false;
         }
 
         foreach ($skippedParents as $parent) {
-            log_step($parent->id, 'SKIPPED PARENT: Step #'.$parent->id.' | child_block_uuid: '.$parent->child_block_uuid);
+            Step::log($parent->id, 'job', 'SKIPPED PARENT: Step #'.$parent->id.' | child_block_uuid: '.$parent->child_block_uuid);
         }
 
         $allChildBlocks = self::collectAllNestedChildBlocks($skippedParents, $group);
-        log_step('dispatcher', 'Collected '.count($allChildBlocks).' nested child block UUIDs');
+        Step::log(null, 'dispatcher', 'Collected '.count($allChildBlocks).' nested child block UUIDs');
 
         if (empty($allChildBlocks)) {
-            log_step('dispatcher', 'No child blocks found - returning true (early completion)');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', 'No child blocks found - returning true (early completion)');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
             return true;
         }
 
@@ -324,24 +324,24 @@ final class StepDispatcher
             ->pluck('id')
             ->all();
 
-        log_step('dispatcher', 'Found '.count($descendantIds).' descendant steps to skip');
+        Step::log(null, 'dispatcher', 'Found '.count($descendantIds).' descendant steps to skip');
 
         if (! empty($descendantIds)) {
             info_if('[StepDispatcher.skipAllChildStepsOnParentAndChildSingleStep] - Batch transitioning '.count($descendantIds).' steps to SKIPPED');
-            log_step('dispatcher', 'Calling batchTransitionSteps() to skip '.count($descendantIds).' steps');
+            Step::log(null, 'dispatcher', 'Calling batchTransitionSteps() to skip '.count($descendantIds).' steps');
 
             foreach ($descendantIds as $stepId) {
-                log_step($stepId, '⚠️ BATCH SKIPPED: Step #'.$stepId.' is being skipped (parent was skipped)');
+                Step::log($stepId, 'job', '⚠️ BATCH SKIPPED: Step #'.$stepId.' is being skipped (parent was skipped)');
             }
 
             self::batchTransitionSteps($descendantIds, Skipped::class);
-            log_step('dispatcher', 'batchTransitionSteps() completed - all descendants now SKIPPED');
+            Step::log(null, 'dispatcher', 'batchTransitionSteps() completed - all descendants now SKIPPED');
         }
 
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '→→→ skipAllChildStepsOnParentAndChildSingleStep END ←←←');
-        log_step('dispatcher', 'Returning true (children were skipped)');
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '→→→ skipAllChildStepsOnParentAndChildSingleStep END ←←←');
+        Step::log(null, 'dispatcher', 'Returning true (children were skipped)');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
         return true;
     }
@@ -373,15 +373,15 @@ final class StepDispatcher
         foreach ($runningParents as $parentStep) {
             $childSteps = $childStepsByBlock->get($parentStep->child_block_uuid, collect());
 
-            log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Checking Parent Step #{$parentStep->id} | CLASS: {$parentStep->class} | child_block_uuid: {$parentStep->child_block_uuid} | Children count: " . $childSteps->count());
+            Step::log($parentStep->id, 'job', "[StepDispatcher.transitionParentsToFailed] Checking Parent Step #{$parentStep->id} | CLASS: {$parentStep->class} | child_block_uuid: {$parentStep->child_block_uuid} | Children count: " . $childSteps->count());
 
             if ($childSteps->isEmpty()) {
-                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | WARNING: No children found for child_block_uuid");
+                Step::log($parentStep->id, 'job', "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | WARNING: No children found for child_block_uuid");
                 continue;
             }
 
             $allChildStates = $childSteps->map(fn($s) => "ID:{$s->id}=" . class_basename($s->state))->join(', ');
-            log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | All child states: [{$allChildStates}]");
+            Step::log($parentStep->id, 'job', "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | All child states: [{$allChildStates}]");
 
             $failedChildSteps = $childSteps->filter(
                 fn ($step) => in_array(get_class($step->state), Step::failedStepStates())
@@ -390,7 +390,7 @@ final class StepDispatcher
             if ($failedChildSteps->isNotEmpty()) {
                 $failedIds = $failedChildSteps->pluck('id')->join(', ');
                 $failedStates = $failedChildSteps->map(fn($s) => class_basename($s->state))->join(', ');
-                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | Failed children detected: [{$failedIds}] | States: [{$failedStates}]");
+                Step::log($parentStep->id, 'job', "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | Failed children detected: [{$failedIds}] | States: [{$failedStates}]");
 
                 // Check if there are any non-terminal resolve-exception steps in the child block.
                 // If so, wait for them to complete before failing the parent.
@@ -402,18 +402,18 @@ final class StepDispatcher
                 if ($nonTerminalResolveExceptions->isNotEmpty()) {
                     $resolveIds = $nonTerminalResolveExceptions->pluck('id')->join(', ');
                     $resolveStates = $nonTerminalResolveExceptions->map(fn($s) => "ID:{$s->id}=" . class_basename($s->state))->join(', ');
-                    log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: WAIT - Child block has non-terminal resolve-exception steps: [{$resolveStates}]");
-                    log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | Waiting for resolve-exceptions [{$resolveIds}] to complete before failing parent");
+                    Step::log($parentStep->id, 'job', "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: WAIT - Child block has non-terminal resolve-exception steps: [{$resolveStates}]");
+                    Step::log($parentStep->id, 'job', "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | Waiting for resolve-exceptions [{$resolveIds}] to complete before failing parent");
                     continue;
                 }
 
-                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: TRANSITION TO FAILED | No pending resolve-exceptions in child block");
+                Step::log($parentStep->id, 'job', "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: TRANSITION TO FAILED | No pending resolve-exceptions in child block");
                 $parentStep->state->transitionTo(Failed::class);
 
                 return true;
             }
 
-            log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: SKIP - No failed children");
+            Step::log($parentStep->id, 'job', "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: SKIP - No failed children");
         }
 
         return false;
@@ -424,9 +424,9 @@ final class StepDispatcher
      */
     public static function cascadeCancelledSteps(?string $group = null): bool
     {
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '→→→ cascadeCancelledSteps START ←←←');
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '→→→ cascadeCancelledSteps START ←←←');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
         $cancellationsOccurred = false;
 
@@ -436,18 +436,18 @@ final class StepDispatcher
             ->whereNotNull('index')
             ->get();
 
-        log_step('dispatcher', 'Found '.$failedSteps->count().' failed/stopped steps that may trigger cancellations');
+        Step::log(null, 'dispatcher', 'Found '.$failedSteps->count().' failed/stopped steps that may trigger cancellations');
 
         if ($failedSteps->isEmpty()) {
-            log_step('dispatcher', 'No failed steps found - returning false');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', 'No failed steps found - returning false');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
             return false;
         }
 
         foreach ($failedSteps as $failedStep) {
             $blockUuid = $failedStep->block_uuid;
-            log_step($failedStep->id, 'CASCADE SOURCE: Step #'.$failedStep->id.' | index: '.$failedStep->index.' | block: '.$blockUuid.' | state: '.$failedStep->state);
-            log_step('dispatcher', 'Checking for steps to cancel after Step #'.$failedStep->id.' (index: '.$failedStep->index.')');
+            Step::log($failedStep->id, 'job', 'CASCADE SOURCE: Step #'.$failedStep->id.' | index: '.$failedStep->index.' | block: '.$blockUuid.' | state: '.$failedStep->state);
+            Step::log(null, 'dispatcher', 'Checking for steps to cancel after Step #'.$failedStep->id.' (index: '.$failedStep->index.')');
 
             // Cancel only non-terminal, runnable steps at higher indexes in the same block.
             $stepsToCancel = Step::where('block_uuid', $blockUuid)
@@ -457,10 +457,10 @@ final class StepDispatcher
                 ->where('type', 'default')
                 ->get();
 
-            log_step('dispatcher', 'Found '.$stepsToCancel->count().' steps with higher index in block '.$blockUuid);
+            Step::log(null, 'dispatcher', 'Found '.$stepsToCancel->count().' steps with higher index in block '.$blockUuid);
 
             if ($stepsToCancel->isEmpty()) {
-                log_step('dispatcher', 'No steps to cancel for failed Step #'.$failedStep->id);
+                Step::log(null, 'dispatcher', 'No steps to cancel for failed Step #'.$failedStep->id);
                 continue;
             }
 
@@ -470,50 +470,50 @@ final class StepDispatcher
             $parentSteps = [];
 
             foreach ($stepsToCancel as $step) {
-                log_step($step->id, 'CANCELLATION CANDIDATE: Step #'.$step->id.' | index: '.$step->index.' | state: '.$step->state.' | isParent: '.($step->isParent() ? 'yes' : 'no'));
+                Step::log($step->id, 'job', 'CANCELLATION CANDIDATE: Step #'.$step->id.' | index: '.$step->index.' | state: '.$step->state.' | isParent: '.($step->isParent() ? 'yes' : 'no'));
 
                 // Double guard: never attempt to transition terminal states.
                 if (in_array(get_class($step->state), Step::terminalStepStates(), true)) {
-                    log_step($step->id, '⚠️ SKIP: Step #'.$step->id.' is in terminal state - will not cancel');
+                    Step::log($step->id, 'job', '⚠️ SKIP: Step #'.$step->id.' is in terminal state - will not cancel');
                     continue;
                 }
 
                 $stepIdsToCancel[] = $step->id;
-                log_step($step->id, '✓ WILL CANCEL: Step #'.$step->id.' added to cancellation batch');
+                Step::log($step->id, 'job', '✓ WILL CANCEL: Step #'.$step->id.' added to cancellation batch');
 
                 // Track parent steps to cancel their children
                 if ($step->isParent()) {
                     $parentSteps[] = $step;
-                    log_step($step->id, '→ Parent step - child blocks will also be cancelled');
+                    Step::log($step->id, 'job', '→ Parent step - child blocks will also be cancelled');
                 }
             }
 
             if (! empty($stepIdsToCancel)) {
                 info_if('[StepDispatcher.cascadeCancelledSteps] Batch cancelling '.count($stepIdsToCancel)." steps in block {$blockUuid}");
-                log_step('dispatcher', 'Batch cancelling '.count($stepIdsToCancel).' steps in block '.$blockUuid);
+                Step::log(null, 'dispatcher', 'Batch cancelling '.count($stepIdsToCancel).' steps in block '.$blockUuid);
 
                 foreach ($stepIdsToCancel as $stepId) {
-                    log_step($stepId, '⚠️ BATCH CANCELLED: Step #'.$stepId.' is being cancelled (downstream of failure)');
+                    Step::log($stepId, 'job', '⚠️ BATCH CANCELLED: Step #'.$stepId.' is being cancelled (downstream of failure)');
                 }
 
                 self::batchTransitionSteps($stepIdsToCancel, Cancelled::class);
-                log_step('dispatcher', 'batchTransitionSteps() completed - steps now CANCELLED');
+                Step::log(null, 'dispatcher', 'batchTransitionSteps() completed - steps now CANCELLED');
                 $cancellationsOccurred = true;
 
                 // Cancel child blocks
-                log_step('dispatcher', 'Checking '.count($parentSteps).' parent steps for child block cancellation');
+                Step::log(null, 'dispatcher', 'Checking '.count($parentSteps).' parent steps for child block cancellation');
                 foreach ($parentSteps as $parentStep) {
-                    log_step($parentStep->id, 'Calling cancelChildBlockSteps() for parent Step #'.$parentStep->id);
+                    Step::log($parentStep->id, 'job', 'Calling cancelChildBlockSteps() for parent Step #'.$parentStep->id);
                     self::cancelChildBlockSteps($parentStep, $group);
-                    log_step($parentStep->id, 'cancelChildBlockSteps() completed for parent Step #'.$parentStep->id);
+                    Step::log($parentStep->id, 'job', 'cancelChildBlockSteps() completed for parent Step #'.$parentStep->id);
                 }
             }
         }
 
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '→→→ cascadeCancelledSteps END ←←←');
-        log_step('dispatcher', 'Returning: '.($cancellationsOccurred ? 'true (cancellations occurred)' : 'false (no cancellations)'));
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '→→→ cascadeCancelledSteps END ←←←');
+        Step::log(null, 'dispatcher', 'Returning: '.($cancellationsOccurred ? 'true (cancellations occurred)' : 'false (no cancellations)'));
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
         return $cancellationsOccurred;
     }
@@ -542,9 +542,9 @@ final class StepDispatcher
      */
     public static function promoteResolveExceptionSteps(?string $group = null): bool
     {
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '→→→ promoteResolveExceptionSteps START ←←←');
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '→→→ promoteResolveExceptionSteps START ←←←');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
         $candidateBlocks = Step::where('type', 'resolve-exception')
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
@@ -554,11 +554,11 @@ final class StepDispatcher
             ->unique()
             ->values();
 
-        log_step('dispatcher', 'Found '.count($candidateBlocks).' blocks with resolve-exception steps in NotRunnable state');
+        Step::log(null, 'dispatcher', 'Found '.count($candidateBlocks).' blocks with resolve-exception steps in NotRunnable state');
 
         if ($candidateBlocks->isEmpty()) {
-            log_step('dispatcher', 'No candidate blocks found - returning false');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', 'No candidate blocks found - returning false');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
             return false;
         }
 
@@ -570,16 +570,16 @@ final class StepDispatcher
             ->unique()
             ->values();
 
-        log_step('dispatcher', 'Found '.count($failingBlocks).' blocks that have failures (and resolve-exception steps)');
+        Step::log(null, 'dispatcher', 'Found '.count($failingBlocks).' blocks that have failures (and resolve-exception steps)');
 
         if ($failingBlocks->isEmpty()) {
-            log_step('dispatcher', 'No failing blocks with resolve-exception steps - returning false');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', 'No failing blocks with resolve-exception steps - returning false');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
             return false;
         }
 
         $block = $failingBlocks->first();
-        log_step('dispatcher', 'Promoting resolve-exception steps in first failing block: '.$block);
+        Step::log(null, 'dispatcher', 'Promoting resolve-exception steps in first failing block: '.$block);
 
         $stepIds = Step::where('block_uuid', $block)
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
@@ -588,23 +588,23 @@ final class StepDispatcher
             ->pluck('id')
             ->all();
 
-        log_step('dispatcher', 'Found '.count($stepIds).' resolve-exception steps to promote in block '.$block);
+        Step::log(null, 'dispatcher', 'Found '.count($stepIds).' resolve-exception steps to promote in block '.$block);
 
         if (! empty($stepIds)) {
             info_if('[StepDispatcher.promoteResolveExceptionSteps] Batch promoting '.count($stepIds)." resolve-exception steps in block {$block}");
 
             foreach ($stepIds as $stepId) {
-                log_step($stepId, '⬆️ PROMOTED: Step #'.$stepId.' (resolve-exception) is being promoted to Pending (failure detected in block)');
+                Step::log($stepId, 'job', '⬆️ PROMOTED: Step #'.$stepId.' (resolve-exception) is being promoted to Pending (failure detected in block)');
             }
 
             self::batchTransitionSteps($stepIds, Pending::class);
-            log_step('dispatcher', 'batchTransitionSteps() completed - resolve-exception steps now PENDING');
+            Step::log(null, 'dispatcher', 'batchTransitionSteps() completed - resolve-exception steps now PENDING');
         }
 
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '→→→ promoteResolveExceptionSteps END ←←←');
-        log_step('dispatcher', 'Returning true (resolve-exception steps promoted)');
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '→→→ promoteResolveExceptionSteps END ←←←');
+        Step::log(null, 'dispatcher', 'Returning true (resolve-exception steps promoted)');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
         return true;
     }
@@ -614,27 +614,27 @@ final class StepDispatcher
      */
     public static function cascadeFailureToChildren(?string $group = null): bool
     {
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '→→→ cascadeFailureToChildren START ←←←');
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '→→→ cascadeFailureToChildren START ←←←');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
         $failedParents = Step::whereIn('state', [Failed::class, Stopped::class])
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
             ->whereNotNull('child_block_uuid')
             ->get();
 
-        log_step('dispatcher', 'Found '.$failedParents->count().' failed/stopped parent steps with children');
+        Step::log(null, 'dispatcher', 'Found '.$failedParents->count().' failed/stopped parent steps with children');
 
         if ($failedParents->isEmpty()) {
-            log_step('dispatcher', 'No failed parents found - returning false');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', 'No failed parents found - returning false');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
             return false;
         }
 
         foreach ($failedParents as $parent) {
             $childBlock = $parent->child_block_uuid;
-            log_step($parent->id, 'FAILED PARENT: Step #'.$parent->id.' | state: '.$parent->state.' | child_block_uuid: '.$childBlock);
-            log_step('dispatcher', 'Checking child block '.$childBlock.' for parent Step #'.$parent->id);
+            Step::log($parent->id, 'job', 'FAILED PARENT: Step #'.$parent->id.' | state: '.$parent->state.' | child_block_uuid: '.$childBlock);
+            Step::log(null, 'dispatcher', 'Checking child block '.$childBlock.' for parent Step #'.$parent->id);
 
             $nonTerminalChildIds = Step::where('block_uuid', $childBlock)
                 ->when($group !== null, static fn ($q) => $q->where('group', $group))
@@ -642,34 +642,34 @@ final class StepDispatcher
                 ->pluck('id')
                 ->all();
 
-            log_step('dispatcher', 'Found '.count($nonTerminalChildIds).' non-terminal children in block '.$childBlock);
+            Step::log(null, 'dispatcher', 'Found '.count($nonTerminalChildIds).' non-terminal children in block '.$childBlock);
 
             if (empty($nonTerminalChildIds)) {
-                log_step('dispatcher', 'No non-terminal children to fail for parent Step #'.$parent->id);
+                Step::log(null, 'dispatcher', 'No non-terminal children to fail for parent Step #'.$parent->id);
                 continue;
             }
 
             info_if('[StepDispatcher.cascadeFailureToChildren] Batch failing '.count($nonTerminalChildIds)." children in block {$childBlock}");
-            log_step('dispatcher', 'Batch failing '.count($nonTerminalChildIds).' children in block '.$childBlock);
+            Step::log(null, 'dispatcher', 'Batch failing '.count($nonTerminalChildIds).' children in block '.$childBlock);
 
             foreach ($nonTerminalChildIds as $childId) {
-                log_step($childId, '⚠️ BATCH FAILED: Step #'.$childId.' is being failed (parent failed/stopped)');
+                Step::log($childId, 'job', '⚠️ BATCH FAILED: Step #'.$childId.' is being failed (parent failed/stopped)');
             }
 
             self::batchTransitionSteps($nonTerminalChildIds, Failed::class);
-            log_step('dispatcher', 'batchTransitionSteps() completed - children now FAILED');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-            log_step('dispatcher', '→→→ cascadeFailureToChildren END ←←←');
-            log_step('dispatcher', 'Returning true (ended tick after failing one child block)');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', 'batchTransitionSteps() completed - children now FAILED');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', '→→→ cascadeFailureToChildren END ←←←');
+            Step::log(null, 'dispatcher', 'Returning true (ended tick after failing one child block)');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
             return true; // end tick after failing one block
         }
 
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '→→→ cascadeFailureToChildren END ←←←');
-        log_step('dispatcher', 'Returning false (no children to fail)');
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '→→→ cascadeFailureToChildren END ←←←');
+        Step::log(null, 'dispatcher', 'Returning false (no children to fail)');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
         return false;
     }
@@ -732,7 +732,7 @@ final class StepDispatcher
     public static function batchTransitionSteps(array $stepIds, string $toState): void
     {
         if (empty($stepIds)) {
-            log_step('dispatcher', '[batchTransitionSteps] Empty step IDs array - skipping');
+            Step::log(null, 'dispatcher', '[batchTransitionSteps] Empty step IDs array - skipping');
             return;
         }
 
@@ -740,41 +740,41 @@ final class StepDispatcher
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
         $caller = isset($backtrace[1]) ? ($backtrace[1]['class'] ?? 'unknown') . '::' . ($backtrace[1]['function'] ?? 'unknown') : 'unknown';
 
-        log_step('dispatcher', '╔═══════════════════════════════════════════════════════════╗');
-        log_step('dispatcher', '║         BATCH TRANSITION STEPS                            ║');
-        log_step('dispatcher', '╚═══════════════════════════════════════════════════════════╝');
-        log_step('dispatcher', 'CALLED BY: '.$caller);
-        log_step('dispatcher', 'Target State: '.$toState);
-        log_step('dispatcher', 'Step Count: '.count($stepIds));
-        log_step('dispatcher', 'Step IDs: ['.$stepIdsStr.']');
+        Step::log(null, 'dispatcher', '╔═══════════════════════════════════════════════════════════╗');
+        Step::log(null, 'dispatcher', '║         BATCH TRANSITION STEPS                            ║');
+        Step::log(null, 'dispatcher', '╚═══════════════════════════════════════════════════════════╝');
+        Step::log(null, 'dispatcher', 'CALLED BY: '.$caller);
+        Step::log(null, 'dispatcher', 'Target State: '.$toState);
+        Step::log(null, 'dispatcher', 'Step Count: '.count($stepIds));
+        Step::log(null, 'dispatcher', 'Step IDs: ['.$stepIdsStr.']');
 
-        log_step('dispatcher', 'Loading steps and transitioning via state machine...');
+        Step::log(null, 'dispatcher', 'Loading steps and transitioning via state machine...');
         $steps = Step::whereIn('id', $stepIds)->get();
-        log_step('dispatcher', 'Loaded '.count($steps).' steps');
+        Step::log(null, 'dispatcher', 'Loaded '.count($steps).' steps');
 
         $successCount = 0;
         $failureCount = 0;
 
         foreach ($steps as $step) {
-            log_step($step->id, "Transitioning Step #{$step->id} from {$step->state} to {$toState} via state machine");
+            Step::log($step->id, 'job', "Transitioning Step #{$step->id} from {$step->state} to {$toState} via state machine");
 
             try {
                 // Use proper state transition - triggers transition class handle() and observers
                 $step->state->transitionTo($toState);
-                log_step($step->id, "✓ Step #{$step->id} successfully transitioned to {$toState}");
+                Step::log($step->id, 'job', "✓ Step #{$step->id} successfully transitioned to {$toState}");
                 $successCount++;
             } catch (\Exception $e) {
-                log_step($step->id, "✗ Step #{$step->id} transition FAILED: {$e->getMessage()}");
-                log_step($step->id, "  └─ Current state: {$step->state} | Target state: {$toState}");
+                Step::log($step->id, 'job', "✗ Step #{$step->id} transition FAILED: {$e->getMessage()}");
+                Step::log($step->id, 'job', "  └─ Current state: {$step->state} | Target state: {$toState}");
                 $failureCount++;
                 // Log but continue - don't fail entire batch due to one invalid transition
             }
         }
 
-        log_step('dispatcher', '✓ Batch transition complete:');
-        log_step('dispatcher', "  - Succeeded: {$successCount} steps");
-        log_step('dispatcher', "  - Failed: {$failureCount} steps");
-        log_step('dispatcher', '╚═══════════════════════════════════════════════════════════╝');
+        Step::log(null, 'dispatcher', '✓ Batch transition complete:');
+        Step::log(null, 'dispatcher', "  - Succeeded: {$successCount} steps");
+        Step::log(null, 'dispatcher', "  - Failed: {$failureCount} steps");
+        Step::log(null, 'dispatcher', '╚═══════════════════════════════════════════════════════════╝');
     }
 
     /**
@@ -792,11 +792,11 @@ final class StepDispatcher
      */
     public static function canSafelyRestart(?string $group = null): bool
     {
-        log_step('dispatcher', '╔══════════════════════════════════════════════════════════════╗');
-        log_step('dispatcher', '║         CHECKING IF SAFE TO RESTART HORIZON              ║');
-        log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-        log_step('dispatcher', 'Group filter: '.($group ?? 'null (all groups)'));
-        log_step('dispatcher', 'Only checking non-coolable non-parent steps (actual workers)');
+        Step::log(null, 'dispatcher', '╔══════════════════════════════════════════════════════════════╗');
+        Step::log(null, 'dispatcher', '║         CHECKING IF SAFE TO RESTART HORIZON              ║');
+        Step::log(null, 'dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+        Step::log(null, 'dispatcher', 'Group filter: '.($group ?? 'null (all groups)'));
+        Step::log(null, 'dispatcher', 'Only checking non-coolable non-parent steps (actual workers)');
 
         // 1. Check for non-coolable Running non-parent steps (actively executing critical work)
         $runningCount = Step::where('state', Running::class)
@@ -805,21 +805,21 @@ final class StepDispatcher
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
             ->count();
 
-        log_step('dispatcher', '');
-        log_step('dispatcher', '1️⃣ NON-COOLABLE RUNNING STEPS CHECK (non-parent only):');
-        log_step('dispatcher', '   Found '.$runningCount.' non-coolable Running steps');
+        Step::log(null, 'dispatcher', '');
+        Step::log(null, 'dispatcher', '1️⃣ NON-COOLABLE RUNNING STEPS CHECK (non-parent only):');
+        Step::log(null, 'dispatcher', '   Found '.$runningCount.' non-coolable Running steps');
 
         if ($runningCount > 0) {
-            log_step('dispatcher', '   ❌ UNSAFE: Still have '.$runningCount.' non-coolable steps actively running');
-            log_step('dispatcher', '   → Wait for these to complete before restarting');
-            log_step('dispatcher', '');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-            log_step('dispatcher', '🔴 RESULT: NOT SAFE TO RESTART ('.$runningCount.' non-coolable running)');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', '   ❌ UNSAFE: Still have '.$runningCount.' non-coolable steps actively running');
+            Step::log(null, 'dispatcher', '   → Wait for these to complete before restarting');
+            Step::log(null, 'dispatcher', '');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', '🔴 RESULT: NOT SAFE TO RESTART ('.$runningCount.' non-coolable running)');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
             return false;
         }
-        log_step('dispatcher', '   ✅ No non-coolable Running steps (good)');
+        Step::log(null, 'dispatcher', '   ✅ No non-coolable Running steps (good)');
 
         // 2. Check for non-coolable Dispatched non-parent steps (about to execute)
         $dispatchedCount = Step::where('state', 'Martingalian\\Core\\States\\Dispatched')
@@ -828,33 +828,33 @@ final class StepDispatcher
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
             ->count();
 
-        log_step('dispatcher', '');
-        log_step('dispatcher', '2️⃣ NON-COOLABLE DISPATCHED STEPS CHECK (non-parent only):');
-        log_step('dispatcher', '   Found '.$dispatchedCount.' non-coolable Dispatched steps');
+        Step::log(null, 'dispatcher', '');
+        Step::log(null, 'dispatcher', '2️⃣ NON-COOLABLE DISPATCHED STEPS CHECK (non-parent only):');
+        Step::log(null, 'dispatcher', '   Found '.$dispatchedCount.' non-coolable Dispatched steps');
 
         if ($dispatchedCount > 0) {
-            log_step('dispatcher', '   ⚠️  WARNING: '.$dispatchedCount.' non-coolable steps in Dispatched state');
-            log_step('dispatcher', '   → These are about to execute - wait for them to complete');
-            log_step('dispatcher', '');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-            log_step('dispatcher', '🟡 RESULT: NOT SAFE TO RESTART ('.$dispatchedCount.' non-coolable dispatched)');
-            log_step('dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', '   ⚠️  WARNING: '.$dispatchedCount.' non-coolable steps in Dispatched state');
+            Step::log(null, 'dispatcher', '   → These are about to execute - wait for them to complete');
+            Step::log(null, 'dispatcher', '');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+            Step::log(null, 'dispatcher', '🟡 RESULT: NOT SAFE TO RESTART ('.$dispatchedCount.' non-coolable dispatched)');
+            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
             return false;
         }
-        log_step('dispatcher', '   ✅ No non-coolable Dispatched steps (good)');
+        Step::log(null, 'dispatcher', '   ✅ No non-coolable Dispatched steps (good)');
 
         // All checks passed!
-        log_step('dispatcher', '');
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '✅ ALL CHECKS PASSED - SAFE TO RESTART HORIZON!');
-        log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '');
-        log_step('dispatcher', 'You can now safely:');
-        log_step('dispatcher', '  1. Stop Horizon/supervisors');
-        log_step('dispatcher', '  2. Deploy new code');
-        log_step('dispatcher', '  3. Restart Horizon/supervisors');
-        log_step('dispatcher', '');
+        Step::log(null, 'dispatcher', '');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '✅ ALL CHECKS PASSED - SAFE TO RESTART HORIZON!');
+        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        Step::log(null, 'dispatcher', '');
+        Step::log(null, 'dispatcher', 'You can now safely:');
+        Step::log(null, 'dispatcher', '  1. Stop Horizon/supervisors');
+        Step::log(null, 'dispatcher', '  2. Deploy new code');
+        Step::log(null, 'dispatcher', '  3. Restart Horizon/supervisors');
+        Step::log(null, 'dispatcher', '');
 
         return true;
     }

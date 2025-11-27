@@ -59,4 +59,9 @@ final class CoinmarketCapThrottler extends BaseApiThrottler
     {
         return 'coinmarketcap_throttler';
     }
+
+    public static function getThrottleLogType(): string
+    {
+        return 'throttling';
+    }
 }

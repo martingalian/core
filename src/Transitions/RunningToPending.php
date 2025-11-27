@@ -19,36 +19,36 @@ final class RunningToPending extends Transition
 
     public function canTransition(): bool
     {
-        log_step($this->step->id, '→→→ RunningToPending::canTransition() called');
-        log_step($this->step->id, 'Always returns TRUE (no restrictions)');
+        Step::log($this->step->id, 'transition', '→→→ RunningToPending::canTransition() called');
+        Step::log($this->step->id, 'transition', 'Always returns TRUE (no restrictions)');
         return true;
     }
 
     public function handle(): Step
     {
-        log_step($this->step->id, '╔═══════════════════════════════════════════════════════════╗');
-        log_step($this->step->id, '║   RunningToPending::handle() - RETRY TRANSITION          ║');
-        log_step($this->step->id, '╚═══════════════════════════════════════════════════════════╝');
+        Step::log($this->step->id, 'transition', '╔═══════════════════════════════════════════════════════════╗');
+        Step::log($this->step->id, 'transition', '║   RunningToPending::handle() - RETRY TRANSITION          ║');
+        Step::log($this->step->id, 'transition', '╚═══════════════════════════════════════════════════════════╝');
 
-        log_step($this->step->id, 'BEFORE INCREMENT:');
-        log_step($this->step->id, '  - Current retries: '.$this->step->retries);
-        log_step($this->step->id, '  - Current state: '.$this->step->state);
-        log_step($this->step->id, '  - is_throttled flag: '.($this->step->is_throttled ? 'true' : 'false'));
+        Step::log($this->step->id, 'transition', 'BEFORE INCREMENT:');
+        Step::log($this->step->id, 'transition', '  - Current retries: '.$this->step->retries);
+        Step::log($this->step->id, 'transition', '  - Current state: '.$this->step->state);
+        Step::log($this->step->id, 'transition', '  - is_throttled flag: '.($this->step->is_throttled ? 'true' : 'false'));
 
         // Conditionally increment retry count based on is_throttled flag
         if ($this->step->is_throttled) {
-            log_step($this->step->id, '⚠️ THROTTLE DETECTED - SKIPPING RETRY INCREMENT');
-            log_step($this->step->id, '   → is_throttled = true');
-            log_step($this->step->id, '   → This is a reschedule, not a retry');
-            log_step($this->step->id, '   → retries will remain: '.$this->step->retries);
+            Step::log($this->step->id, 'transition', '⚠️ THROTTLE DETECTED - SKIPPING RETRY INCREMENT');
+            Step::log($this->step->id, 'transition', '   → is_throttled = true');
+            Step::log($this->step->id, 'transition', '   → This is a reschedule, not a retry');
+            Step::log($this->step->id, 'transition', '   → retries will remain: '.$this->step->retries);
             info_if("[RunningToPending.handle] - Step ID {$this->step->id} is throttled - retries NOT incremented (staying at {$this->step->retries})");
         } else {
-            log_step($this->step->id, '⚠️⚠️⚠️ THIS IS A REAL RETRY - INCREMENTING RETRIES ⚠️⚠️⚠️');
-            log_step($this->step->id, 'Calling increment(\'retries\')...');
+            Step::log($this->step->id, 'transition', '⚠️⚠️⚠️ THIS IS A REAL RETRY - INCREMENTING RETRIES ⚠️⚠️⚠️');
+            Step::log($this->step->id, 'transition', 'Calling increment(\'retries\')...');
             $this->step->increment('retries');
-            log_step($this->step->id, '✓ increment() completed');
-            log_step($this->step->id, 'AFTER INCREMENT:');
-            log_step($this->step->id, '  - New retries value: '.$this->step->retries);
+            Step::log($this->step->id, 'transition', '✓ increment() completed');
+            Step::log($this->step->id, 'transition', 'AFTER INCREMENT:');
+            Step::log($this->step->id, 'transition', '  - New retries value: '.$this->step->retries);
             info_if("[RunningToPending.handle] - Step ID {$this->step->id} retries incremented to ".$this->step->retries);
         }
 
@@ -60,34 +60,34 @@ final class RunningToPending extends Transition
         );
         */
 
-        log_step($this->step->id, 'RESETTING TIMERS:');
-        log_step($this->step->id, '  - Setting started_at = null');
+        Step::log($this->step->id, 'transition', 'RESETTING TIMERS:');
+        Step::log($this->step->id, 'transition', '  - Setting started_at = null');
         $this->step->started_at = null;
-        log_step($this->step->id, '  - Setting completed_at = null');
+        Step::log($this->step->id, 'transition', '  - Setting completed_at = null');
         $this->step->completed_at = null;
-        log_step($this->step->id, '  - Setting duration = 0');
+        Step::log($this->step->id, 'transition', '  - Setting duration = 0');
         $this->step->duration = 0;
-        log_step($this->step->id, '✓ Timers reset complete');
+        Step::log($this->step->id, 'transition', '✓ Timers reset complete');
 
         // Reset the state to Pending
-        log_step($this->step->id, 'CHANGING STATE:');
-        log_step($this->step->id, '  - Old state: '.$this->step->state);
-        log_step($this->step->id, '  - Creating new Pending state object...');
+        Step::log($this->step->id, 'transition', 'CHANGING STATE:');
+        Step::log($this->step->id, 'transition', '  - Old state: '.$this->step->state);
+        Step::log($this->step->id, 'transition', '  - Creating new Pending state object...');
         $this->step->state = new Pending($this->step);
-        log_step($this->step->id, '  - New state: '.$this->step->state);
+        Step::log($this->step->id, 'transition', '  - New state: '.$this->step->state);
 
-        log_step($this->step->id, 'Calling save() to persist changes...');
+        Step::log($this->step->id, 'transition', 'Calling save() to persist changes...');
         $this->step->save();
-        log_step($this->step->id, '✓ save() completed - all changes persisted');
+        Step::log($this->step->id, 'transition', '✓ save() completed - all changes persisted');
 
         info_if("[RunningToPending.handle] Step ID {$this->step->id} transitioned back to Pending (retry) (timers reset).");
 
-        log_step($this->step->id, 'FINAL STATE AFTER TRANSITION:');
-        log_step($this->step->id, '  - State: Pending');
-        log_step($this->step->id, '  - Retries: '.$this->step->retries);
-        log_step($this->step->id, '  - Timers: RESET');
-        log_step($this->step->id, '✓ RunningToPending::handle() completed successfully');
-        log_step($this->step->id, '╚═══════════════════════════════════════════════════════════╝');
+        Step::log($this->step->id, 'transition', 'FINAL STATE AFTER TRANSITION:');
+        Step::log($this->step->id, 'transition', '  - State: Pending');
+        Step::log($this->step->id, 'transition', '  - Retries: '.$this->step->retries);
+        Step::log($this->step->id, 'transition', '  - Timers: RESET');
+        Step::log($this->step->id, 'transition', '✓ RunningToPending::handle() completed successfully');
+        Step::log($this->step->id, 'transition', '╚═══════════════════════════════════════════════════════════╝');
 
         /*
         $this->step->logApplicationEvent(

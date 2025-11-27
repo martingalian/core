@@ -55,4 +55,9 @@ final class TaapiThrottler extends BaseApiThrottler
     {
         return 'taapi_throttler';
     }
+
+    public static function getThrottleLogType(): string
+    {
+        return 'throttling';
+    }
 }

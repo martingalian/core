@@ -6,7 +6,7 @@ namespace Martingalian\Core\Abstracts;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Log;
+use Martingalian\Core\Models\Step;
 
 /**
  * BaseApiThrottler
@@ -37,6 +37,23 @@ abstract class BaseApiThrottler
     abstract protected static function getCacheKeyPrefix(): string;
 
     /**
+     * Returns the log type for throttle logging (e.g., 'throttle_binance', 'throttle_taapi')
+     */
+    abstract public static function getThrottleLogType(): string;
+
+    /**
+     * Log a throttle message for a step.
+     */
+    protected static function throttleLog(int|string|null $stepId, string $message): void
+    {
+        if ($stepId === null) {
+            return;
+        }
+
+        Step::log($stepId, static::getThrottleLogType(), $message);
+    }
+
+    /**
      * Check if we can dispatch a request to the API right now.
      * Returns 0 if we can dispatch immediately.
      * Returns number of seconds to wait if we need to throttle.
@@ -50,22 +67,22 @@ abstract class BaseApiThrottler
         $config = static::getRateLimitConfig();
         $prefix = static::getCacheKeyPrefix();
 
-        throttle_log($stepId, "   └─ {$prefix}::canDispatch() called");
-        throttle_log($stepId, "      ├─ Retry count: {$retryCount}");
-        throttle_log($stepId, "      └─ Account ID: ".($accountId ?? 'null'));
+        static::throttleLog($stepId, "   └─ {$prefix}::canDispatch() called");
+        static::throttleLog($stepId, "      ├─ Retry count: {$retryCount}");
+        static::throttleLog($stepId, "      └─ Account ID: ".($accountId ?? 'null'));
 
         // Check minimum delay between requests (if configured)
         if (isset($config['min_delay_between_requests_ms'])) {
-            throttle_log($stepId, "      [Check] Minimum delay between requests...");
-            throttle_log($stepId, "         └─ Min delay configured: {$config['min_delay_between_requests_ms']}ms");
+            static::throttleLog($stepId, "      [Check] Minimum delay between requests...");
+            static::throttleLog($stepId, "         └─ Min delay configured: {$config['min_delay_between_requests_ms']}ms");
             $secondsToWait = static::checkMinimumDelay($prefix, $config['min_delay_between_requests_ms']);
             if ($secondsToWait > 0) {
-                throttle_log($stepId, "         ❌ THROTTLED by minimum delay");
-                throttle_log($stepId, "            └─ Must wait: {$secondsToWait}s");
+                static::throttleLog($stepId, "         ❌ THROTTLED by minimum delay");
+                static::throttleLog($stepId, "            └─ Must wait: {$secondsToWait}s");
 
                 return $secondsToWait;
             }
-            throttle_log($stepId, "         ✓ Minimum delay check passed");
+            static::throttleLog($stepId, "         ✓ Minimum delay check passed");
         }
 
         // Check requests per window limit
@@ -74,30 +91,30 @@ abstract class BaseApiThrottler
         $safetyThreshold = $config['safety_threshold'] ?? 1.0;
         $effectiveLimit = (int) floor($config['requests_per_window'] * $safetyThreshold);
 
-        throttle_log($stepId, "      [Check] Requests per window limit...");
-        throttle_log($stepId, "         ├─ Window key: {$windowKey}");
-        throttle_log($stepId, "         ├─ Current count: {$currentCount}");
-        throttle_log($stepId, "         ├─ Effective limit: {$effectiveLimit}");
-        throttle_log($stepId, "         ├─ Max requests: {$config['requests_per_window']}");
-        throttle_log($stepId, "         └─ Safety threshold: ".($safetyThreshold * 100).'%');
+        static::throttleLog($stepId, "      [Check] Requests per window limit...");
+        static::throttleLog($stepId, "         ├─ Window key: {$windowKey}");
+        static::throttleLog($stepId, "         ├─ Current count: {$currentCount}");
+        static::throttleLog($stepId, "         ├─ Effective limit: {$effectiveLimit}");
+        static::throttleLog($stepId, "         ├─ Max requests: {$config['requests_per_window']}");
+        static::throttleLog($stepId, "         └─ Safety threshold: ".($safetyThreshold * 100).'%');
 
         $secondsToWait = static::checkWindowLimit($prefix, $config['requests_per_window'], $config['window_seconds'], $safetyThreshold);
 
         if ($secondsToWait > 0) {
-            throttle_log($stepId, "         ❌ THROTTLED by window limit");
-            throttle_log($stepId, "            └─ Must wait: {$secondsToWait}s until window resets");
+            static::throttleLog($stepId, "         ❌ THROTTLED by window limit");
+            static::throttleLog($stepId, "            └─ Must wait: {$secondsToWait}s until window resets");
         } else {
-            throttle_log($stepId, "         ✓ Window limit check passed");
+            static::throttleLog($stepId, "         ✓ Window limit check passed");
         }
 
         // Apply exponential backoff if this is a retry
         if ($retryCount > 0 && $secondsToWait > 0) {
             $exponentialDelay = static::calculateExponentialBackoff($retryCount);
             $secondsToWait += $exponentialDelay;
-            throttle_log($stepId, "      [Backoff] Exponential backoff applied (retry #{$retryCount})");
-            throttle_log($stepId, "         ├─ Base delay: ".($secondsToWait - $exponentialDelay)."s");
-            throttle_log($stepId, "         ├─ Exponential delay: +{$exponentialDelay}s");
-            throttle_log($stepId, "         └─ Total delay: {$secondsToWait}s");
+            static::throttleLog($stepId, "      [Backoff] Exponential backoff applied (retry #{$retryCount})");
+            static::throttleLog($stepId, "         ├─ Base delay: ".($secondsToWait - $exponentialDelay)."s");
+            static::throttleLog($stepId, "         ├─ Exponential delay: +{$exponentialDelay}s");
+            static::throttleLog($stepId, "         └─ Total delay: {$secondsToWait}s");
         }
 
         return $secondsToWait;
@@ -123,11 +140,11 @@ abstract class BaseApiThrottler
         $newCount = $currentCount + 1;
         Cache::put($windowKey, $newCount, $config['window_seconds'] * 2);
 
-        throttle_log($stepId, "   └─ {$prefix}::recordDispatch() called");
-        throttle_log($stepId, "      ├─ Window key: {$windowKey}");
-        throttle_log($stepId, "      ├─ Previous count: {$currentCount}");
-        throttle_log($stepId, "      ├─ New count: {$newCount}");
-        throttle_log($stepId, "      └─ Max requests: {$config['requests_per_window']}");
+        static::throttleLog($stepId, "   └─ {$prefix}::recordDispatch() called");
+        static::throttleLog($stepId, "      ├─ Window key: {$windowKey}");
+        static::throttleLog($stepId, "      ├─ Previous count: {$currentCount}");
+        static::throttleLog($stepId, "      ├─ New count: {$newCount}");
+        static::throttleLog($stepId, "      └─ Max requests: {$config['requests_per_window']}");
     }
 
     /**

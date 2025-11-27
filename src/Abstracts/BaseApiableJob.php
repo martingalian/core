@@ -9,6 +9,7 @@ use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobExceptions;
 use Martingalian\Core\Concerns\BaseApiableJob\HandlesApiJobLifecycle;
 use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Models\ForbiddenHostname;
+use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\Proxies\ApiThrottlerProxy;
 use Throwable;
 
@@ -81,11 +82,9 @@ abstract class BaseApiableJob extends BaseQueueableJob
      */
     protected function shouldStartOrThrottle(): bool
     {
-        $stepId = $this->step->id;
-
-        throttle_log($stepId, "╔═══════════════════════════════════════════════════════════╗");
-        throttle_log($stepId, "║   BaseApiableJob::shouldStartOrThrottle() START          ║");
-        throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
+        $this->throttleLog("╔═══════════════════════════════════════════════════════════╗");
+        $this->throttleLog("║   BaseApiableJob::shouldStartOrThrottle() START          ║");
+        $this->throttleLog("╚═══════════════════════════════════════════════════════════╝");
 
         // Ensure exception handler is assigned before safety checks
         if (! isset($this->exceptionHandler)) {
@@ -93,73 +92,73 @@ abstract class BaseApiableJob extends BaseQueueableJob
         }
 
         // 0. First check exception handler's pre-flight safety check
-        throttle_log($stepId, "[0] Exception handler pre-flight safety check...");
+        $this->throttleLog("[0] Exception handler pre-flight safety check...");
         if (isset($this->exceptionHandler) && ! $this->exceptionHandler->isSafeToMakeRequest()) {
             $this->jobBackoffSeconds = 5; // Default 5 second backoff when not safe
-            throttle_log($stepId, "   ❌ Exception handler says NOT SAFE to make request");
-            throttle_log($stepId, "   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
-            throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
+            $this->throttleLog("   ❌ Exception handler says NOT SAFE to make request");
+            $this->throttleLog("   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
+            $this->throttleLog("╚═══════════════════════════════════════════════════════════╝");
 
             return false; // Not safe - wait and retry
         }
-        throttle_log($stepId, "   ✓ Exception handler says safe to proceed");
+        $this->throttleLog("   ✓ Exception handler says safe to proceed");
 
         // Get throttler for this API system
         $throttler = $this->getThrottlerForApiSystem();
 
         if (! $throttler) {
-            throttle_log($stepId, "[1] No throttler for API system");
-            throttle_log($stepId, "   └─ DECISION: PROCEED (no throttler)");
-            throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
+            $this->throttleLog("[1] No throttler for API system");
+            $this->throttleLog("   └─ DECISION: PROCEED (no throttler)");
+            $this->throttleLog("╚═══════════════════════════════════════════════════════════╝");
 
             return true; // No throttler = proceed
         }
 
         $throttlerClass = class_basename($throttler);
-        throttle_log($stepId, "[1] Throttler found: {$throttlerClass}");
+        $this->throttleLog("[1] Throttler found: {$throttlerClass}");
 
         // Extract account ID for per-account rate limit tracking (e.g., Binance ORDER limits)
         $accountId = $this->exceptionHandler->account?->id;
-        throttle_log($stepId, "   └─ Account ID: ".($accountId ?? 'NULL'));
+        $this->throttleLog("   └─ Account ID: ".($accountId ?? 'NULL'));
 
         // 1. First check IP-based safety (bans, rate limit proximity) if throttler supports it
         if (method_exists($throttler, 'isSafeToDispatch')) {
-            throttle_log($stepId, "[2] Calling {$throttlerClass}::isSafeToDispatch()...");
-            $secondsToWait = $throttler::isSafeToDispatch($accountId, $stepId);
+            $this->throttleLog("[2] Calling {$throttlerClass}::isSafeToDispatch()...");
+            $secondsToWait = $throttler::isSafeToDispatch($accountId, $this->step->id);
 
             if ($secondsToWait > 0) {
                 $this->jobBackoffSeconds = $secondsToWait;
-                throttle_log($stepId, "   ❌ isSafeToDispatch() returned: {$secondsToWait}s");
-                throttle_log($stepId, "   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
-                throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
+                $this->throttleLog("   ❌ isSafeToDispatch() returned: {$secondsToWait}s");
+                $this->throttleLog("   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
+                $this->throttleLog("╚═══════════════════════════════════════════════════════════╝");
 
                 return false; // Not safe - wait and retry
             }
 
-            throttle_log($stepId, "   ✓ isSafeToDispatch() returned: 0s (safe to proceed)");
+            $this->throttleLog("   ✓ isSafeToDispatch() returned: 0s (safe to proceed)");
         } else {
-            throttle_log($stepId, "[2] Throttler does not support isSafeToDispatch() - skipping");
+            $this->throttleLog("[2] Throttler does not support isSafeToDispatch() - skipping");
         }
 
         // 2. Then check standard throttling (rate limits, min delays, etc.)
         $retryCount = $this->step->retries ?? 0;
-        throttle_log($stepId, "[3] Calling {$throttlerClass}::canDispatch()...");
-        throttle_log($stepId, "   ├─ Retry count: {$retryCount}");
-        throttle_log($stepId, "   └─ Account ID: ".($accountId ?? 'NULL'));
-        $secondsToWait = $throttler::canDispatch($retryCount, $accountId, $stepId);
+        $this->throttleLog("[3] Calling {$throttlerClass}::canDispatch()...");
+        $this->throttleLog("   ├─ Retry count: {$retryCount}");
+        $this->throttleLog("   └─ Account ID: ".($accountId ?? 'NULL'));
+        $secondsToWait = $throttler::canDispatch($retryCount, $accountId, $this->step->id);
 
         if ($secondsToWait > 0) {
             $this->jobBackoffSeconds = $secondsToWait;
-            throttle_log($stepId, "   ❌ canDispatch() returned: {$secondsToWait}s");
-            throttle_log($stepId, "   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
-            throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
+            $this->throttleLog("   ❌ canDispatch() returned: {$secondsToWait}s");
+            $this->throttleLog("   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
+            $this->throttleLog("╚═══════════════════════════════════════════════════════════╝");
 
             return false; // Throttled - retry
         }
 
-        throttle_log($stepId, "   ✓ canDispatch() returned: 0s (proceed)");
-        throttle_log($stepId, "└─ DECISION: PROCEED");
-        throttle_log($stepId, "╚═══════════════════════════════════════════════════════════╝");
+        $this->throttleLog("   ✓ canDispatch() returned: 0s (proceed)");
+        $this->throttleLog("└─ DECISION: PROCEED");
+        $this->throttleLog("╚═══════════════════════════════════════════════════════════╝");
 
         return true; // OK to proceed
     }
@@ -177,6 +176,23 @@ abstract class BaseApiableJob extends BaseQueueableJob
         $apiSystem = $this->exceptionHandler->getApiSystem();
 
         return ApiThrottlerProxy::getThrottler($apiSystem);
+    }
+
+    /**
+     * Log a throttle message for this step using the API-specific log type.
+     */
+    protected function throttleLog(string $message): void
+    {
+        $throttler = $this->getThrottlerForApiSystem();
+
+        if ($throttler && method_exists($throttler, 'getThrottleLogType')) {
+            $logType = $throttler::getThrottleLogType();
+        } else {
+            // Fallback to job log if no throttler
+            $logType = 'job';
+        }
+
+        Step::log($this->step->id, $logType, $message);
     }
 
     /**

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Abstracts\StepStatus;
 use Martingalian\Core\Concerns\Step\HasActions;
+use Martingalian\Core\Concerns\Step\HasStepLogging;
 use Martingalian\Core\States\Cancelled;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
@@ -50,7 +51,7 @@ use Spatie\ModelStates\HasStates;
  */
 final class Step extends BaseModel
 {
-    use HasActions, HasFactory, HasStates;
+    use HasActions, HasFactory, HasStates, HasStepLogging;
 
     protected $guarded = [];
 
@@ -269,14 +270,14 @@ final class Step extends BaseModel
 
     public function childStepsAreConcludedFromMap($childStepsByBlock): bool
     {
-        log_step($this->id, "➡️ [Step.childStepsAreConcludedFromMap] START check for parent ID {$this->id} / child_block_uuid: {$this->child_block_uuid}");
+        Step::log($this->id, 'job', "➡️ [Step.childStepsAreConcludedFromMap] START check for parent ID {$this->id} / child_block_uuid: {$this->child_block_uuid}");
 
         // Accept either array-accessible or Collection maps.
         $children = $childStepsByBlock[$this->child_block_uuid]
         ?? (method_exists($childStepsByBlock, 'get') ? $childStepsByBlock->get($this->child_block_uuid) : null);
 
         if (empty($children)) {
-            log_step($this->id, "⛔ [Step.childStepsAreConcludedFromMap] No children found for block {$this->child_block_uuid}, returning FALSE.");
+            Step::log($this->id, 'job', "⛔ [Step.childStepsAreConcludedFromMap] No children found for block {$this->child_block_uuid}, returning FALSE.");
 
             return false;
         }
@@ -286,31 +287,31 @@ final class Step extends BaseModel
             $children = collect($children);
         }
 
-        log_step($this->id, '[Step.childStepsAreConcludedFromMap] 🔍 Found '.$children->count()." children for block {$this->child_block_uuid}");
+        Step::log($this->id, 'job', '[Step.childStepsAreConcludedFromMap] 🔍 Found '.$children->count()." children for block {$this->child_block_uuid}");
 
         foreach ($children as $child) {
             $stateClass = get_class($child->state);
-            log_step($child->id, "[Step.childStepsAreConcludedFromMap] 🧒 Child ID {$child->id} | State: ".class_basename($stateClass));
+            Step::log($child->id, 'job', "[Step.childStepsAreConcludedFromMap] 🧒 Child ID {$child->id} | State: ".class_basename($stateClass));
 
             if (! in_array($stateClass, $this->concludedStepStates(), true)) {
-                log_step($child->id, "[Step.childStepsAreConcludedFromMap] ❌ Child ID {$child->id} is NOT in concluded states. Returning FALSE.");
+                Step::log($child->id, 'job', "[Step.childStepsAreConcludedFromMap] ❌ Child ID {$child->id} is NOT in concluded states. Returning FALSE.");
 
                 return false;
             }
 
             if ($child->isParent()) {
-                log_step($child->id, "[Step.childStepsAreConcludedFromMap] 🔁 Child ID {$child->id} is a parent. Recursing into its children.");
+                Step::log($child->id, 'job', "[Step.childStepsAreConcludedFromMap] 🔁 Child ID {$child->id} is a parent. Recursing into its children.");
                 $recurse = $child->childStepsAreConcludedFromMap($childStepsByBlock);
-                log_step($child->id, "[Step.childStepsAreConcludedFromMap] 🔁 Recursion result for child ID {$child->id}: ".($recurse ? '✅ TRUE' : '❌ FALSE'));
+                Step::log($child->id, 'job', "[Step.childStepsAreConcludedFromMap] 🔁 Recursion result for child ID {$child->id}: ".($recurse ? '✅ TRUE' : '❌ FALSE'));
                 if (! $recurse) {
-                    log_step($child->id, "[Step.childStepsAreConcludedFromMap] ⛔ Recursion failed for child ID {$child->id}. Returning FALSE.");
+                    Step::log($child->id, 'job', "[Step.childStepsAreConcludedFromMap] ⛔ Recursion failed for child ID {$child->id}. Returning FALSE.");
 
                     return false;
                 }
             }
         }
 
-        log_step($this->id, "[Step.childStepsAreConcludedFromMap] ✅ All children (and grandchildren) of parent ID {$this->id} are concluded. Returning TRUE.");
+        Step::log($this->id, 'job', "[Step.childStepsAreConcludedFromMap] ✅ All children (and grandchildren) of parent ID {$this->id} are concluded. Returning TRUE.");
 
         return true;
     }

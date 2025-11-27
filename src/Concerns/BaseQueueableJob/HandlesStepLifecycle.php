@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Log;
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
+use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Skipped;
@@ -28,140 +29,188 @@ trait HandlesStepLifecycle
 
     public function stopJob(): void
     {
+        if (config('martingalian.logging.lifecycle_logging_enabled', true)) {
+            $stepId = $this->step->id;
+            Step::log($stepId, 'job', '═══════════════════════════════════');
+            Step::log($stepId, 'job', '→→→ STOP-JOB START ←←←');
+            Step::log($stepId, 'job', '═══════════════════════════════════');
+            Step::log($stepId, 'job', 'BEFORE STOP:');
+            Step::log($stepId, 'job', '  - Current state: '.$this->step->state);
+            Step::log($stepId, 'job', '  - Current retries: '.$this->step->retries);
+            Step::log($stepId, 'job', '  - Job class: '.class_basename($this));
+            Step::log($stepId, 'job', '  - Duration so far: '.round((microtime(true) - $this->startMicrotime) * 1000, 2).'ms');
+        }
+
         $this->finalizeDuration();
         $this->step->state->transitionTo(Stopped::class);
         $this->stepStatusUpdated = true;
+
+        if (config('martingalian.logging.lifecycle_logging_enabled', true)) {
+            $freshStep = $this->step->fresh();
+            Step::log($this->step->id, 'job', 'AFTER STOP (refreshed from DB):');
+            Step::log($this->step->id, 'job', '  - Fresh state: '.$freshStep->state);
+            Step::log($this->step->id, 'job', '  - Fresh duration: '.$freshStep->duration.'ms');
+            Step::log($this->step->id, 'job', '  - stepStatusUpdated set to: true');
+            Step::log($this->step->id, 'job', '✓ Job stopped successfully');
+            Step::log($this->step->id, 'job', '═══════════════════════════════════');
+            Step::log($this->step->id, 'job', '→→→ STOP-JOB END ←←←');
+            Step::log($this->step->id, 'job', '═══════════════════════════════════');
+        }
     }
 
     public function skipJob(): void
     {
+        if (config('martingalian.logging.lifecycle_logging_enabled', true)) {
+            $stepId = $this->step->id;
+            Step::log($stepId, 'job', '═══════════════════════════════════');
+            Step::log($stepId, 'job', '→→→ SKIP-JOB START ←←←');
+            Step::log($stepId, 'job', '═══════════════════════════════════');
+            Step::log($stepId, 'job', 'BEFORE SKIP:');
+            Step::log($stepId, 'job', '  - Current state: '.$this->step->state);
+            Step::log($stepId, 'job', '  - Current retries: '.$this->step->retries);
+            Step::log($stepId, 'job', '  - Job class: '.class_basename($this));
+            Step::log($stepId, 'job', '  - Duration so far: '.round((microtime(true) - $this->startMicrotime) * 1000, 2).'ms');
+        }
+
         $this->finalizeDuration();
         $this->step->state->transitionTo(Skipped::class);
         $this->stepStatusUpdated = true;
+
+        if (config('martingalian.logging.lifecycle_logging_enabled', true)) {
+            $freshStep = $this->step->fresh();
+            Step::log($this->step->id, 'job', 'AFTER SKIP (refreshed from DB):');
+            Step::log($this->step->id, 'job', '  - Fresh state: '.$freshStep->state);
+            Step::log($this->step->id, 'job', '  - Fresh duration: '.$freshStep->duration.'ms');
+            Step::log($this->step->id, 'job', '  - stepStatusUpdated set to: true');
+            Step::log($this->step->id, 'job', '✓ Job skipped successfully');
+            Step::log($this->step->id, 'job', '═══════════════════════════════════');
+            Step::log($this->step->id, 'job', '→→→ SKIP-JOB END ←←←');
+            Step::log($this->step->id, 'job', '═══════════════════════════════════');
+        }
     }
 
     public function retryJob(Carbon|CarbonImmutable|null $dispatchAfter = null): void
     {
         $stepId = $this->step->id;
-        log_step($stepId, "═══════════════════════════════════");
-        log_step($stepId, "→→→ RETRY-JOB START ←←←");
-        log_step($stepId, "═══════════════════════════════════");
+        Step::log($stepId, 'job', "═══════════════════════════════════");
+        Step::log($stepId, 'job', "→→→ RETRY-JOB START ←←←");
+        Step::log($stepId, 'job', "═══════════════════════════════════");
 
         $dispatchTime = $dispatchAfter ?? now()->addSeconds($this->jobBackoffSeconds);
 
-        log_step($stepId, "BEFORE RETRY:");
-        log_step($stepId, "  - Current state: {$this->step->state}");
-        log_step($stepId, "  - Current retries: {$this->step->retries}");
-        log_step($stepId, "  - Backoff seconds: {$this->jobBackoffSeconds}");
-        log_step($stepId, "  - Dispatch after: {$dispatchTime->format('Y-m-d H:i:s')}");
-        log_step($stepId, "  - Priority: {$this->step->priority}");
-        log_step($stepId, "  - Job class: ".class_basename($this));
+        Step::log($stepId, 'job', "BEFORE RETRY:");
+        Step::log($stepId, 'job', "  - Current state: {$this->step->state}");
+        Step::log($stepId, 'job', "  - Current retries: {$this->step->retries}");
+        Step::log($stepId, 'job', "  - Backoff seconds: {$this->jobBackoffSeconds}");
+        Step::log($stepId, 'job', "  - Dispatch after: {$dispatchTime->format('Y-m-d H:i:s')}");
+        Step::log($stepId, 'job', "  - Priority: {$this->step->priority}");
+        Step::log($stepId, 'job', "  - Job class: ".class_basename($this));
 
         // Check if step should be escalated to high priority
         if (method_exists($this, 'shouldChangeToHighPriority') && $this->shouldChangeToHighPriority() === true) {
-            log_step($stepId, "⬆️ ESCALATING to high priority");
+            Step::log($stepId, 'job', "⬆️ ESCALATING to high priority");
             $this->step->update(['priority' => 'high']);
-            log_step($stepId, "  - Priority updated to: high");
+            Step::log($stepId, 'job', "  - Priority updated to: high");
         } else {
-            log_step($stepId, "  - No priority escalation needed");
+            Step::log($stepId, 'job', "  - No priority escalation needed");
         }
 
-        log_step($stepId, "UPDATING dispatch_after AND CLEARING THROTTLE FLAG:");
-        log_step($stepId, "  - Setting dispatch_after to: {$dispatchTime}");
-        log_step($stepId, "  - Setting is_throttled = false (this is a REAL retry, not a throttle)");
+        Step::log($stepId, 'job', "UPDATING dispatch_after AND CLEARING THROTTLE FLAG:");
+        Step::log($stepId, 'job', "  - Setting dispatch_after to: {$dispatchTime}");
+        Step::log($stepId, 'job', "  - Setting is_throttled = false (this is a REAL retry, not a throttle)");
         $this->step->update([
             'dispatch_after' => $dispatchTime,
             'is_throttled' => false,  // Ensure transition WILL increment retries
         ]);
-        log_step($stepId, "  - dispatch_after and is_throttled updated successfully");
+        Step::log($stepId, 'job', "  - dispatch_after and is_throttled updated successfully");
 
-        log_step($stepId, "CALLING transitionTo(Pending::class)...");
-        log_step($stepId, "  - This WILL increment retries via RunningToPending transition");
-        log_step($stepId, "  - is_throttled = false, so transition will increment retries");
-        log_step($stepId, "  - Current state: {$this->step->state} → Target state: Pending");
+        Step::log($stepId, 'job', "CALLING transitionTo(Pending::class)...");
+        Step::log($stepId, 'job', "  - This WILL increment retries via RunningToPending transition");
+        Step::log($stepId, 'job', "  - is_throttled = false, so transition will increment retries");
+        Step::log($stepId, 'job', "  - Current state: {$this->step->state} → Target state: Pending");
         $this->step->state->transitionTo(Pending::class);
-        log_step($stepId, "  - transitionTo() completed");
+        Step::log($stepId, 'job', "  - transitionTo() completed");
 
         $freshStep = $this->step->fresh();
-        log_step($stepId, "AFTER RETRY (refreshed from DB):");
-        log_step($stepId, "  - Fresh state: {$freshStep->state}");
-        log_step($stepId, "  - Fresh retries: {$freshStep->retries} ← SHOULD BE INCREMENTED");
-        log_step($stepId, "  - Fresh dispatch_after: {$freshStep->dispatch_after}");
-        log_step($stepId, "  - Fresh priority: {$freshStep->priority}");
+        Step::log($stepId, 'job', "AFTER RETRY (refreshed from DB):");
+        Step::log($stepId, 'job', "  - Fresh state: {$freshStep->state}");
+        Step::log($stepId, 'job', "  - Fresh retries: {$freshStep->retries} ← SHOULD BE INCREMENTED");
+        Step::log($stepId, 'job', "  - Fresh dispatch_after: {$freshStep->dispatch_after}");
+        Step::log($stepId, 'job', "  - Fresh priority: {$freshStep->priority}");
 
         $this->stepStatusUpdated = true;
-        log_step($stepId, "  - stepStatusUpdated set to: true");
-        log_step($stepId, "═══════════════════════════════════");
-        log_step($stepId, "→→→ RETRY-JOB END ←←←");
-        log_step($stepId, "═══════════════════════════════════");
+        Step::log($stepId, 'job', "  - stepStatusUpdated set to: true");
+        Step::log($stepId, 'job', "═══════════════════════════════════");
+        Step::log($stepId, 'job', "→→→ RETRY-JOB END ←←←");
+        Step::log($stepId, 'job', "═══════════════════════════════════");
     }
 
     public function rescheduleWithoutRetry(Carbon|CarbonImmutable|null $dispatchAfter = null): void
     {
         $stepId = $this->step->id;
-        log_step($stepId, "═════════════════════════════════════════════");
-        log_step($stepId, "→→→ RESCHEDULE-WITHOUT-RETRY START ←←←");
-        log_step($stepId, "═════════════════════════════════════════════");
+        Step::log($stepId, 'job', "═════════════════════════════════════════════");
+        Step::log($stepId, 'job', "→→→ RESCHEDULE-WITHOUT-RETRY START ←←←");
+        Step::log($stepId, 'job', "═════════════════════════════════════════════");
 
         $dispatchTime = $dispatchAfter ?? now()->addSeconds($this->jobBackoffSeconds);
 
-        log_step($stepId, "BEFORE RESCHEDULE:");
-        log_step($stepId, "  - Current state: {$this->step->state}");
-        log_step($stepId, "  - Current retries: {$this->step->retries}");
-        log_step($stepId, "  - Backoff seconds: {$this->jobBackoffSeconds}");
-        log_step($stepId, "  - Dispatch after: {$dispatchTime->format('Y-m-d H:i:s')}");
-        log_step($stepId, "  - Priority: {$this->step->priority}");
-        log_step($stepId, "  - Job class: ".class_basename($this));
+        Step::log($stepId, 'job', "BEFORE RESCHEDULE:");
+        Step::log($stepId, 'job', "  - Current state: {$this->step->state}");
+        Step::log($stepId, 'job', "  - Current retries: {$this->step->retries}");
+        Step::log($stepId, 'job', "  - Backoff seconds: {$this->jobBackoffSeconds}");
+        Step::log($stepId, 'job', "  - Dispatch after: {$dispatchTime->format('Y-m-d H:i:s')}");
+        Step::log($stepId, 'job', "  - Priority: {$this->step->priority}");
+        Step::log($stepId, 'job', "  - Job class: ".class_basename($this));
 
         // Check if step should be escalated to high priority
         if (method_exists($this, 'shouldChangeToHighPriority') && $this->shouldChangeToHighPriority() === true) {
-            log_step($stepId, "⬆️ ESCALATING to high priority");
+            Step::log($stepId, 'job', "⬆️ ESCALATING to high priority");
             $this->step->update(['priority' => 'high']);
-            log_step($stepId, "  - Priority updated to: high");
+            Step::log($stepId, 'job', "  - Priority updated to: high");
         } else {
-            log_step($stepId, "  - No priority escalation needed");
+            Step::log($stepId, 'job', "  - No priority escalation needed");
         }
 
         // Set dispatch_after and throttling flags BEFORE transition
-        log_step($stepId, "SETTING DISPATCH AND THROTTLE FLAGS:");
-        log_step($stepId, "  - Setting dispatch_after = {$dispatchTime}");
+        Step::log($stepId, 'job', "SETTING DISPATCH AND THROTTLE FLAGS:");
+        Step::log($stepId, 'job', "  - Setting dispatch_after = {$dispatchTime}");
         $this->step->dispatch_after = $dispatchTime;
-        log_step($stepId, "  - Setting was_throttled = true (historical marker)");
+        Step::log($stepId, 'job', "  - Setting was_throttled = true (historical marker)");
         $this->step->was_throttled = true;  // Historical: step has been throttled at least once
-        log_step($stepId, "  - Setting is_throttled = true (currently throttled)");
+        Step::log($stepId, 'job', "  - Setting is_throttled = true (currently throttled)");
         $this->step->is_throttled = true;   // Current: step is currently waiting due to throttling
 
-        log_step($stepId, "  - Saving flags to database before transition...");
+        Step::log($stepId, 'job', "  - Saving flags to database before transition...");
         $this->step->save();
-        log_step($stepId, "  - Flags saved successfully");
+        Step::log($stepId, 'job', "  - Flags saved successfully");
 
         // Use proper transition! The is_throttled flag signals to NOT increment retries
-        log_step($stepId, "⚠️⚠️⚠️ USING PROPER TRANSITION: Running → Pending ⚠️⚠️⚠️");
-        log_step($stepId, "  - Calling state->transitionTo(Pending::class)");
-        log_step($stepId, "  - This will use RunningToPending transition");
-        log_step($stepId, "  - Transition will check is_throttled flag");
-        log_step($stepId, "  - Since is_throttled = true, retries will NOT increment");
-        log_step($stepId, "  - Old state: {$this->step->state}");
+        Step::log($stepId, 'job', "⚠️⚠️⚠️ USING PROPER TRANSITION: Running → Pending ⚠️⚠️⚠️");
+        Step::log($stepId, 'job', "  - Calling state->transitionTo(Pending::class)");
+        Step::log($stepId, 'job', "  - This will use RunningToPending transition");
+        Step::log($stepId, 'job', "  - Transition will check is_throttled flag");
+        Step::log($stepId, 'job', "  - Since is_throttled = true, retries will NOT increment");
+        Step::log($stepId, 'job', "  - Old state: {$this->step->state}");
 
         $this->step->state->transitionTo(Pending::class);
 
-        log_step($stepId, "  - transitionTo() completed successfully");
-        log_step($stepId, "  - New state: {$this->step->state}");
+        Step::log($stepId, 'job', "  - transitionTo() completed successfully");
+        Step::log($stepId, 'job', "  - New state: {$this->step->state}");
 
         $freshStep = $this->step->fresh();
-        log_step($stepId, "AFTER RESCHEDULE (refreshed from DB):");
-        log_step($stepId, "  - Fresh state: {$freshStep->state}");
-        log_step($stepId, "  - Fresh retries: {$freshStep->retries} ← SHOULD BE UNCHANGED!");
-        log_step($stepId, "  - Fresh was_throttled: {$freshStep->was_throttled}");
-        log_step($stepId, "  - Fresh is_throttled: {$freshStep->is_throttled}");
-        log_step($stepId, "  - Fresh dispatch_after: {$freshStep->dispatch_after}");
-        log_step($stepId, "  - Fresh priority: {$freshStep->priority}");
+        Step::log($stepId, 'job', "AFTER RESCHEDULE (refreshed from DB):");
+        Step::log($stepId, 'job', "  - Fresh state: {$freshStep->state}");
+        Step::log($stepId, 'job', "  - Fresh retries: {$freshStep->retries} ← SHOULD BE UNCHANGED!");
+        Step::log($stepId, 'job', "  - Fresh was_throttled: {$freshStep->was_throttled}");
+        Step::log($stepId, 'job', "  - Fresh is_throttled: {$freshStep->is_throttled}");
+        Step::log($stepId, 'job', "  - Fresh dispatch_after: {$freshStep->dispatch_after}");
+        Step::log($stepId, 'job', "  - Fresh priority: {$freshStep->priority}");
 
         $this->stepStatusUpdated = true;
-        log_step($stepId, "  - stepStatusUpdated set to: true");
-        log_step($stepId, "═════════════════════════════════════════════");
-        log_step($stepId, "→→→ RESCHEDULE-WITHOUT-RETRY END ←←←");
-        log_step($stepId, "═════════════════════════════════════════════");
+        Step::log($stepId, 'job', "  - stepStatusUpdated set to: true");
+        Step::log($stepId, 'job', "═════════════════════════════════════════════");
+        Step::log($stepId, 'job', "→→→ RESCHEDULE-WITHOUT-RETRY END ←←←");
+        Step::log($stepId, 'job', "═════════════════════════════════════════════");
     }
 
     public function retryForConfirmation(): void
@@ -300,12 +349,47 @@ trait HandlesStepLifecycle
     protected function completeIfNotHandled(): void
     {
         if ($this->stepStatusUpdated) {
+            if (config('martingalian.logging.lifecycle_logging_enabled', true)) {
+                Step::log($this->step->id, 'job', '═══════════════════════════════════');
+                Step::log($this->step->id, 'job', '→→→ COMPLETE-IF-NOT-HANDLED (SKIPPED) ←←←');
+                Step::log($this->step->id, 'job', '═══════════════════════════════════');
+                Step::log($this->step->id, 'job', '⚠️ stepStatusUpdated is already TRUE - skipping completion');
+                Step::log($this->step->id, 'job', '  - Current state: '.$this->step->state);
+                Step::log($this->step->id, 'job', '  - This means the step was already transitioned by another method');
+                Step::log($this->step->id, 'job', '═══════════════════════════════════');
+            }
+
             return;
+        }
+
+        if (config('martingalian.logging.lifecycle_logging_enabled', true)) {
+            $stepId = $this->step->id;
+            Step::log($stepId, 'job', '═══════════════════════════════════');
+            Step::log($stepId, 'job', '→→→ COMPLETE-IF-NOT-HANDLED START ←←←');
+            Step::log($stepId, 'job', '═══════════════════════════════════');
+            Step::log($stepId, 'job', 'BEFORE COMPLETE:');
+            Step::log($stepId, 'job', '  - Current state: '.$this->step->state);
+            Step::log($stepId, 'job', '  - Current retries: '.$this->step->retries);
+            Step::log($stepId, 'job', '  - Job class: '.class_basename($this));
+            Step::log($stepId, 'job', '  - Duration so far: '.round((microtime(true) - $this->startMicrotime) * 1000, 2).'ms');
+            Step::log($stepId, 'job', '  - stepStatusUpdated: false (will be set to true)');
         }
 
         $this->finalizeDuration();
         $this->step->state->transitionTo(Completed::class);
         $this->stepStatusUpdated = true;
+
+        if (config('martingalian.logging.lifecycle_logging_enabled', true)) {
+            $freshStep = $this->step->fresh();
+            Step::log($this->step->id, 'job', 'AFTER COMPLETE (refreshed from DB):');
+            Step::log($this->step->id, 'job', '  - Fresh state: '.$freshStep->state);
+            Step::log($this->step->id, 'job', '  - Fresh duration: '.$freshStep->duration.'ms');
+            Step::log($this->step->id, 'job', '  - stepStatusUpdated set to: true');
+            Step::log($this->step->id, 'job', '✓ Job completed successfully');
+            Step::log($this->step->id, 'job', '═══════════════════════════════════');
+            Step::log($this->step->id, 'job', '→→→ COMPLETE-IF-NOT-HANDLED END ←←←');
+            Step::log($this->step->id, 'job', '═══════════════════════════════════');
+        }
     }
 
     // ========================================================================
@@ -314,14 +398,64 @@ trait HandlesStepLifecycle
 
     protected function computeAndStoreResult(): void
     {
+        if (config('martingalian.logging.compute_logging_enabled', true)) {
+            $stepId = $this->step->id;
+            Step::log($stepId, 'job', '═══════════════════════════════════');
+            Step::log($stepId, 'job', '→→→ COMPUTE START ←←←');
+            Step::log($stepId, 'job', '═══════════════════════════════════');
+            Step::log($stepId, 'job', 'Calling compute() method...');
+            Step::log($stepId, 'job', '  - Job class: '.class_basename($this));
+        }
+
+        $computeStartTime = microtime(true);
         $result = $this->compute();
+        $computeDuration = round((microtime(true) - $computeStartTime) * 1000, 2);
+
+        if (config('martingalian.logging.compute_logging_enabled', true)) {
+            Step::log($this->step->id, 'job', '✓ compute() completed successfully');
+            Step::log($this->step->id, 'job', '  - Compute duration: '.$computeDuration.'ms');
+            Step::log($this->step->id, 'job', '  - Result type: '.(is_object($result) ? get_class($result) : gettype($result)));
+            Step::log($this->step->id, 'job', '  - Result is null: '.(is_null($result) ? 'true' : 'false'));
+            Step::log($this->step->id, 'job', '  - step->response is null: '.(is_null($this->step->response) ? 'true' : 'false'));
+        }
 
         if (! $result || ! is_null($this->step->response)) {
+            if (config('martingalian.logging.compute_logging_enabled', true)) {
+                Step::log($this->step->id, 'job', '⚠️ Not storing result:');
+                if (! $result) {
+                    Step::log($this->step->id, 'job', '  - Reason: compute() returned null/false');
+                }
+                if (! is_null($this->step->response)) {
+                    Step::log($this->step->id, 'job', '  - Reason: step->response already exists');
+                }
+                Step::log($this->step->id, 'job', '═══════════════════════════════════');
+                Step::log($this->step->id, 'job', '→→→ COMPUTE END (not stored) ←←←');
+                Step::log($this->step->id, 'job', '═══════════════════════════════════');
+            }
+
             return;
         }
 
+        if (config('martingalian.logging.compute_logging_enabled', true)) {
+            Step::log($this->step->id, 'job', 'Formatting result for storage...');
+        }
+
+        $formattedResult = $this->formatResultForStorage($result);
+
+        if (config('martingalian.logging.compute_logging_enabled', true)) {
+            Step::log($this->step->id, 'job', '✓ Result formatted successfully');
+            Step::log($this->step->id, 'job', 'Updating step->response in database...');
+        }
+
         $this->step->update([
-            'response' => $this->formatResultForStorage($result),
+            'response' => $formattedResult,
         ]);
+
+        if (config('martingalian.logging.compute_logging_enabled', true)) {
+            Step::log($this->step->id, 'job', '✓ step->response updated successfully');
+            Step::log($this->step->id, 'job', '═══════════════════════════════════');
+            Step::log($this->step->id, 'job', '→→→ COMPUTE END (stored) ←←←');
+            Step::log($this->step->id, 'job', '═══════════════════════════════════');
+        }
     }
 }

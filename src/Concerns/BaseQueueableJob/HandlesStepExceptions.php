@@ -8,10 +8,9 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Exceptions\JustEndException;
 use Martingalian\Core\Exceptions\JustResolveException;
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
-use Martingalian\Core\Exceptions\NonNotifiableException;
+use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
-use Martingalian\Core\Support\NotificationService;
 use Throwable;
 
 /**
@@ -40,6 +39,15 @@ trait HandlesStepExceptions
         }
 
         $this->finalizeDuration();
+
+        // Guard against transitioning from terminal states (Completed, Skipped, Cancelled, Failed, Stopped)
+        // Only Pending, Dispatched, and Running can transition to Failed
+        $this->step->refresh();
+        $currentState = get_class($this->step->state);
+        if (in_array($currentState, Step::terminalStepStates(), true)) {
+            return;
+        }
+
         $this->step->state->transitionTo(Failed::class);
     }
     // ========================================================================
@@ -49,92 +57,92 @@ trait HandlesStepExceptions
     protected function handleException(Throwable $e): void
     {
         $stepId = $this->step->id ?? 'unknown';
-        log_step($stepId, "╔═══════════════════════════════════════════════════════════╗");
-        log_step($stepId, "║         EXCEPTION CAUGHT - STARTING HANDLING              ║");
-        log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
-        log_step($stepId, "EXCEPTION DETAILS:");
-        log_step($stepId, "  - Exception class: ".get_class($e));
-        log_step($stepId, "  - Exception message: ".$e->getMessage());
-        log_step($stepId, "  - Exception code: ".$e->getCode());
-        log_step($stepId, "  - Exception file: ".$e->getFile().":".$e->getLine());
-        log_step($stepId, "  - Job class: ".class_basename($this));
-        log_step($stepId, "  - Current step state: ".(string) $this->step->state);
-        log_step($stepId, "  - Current step retries: ".$this->step->retries);
+        Step::log($stepId, 'job', '╔═══════════════════════════════════════════════════════════╗');
+        Step::log($stepId, 'job', '║         EXCEPTION CAUGHT - STARTING HANDLING              ║');
+        Step::log($stepId, 'job', '╚═══════════════════════════════════════════════════════════╝');
+        Step::log($stepId, 'job', 'EXCEPTION DETAILS:');
+        Step::log($stepId, 'job', '  - Exception class: '.get_class($e));
+        Step::log($stepId, 'job', '  - Exception message: '.$e->getMessage());
+        Step::log($stepId, 'job', '  - Exception code: '.$e->getCode());
+        Step::log($stepId, 'job', '  - Exception file: '.$e->getFile().':'.$e->getLine());
+        Step::log($stepId, 'job', '  - Job class: '.class_basename($this));
+        Step::log($stepId, 'job', '  - Current step state: '.(string) $this->step->state);
+        Step::log($stepId, 'job', '  - Current step retries: '.$this->step->retries);
 
-        log_step($stepId, "DECISION TREE - CHECKING EXCEPTION TYPE:");
-        log_step($stepId, "  [1/5] Checking if isShortcutException()...");
+        Step::log($stepId, 'job', 'DECISION TREE - CHECKING EXCEPTION TYPE:');
+        Step::log($stepId, 'job', '  [1/5] Checking if isShortcutException()...');
         if ($this->isShortcutException($e)) {
-            log_step($stepId, "  ✓ YES - This is a SHORTCUT exception (MaxRetries/JustResolve/JustEnd)");
-            log_step($stepId, "  → Calling handleShortcutException()");
+            Step::log($stepId, 'job', '  ✓ YES - This is a SHORTCUT exception (MaxRetries/JustResolve/JustEnd)');
+            Step::log($stepId, 'job', '  → Calling handleShortcutException()');
             $this->handleShortcutException($e);
-            log_step($stepId, "  → handleShortcutException() completed");
-            log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
+            Step::log($stepId, 'job', '  → handleShortcutException() completed');
+            Step::log($stepId, 'job', '╚═══════════════════════════════════════════════════════════╝');
 
             return;
         }
-        log_step($stepId, "  ✗ NO - Not a shortcut exception");
+        Step::log($stepId, 'job', '  ✗ NO - Not a shortcut exception');
 
         // Check for permanent database errors (syntax, schema issues) - fail immediately
-        log_step($stepId, "  [2/5] Checking if isPermanentDatabaseError()...");
+        Step::log($stepId, 'job', '  [2/5] Checking if isPermanentDatabaseError()...');
         if ($this->isPermanentDatabaseError($e)) {
-            log_step($stepId, "  ✓ YES - This is a PERMANENT database error");
-            log_step($stepId, "  → Calling reportAndFail() - WILL FAIL IMMEDIATELY");
+            Step::log($stepId, 'job', '  ✓ YES - This is a PERMANENT database error');
+            Step::log($stepId, 'job', '  → Calling reportAndFail() - WILL FAIL IMMEDIATELY');
             $this->reportAndFail($e);
-            log_step($stepId, "  → reportAndFail() completed");
-            log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
+            Step::log($stepId, 'job', '  → reportAndFail() completed');
+            Step::log($stepId, 'job', '╚═══════════════════════════════════════════════════════════╝');
 
             return;
         }
-        log_step($stepId, "  ✗ NO - Not a permanent database error");
+        Step::log($stepId, 'job', '  ✗ NO - Not a permanent database error');
 
-        log_step($stepId, "  [3/5] Checking if shouldRetryException()...");
+        Step::log($stepId, 'job', '  [3/5] Checking if shouldRetryException()...');
         if ($this->shouldRetryException($e)) {
-            log_step($stepId, "  ✓ YES - Exception should be RETRIED");
-            log_step($stepId, "  → Calling retryJobWithBackoff()");
+            Step::log($stepId, 'job', '  ✓ YES - Exception should be RETRIED');
+            Step::log($stepId, 'job', '  → Calling retryJobWithBackoff()');
             $this->retryJobWithBackoff($e);
-            log_step($stepId, "  → retryJobWithBackoff() completed");
-            log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
+            Step::log($stepId, 'job', '  → retryJobWithBackoff() completed');
+            Step::log($stepId, 'job', '╚═══════════════════════════════════════════════════════════╝');
 
             return;
         }
-        log_step($stepId, "  ✗ NO - Exception should not be retried");
+        Step::log($stepId, 'job', '  ✗ NO - Exception should not be retried');
 
-        log_step($stepId, "  [4/5] Checking if shouldIgnoreException()...");
+        Step::log($stepId, 'job', '  [4/5] Checking if shouldIgnoreException()...');
         if ($this->shouldIgnoreException($e)) {
-            log_step($stepId, "  ✓ YES - Exception should be IGNORED (will complete successfully)");
-            log_step($stepId, "  → Calling completeAndIgnoreException()");
+            Step::log($stepId, 'job', '  ✓ YES - Exception should be IGNORED (will complete successfully)');
+            Step::log($stepId, 'job', '  → Calling completeAndIgnoreException()');
             $this->completeAndIgnoreException();
-            log_step($stepId, "  → completeAndIgnoreException() completed");
-            log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
+            Step::log($stepId, 'job', '  → completeAndIgnoreException() completed');
+            Step::log($stepId, 'job', '╚═══════════════════════════════════════════════════════════╝');
 
             return;
         }
-        log_step($stepId, "  ✗ NO - Exception should not be ignored");
+        Step::log($stepId, 'job', '  ✗ NO - Exception should not be ignored');
 
-        log_step($stepId, "  [5/5] DEFAULT PATH - Log exception and attempt resolution");
-        log_step($stepId, "  → Calling logExceptionToStep()");
+        Step::log($stepId, 'job', '  [5/5] DEFAULT PATH - Log exception and attempt resolution');
+        Step::log($stepId, 'job', '  → Calling logExceptionToStep()');
         $this->logExceptionToStep($e);
-        log_step($stepId, "  → logExceptionToStep() completed");
+        Step::log($stepId, 'job', '  → logExceptionToStep() completed');
 
-        log_step($stepId, "  → Calling logExceptionToRelatable()");
+        Step::log($stepId, 'job', '  → Calling logExceptionToRelatable()');
         $this->logExceptionToRelatable($e);
-        log_step($stepId, "  → logExceptionToRelatable() completed");
+        Step::log($stepId, 'job', '  → logExceptionToRelatable() completed');
 
         // Notifications are sent by ApiRequestLogObserver after log is persisted
-        log_step($stepId, "  → Calling resolveExceptionIfPossible()");
+        Step::log($stepId, 'job', '  → Calling resolveExceptionIfPossible()');
         $this->resolveExceptionIfPossible($e);
-        log_step($stepId, "  → resolveExceptionIfPossible() completed");
+        Step::log($stepId, 'job', '  → resolveExceptionIfPossible() completed');
 
-        log_step($stepId, "CHECKING stepStatusUpdated flag:");
-        log_step($stepId, "  - stepStatusUpdated = ".($this->stepStatusUpdated ? 'true' : 'false'));
+        Step::log($stepId, 'job', 'CHECKING stepStatusUpdated flag:');
+        Step::log($stepId, 'job', '  - stepStatusUpdated = '.($this->stepStatusUpdated ? 'true' : 'false'));
         if (! $this->stepStatusUpdated) {
-            log_step($stepId, "  ⚠️ Step status NOT updated by resolver - calling reportAndFail()");
+            Step::log($stepId, 'job', '  ⚠️ Step status NOT updated by resolver - calling reportAndFail()');
             $this->reportAndFail($e);
-            log_step($stepId, "  → reportAndFail() completed");
+            Step::log($stepId, 'job', '  → reportAndFail() completed');
         } else {
-            log_step($stepId, "  ✓ Step status was updated by resolver - NOT calling reportAndFail()");
+            Step::log($stepId, 'job', '  ✓ Step status was updated by resolver - NOT calling reportAndFail()');
         }
-        log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
+        Step::log($stepId, 'job', '╚═══════════════════════════════════════════════════════════╝');
     }
 
     // ========================================================================

@@ -71,7 +71,7 @@ trait HandlesApiJobExceptions
         } catch (Throwable $commandException) {
             // Command might fail in test environment or when API is unavailable
             // Log but don't fail the job - we'll still retry with existing recvwindow_margin
-            log_step($this->step->id, 'Failed to update recvwindow safety duration: '.$commandException->getMessage());
+            Step::log($this->step->id, 'job', 'Failed to update recvwindow safety duration: '.$commandException->getMessage());
         }
 
         $this->retryPerApiThrottlingDelay($e);

@@ -8,12 +8,6 @@ use Illuminate\Support\Str;
 
 trait HasActions
 {
-    public function log(string $message)
-    {
-        $this->step_log = $message;
-        $this->save();
-    }
-
     /**
      * Mark this step as a parent by setting child_block_uuid.
      * Returns the child_block_uuid to be used when creating children.

@@ -19,44 +19,44 @@ final class DispatchedToRunning extends Transition
 
     public function canTransition(): bool
     {
-        log_step($this->step->id, '→→→ DispatchedToRunning::canTransition() called');
-        log_step($this->step->id, 'Always returns TRUE (no restrictions)');
+        Step::log($this->step->id, 'transition', '→→→ DispatchedToRunning::canTransition() called');
+        Step::log($this->step->id, 'transition', 'Always returns TRUE (no restrictions)');
         return true;
     }
 
     public function handle(): Step
     {
-        log_step($this->step->id, '╔═══════════════════════════════════════════════════════════╗');
-        log_step($this->step->id, '║   DispatchedToRunning::handle() - JOB START             ║');
-        log_step($this->step->id, '╚═══════════════════════════════════════════════════════════╝');
-        log_step($this->step->id, '→→→ JOB EXECUTION STARTING ←←←');
+        Step::log($this->step->id, 'transition', '╔═══════════════════════════════════════════════════════════╗');
+        Step::log($this->step->id, 'transition', '║   DispatchedToRunning::handle() - JOB START             ║');
+        Step::log($this->step->id, 'transition', '╚═══════════════════════════════════════════════════════════╝');
+        Step::log($this->step->id, 'transition', '→→→ JOB EXECUTION STARTING ←←←');
 
-        log_step($this->step->id, 'BEFORE TRANSITION:');
-        log_step($this->step->id, '  - Current state: '.$this->step->state);
-        log_step($this->step->id, '  - Hostname: '.($this->step->hostname ?? 'null'));
-        log_step($this->step->id, '  - started_at: '.($this->step->started_at ?? 'null'));
-        log_step($this->step->id, '  - is_throttled: '.($this->step->is_throttled ? 'true' : 'false'));
-        log_step($this->step->id, '  - retries: '.$this->step->retries);
+        Step::log($this->step->id, 'transition', 'BEFORE TRANSITION:');
+        Step::log($this->step->id, 'transition', '  - Current state: '.$this->step->state);
+        Step::log($this->step->id, 'transition', '  - Hostname: '.($this->step->hostname ?? 'null'));
+        Step::log($this->step->id, 'transition', '  - started_at: '.($this->step->started_at ?? 'null'));
+        Step::log($this->step->id, 'transition', '  - is_throttled: '.($this->step->is_throttled ? 'true' : 'false'));
+        Step::log($this->step->id, 'transition', '  - retries: '.$this->step->retries);
 
-        log_step($this->step->id, 'SETTING ATTRIBUTES:');
-        log_step($this->step->id, '  - Setting hostname to: '.gethostname());
+        Step::log($this->step->id, 'transition', 'SETTING ATTRIBUTES:');
+        Step::log($this->step->id, 'transition', '  - Setting hostname to: '.gethostname());
         $this->step->hostname = gethostname();
 
         $startedAt = now();
-        log_step($this->step->id, '  - Setting started_at to: '.$startedAt->format('Y-m-d H:i:s.u'));
+        Step::log($this->step->id, 'transition', '  - Setting started_at to: '.$startedAt->format('Y-m-d H:i:s.u'));
         $this->step->started_at = $startedAt;
 
-        log_step($this->step->id, '  - Setting is_throttled to: FALSE (no longer throttled)');
+        Step::log($this->step->id, 'transition', '  - Setting is_throttled to: FALSE (no longer throttled)');
         $this->step->is_throttled = false; // Step is no longer waiting due to throttling
 
-        log_step($this->step->id, 'CHANGING STATE:');
-        log_step($this->step->id, '  - Creating new Running state object...');
+        Step::log($this->step->id, 'transition', 'CHANGING STATE:');
+        Step::log($this->step->id, 'transition', '  - Creating new Running state object...');
         $this->step->state = new Running($this->step);
-        log_step($this->step->id, '  - New state: '.$this->step->state);
+        Step::log($this->step->id, 'transition', '  - New state: '.$this->step->state);
 
-        log_step($this->step->id, 'Calling save() to persist changes...');
+        Step::log($this->step->id, 'transition', 'Calling save() to persist changes...');
         $this->step->save();
-        log_step($this->step->id, '✓ save() completed - step now RUNNING');
+        Step::log($this->step->id, 'transition', '✓ save() completed - step now RUNNING');
 
         /*
         $this->step->logApplicationEvent(
@@ -66,13 +66,13 @@ final class DispatchedToRunning extends Transition
         );
         */
 
-        log_step($this->step->id, 'FINAL STATE AFTER TRANSITION:');
-        log_step($this->step->id, '  - State: Running');
-        log_step($this->step->id, '  - Hostname: '.$this->step->hostname);
-        log_step($this->step->id, '  - started_at: '.$this->step->started_at->format('Y-m-d H:i:s.u'));
-        log_step($this->step->id, '  - is_throttled: false');
-        log_step($this->step->id, '✓ DispatchedToRunning::handle() completed - job handle() will execute next');
-        log_step($this->step->id, '╚═══════════════════════════════════════════════════════════╝');
+        Step::log($this->step->id, 'transition', 'FINAL STATE AFTER TRANSITION:');
+        Step::log($this->step->id, 'transition', '  - State: Running');
+        Step::log($this->step->id, 'transition', '  - Hostname: '.$this->step->hostname);
+        Step::log($this->step->id, 'transition', '  - started_at: '.$this->step->started_at->format('Y-m-d H:i:s.u'));
+        Step::log($this->step->id, 'transition', '  - is_throttled: false');
+        Step::log($this->step->id, 'transition', '✓ DispatchedToRunning::handle() completed - job handle() will execute next');
+        Step::log($this->step->id, 'transition', '╚═══════════════════════════════════════════════════════════╝');
 
         return $this->step;
     }
