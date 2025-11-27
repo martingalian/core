@@ -26,15 +26,10 @@ final class ProcessGroupTickJob implements ShouldQueue
      */
     public int $tries = 1;
 
-    /**
-     * The number of seconds the job can run before timing out.
-     */
-    public int $timeout = 30;
-
     public function __construct(
         public string $group
     ) {
-        $this->onQueue('default');
+        $this->onQueue('step-dispatcher');
     }
 
     public function handle(): void
