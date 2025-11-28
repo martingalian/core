@@ -92,11 +92,33 @@ final class StepObserver
 
         // Set started_at when transitioning TO Running state (if not already set)
         // This covers transitions like PendingToRunning that don't set started_at
+        // Only applies to updates (transitions), not initial creates
         $isNowRunning = $step->state instanceof Running || get_class($step->state) === Running::class;
-        $wasRunningBefore = $step->getOriginal('state') === Running::class;
 
-        if ($isNowRunning && ! $wasRunningBefore && $step->started_at === null) {
+        // Fix: getOriginal('state') returns a State object (or null for new models), not a string class name
+        // Must use instanceof or get_class() for proper comparison
+        $originalState = $step->getOriginal('state');
+        $wasRunningBefore = $originalState instanceof Running
+            || (is_object($originalState) && get_class($originalState) === Running::class);
+
+        // Only apply transition logic if this is an UPDATE (step already exists in DB)
+        // Check $step->exists to ensure we're not in a create() call
+        $isTransition = $step->exists && $originalState !== null;
+
+        if ($isTransition && $isNowRunning && ! $wasRunningBefore && $step->started_at === null) {
             $step->started_at = now();
+        }
+
+        // Also set hostname when transitioning TO Running if not already set
+        // Defense in depth: ensures hostname is always set when job starts
+        if ($isTransition && $isNowRunning && ! $wasRunningBefore && $step->hostname === null) {
+            $step->hostname = gethostname();
+        }
+
+        // Clear is_throttled when transitioning TO Running
+        // Defense in depth: ensures throttle flag is cleared when job actually starts
+        if ($isTransition && $isNowRunning && ! $wasRunningBefore) {
+            $step->is_throttled = false;
         }
 
         // Clear is_throttled when step transitions to Completed state

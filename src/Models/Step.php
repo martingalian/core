@@ -81,7 +81,7 @@ final class Step extends BaseModel
             }
 
             // Check if config enabled
-            if (! config('martingalian.logging.delete_completed_step_logs', false)) {
+            if (! config('martingalian.logging.delete_completed_step_logs', true)) {
                 return;
             }
 
