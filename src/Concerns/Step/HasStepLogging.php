@@ -7,12 +7,15 @@ namespace Martingalian\Core\Concerns\Step;
 /**
  * Provides file-based logging for Step models.
  *
- * Logs are written to categorized directories:
- * - logs/steps/transitions/{step_id}.log  - State transitions
- * - logs/steps/dispatcher/{step_id}.log   - Dispatcher events
- * - logs/steps/job/{step_id}.log          - Job execution flow
- * - logs/steps/throttling/{step_id}.log   - ALL API throttling
+ * Logs are organized by step ID with type-specific files:
+ * - logs/steps/{step_id}/transitions.log  - State transitions
+ * - logs/steps/{step_id}/dispatcher.log   - Dispatcher events
+ * - logs/steps/{step_id}/job.log          - Job execution flow
+ * - logs/steps/{step_id}/throttling.log   - API throttling
  * - logs/dispatcher.log                   - Global dispatcher (stepId=null)
+ *
+ * Auto-cleanup: Logs automatically deleted when steps reach terminal states
+ * (Completed, Skipped, Cancelled, Stopped), except Failed states are preserved.
  *
  * Available log types:
  * - transition/transitions: State transition events
@@ -86,18 +89,18 @@ trait HasStepLogging
             return;
         }
 
-        // Normalize type to directory structure
-        $directory = self::$typeToDirectoryMap[$type] ?? $type;
+        // Normalize type to filename
+        $fileName = self::$typeToDirectoryMap[$type] ?? $type;
 
         // Handle global dispatcher logs (stepId = null)
-        if ($stepId === null && $directory === 'dispatcher') {
+        if ($stepId === null && $fileName === 'dispatcher') {
             $logsPath = storage_path('logs');
             $logFile = "{$logsPath}/dispatcher.log";
         } else {
-            // Step-specific logs go to categorized directories
+            // NEW STRUCTURE: logs/steps/{stepId}/{filename}.log
             $stepIdOrDispatcher = $stepId ?? 'dispatcher';
-            $logsPath = storage_path("logs/steps/{$directory}");
-            $logFile = "{$logsPath}/{$stepIdOrDispatcher}.log";
+            $logsPath = storage_path("logs/steps/{$stepIdOrDispatcher}");
+            $logFile = "{$logsPath}/{$fileName}.log";
         }
 
         // Ensure the directory exists
@@ -122,14 +125,6 @@ trait HasStepLogging
     }
 
     /**
-     * Get the path to this step's log directory.
-     */
-    public function getLogPath(): string
-    {
-        return storage_path("logs/steps/{$this->id}");
-    }
-
-    /**
      * Get the contents of a specific log file for this step.
      *
      * @param  string  $type  The log type
@@ -137,8 +132,8 @@ trait HasStepLogging
      */
     public function getLogContents(string $type): ?string
     {
-        $directory = self::$typeToDirectoryMap[$type] ?? $type;
-        $logFile = storage_path("logs/steps/{$directory}/{$this->id}.log");
+        $fileName = self::$typeToDirectoryMap[$type] ?? $type;
+        $logFile = storage_path("logs/steps/{$this->id}/{$fileName}.log");
 
         if (! file_exists($logFile)) {
             return null;
@@ -152,14 +147,10 @@ trait HasStepLogging
      */
     public function clearLogs(): void
     {
-        $directories = ['transitions', 'throttling', 'dispatcher', 'job'];
+        $stepDir = storage_path("logs/steps/{$this->id}");
 
-        foreach ($directories as $directory) {
-            $logFile = storage_path("logs/steps/{$directory}/{$this->id}.log");
-
-            if (file_exists($logFile)) {
-                unlink($logFile);
-            }
+        if (is_dir($stepDir)) {
+            \Illuminate\Support\Facades\File::deleteDirectory($stepDir);
         }
     }
 }

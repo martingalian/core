@@ -70,6 +70,30 @@ final class Step extends BaseModel
         'state' => StepStatus::class,
     ];
 
+    protected static function booted(): void
+    {
+        parent::booted();
+
+        static::updated(function (Step $step) {
+            // Only proceed if state changed
+            if (! $step->wasChanged('state')) {
+                return;
+            }
+
+            // Check if config enabled
+            if (! config('martingalian.logging.delete_completed_step_logs', false)) {
+                return;
+            }
+
+            // Check if new state should delete logs
+            $currentState = get_class($step->state);
+
+            if (in_array($currentState, self::terminalStatesWithLogDeletion(), true)) {
+                $step->clearLogs();
+            }
+        });
+    }
+
     public static function concludedStepStates()
     {
         return [Completed::class, Skipped::class];
@@ -87,6 +111,21 @@ final class Step extends BaseModel
             Skipped::class,
             Cancelled::class,
             Failed::class,
+            Stopped::class,
+        ];
+    }
+
+    /**
+     * Terminal states that trigger automatic log deletion.
+     *
+     * Note: Failed state is excluded - we preserve those logs for debugging.
+     */
+    public static function terminalStatesWithLogDeletion(): array
+    {
+        return [
+            Completed::class,
+            Skipped::class,
+            Cancelled::class,
             Stopped::class,
         ];
     }
