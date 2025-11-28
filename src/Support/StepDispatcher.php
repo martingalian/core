@@ -805,11 +805,11 @@ final class StepDispatcher
      */
     public static function canSafelyRestart(?string $group = null): bool
     {
-        Step::log(null, 'dispatcher', '╔══════════════════════════════════════════════════════════════╗');
-        Step::log(null, 'dispatcher', '║         CHECKING IF SAFE TO RESTART HORIZON              ║');
-        Step::log(null, 'dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-        Step::log(null, 'dispatcher', 'Group filter: '.($group ?? 'null (all groups)'));
-        Step::log(null, 'dispatcher', 'Only checking non-coolable non-parent steps (actual workers)');
+        // Step::log(null, 'dispatcher', '╔══════════════════════════════════════════════════════════════╗');
+        // Step::log(null, 'dispatcher', '║         CHECKING IF SAFE TO RESTART HORIZON              ║');
+        // Step::log(null, 'dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+        // Step::log(null, 'dispatcher', 'Group filter: '.($group ?? 'null (all groups)'));
+        // Step::log(null, 'dispatcher', 'Only checking non-coolable non-parent steps (actual workers)');
 
         // 1. Check for non-coolable Running non-parent steps (actively executing critical work)
         $runningCount = Step::where('state', Running::class)
@@ -818,21 +818,21 @@ final class StepDispatcher
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
             ->count();
 
-        Step::log(null, 'dispatcher', '');
-        Step::log(null, 'dispatcher', '1️⃣ NON-COOLABLE RUNNING STEPS CHECK (non-parent only):');
-        Step::log(null, 'dispatcher', '   Found '.$runningCount.' non-coolable Running steps');
+        // Step::log(null, 'dispatcher', '');
+        // Step::log(null, 'dispatcher', '1️⃣ NON-COOLABLE RUNNING STEPS CHECK (non-parent only):');
+        // Step::log(null, 'dispatcher', '   Found '.$runningCount.' non-coolable Running steps');
 
         if ($runningCount > 0) {
-            Step::log(null, 'dispatcher', '   ❌ UNSAFE: Still have '.$runningCount.' non-coolable steps actively running');
-            Step::log(null, 'dispatcher', '   → Wait for these to complete before restarting');
-            Step::log(null, 'dispatcher', '');
-            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
-            Step::log(null, 'dispatcher', '🔴 RESULT: NOT SAFE TO RESTART ('.$runningCount.' non-coolable running)');
-            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+            // Step::log(null, 'dispatcher', '   ❌ UNSAFE: Still have '.$runningCount.' non-coolable steps actively running');
+            // Step::log(null, 'dispatcher', '   → Wait for these to complete before restarting');
+            // Step::log(null, 'dispatcher', '');
+            // Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+            // Step::log(null, 'dispatcher', '🔴 RESULT: NOT SAFE TO RESTART ('.$runningCount.' non-coolable running)');
+            // Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
             return false;
         }
-        Step::log(null, 'dispatcher', '   ✅ No non-coolable Running steps (good)');
+        // Step::log(null, 'dispatcher', '   ✅ No non-coolable Running steps (good)');
 
         // 2. Check for non-coolable Dispatched non-parent steps (about to execute)
         $dispatchedCount = Step::where('state', 'Martingalian\\Core\\States\\Dispatched')
@@ -841,33 +841,33 @@ final class StepDispatcher
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
             ->count();
 
-        Step::log(null, 'dispatcher', '');
-        Step::log(null, 'dispatcher', '2️⃣ NON-COOLABLE DISPATCHED STEPS CHECK (non-parent only):');
-        Step::log(null, 'dispatcher', '   Found '.$dispatchedCount.' non-coolable Dispatched steps');
+        // Step::log(null, 'dispatcher', '');
+        // Step::log(null, 'dispatcher', '2️⃣ NON-COOLABLE DISPATCHED STEPS CHECK (non-parent only):');
+        // Step::log(null, 'dispatcher', '   Found '.$dispatchedCount.' non-coolable Dispatched steps');
 
         if ($dispatchedCount > 0) {
-            Step::log(null, 'dispatcher', '   ⚠️  WARNING: '.$dispatchedCount.' non-coolable steps in Dispatched state');
-            Step::log(null, 'dispatcher', '   → These are about to execute - wait for them to complete');
-            Step::log(null, 'dispatcher', '');
-            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
-            Step::log(null, 'dispatcher', '🟡 RESULT: NOT SAFE TO RESTART ('.$dispatchedCount.' non-coolable dispatched)');
-            Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+            // Step::log(null, 'dispatcher', '   ⚠️  WARNING: '.$dispatchedCount.' non-coolable steps in Dispatched state');
+            // Step::log(null, 'dispatcher', '   → These are about to execute - wait for them to complete');
+            // Step::log(null, 'dispatcher', '');
+            // Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+            // Step::log(null, 'dispatcher', '🟡 RESULT: NOT SAFE TO RESTART ('.$dispatchedCount.' non-coolable dispatched)');
+            // Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
             return false;
         }
-        Step::log(null, 'dispatcher', '   ✅ No non-coolable Dispatched steps (good)');
+        // Step::log(null, 'dispatcher', '   ✅ No non-coolable Dispatched steps (good)');
 
         // All checks passed!
-        Step::log(null, 'dispatcher', '');
-        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
-        Step::log(null, 'dispatcher', '✅ ALL CHECKS PASSED - SAFE TO RESTART HORIZON!');
-        Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
-        Step::log(null, 'dispatcher', '');
-        Step::log(null, 'dispatcher', 'You can now safely:');
-        Step::log(null, 'dispatcher', '  1. Stop Horizon/supervisors');
-        Step::log(null, 'dispatcher', '  2. Deploy new code');
-        Step::log(null, 'dispatcher', '  3. Restart Horizon/supervisors');
-        Step::log(null, 'dispatcher', '');
+        // Step::log(null, 'dispatcher', '');
+        // Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        // Step::log(null, 'dispatcher', '✅ ALL CHECKS PASSED - SAFE TO RESTART HORIZON!');
+        // Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
+        // Step::log(null, 'dispatcher', '');
+        // Step::log(null, 'dispatcher', 'You can now safely:');
+        // Step::log(null, 'dispatcher', '  1. Stop Horizon/supervisors');
+        // Step::log(null, 'dispatcher', '  2. Deploy new code');
+        // Step::log(null, 'dispatcher', '  3. Restart Horizon/supervisors');
+        // Step::log(null, 'dispatcher', '');
 
         return true;
     }
