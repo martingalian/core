@@ -28,10 +28,37 @@ final class PendingToDispatched extends Transition
         Step::log($this->step->id, 'transition', '═══════════════════════════════════════════════════════════');
         Step::log($this->step->id, 'transition', '→→→ PendingToDispatched::canTransition() START ←←←');
         Step::log($this->step->id, 'transition', '═══════════════════════════════════════════════════════════');
-        Step::log($this->step->id, 'transition', 'Step state: '.$this->step->state);
+        Step::log($this->step->id, 'transition', 'Step state (in-memory): '.$this->step->state);
         Step::log($this->step->id, 'transition', 'Step type: '.$this->step->type);
         Step::log($this->step->id, 'transition', 'Step index: '.($this->step->index ?? 'null'));
         Step::log($this->step->id, 'transition', 'Block UUID: '.$this->step->block_uuid);
+
+        // Defense-in-depth: Re-fetch step from database to verify ACTUAL current state
+        // This prevents duplicate transitions if the same step appears twice in $pendingSteps
+        // due to race conditions or edge cases
+        Step::log($this->step->id, 'transition', 'GUARD: Re-fetching step from database to verify actual state...');
+        $freshStep = Step::find($this->step->id);
+        if (! $freshStep) {
+            Step::log($this->step->id, 'transition', '⚠️ GUARD: Step no longer exists in database - returning false');
+            Step::log($this->step->id, 'transition', '═══════════════════════════════════════════════════════════');
+
+            return false;
+        }
+
+        Step::log($this->step->id, 'transition', 'GUARD: Database state: '.$freshStep->state);
+        if (! $freshStep->state instanceof Pending) {
+            Step::log($this->step->id, 'transition', '⚠️ GUARD: Database state is NOT Pending - BLOCKED');
+            Step::log($this->step->id, 'transition', '  - In-memory state: '.$this->step->state);
+            Step::log($this->step->id, 'transition', '  - Database state: '.$freshStep->state);
+            Step::log($this->step->id, 'transition', '  - This prevents duplicate dispatch transitions');
+            Step::log($this->step->id, 'transition', '═══════════════════════════════════════════════════════════');
+
+            return false;
+        }
+        Step::log($this->step->id, 'transition', '✓ GUARD: Database state confirmed as Pending');
+
+        // Sync fresh state to in-memory model to ensure consistency
+        $this->step->state = $freshStep->state;
 
         Step::log($this->step->id, 'transition', 'Checking if state is Pending...');
         if (! $this->step->state instanceof Pending) {

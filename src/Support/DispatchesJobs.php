@@ -22,6 +22,36 @@ trait DispatchesJobs
         Step::log($step->id, 'job', '╔═══════════════════════════════════════════════════════════╗');
         Step::log($step->id, 'job', '║         DISPATCHES-JOBS: dispatchSingleStep()            ║');
         Step::log($step->id, 'job', '╚═══════════════════════════════════════════════════════════╝');
+
+        // Defense-in-depth: Re-fetch step from database to verify current state
+        // This prevents duplicate dispatches in case the same step was added to
+        // the dispatch collection twice due to race conditions or edge cases
+        $freshStep = Step::find($step->id);
+        if (! $freshStep) {
+            Step::log($step->id, 'job', '⚠️ GUARD: Step no longer exists in database - SKIPPING dispatch');
+            Step::log($step->id, 'job', '╚═══════════════════════════════════════════════════════════╝');
+
+            return;
+        }
+
+        // Only dispatch if step is still in Dispatched state
+        // If it's already Running, Completed, Pending, etc. - skip to prevent duplicates
+        $currentStateClass = get_class($freshStep->state);
+        $dispatchedStateClass = \Martingalian\Core\States\Dispatched::class;
+        if ($currentStateClass !== $dispatchedStateClass) {
+            Step::log($step->id, 'job', '⚠️ GUARD: Step is NOT in Dispatched state - SKIPPING dispatch');
+            Step::log($step->id, 'job', '  - Expected state: Dispatched');
+            Step::log($step->id, 'job', '  - Current state: '.class_basename($currentStateClass));
+            Step::log($step->id, 'job', '  - This prevents duplicate queue entries');
+            Step::log($step->id, 'job', '╚═══════════════════════════════════════════════════════════╝');
+
+            return;
+        }
+
+        // Use the fresh step data for dispatch
+        $step = $freshStep;
+
+        Step::log($step->id, 'job', '✓ GUARD: Step is in Dispatched state - proceeding with dispatch');
         Step::log($step->id, 'job', 'Step details:');
         Step::log($step->id, 'job', '  - Step ID: '.$step->id);
         Step::log($step->id, 'job', '  - Class: '.($step->class ?? 'NULL'));
