@@ -66,6 +66,24 @@ abstract class BaseApiableJob extends BaseQueueableJob
         }
 
         try {
+            // Defense-in-depth: If we've reached this point, we're about to execute
+            // the API call, so we're definitely not throttled anymore
+            $updateData = ['is_throttled' => false];
+
+            if ($this->step->started_at === null) {
+                $updateData['started_at'] = now();
+            }
+
+            if ($this->step->hostname === null) {
+                $updateData['hostname'] = gethostname();
+            }
+
+            if ($this->step->completed_at !== null) {
+                $updateData['completed_at'] = null;
+            }
+
+            $this->step->update($updateData);
+
             $result = $this->computeApiable();
 
             return $result;
