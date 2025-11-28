@@ -74,7 +74,7 @@ final class Step extends BaseModel
     {
         parent::booted();
 
-        static::updated(function (Step $step) {
+        self::updated(function (Step $step) {
             // Only proceed if state changed
             if (! $step->wasChanged('state')) {
                 return;
@@ -89,9 +89,31 @@ final class Step extends BaseModel
             $currentState = get_class($step->state);
 
             if (in_array($currentState, self::terminalStatesWithLogDeletion(), true)) {
-                $step->clearLogs();
+                if ($step->shouldDeleteLogs()) {
+                    $step->clearLogs();
+                }
             }
         });
+    }
+
+    /**
+     * Determine if this step's logs should be deleted.
+     *
+     * This method provides a hook for preserving logs based on custom conditions.
+     * Override this method in subclasses or modify the logic to add additional
+     * preservation rules beyond terminal state checks.
+     *
+     * @return bool True if logs should be deleted, false to preserve them
+     */
+    protected function shouldDeleteLogs(): bool
+    {
+        // Preserve logs for steps that experienced throttling
+        // This helps debug production issues where throttled steps get stuck
+        if ($this->was_throttled) {
+            return false;
+        }
+
+        return true;
     }
 
     public static function concludedStepStates()
