@@ -156,6 +156,19 @@ final class StepDispatcher
             Step::log(null, 'dispatcher', '🔍 DIAGNOSTIC: Query filters: group = '.($group ?? 'NULL').', dispatch_after <= '.now().($isCoolingDown ? ', can_cool_down = false' : ''));
 
             $pendingSteps = $pendingQuery->get();
+
+            // Defense-in-depth: Ensure no duplicate step IDs in collection
+            $beforeCount = $pendingSteps->count();
+            $pendingSteps = $pendingSteps->unique('id')->values();
+            $afterCount = $pendingSteps->count();
+
+            if ($beforeCount !== $afterCount) {
+                $duplicateCount = $beforeCount - $afterCount;
+                Step::log(null, 'dispatcher', '⚠️ DUPLICATE STEPS DETECTED: Removed '.$duplicateCount.' duplicate(s) from pending collection');
+                Step::log(null, 'dispatcher', '   Before deduplication: '.$beforeCount.' steps');
+                Step::log(null, 'dispatcher', '   After deduplication: '.$afterCount.' steps');
+            }
+
             Step::log(null, 'dispatcher', 'Found '.$pendingSteps->count().' PENDING steps ready for evaluation');
             Step::log(null, 'dispatcher', '═══════════════════════════════════════════════════════════');
 
