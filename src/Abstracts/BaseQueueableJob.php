@@ -131,6 +131,21 @@ abstract class BaseQueueableJob extends BaseJob
          * Update step error_message, error_stack_trace, and transition to Failed state.
          */
 
+        // Guard: NonNotifiableException is thrown for duplicate job detection and other
+        // non-failure scenarios. Don't transition to Failed or store error info.
+        if ($e instanceof NonNotifiableException) {
+            $stepId = isset($this->step) ? $this->step->id : 'unknown';
+            Step::log($stepId, 'job', '╔═══════════════════════════════════════════════════════════╗');
+            Step::log($stepId, 'job', '║   BASE-QUEUEABLE-JOB: failed() - NON-NOTIFIABLE          ║');
+            Step::log($stepId, 'job', '╚═══════════════════════════════════════════════════════════╝');
+            Step::log($stepId, 'job', 'NonNotifiableException caught - NOT a real failure');
+            Step::log($stepId, 'job', 'Message: '.$e->getMessage());
+            Step::log($stepId, 'job', 'Skipping Failed transition and error storage');
+            Step::log($stepId, 'job', '╚═══════════════════════════════════════════════════════════╝');
+
+            return;
+        }
+
         // Check if step property is initialized before accessing it
         if (! isset($this->step)) {
             // Job failed before step was initialized - log and exit
@@ -234,25 +249,25 @@ abstract class BaseQueueableJob extends BaseJob
             // Guard: If step is already in a terminal state (Completed, Failed, Skipped, etc.),
             // this job is a duplicate execution (race condition). Exit gracefully.
             if (in_array($currentState, Step::terminalStepStates(), true)) {
-                Step::log($this->step->id, 'job', "[prepareJobExecution] Step already in terminal state: ".class_basename($currentState)." - aborting duplicate execution");
+                Step::log($this->step->id, 'job', '[prepareJobExecution] Step already in terminal state: '.class_basename($currentState).' - aborting duplicate execution');
                 throw new NonNotifiableException("Step #{$this->step->id} already in terminal state {$currentState} - duplicate job execution detected");
             }
 
             // Guard: If step is already Running, another worker is executing it
             if ($this->step->state instanceof Running) {
-                Step::log($this->step->id, 'job', "[prepareJobExecution] Step already Running - another worker is executing - aborting duplicate execution");
+                Step::log($this->step->id, 'job', '[prepareJobExecution] Step already Running - another worker is executing - aborting duplicate execution');
                 throw new NonNotifiableException("Step #{$this->step->id} already Running - duplicate job execution detected");
             }
 
             // Guard: If step returned to Pending (was rescheduled/throttled), abort this execution
             if ($this->step->state instanceof Pending) {
-                Step::log($this->step->id, 'job', "[prepareJobExecution] Step returned to Pending state - aborting execution");
+                Step::log($this->step->id, 'job', '[prepareJobExecution] Step returned to Pending state - aborting execution');
                 throw new NonNotifiableException("Step #{$this->step->id} returned to Pending - aborting execution");
             }
 
             // Guard: Step must be in Dispatched state to proceed
             if (! $this->step->state instanceof Dispatched) {
-                Step::log($this->step->id, 'job', "[prepareJobExecution] Step in unexpected state: ".class_basename($currentState)." - expected Dispatched");
+                Step::log($this->step->id, 'job', '[prepareJobExecution] Step in unexpected state: '.class_basename($currentState).' - expected Dispatched');
                 throw new NonNotifiableException("Step #{$this->step->id} in unexpected state {$currentState} - expected Dispatched");
             }
 
