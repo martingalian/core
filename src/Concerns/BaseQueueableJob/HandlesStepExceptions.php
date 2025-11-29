@@ -8,6 +8,7 @@ use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Exceptions\JustEndException;
 use Martingalian\Core\Exceptions\JustResolveException;
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
+use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
@@ -57,6 +58,20 @@ trait HandlesStepExceptions
     protected function handleException(Throwable $e): void
     {
         $stepId = $this->step->id ?? 'unknown';
+
+        // Guard: NonNotifiableException is thrown for duplicate job detection and other
+        // non-failure scenarios. Don't process as an error - just exit silently.
+        if ($e instanceof NonNotifiableException) {
+            Step::log($stepId, 'job', '╔═══════════════════════════════════════════════════════════╗');
+            Step::log($stepId, 'job', '║   HANDLE-EXCEPTION: NonNotifiableException - SKIPPING     ║');
+            Step::log($stepId, 'job', '╚═══════════════════════════════════════════════════════════╝');
+            Step::log($stepId, 'job', 'NonNotifiableException caught - NOT a real failure');
+            Step::log($stepId, 'job', 'Message: '.$e->getMessage());
+            Step::log($stepId, 'job', 'Skipping all exception handling - returning early');
+
+            return;
+        }
+
         Step::log($stepId, 'job', '╔═══════════════════════════════════════════════════════════╗');
         Step::log($stepId, 'job', '║         EXCEPTION CAUGHT - STARTING HANDLING              ║');
         Step::log($stepId, 'job', '╚═══════════════════════════════════════════════════════════╝');
