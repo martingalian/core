@@ -208,14 +208,14 @@ abstract class BaseApiableJob extends BaseQueueableJob
             return true;
         }
 
-        // API-specific: Check throttling
+        // API throttle check - ensures rate limits are respected across all workers
         if (! $this->shouldStartOrThrottle()) {
             $this->rescheduleWithoutRetry();
 
             return true;
         }
 
-        // Check max retries AFTER throttle check to avoid failing jobs that are just waiting for rate limit
+        // Check max retries AFTER all lifecycle checks
         $this->checkMaxRetries();
 
         return false;

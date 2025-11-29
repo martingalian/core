@@ -23,6 +23,7 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
 {
     use ApiExceptionHelpers {
         rateLimitUntil as baseRateLimitUntil;
+        ignoreException as baseIgnoreException;
     }
 
     public function __construct()
@@ -100,6 +101,46 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
     public function getMaxCalculationsPerRequest(): int
     {
         return 20;
+    }
+
+    /**
+     * Error messages that should NOT be ignored even if HTTP 400.
+     * These indicate configuration/plan errors rather than invalid input data.
+     *
+     * @var string[]
+     */
+    private array $nonIgnorableErrorPatterns = [
+        'constructs than your plan allows',  // Plan limit exceeded
+        'calculations than your plan allows', // Plan limit exceeded (alternate wording)
+    ];
+
+    /**
+     * Override: conditionally ignore HTTP 400 based on error message content.
+     *
+     * Some 400s are ignorable (invalid symbol, malformed params) while others
+     * indicate configuration issues that should cause the job to fail (plan limit exceeded).
+     */
+    public function ignoreException(Throwable $exception): bool
+    {
+        // First check if it would normally be ignored
+        if (! $this->baseIgnoreException($exception)) {
+            return false;
+        }
+
+        // If it's ignorable by HTTP code, check the response body for non-ignorable patterns
+        // TAAPI returns {"errors": [...]} format, not {"code": ..., "msg": ...}
+        if ($exception instanceof RequestException && $exception->hasResponse()) {
+            $body = mb_strtolower((string) $exception->getResponse()->getBody());
+
+            // Check for patterns that should NOT be ignored
+            foreach ($this->nonIgnorableErrorPatterns as $pattern) {
+                if (str_contains($body, mb_strtolower($pattern))) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**
