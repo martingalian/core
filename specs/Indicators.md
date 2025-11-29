@@ -444,6 +444,180 @@ TAAPI_BASE_URL=https://api.taapi.io
 4. Validate direction conclusions stored
 5. Review notification throttling
 
+## Bulk Candle Fetching System
+
+### Overview
+Efficient bulk candle data fetching using TAAPI's `/bulk` endpoint. This system replaces individual candle requests with batched requests, significantly reducing API calls and improving throughput.
+
+### Components
+
+#### FetchAndStoreCandlesBulkJob
+**Location**: `Jobs/Models/Indicator/FetchAndStoreCandlesBulkJob.php`
+**Purpose**: Fetch candle data for multiple exchange symbols in a single TAAPI bulk request
+
+**Constructor Parameters**:
+- `exchangeSymbolIds` (array) - Array of ExchangeSymbol IDs to fetch candles for
+- `timeframe` (string) - Candle timeframe (1h, 4h, 1d, etc.)
+- `results` (int) - Number of candles to fetch per symbol (max 20 for bulk)
+- `backtrack` (int) - Number of candles to skip (for pagination)
+
+**Flow**:
+1. Load ExchangeSymbols from provided IDs
+2. Build bulk request constructs (one per symbol)
+3. Send single POST request to TAAPI `/bulk` endpoint
+4. Parse response (handles both column and row formats)
+5. Upsert candles to database (no duplicates on same timestamp)
+6. Return statistics: stored count, errors, symbols processed
+
+**Response Handling**:
+The job handles two TAAPI response formats:
+
+```php
+// Column format (default)
+'result' => [
+    'timestamp' => [1764446400, 1764442800],
+    'open' => [50000.0, 49900.0],
+    'high' => [50100.0, 50000.0],
+    // ...
+]
+
+// Row format (array of objects)
+'result' => [
+    ['timestamp' => 1764446400, 'open' => 50000.0, ...],
+    ['timestamp' => 1764442800, 'open' => 49900.0, ...],
+]
+```
+
+**Symbol Matching**:
+Uses `BaseAssetMapper` to match TAAPI response IDs back to exchange symbols:
+- Response ID format: `binancefutures_BTC/USDT_1h_candle_20_0_true`
+- Extracts token from ID using regex
+- Maps token to exchange_symbol_id via `BaseAssetMapper::getTaapiCanonical()`
+
+**Upsert Logic**:
+- Uses `updateOrCreate()` with composite key: `exchange_symbol_id` + `timestamp` + `timeframe`
+- Updates existing candles with new data (no duplicates)
+- Creates `candle_time` from Unix timestamp
+
+#### StoreCandlesCommand
+**Location**: `App/Console/Commands/Cronjobs/Taapi/StoreCandlesCommand.php`
+**Signature**: `taapi:store-candles`
+
+**Options**:
+- `--results=` - Number of candles to fetch (default: 20, max 20 for bulk)
+- `--exchange-symbol-id=` - Optional specific symbol ID to fetch
+- `--clean` - Truncate tables and clear logs before running (includes `horizon:terminate`)
+- `--legacy` - Use legacy single-request jobs instead of bulk API
+
+**Modes**:
+
+1. **Bulk Mode (default)** - Uses `FetchAndStoreCandlesBulkJob`
+   - Groups symbols into chunks (default 10 symbols per bulk request)
+   - Creates one Step per chunk per timeframe
+   - Much more efficient: 10 symbols = 1 API call instead of 10
+
+2. **Legacy Mode (`--legacy`)** - Uses `FetchAndStoreOnCandleJob`
+   - Individual job per symbol/timeframe
+   - Supports up to 500 results per request
+   - Use when needing more than 20 candles per symbol
+
+**Example Usage**:
+```bash
+# Bulk mode (default) - fetch 20 candles for all eligible symbols
+php artisan taapi:store-candles
+
+# Fetch specific symbol
+php artisan taapi:store-candles --exchange-symbol-id=1
+
+# Clean run (truncate data first)
+php artisan taapi:store-candles --clean
+
+# Legacy mode for more than 20 candles
+php artisan taapi:store-candles --legacy --results=100
+```
+
+#### Candle Model
+**Location**: `Martingalian/Core/Models/Candle.php`
+**Purpose**: Stores OHLCV candle data
+
+**Schema**:
+- `exchange_symbol_id` - FK to exchange_symbols
+- `timeframe` - Candle interval (1h, 4h, 1d, etc.)
+- `timestamp` - Unix timestamp
+- `candle_time` - DateTime representation
+- `open`, `high`, `low`, `close` - Price data (decimal)
+- `volume` - Trading volume
+
+**Factory**: `Martingalian/Core/Database/Factories/CandleFactory`
+
+**Factory States**:
+- `hourly()` - 1h timeframe
+- `fourHourly()` - 4h timeframe
+- `daily()` - 1d timeframe
+- `atTimestamp(int $timestamp)` - Set specific timestamp
+
+### Configuration
+
+```php
+// config/martingalian.php
+'candles' => [
+    'default_results' => 20,           // Default candles per symbol
+    'bulk_max_results' => 20,          // TAAPI bulk limit per construct
+],
+
+'throttlers' => [
+    'taapi' => [
+        'bulk_constructs_limit' => 10, // Max symbols per bulk request
+    ],
+],
+```
+
+### Testing
+
+**Test File**: `tests/Feature/Jobs/FetchAndStoreCandlesBulkJobTest.php`
+
+**Test Cases**:
+1. `stores candles from TAAPI bulk API response` - Happy path
+2. `does not duplicate candles on re-run with same timestamps` - Upsert verification
+3. `adds new candles for new timestamps without affecting existing` - Incremental updates
+4. `handles multiple exchange symbols in single bulk request` - Batch processing
+5. `handles TAAPI response with row format (array of objects)` - Alternate format
+6. `returns empty result when no exchange symbols provided` - Edge case
+7. `stores candles with correct timeframe value` - Timeframe verification
+
+**Test Pattern** (Data Isolation):
+```php
+// Create unique fixture per test
+$exchangeSymbol = createExchangeSymbolForBulkTest('UNIQUE_TOKEN');
+
+// Query by specific identifiers, NOT global counts
+$candles = Candle::where('exchange_symbol_id', $exchangeSymbol->id)
+    ->where('timeframe', '1h')
+    ->get();
+expect($candles)->toHaveCount(3);
+
+// Verify exact values
+expect((float) $candle->open)->toBe(50000.0);
+```
+
+### API Efficiency
+
+**Before (Legacy Mode)**:
+- 50 symbols × 5 timeframes = 250 API calls
+- Each call fetches one symbol's candles
+
+**After (Bulk Mode)**:
+- 50 symbols / 10 per chunk = 5 chunks
+- 5 chunks × 5 timeframes = 25 API calls
+- **90% reduction in API calls**
+
+### Error Handling
+
+- Missing exchange symbols → Returns error in result array
+- API failures → Handled by `TaapiExceptionHandler`
+- Malformed response → Logged, continues with valid data
+- Symbol matching failure → Skipped, logged for debugging
+
 ## Future Enhancements
 - Custom indicator formulas (not TAAPI-dependent)
 - Machine learning integration

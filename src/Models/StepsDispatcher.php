@@ -22,26 +22,59 @@ final class StepsDispatcher extends BaseModel
     ];
 
     /**
-     * Selects a random dispatch group.
+     * Selects a dispatch group using round-robin (delegates to getNextGroup).
      * Skips the NULL group and only returns named groups (alpha, beta, gamma, etc.).
      *
-     * @return string|null A random group name to dispatch (never returns NULL group, only named groups)
+     * @return string|null A group name to dispatch (never returns NULL group, only named groups)
      */
     public static function getDispatchGroup(): ?string
     {
-        // Get all available named groups (exclude NULL group)
-        $groups = self::query()
-            ->where('can_dispatch', true)
+        // Check if any groups exist first
+        $hasGroups = self::query()
             ->whereNotNull('group')
-            ->pluck('group')
-            ->all();
+            ->exists();
 
-        if (empty($groups)) {
+        if (! $hasGroups) {
             return null;
         }
 
-        // Use PHP's random selection for true randomness
-        return collect($groups)->random();
+        return self::getNextGroup();
+    }
+
+    /**
+     * Get the next group using round-robin selection (oldest last_selected_at).
+     * Updates last_selected_at for the selected group.
+     * Falls back to 'alpha' if no groups exist in the table.
+     *
+     * @return string The selected group name
+     */
+    public static function getNextGroup(): string
+    {
+        // Use transaction with row-level locking to prevent race conditions
+        // when multiple steps are created concurrently
+        return DB::transaction(function () {
+            // Select group with oldest last_selected_at (null = never selected = highest priority)
+            // lockForUpdate() ensures only one process at a time can select this row
+            $dispatcher = self::query()
+                ->whereNotNull('group')
+                ->orderByRaw('last_selected_at IS NULL DESC') // NULLs first
+                ->orderBy('last_selected_at', 'asc')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $dispatcher) {
+                // Fallback to 'alpha' if no groups exist (e.g., in tests without seeding)
+                return 'alpha';
+            }
+
+            // Update last_selected_at for round-robin fairness using raw DB expression
+            // to ensure microsecond precision (NOW(6) returns current time with microseconds)
+            DB::table('steps_dispatcher')
+                ->where('id', $dispatcher->id)
+                ->update(['last_selected_at' => DB::raw('NOW(6)')]);
+
+            return $dispatcher->group;
+        });
     }
 
     /**

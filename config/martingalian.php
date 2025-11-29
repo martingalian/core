@@ -31,6 +31,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Logging
+    |--------------------------------------------------------------------------
+    |
+    | step_related_logging: When true, enables file-based logging for steps.
+    |                       Logs are written to storage/logs/steps/{step_id}/step.log
+    |                       Dispatcher logs go to storage/logs/dispatcher.log
+    |                       Useful for debugging step execution and throttling.
+    */
+    'logging' => [
+        'step_related_logging' => env('STEP_RELATED_LOGGING', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Indicator Batch Processing
     |--------------------------------------------------------------------------
     |
@@ -107,6 +121,15 @@ return [
             // Higher values = more aggressive (use more capacity)
             // Lower values = more conservative (larger safety buffer)
             'safety_threshold' => (float) env('TAAPI_THROTTLER_SAFETY_THRESHOLD', 0.80),
+
+            // Bulk API construct limit (number of constructs per /bulk request)
+            // This determines how many symbols are batched into a single API call.
+            // TAAPI Plan Limits:
+            // - Pro: 3 constructs per request
+            // - Expert: 10 constructs per request
+            // - Max: 20 constructs per request
+            // Higher values = fewer API calls but larger payload per request
+            'bulk_constructs_limit' => (int) env('TAAPI_BULK_CONSTRUCTS_LIMIT', 10),
         ],
 
         'coinmarketcap' => [

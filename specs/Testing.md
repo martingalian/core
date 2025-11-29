@@ -1222,6 +1222,110 @@ composer test:lint         # Verify code style
 composer lint              # Auto-fix code style
 ```
 
+## Data Isolation Pattern (CRITICAL)
+
+### The Problem
+
+Tests that rely on global counts or `Model::first()` are fragile and can fail when:
+- Test database has stale data from previous runs
+- RefreshDatabase transactions don't fully reset state
+- Parallel tests share database state
+- Seeders or other tests leave orphaned data
+
+```php
+// ❌ BAD: Affected by any existing candles in database
+expect(Candle::count())->toBe(3);
+
+// ❌ BAD: Returns ANY candle, not necessarily the one you created
+$candle = Candle::first();
+expect($candle->timeframe)->toBe('4h');  // Could be '1h' from stale data!
+```
+
+### The Solution
+
+**Always query by specific identifiers** that uniquely identify YOUR test's data:
+
+```php
+// ✓ GOOD: Query ONLY the records your test created
+$candles = Candle::where('exchange_symbol_id', $exchangeSymbol->id)
+    ->where('timeframe', '1h')
+    ->get();
+expect($candles)->toHaveCount(3);
+
+// ✓ GOOD: Query by unique combination of identifiers
+$candle = Candle::where('exchange_symbol_id', $exchangeSymbol->id)
+    ->where('timestamp', 1764446400)
+    ->where('timeframe', '1h')
+    ->first();
+expect($candle)->not->toBeNull();
+expect((float) $candle->open)->toBe(50000.0);
+```
+
+### Use Unique Tokens Per Test
+
+Avoid conflicts with seeded data or other tests by using unique identifiers:
+
+```php
+// ❌ BAD: May conflict with seeded data or other tests
+Symbol::factory()->create(['token' => 'BTC']);
+
+// ✓ GOOD: Unique token per test
+function createTestExchangeSymbol(string $testId): ExchangeSymbol
+{
+    $symbol = Symbol::factory()->create(['token' => "TEST_{$testId}"]);
+    // ...
+}
+
+test('first scenario', function () {
+    $symbol = createTestExchangeSymbol('SCENARIO_A');
+});
+
+test('second scenario', function () {
+    $symbol = createTestExchangeSymbol('SCENARIO_B');
+});
+```
+
+### Verify State Before AND After
+
+Don't just check the final state - verify initial state too:
+
+```php
+test('upserts without duplicating', function () {
+    $exchangeSymbol = createTestFixture('TOKEN1');
+
+    // Create existing record with OLD value
+    Candle::factory()->create([
+        'exchange_symbol_id' => $exchangeSymbol->id,
+        'timestamp' => 1764446400,
+        'open' => '49000.0',  // OLD value
+    ]);
+
+    // VERIFY INITIAL STATE
+    $initialCount = Candle::where('exchange_symbol_id', $exchangeSymbol->id)->count();
+    expect($initialCount)->toBe(1);
+
+    // Act: Run job that should upsert
+    Http::fake([...]);
+    $job->computeApiable();
+
+    // VERIFY FINAL STATE - count unchanged (upsert, not insert)
+    $finalCount = Candle::where('exchange_symbol_id', $exchangeSymbol->id)->count();
+    expect($finalCount)->toBe(1);
+
+    // VERIFY VALUES UPDATED
+    $candle = Candle::where('exchange_symbol_id', $exchangeSymbol->id)->first();
+    expect((float) $candle->open)->toBe(50000.0);  // NEW value
+});
+```
+
+### The Golden Rule
+
+Before asserting on database state, ask yourself:
+
+> **"If there's stale data in the test database, will this assertion still correctly identify bugs?"**
+
+If the answer is "no", refactor to use specific identifiers.
+
 ## Future Testing Enhancements
 
 - Visual regression testing (Pest v4)

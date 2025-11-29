@@ -90,7 +90,8 @@ final class QueryIndicatorsByChunkJob extends BaseApiableJob
             'construct' => $constructs, // Array of construct objects
         ];
 
-        $apiProperties = new ApiProperties(['options' => $payload]);
+        // Don't wrap in 'options' - for POST JSON requests, payload goes at root level
+        $apiProperties = new ApiProperties($payload);
 
         // Make the API call using the Taapi client
         $taapiClient = new \Martingalian\Core\Support\ApiClients\REST\TaapiApiClient([

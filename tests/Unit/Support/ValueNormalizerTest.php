@@ -37,12 +37,14 @@ test('different numeric values are different', function () {
     expect(ValueNormalizer::areEqual('0.00001', '0.00002'))->toBeFalse();
 });
 
-test('booleans and numbers are different', function () {
-    // CRITICAL: true !== 1, false !== 0 (different types, no normalization)
-    expect(ValueNormalizer::areEqual(true, 1))->toBeFalse();
-    expect(ValueNormalizer::areEqual(false, 0))->toBeFalse();
-    expect(ValueNormalizer::areEqual(true, '1'))->toBeFalse();
-    expect(ValueNormalizer::areEqual(false, ''))->toBeFalse();
+test('boolean-like values are equal', function () {
+    // Boolean-like values (true/1, false/0/'') are treated as equal
+    // This matches how Eloquent handles boolean casts from database values
+    expect(ValueNormalizer::areEqual(true, 1))->toBeTrue();
+    expect(ValueNormalizer::areEqual(false, 0))->toBeTrue();
+    expect(ValueNormalizer::areEqual(true, '1'))->toBeTrue();
+    expect(ValueNormalizer::areEqual(false, ''))->toBeTrue();
+    expect(ValueNormalizer::areEqual(false, '0'))->toBeTrue();
 });
 
 test('raw database boolean values are equal', function () {
@@ -107,8 +109,10 @@ test('non-numeric strings are compared strictly', function () {
     expect(ValueNormalizer::areEqual('abc', 'ABC'))->toBeFalse(); // Case sensitive
 });
 
-test('empty string and zero are different', function () {
-    expect(ValueNormalizer::areEqual('', 0))->toBeFalse();
+test('empty string and zero are equal (both falsy)', function () {
+    // Empty string and 0 are both boolean-like falsy values
+    expect(ValueNormalizer::areEqual('', 0))->toBeTrue();
+    // But null is different from falsy values
     expect(ValueNormalizer::areEqual('', null))->toBeFalse();
     expect(ValueNormalizer::areEqual(0, null))->toBeFalse();
 });
