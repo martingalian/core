@@ -28,6 +28,11 @@ final class PendingToDispatched extends Transition
         Step::log($this->step->id, 'transition', '═══════════════════════════════════════════════════════════');
         Step::log($this->step->id, 'transition', '→→→ PendingToDispatched::canTransition() START ←←←');
         Step::log($this->step->id, 'transition', '═══════════════════════════════════════════════════════════');
+
+        // Defense-in-depth: Refresh from database to get actual current state
+        // This prevents race conditions where step was already transitioned by another process
+        $this->step->refresh();
+
         Step::log($this->step->id, 'transition', 'Step state: '.$this->step->state);
         Step::log($this->step->id, 'transition', 'Step type: '.$this->step->type);
         Step::log($this->step->id, 'transition', 'Step index: '.($this->step->index ?? 'null'));

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Queue;
 use InvalidArgumentException;
 use Martingalian\Core\Exceptions\ExceptionParser;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\States\Dispatched;
 use Martingalian\Core\States\Failed;
 use ReflectionClass;
 use ReflectionException;
@@ -28,6 +29,19 @@ trait DispatchesJobs
         Step::log($step->id, 'job', '  - Queue: '.$step->queue);
         Step::log($step->id, 'job', '  - State: '.$step->state);
         Step::log($step->id, 'job', '  - Arguments: '.json_encode($step->arguments));
+
+        // Defense-in-depth: Refresh step and verify state before dispatching
+        // This prevents duplicate dispatch if the step state changed since it was added to the collection
+        $step->refresh();
+        $currentState = get_class($step->state);
+
+        if (! $step->state instanceof Dispatched) {
+            Step::log($step->id, 'job', "⚠️ DISPATCH ABORTED: Step state changed to ".class_basename($currentState)." - skipping dispatch to prevent duplicate");
+            Step::log($step->id, 'job', '╚═══════════════════════════════════════════════════════════╝');
+
+            return;
+        }
+        Step::log($step->id, 'job', '✓ State verified: Step is in Dispatched state');
 
         if (empty($step->class)) {
             Step::log($step->id, 'job', '⚠️ ERROR: Step has no class defined - transitioning to Failed');

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Abstracts;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Log;
 use Martingalian\Core\Concerns\BaseQueueableJob\FormatsStepResult;
@@ -11,7 +12,9 @@ use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepExceptions;
 use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepLifecycle;
 use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\States\Dispatched;
 use Martingalian\Core\States\Failed;
+use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Running;
 use Throwable;
 
@@ -216,18 +219,46 @@ abstract class BaseQueueableJob extends BaseJob
 
     protected function prepareJobExecution(): void
     {
-        // Refresh step from database to get latest state (it should be Dispatched)
-        $this->step->refresh();
+        $stepId = $this->step->id;
 
-        // Guard: If step is already in a terminal state (Completed, Failed, Skipped, etc.),
-        // this job is a duplicate execution (race condition). Exit gracefully.
-        $currentState = get_class($this->step->state);
-        if (in_array($currentState, Step::terminalStepStates(), true)) {
-            Step::log($this->step->id, 'job', "[prepareJobExecution] Step already in terminal state: {$currentState} - aborting duplicate execution");
-            throw new NonNotifiableException("Step #{$this->step->id} already in terminal state {$currentState} - duplicate job execution detected");
-        }
+        // Use transaction with pessimistic locking to prevent race conditions
+        // when multiple workers pick up the same job from the queue
+        DB::transaction(function () use ($stepId) {
+            // Lock the step row to prevent concurrent execution
+            $this->step = Step::where('id', $stepId)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $this->step->state->transitionTo(Running::class);
+            $currentState = get_class($this->step->state);
+
+            // Guard: If step is already in a terminal state (Completed, Failed, Skipped, etc.),
+            // this job is a duplicate execution (race condition). Exit gracefully.
+            if (in_array($currentState, Step::terminalStepStates(), true)) {
+                Step::log($this->step->id, 'job', "[prepareJobExecution] Step already in terminal state: ".class_basename($currentState)." - aborting duplicate execution");
+                throw new NonNotifiableException("Step #{$this->step->id} already in terminal state {$currentState} - duplicate job execution detected");
+            }
+
+            // Guard: If step is already Running, another worker is executing it
+            if ($this->step->state instanceof Running) {
+                Step::log($this->step->id, 'job', "[prepareJobExecution] Step already Running - another worker is executing - aborting duplicate execution");
+                throw new NonNotifiableException("Step #{$this->step->id} already Running - duplicate job execution detected");
+            }
+
+            // Guard: If step returned to Pending (was rescheduled/throttled), abort this execution
+            if ($this->step->state instanceof Pending) {
+                Step::log($this->step->id, 'job', "[prepareJobExecution] Step returned to Pending state - aborting execution");
+                throw new NonNotifiableException("Step #{$this->step->id} returned to Pending - aborting execution");
+            }
+
+            // Guard: Step must be in Dispatched state to proceed
+            if (! $this->step->state instanceof Dispatched) {
+                Step::log($this->step->id, 'job', "[prepareJobExecution] Step in unexpected state: ".class_basename($currentState)." - expected Dispatched");
+                throw new NonNotifiableException("Step #{$this->step->id} in unexpected state {$currentState} - expected Dispatched");
+            }
+
+            $this->step->state->transitionTo(Running::class);
+        });
+
         $this->startDuration();
         $this->attachRelatable();
 

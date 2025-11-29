@@ -10,6 +10,7 @@ use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\StepsDispatcher;
 use Martingalian\Core\States\Cancelled;
 use Martingalian\Core\States\Completed;
+use Martingalian\Core\States\Dispatched;
 use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\NotRunnable;
 use Martingalian\Core\States\Pending;
@@ -207,9 +208,22 @@ final class StepDispatcher
                     Step::log($step->id, 'job', 'Calling transition->apply()...');
                     $transition->apply();
                     Step::log($step->id, 'job', 'transition->apply() completed');
-                    $dispatchedSteps->push($step->fresh());
-                    $canTransitionCount++;
-                    Step::log($step->id, 'job', '→ Step WILL BE DISPATCHED (added to dispatchedSteps collection)');
+
+                    // Defense-in-depth: Get fresh step and verify state before adding to collection
+                    $freshStep = $step->fresh();
+
+                    // Only add if step is now in Dispatched state AND not already in collection
+                    if ($freshStep->state instanceof Dispatched) {
+                        if (! $dispatchedSteps->contains('id', $freshStep->id)) {
+                            $dispatchedSteps->push($freshStep);
+                            $canTransitionCount++;
+                            Step::log($step->id, 'job', '→ Step WILL BE DISPATCHED (added to dispatchedSteps collection)');
+                        } else {
+                            Step::log($step->id, 'job', '⚠️ DUPLICATE PREVENTED: Step already in dispatchedSteps collection - skipping');
+                        }
+                    } else {
+                        Step::log($step->id, 'job', '⚠️ STATE MISMATCH: Step state is '.class_basename(get_class($freshStep->state)).' after apply() - skipping dispatch');
+                    }
                 } else {
                     info_if("[StepDispatcher.dispatch] -> Step ID {$step->id} cannot transition to DISPATCHED");
                     Step::log($step->id, 'job', '✗ canTransition() returned FALSE');
