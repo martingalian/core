@@ -8,11 +8,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Completed;
-use Martingalian\Core\States\Failed;
 use Martingalian\Core\States\NotRunnable;
 use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Running;
-use Martingalian\Core\States\Skipped;
 
 final class StepObserver
 {
@@ -80,6 +78,42 @@ final class StepObserver
             // If still no group (no parent/sibling found or first step in chain), assign via round-robin
             if (empty($step->group)) {
                 $step->group = Step::getDispatchGroup();
+            }
+        }
+
+        // Workflow ID inheritance:
+        // 1) If explicit workflow_id provided, use it (genesis step)
+        // 2) If parent step exists, inherit from parent
+        // 3) If sibling step in same block_uuid has one, inherit
+        // 4) Otherwise, generate new UUID
+        if (empty($step->workflow_id)) {
+            if (! empty($step->block_uuid)) {
+                // First, check if there's a parent step that spawned this child block
+                $parentStep = Step::query()
+                    ->where('child_block_uuid', $step->block_uuid)
+                    ->whereNotNull('workflow_id')
+                    ->first();
+
+                if ($parentStep) {
+                    $step->workflow_id = $parentStep->workflow_id;
+                }
+
+                // If no parent, look for siblings in the same block
+                if (empty($step->workflow_id)) {
+                    $siblingStep = Step::query()
+                        ->where('block_uuid', $step->block_uuid)
+                        ->whereNotNull('workflow_id')
+                        ->first();
+
+                    if ($siblingStep) {
+                        $step->workflow_id = $siblingStep->workflow_id;
+                    }
+                }
+            }
+
+            // If still no workflow_id, generate new UUID (new workflow)
+            if (empty($step->workflow_id)) {
+                $step->workflow_id = Str::uuid()->toString();
             }
         }
     }

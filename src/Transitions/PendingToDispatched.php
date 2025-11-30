@@ -37,6 +37,7 @@ final class PendingToDispatched extends Transition
         if (! $this->step->state instanceof Pending) {
             log_step($this->step->id, '✗ State is NOT Pending - returning false');
             log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
             return false;
         }
         log_step($this->step->id, '✓ State is Pending');
@@ -50,6 +51,7 @@ final class PendingToDispatched extends Transition
         if ($this->step->type === 'resolve-exception' && is_null($this->step->index)) {
             log_step($this->step->id, '✓ YES - resolve-exception with NO index - returning TRUE');
             log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
             return true;
         }
         log_step($this->step->id, '✗ NO - not resolve-exception without index');
@@ -64,6 +66,7 @@ final class PendingToDispatched extends Transition
             if ($this->step->index === 1) {
                 log_step($this->step->id, '✓ Index is 1 (first step) - returning TRUE');
                 log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
                 return true;
             }
             log_step($this->step->id, '✗ Index is NOT 1 - need to check previous step');
@@ -81,11 +84,13 @@ final class PendingToDispatched extends Transition
             if ($previousSteps->isNotEmpty() && in_array(get_class($previousSteps->first()->state), Step::concludedStepStates(), true)) {
                 log_step($this->step->id, '✓ Previous resolve-exception step is concluded - returning TRUE');
                 log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
                 return true;
             }
 
             log_step($this->step->id, '✗ Previous resolve-exception step NOT concluded - returning FALSE');
             log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
             return false;
         }
         log_step($this->step->id, '✗ NO - not resolve-exception with index');
@@ -104,12 +109,14 @@ final class PendingToDispatched extends Transition
             if (is_null($this->step->index)) {
                 log_step($this->step->id, '✓ Index is NULL - dispatch immediately - returning TRUE');
                 log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
                 return true;
             }
             log_step($this->step->id, 'Index is '.$this->step->index.' - checking if previous index is concluded');
             $result = $this->previousIndexIsConcluded();
             log_step($this->step->id, 'previousIndexIsConcluded() returned: '.($result ? 'TRUE' : 'FALSE'));
             log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
             return $result;
         }
         log_step($this->step->id, '✗ NO - not orphan');
@@ -130,6 +137,7 @@ final class PendingToDispatched extends Transition
             if (! $parent) {
                 log_step($this->step->id, '✗ Parent step NOT found - returning FALSE');
                 log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
                 return false;
             }
             log_step($this->step->id, '✓ Parent found: Step #'.$parent->id.' | state: '.$parent->state);
@@ -139,6 +147,7 @@ final class PendingToDispatched extends Transition
             if (! in_array($parentState, [Running::class, Completed::class], true)) {
                 log_step($this->step->id, '✗ Parent is NOT Running/Completed - returning FALSE');
                 log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
                 return false;
             }
             log_step($this->step->id, '✓ Parent is Running or Completed');
@@ -147,6 +156,7 @@ final class PendingToDispatched extends Transition
             $result = $this->previousIndexIsConcluded();
             log_step($this->step->id, 'previousIndexIsConcluded() returned: '.($result ? 'TRUE' : 'FALSE'));
             log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
             return $result;
         }
         log_step($this->step->id, '✗ NO - not child');
@@ -165,6 +175,7 @@ final class PendingToDispatched extends Transition
             $result = $this->previousIndexIsConcluded();
             log_step($this->step->id, 'previousIndexIsConcluded() returned: '.($result ? 'TRUE' : 'FALSE'));
             log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
             return $result;
         }
         log_step($this->step->id, '✗ NO - not parent');
@@ -178,6 +189,7 @@ final class PendingToDispatched extends Transition
         log_step($this->step->id, '⚠️ FALLBACK: Step is neither orphan, child, nor parent - returning FALSE');
         log_step($this->step->id, 'This should never happen - investigate!');
         log_step($this->step->id, '═══════════════════════════════════════════════════════════');
+
         return false;
     }
 
@@ -198,12 +210,16 @@ final class PendingToDispatched extends Transition
         log_step($this->step->id, 'AFTER: state = '.$this->step->state);
 
         // If we have a tick id, let's update the step with it.
-        if (cache()->has('current_tick_id')) {
-            $tickId = cache('current_tick_id');
-            log_step($this->step->id, 'Setting tick_id from cache: '.$tickId);
+        // Cache key includes group suffix to match StepsDispatcher::startDispatch()
+        $cacheSuffix = $this->step->group ?? 'global';
+        $cacheKey = "current_tick_id:{$cacheSuffix}";
+
+        if (cache()->has($cacheKey)) {
+            $tickId = cache($cacheKey);
+            log_step($this->step->id, "Setting tick_id from cache ({$cacheKey}): {$tickId}");
             $this->step->tick_id = $tickId;
         } else {
-            log_step($this->step->id, 'No tick_id in cache - not setting tick_id');
+            log_step($this->step->id, "No tick_id in cache ({$cacheKey}) - not setting tick_id");
         }
 
         log_step($this->step->id, 'Calling save()...');

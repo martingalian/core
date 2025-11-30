@@ -45,6 +45,7 @@ use Spatie\ModelStates\HasStates;
  * @property int $duration
  * @property string|null $hostname
  * @property bool $was_notified
+ * @property string|null $workflow_id
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property-read string|null $group
