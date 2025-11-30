@@ -186,10 +186,16 @@ final class QuerySymbolIndicatorsBulkJob extends BaseApiableJob
         $apiAccount = Account::admin('taapi');
 
         // Build API properties for bulk request
-        $apiProperties = new ApiProperties([
+        $payload = [
             'constructs' => $constructs,
-            'relatable' => $this->exchangeSymbols->first(),
-        ]);
+        ];
+
+        // Link API request log to the Step if running via Step dispatcher
+        if (isset($this->step)) {
+            $payload['relatable'] = $this->step;
+        }
+
+        $apiProperties = new ApiProperties($payload);
 
         // Make the API call using proper infrastructure
         $guzzleResponse = $apiAccount->withApi()->getBulkIndicatorsValues($apiProperties);

@@ -183,6 +183,11 @@ final class FetchAndStoreCandlesBulkJob extends BaseApiableJob
             'construct' => $constructs,
         ];
 
+        // Link API request log to the Step if running via Step dispatcher
+        if (isset($this->step)) {
+            $payload['relatable'] = $this->step;
+        }
+
         // Don't wrap in 'options' - for POST JSON requests, payload goes at root level
         $apiProperties = new ApiProperties($payload);
 

@@ -220,6 +220,11 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
             // Prepare API properties using the mapper
             $properties = $mapper->prepareSearchSymbolByTokenProperties($token);
 
+            // Link API request log to the Step if running via Step dispatcher
+            if (isset($this->step)) {
+                $properties->set('relatable', $this->step);
+            }
+
             // Call CMC API to search for symbol
             $response = $account->withApi()->getSymbols($properties);
             $result = $mapper->resolveSearchSymbolByTokenResponse($response);

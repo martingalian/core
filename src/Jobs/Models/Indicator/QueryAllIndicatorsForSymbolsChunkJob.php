@@ -99,10 +99,16 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
 
         // Build API properties for bulk request
         info_if('[QueryAllIndicatorsForSymbolsChunkJob] Building API properties...');
-        $apiProperties = new ApiProperties([
+        $payload = [
             'constructs' => $constructs,
-            'relatable' => $exchangeSymbols->first(),
-        ]);
+        ];
+
+        // Link API request log to the Step if running via Step dispatcher
+        if (isset($this->step)) {
+            $payload['relatable'] = $this->step;
+        }
+
+        $apiProperties = new ApiProperties($payload);
         info_if('[QueryAllIndicatorsForSymbolsChunkJob] API properties built');
 
         // Make the API call using the proper infrastructure
