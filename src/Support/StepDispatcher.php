@@ -197,49 +197,27 @@ final class StepDispatcher
                 ];
             }
 
-            $canTransitionCount = 0;
-            $cannotTransitionCount = 0;
+            // Batch pre-compute which steps can be dispatched (eliminates per-step canTransition() calls)
+            $dispatchableSteps = self::computeDispatchableSteps($pendingSteps, $stepsCache);
+            $canTransitionCount = $dispatchableSteps->count();
+            $cannotTransitionCount = $pendingSteps->count() - $canTransitionCount;
 
-            $pendingSteps->each(static function (Step $step) use ($dispatchedSteps, &$canTransitionCount, &$cannotTransitionCount, $stepsCache) {
-                info_if("[StepDispatcher.dispatch] Evaluating Step ID {$step->id} with index {$step->index} in block {$step->block_uuid}");
-                log_step($step->id, '╔═══════════════════════════════════════════════════════════╗');
-                log_step($step->id, '║   DISPATCHER: EVALUATING FOR DISPATCH                     ║');
-                log_step($step->id, '╚═══════════════════════════════════════════════════════════╝');
-                log_step($step->id, 'Step details:');
-                log_step($step->id, '  - Step ID: '.$step->id);
-                log_step($step->id, '  - Class: '.$step->class);
-                log_step($step->id, '  - Index: '.$step->index);
-                log_step($step->id, '  - Block UUID: '.$step->block_uuid);
-                log_step($step->id, '  - Priority: '.$step->priority);
-                log_step($step->id, '  - State: '.$step->state);
-                log_step($step->id, '  - Retries: '.$step->retries);
-
-                log_step($step->id, 'Creating PendingToDispatched transition...');
-                $transition = new PendingToDispatched($step, $stepsCache);
-                log_step($step->id, 'Calling canTransition()...');
-
-                if ($transition->canTransition()) {
-                    info_if("[StepDispatcher.dispatch] -> Step ID {$step->id} CAN transition to DISPATCHED");
-                    log_step($step->id, '✓ canTransition() returned TRUE');
-                    log_step($step->id, 'Calling transition->apply()...');
-                    $transition->apply();
-                    log_step($step->id, 'transition->apply() completed');
-                    $dispatchedSteps->push($step);
-                    $canTransitionCount++;
-                    log_step($step->id, '→ Step WILL BE DISPATCHED (added to dispatchedSteps collection)');
-                } else {
-                    info_if("[StepDispatcher.dispatch] -> Step ID {$step->id} cannot transition to DISPATCHED");
-                    log_step($step->id, '✗ canTransition() returned FALSE');
-                    log_step($step->id, '→ Step SKIPPED (not ready for dispatch)');
-                    $cannotTransitionCount++;
-                }
-                log_step($step->id, '╚═══════════════════════════════════════════════════════════╝');
-            });
-
-            log_step('dispatcher', 'Pending step evaluation complete:');
+            log_step('dispatcher', 'Batch decision complete:');
             log_step('dispatcher', '  - Can transition: '.$canTransitionCount);
             log_step('dispatcher', '  - Cannot transition: '.$cannotTransitionCount);
-            log_step('dispatcher', '  - Total evaluated: '.($canTransitionCount + $cannotTransitionCount));
+            log_step('dispatcher', '  - Total evaluated: '.$pendingSteps->count());
+
+            // Apply transitions for all dispatchable steps
+            $dispatchableSteps->each(static function (Step $step) use ($dispatchedSteps, $stepsCache) {
+                info_if("[StepDispatcher.dispatch] Step ID {$step->id} CAN transition to DISPATCHED");
+                log_step($step->id, '→ Applying PendingToDispatched transition');
+
+                $transition = new PendingToDispatched($step, $stepsCache);
+                $transition->apply();
+                $dispatchedSteps->push($step);
+
+                log_step($step->id, '✓ Step transitioned to DISPATCHED');
+            });
 
             // Dispatch all steps that are ready
             log_step('dispatcher', 'Dispatching '.$dispatchedSteps->count().' steps to their jobs...');
@@ -898,5 +876,151 @@ final class StepDispatcher
         log_step('dispatcher', '');
 
         return true;
+    }
+
+    /**
+     * Pre-compute which pending steps can be dispatched using batch operations.
+     * Eliminates per-step canTransition() overhead by computing decisions in bulk.
+     *
+     * @param  \Illuminate\Support\Collection<int, Step>  $pendingSteps
+     * @param  array<string, mixed>|null  $stepsCache
+     * @return \Illuminate\Support\Collection<int, Step>
+     */
+    public static function computeDispatchableSteps(
+        \Illuminate\Support\Collection $pendingSteps,
+        ?array $stepsCache
+    ): \Illuminate\Support\Collection {
+        if ($pendingSteps->isEmpty() || $stepsCache === null) {
+            return collect();
+        }
+
+        $parentsByChildBlock = $stepsCache['parents_by_child_block'];
+        $stepsByBlockAndIndex = $stepsCache['steps_by_block_and_index'];
+        $pendingResolveExceptions = $stepsCache['pending_resolve_exceptions'];
+
+        // Pre-compute concluded indices per block
+        $concludedIndicesByBlock = self::computeConcludedIndices($stepsByBlockAndIndex);
+
+        return $pendingSteps->filter(function (Step $step) use (
+            $parentsByChildBlock,
+            $concludedIndicesByBlock,
+            $pendingResolveExceptions
+        ) {
+            // Must be in Pending state
+            if (! $step->state instanceof Pending) {
+                return false;
+            }
+
+            // 1. resolve-exception without index → always dispatch
+            if ($step->type === 'resolve-exception' && is_null($step->index)) {
+                return true;
+            }
+
+            // 2. resolve-exception with index → check previous resolve-exception concluded
+            if ($step->type === 'resolve-exception' && ! is_null($step->index)) {
+                if ($step->index === 1) {
+                    return true;
+                }
+                $key = $step->block_uuid.'_'.($step->index - 1).'_resolve-exception';
+
+                return isset($concludedIndicesByBlock[$key]);
+            }
+
+            // Determine step category
+            $hasParent = isset($parentsByChildBlock[$step->block_uuid]);
+            $isParentStep = ! is_null($step->child_block_uuid);
+
+            // 3. Orphan (no parent, no children)
+            if (! $hasParent && ! $isParentStep) {
+                if (is_null($step->index)) {
+                    return true;
+                }
+
+                return self::previousIndexConcludedBatch($step, $concludedIndicesByBlock, $pendingResolveExceptions);
+            }
+
+            // 4. Child step → parent must be Running/Completed
+            if ($hasParent) {
+                $parent = $parentsByChildBlock[$step->block_uuid];
+                $parentState = get_class($parent->state);
+                if (! in_array($parentState, [Running::class, Completed::class], true)) {
+                    return false;
+                }
+
+                // Child with null index and parent running → dispatch
+                if (is_null($step->index)) {
+                    return $parent->state instanceof Running;
+                }
+
+                return self::previousIndexConcludedBatch($step, $concludedIndicesByBlock, $pendingResolveExceptions);
+            }
+
+            // 5. Parent step
+            if ($isParentStep) {
+                return self::previousIndexConcludedBatch($step, $concludedIndicesByBlock, $pendingResolveExceptions);
+            }
+
+            return false;
+        });
+    }
+
+    /**
+     * Pre-compute which (block_uuid, index, type) combinations are concluded.
+     *
+     * @return array<string, bool>
+     */
+    public static function computeConcludedIndices(\Illuminate\Support\Collection $stepsByBlockAndIndex): array
+    {
+        $concluded = [];
+
+        foreach ($stepsByBlockAndIndex as $key => $steps) {
+            // Key format: "block_uuid_index"
+            $parts = explode('_', $key);
+            $index = array_pop($parts);
+            $blockUuid = implode('_', $parts);
+
+            // Check default type steps
+            $defaultSteps = $steps->where('type', 'default');
+            if ($defaultSteps->isNotEmpty() && $defaultSteps->every(
+                function ($s) {
+                    return in_array(get_class($s->state), Step::concludedStepStates(), true);
+                }
+            )) {
+                $concluded[$blockUuid.'_'.$index.'_default'] = true;
+            }
+
+            // Check resolve-exception type steps
+            $resolveSteps = $steps->where('type', 'resolve-exception');
+            if ($resolveSteps->isNotEmpty() && $resolveSteps->every(
+                function ($s) {
+                    return in_array(get_class($s->state), Step::concludedStepStates(), true);
+                }
+            )) {
+                $concluded[$blockUuid.'_'.$index.'_resolve-exception'] = true;
+            }
+        }
+
+        return $concluded;
+    }
+
+    /**
+     * Check if previous index is concluded using pre-computed data.
+     *
+     * @param  array<string, bool>  $concludedIndicesByBlock
+     * @param  array<string, int>  $pendingResolveExceptions
+     */
+    public static function previousIndexConcludedBatch(
+        Step $step,
+        array $concludedIndicesByBlock,
+        array $pendingResolveExceptions
+    ): bool {
+        if ($step->index === 1) {
+            return true;
+        }
+
+        $type = isset($pendingResolveExceptions[$step->block_uuid]) ? 'resolve-exception' : 'default';
+        $key = $step->block_uuid.'_'.($step->index - 1).'_'.$type;
+
+        return isset($concludedIndicesByBlock[$key]);
     }
 }
