@@ -188,10 +188,39 @@ if ($handler->isCurrentlyBanned()) {
 **Location**: `Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler`
 **Specialty**: TAAPI.io indicator API
 
-**Simpler Logic**:
+**Key Features**:
 - Standard HTTP status code handling
-- No complex interval headers
-- Straightforward rate limiting
+- 15-second window rate limiting
+- **Conditional ignore for HTTP 400**: Some 400s are ignorable (invalid symbol) but plan limit errors are NOT
+
+**Plan Limit Error Handling**:
+The `ignoreException()` method overrides the base behavior to NOT ignore plan limit errors:
+
+```php
+// Error patterns that should NOT be ignored (even on HTTP 400):
+'constructs than your plan allows'   // Bulk API construct limit exceeded
+'calculations than your plan allows' // Calculation limit exceeded
+```
+
+**Why This Matters**:
+- Bulk API requests (`FetchAndStoreCandlesBulkJob`, `QuerySymbolIndicatorsBulkJob`) may exceed plan limits
+- These errors indicate a configuration issue (too many symbols per chunk)
+- Job should FAIL to alert about the issue, not silently continue
+
+**Rate Limit Logic**:
+```php
+public function rateLimitUntil(RequestException $e): Carbon
+{
+    // TAAPI uses 15-second windows
+    // Calculate next window boundary + 3 second buffer
+    $currentSecond = now()->second;
+    $windowStart = floor($currentSecond / 15) * 15;
+    $nextWindowStart = $windowStart + 15;
+    $secondsUntilNextWindow = $nextWindowStart - $currentSecond;
+
+    return now()->addSeconds($secondsUntilNextWindow + 3);
+}
+```
 
 ### AlternativeMeExceptionHandler
 **Location**: `Martingalian\Core\Support\ApiExceptionHandlers\AlternativeMeExceptionHandler`

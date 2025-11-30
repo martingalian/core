@@ -268,7 +268,7 @@ Acts as final validation that price action aligns with other directional indicat
 ### QuerySymbolIndicatorsJob
 **Location**: `Jobs/Models/Indicator/QuerySymbolIndicatorsJob.php`
 **Frequency**: Every 1-5 minutes (varies by timeframe)
-**Purpose**: Fetch fresh indicator data from TAAPI.io
+**Purpose**: Fetch fresh indicator data from TAAPI.io for a single symbol
 
 **Flow**:
 1. Get active ExchangeSymbols
@@ -276,6 +276,63 @@ Acts as final validation that price action aligns with other directional indicat
 3. Query TAAPI.io for all active indicators
 4. Store results in IndicatorHistory
 5. Trigger direction conclusion if conditions met
+
+### QuerySymbolIndicatorsBulkJob
+**Location**: `Jobs/Models/Indicator/QuerySymbolIndicatorsBulkJob.php`
+**Purpose**: Batch-query indicator data for multiple exchange symbols in a single TAAPI API call
+
+**Constructor Parameters**:
+- `exchangeSymbolIds` (array) - Array of ExchangeSymbol IDs to process
+- `timeframe` (string) - Indicator timeframe (1h, 4h, 1d, etc.)
+- `shouldCleanup` (bool) - Whether to cleanup indicator histories after conclusion (default: true)
+
+**Flow**:
+1. Load ExchangeSymbols from provided IDs with relationships
+2. Load active non-computed indicators (type: refresh-data)
+3. Build bulk request constructs (one per symbol, all indicators)
+4. Send single POST request to TAAPI `/bulk` endpoint
+5. Parse response and match indicators by endpoint + period
+6. Upsert results to IndicatorHistory
+7. Process computed indicators using fetched data
+8. Create `ConcludeSymbolDirectionAtTimeframeJob` steps for each symbol
+
+**Construct Format**:
+```php
+[
+    'id' => (string) $exchangeSymbol->id,
+    'exchange' => 'binancefutures',
+    'symbol' => 'BTC/USDT',
+    'interval' => '1h',
+    'indicators' => [
+        ['indicator' => 'ema', 'period' => 40],
+        ['indicator' => 'ema', 'period' => 80],
+        ['indicator' => 'adx', 'period' => 14],
+        // ... all active indicators
+    ],
+]
+```
+
+**Response ID Parsing**:
+Response IDs follow format: `binancefutures_BTC/USDT_1h_ema_40_2_1`
+- Parses exchange, symbol, interval from ID parts
+- Matches indicator by endpoint (e.g., 'ema') and optional period parameter
+- Uses `BaseAssetMapper` for symbol token mapping
+
+**Computed Indicators**:
+After fetching API indicators, processes computed indicators (e.g., `EMAsSameDirection`):
+- Collects all fetched indicator data per symbol
+- Instantiates computed indicator with all indicator data
+- Stores computed conclusion to IndicatorHistory
+
+**TAAPI Plan Limits** (constructs per request):
+- Pro: 3 constructs
+- Expert: 10 constructs
+- Max: 20 constructs
+
+**Error Handling**:
+- Plan limit errors ("constructs than your plan allows") are NOT ignored - job fails to alert about configuration issue
+- Invalid symbols or missing data logged but processing continues
+- Returns result array with stored count, errors, total responses
 
 ### CleanupIndicatorHistoriesJob
 **Location**: `Jobs/Models/ExchangeSymbol/CleanupIndicatorHistoriesJob.php`
