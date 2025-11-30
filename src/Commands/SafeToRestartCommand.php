@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Commands;
 
-use Illuminate\Support\Facades\Artisan;
-use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Server;
+use Martingalian\Core\Models\Step;
+use Martingalian\Core\States\Running;
 use Martingalian\Core\Support\BaseCommand;
-use Martingalian\Core\Support\StepDispatcher;
 
 final class SafeToRestartCommand extends BaseCommand
 {
@@ -35,36 +34,25 @@ final class SafeToRestartCommand extends BaseCommand
             return 1;
         }
 
-        // 3. Check if safe to restart
-        $canSafelyRestart = StepDispatcher::canSafelyRestart();
+        // 3. Check for Running non-parent steps (actively executing work)
+        // Parent steps (with child_block_uuid) are just waiting - they can be interrupted.
+        // Only child steps (without child_block_uuid) are actively doing work.
+        $runningCount = Step::where('state', Running::class)
+            ->whereNull('child_block_uuid')
+            ->count();
 
-        if (! $canSafelyRestart) {
-            // 4. Take preventative action based on server type
-            if ($hostname === 'ingestion') {
-                // Ingestion: Enable cooling down (only critical steps will dispatch)
-                $martingalian = Martingalian::first();
-                if ($martingalian) {
-                    $martingalian->is_cooling_down = true;
-                    $martingalian->save();
+        if ($runningCount > 0) {
+            $this->line('false');
+            $this->error("❌ {$runningCount} steps are still running");
+            $this->warn('⏳ Wait for running steps to complete before deploying');
+            $this->warn('💡 Tip: Enable cooling down from the dashboard to stop new dispatches');
 
-                    $this->line('false');
-                    $this->error('🛑 Ingestion server: Cooling down enabled');
-                    $this->warn('⏳ Only critical steps will dispatch. Waiting for critical jobs to complete...');
-                }
-            } else {
-                // Worker: Enable maintenance mode
-                Artisan::call('down', ['--retry' => 60]);
-
-                $this->line('false');
-                $this->error('🛑 Worker server: Maintenance mode enabled');
-                $this->warn('⏳ Queue workers will finish current jobs, then deployment can proceed');
-            }
-
-            return 1; // Non-zero exit code signals deployment to abort
+            return 1;
         }
 
-        // 5. All clear - safe to deploy
+        // 4. All clear - safe to deploy
         $this->line('true');
+        $this->info('✅ No running steps - safe to deploy');
 
         return 0;
     }

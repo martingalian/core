@@ -16,30 +16,17 @@ return new class extends Migration
         });
 
         // Add new cooling down flag to martingalian
+        // When true, the scheduler stops dispatching new steps entirely
         Schema::table('martingalian', function (Blueprint $table) {
             $table->boolean('is_cooling_down')
                 ->default(false)
                 ->after('allow_opening_positions')
-                ->comment('When true, only critical priority steps are dispatched');
-        });
-
-        // Add can_cool_down column to steps table
-        // true (default) = step can be paused during cooldown
-        // false = step must be flushed even during cooldown (critical operations)
-        Schema::table('steps', function (Blueprint $table) {
-            $table->boolean('can_cool_down')
-                ->default(true)
-                ->after('priority')
-                ->comment('When false, step dispatches even during cooldown');
+                ->comment('When true, scheduler stops dispatching steps for safe deployment');
         });
     }
 
     public function down(): void
     {
-        Schema::table('steps', function (Blueprint $table) {
-            $table->dropColumn('can_cool_down');
-        });
-
         Schema::table('martingalian', function (Blueprint $table) {
             $table->dropColumn('is_cooling_down');
         });
