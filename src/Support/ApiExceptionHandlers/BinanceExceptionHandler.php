@@ -31,12 +31,38 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     // SYNCHRONIZED
     /**
      * Server forbidden — real exchange-level IP bans (server cannot make ANY calls).
-     * HTTP 418: IP auto-banned by Binance (temporary ban, 2 minutes to 3 days)
+     * HTTP 418: IP auto-banned by Binance (temporary or permanent ban)
      *
-     * IMPORTANT:
-     * • 401/-2015 is NOT here (it's an API key config issue, handled separately)
+     * NOTE: This array is used by the generic isForbidden() method.
+     * For more specific classification, use:
+     * - isIpNotWhitelisted(): User forgot to whitelist IP (-2015 with IP message)
+     * - isIpRateLimited(): Temporary ban (418 with Retry-After)
+     * - isIpBanned(): Permanent ban (418 without Retry-After or very long duration)
+     * - isAccountBlocked(): API key revoked/invalid (-2015 with key message)
      */
     public array $serverForbiddenHttpCodes = [418];
+
+    /**
+     * IP not whitelisted by user on their API key settings.
+     * HTTP 401 with -2015: "Invalid API-key, IP, or permissions for action"
+     * When the message contains "IP" it indicates whitelist issue.
+     *
+     * @var array<int, array<int, int>|int>
+     */
+    public array $ipNotWhitelistedHttpCodes = [
+        401 => [-2015],
+    ];
+
+    /**
+     * Account blocked — API key revoked, disabled, or permission issues.
+     * HTTP 401 with -2015: When message indicates key/permission issue (not IP).
+     * HTTP 401 with -2014: API key format invalid.
+     *
+     * @var array<int, array<int, int>|int>
+     */
+    public array $accountBlockedHttpCodes = [
+        401 => [-2015, -2014],
+    ];
 
     // SYNCHRONIZED
     /**
@@ -109,15 +135,111 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     }
 
     /**
-     * Treat 418 as an IP ban escalation (temporary).
+     * Case 1: IP not whitelisted by user.
+     * User forgot to add server IP to their API key whitelist on Binance.
+     * Detected by: HTTP 401 with -2015 AND message contains "IP".
+     *
+     * Recovery: User adds IP to exchange whitelist.
+     */
+    public function isIpNotWhitelisted(Throwable $exception): bool
+    {
+        if (! $this->containsHttpExceptionIn($exception, $this->ipNotWhitelistedHttpCodes)) {
+            return false;
+        }
+
+        // Check if message mentions IP (distinguishes from API key issues)
+        $data = $this->extractHttpErrorCodes($exception);
+        $message = mb_strtolower((string) ($data['message'] ?? ''));
+
+        return str_contains($message, 'ip');
+    }
+
+    /**
+     * Case 2: IP temporarily rate-limited.
+     * Server hit rate limits and is temporarily blocked.
+     * Detected by: HTTP 418 WITH Retry-After header (or short duration).
+     *
+     * Recovery: Auto-recovers after Retry-After period.
+     */
+    public function isIpRateLimited(Throwable $exception): bool
+    {
+        if (! $exception instanceof RequestException || ! $exception->hasResponse()) {
+            return false;
+        }
+
+        if ($exception->getResponse()->getStatusCode() !== 418) {
+            return false;
+        }
+
+        // 418 with Retry-After = temporary rate limit
+        $meta = $this->extractHttpMeta($exception);
+        $retryAfter = mb_trim((string) ($meta['retry_after'] ?? ''));
+
+        if ($retryAfter === '') {
+            return false; // No Retry-After = permanent ban (Case 3)
+        }
+
+        // If Retry-After is very long (> 3 days = 259200 seconds), treat as permanent
+        if (is_numeric($retryAfter) && (int) $retryAfter > 259200) {
+            return false; // Permanent ban
+        }
+
+        return true; // Temporary rate limit
+    }
+
+    /**
+     * Case 3: IP permanently banned.
+     * Server is permanently banned from Binance for ALL accounts.
+     * Detected by: HTTP 418 WITHOUT Retry-After or with very long duration.
+     *
+     * Recovery: Manual - contact exchange support.
      */
     public function isIpBanned(Throwable $exception): bool
     {
-        return $exception instanceof RequestException
-            && $exception->hasResponse()
-            && $exception->getResponse()->getStatusCode() === 418;
+        if (! $exception instanceof RequestException || ! $exception->hasResponse()) {
+            return false;
+        }
+
+        if ($exception->getResponse()->getStatusCode() !== 418) {
+            return false;
+        }
+
+        // 418 WITHOUT Retry-After = permanent ban
+        $meta = $this->extractHttpMeta($exception);
+        $retryAfter = mb_trim((string) ($meta['retry_after'] ?? ''));
+
+        if ($retryAfter === '') {
+            return true; // No Retry-After = permanent ban
+        }
+
+        // If Retry-After is very long (> 3 days), treat as permanent
+        if (is_numeric($retryAfter) && (int) $retryAfter > 259200) {
+            return true; // Permanent ban
+        }
+
+        return false; // Temporary rate limit (Case 2)
     }
 
+    /**
+     * Case 4: Account blocked.
+     * Specific account's API key is revoked, disabled, or has permission issues.
+     * Detected by: HTTP 401 with -2015 AND message does NOT mention "IP".
+     *
+     * Recovery: User regenerates API key on exchange.
+     */
+    public function isAccountBlocked(Throwable $exception): bool
+    {
+        if (! $this->containsHttpExceptionIn($exception, $this->accountBlockedHttpCodes)) {
+            return false;
+        }
+
+        // Check if message does NOT mention IP (API key issue, not IP whitelist)
+        $data = $this->extractHttpErrorCodes($exception);
+        $message = mb_strtolower((string) ($data['message'] ?? ''));
+
+        // If message contains "IP", it's Case 1 (IP not whitelisted), not Case 4
+        return ! str_contains($message, 'ip');
+    }
 
     /**
      * Override: compute a safe retry time using Binance headers when Retry-After is absent.

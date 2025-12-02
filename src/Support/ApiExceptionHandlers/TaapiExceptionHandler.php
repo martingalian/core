@@ -26,12 +26,6 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
         ignoreException as baseIgnoreException;
     }
 
-    public function __construct()
-    {
-        // Conservative backoff when no rate limit info available
-        $this->backoffSeconds = 5;
-    }
-
     /**
      * Ignorable — no-ops / idempotent.
      * 400: Bad request (malformed parameters, invalid data)
@@ -57,11 +51,26 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
      * 401: Unauthorized (invalid/missing API key)
      * 402: Payment required (subscription expired)
      * 403: Forbidden (insufficient permissions)
+     *
+     * NOTE: For Taapi, all forbidden errors are account-specific (API key issues).
+     * Use isAccountBlocked() for specific classification.
      */
     public array $serverForbiddenHttpCodes = [
         401,
         402,
         403,
+    ];
+
+    /**
+     * Account blocked — API key invalid, expired, or insufficient permissions.
+     * These are all account-specific issues that require user action.
+     *
+     * @var array<int, array<int, int>|int>
+     */
+    public array $accountBlockedHttpCodes = [
+        401,     // Unauthorized (invalid/missing API key)
+        402,     // Payment required (subscription expired)
+        403,     // Forbidden (insufficient permissions)
     ];
 
     /**
@@ -76,6 +85,23 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
      * recvWindow mismatches: not applicable for Taapi.io.
      */
     public array $recvWindowMismatchedHttpCodes = [];
+
+    /**
+     * Error messages that should NOT be ignored even if HTTP 400.
+     * These indicate configuration/plan errors rather than invalid input data.
+     *
+     * @var string[]
+     */
+    private array $nonIgnorableErrorPatterns = [
+        'constructs than your plan allows',  // Plan limit exceeded
+        'calculations than your plan allows', // Plan limit exceeded (alternate wording)
+    ];
+
+    public function __construct()
+    {
+        // Conservative backoff when no rate limit info available
+        $this->backoffSeconds = 5;
+    }
 
     /**
      * Ping the Taapi API to check connectivity.
@@ -93,6 +119,16 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
     }
 
     /**
+     * Case 4: Account blocked.
+     * For Taapi, this includes API key issues (401), payment issues (402), and permission issues (403).
+     * All require user action to resolve (check API key, renew subscription, etc.).
+     */
+    public function isAccountBlocked(Throwable $exception): bool
+    {
+        return $this->containsHttpExceptionIn($exception, $this->accountBlockedHttpCodes);
+    }
+
+    /**
      * Get the maximum number of calculations allowed per bulk request.
      * Based on Taapi Expert plan limits.
      *
@@ -102,17 +138,6 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
     {
         return 20;
     }
-
-    /**
-     * Error messages that should NOT be ignored even if HTTP 400.
-     * These indicate configuration/plan errors rather than invalid input data.
-     *
-     * @var string[]
-     */
-    private array $nonIgnorableErrorPatterns = [
-        'constructs than your plan allows',  // Plan limit exceeded
-        'calculations than your plan allows', // Plan limit exceeded (alternate wording)
-    ];
 
     /**
      * Override: conditionally ignore HTTP 400 based on error message content.

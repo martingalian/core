@@ -9,7 +9,6 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ForbiddenHostname;
 use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Support\NotificationService;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -37,57 +36,167 @@ trait ApiExceptionHelpers
         return $this->containsHttpExceptionIn($exception, $this->serverRateLimitedHttpCodes);
     }
 
+    /**
+     * Generic forbidden check (uses serverForbiddenHttpCodes).
+     * For more specific classification, use:
+     * - isIpNotWhitelisted(): Case 1 - User forgot to whitelist IP
+     * - isIpRateLimited(): Case 2 - Temporary rate limit ban
+     * - isIpBanned(): Case 3 - Permanent ban for ALL accounts
+     * - isAccountBlocked(): Case 4 - Account-specific API key issue
+     */
     public function isForbidden(Throwable $exception): bool
     {
         return $this->containsHttpExceptionIn($exception, $this->serverForbiddenHttpCodes);
     }
 
     /**
-     * Call only for true credential/IP whitelist failures (not temporary rate-limit bans).
+     * ----------------------------------------
+     * Specific IP/Account classifiers (4 cases)
+     * ----------------------------------------
+     * These methods should be overridden by exchange-specific handlers.
+     * Default implementations return false (not detected).
+     */
+
+    /**
+     * Case 1: IP not whitelisted by user.
+     * User forgot to add server IP to their API key whitelist.
+     * Recovery: User adds IP to exchange whitelist.
+     */
+    public function isIpNotWhitelisted(Throwable $exception): bool
+    {
+        // Default: not detected. Override in exchange-specific handlers.
+        return false;
+    }
+
+    /**
+     * Case 2: IP temporarily rate-limited.
+     * Server hit rate limits and is temporarily blocked.
+     * Recovery: Auto-recovers after Retry-After period.
+     */
+    public function isIpRateLimited(Throwable $exception): bool
+    {
+        // Default: not detected. Override in exchange-specific handlers.
+        return false;
+    }
+
+    /**
+     * Case 3: IP permanently banned.
+     * Server is permanently banned from exchange for ALL accounts.
+     * Recovery: Manual - contact exchange support.
+     */
+    public function isIpBanned(Throwable $exception): bool
+    {
+        // Default: not detected. Override in exchange-specific handlers.
+        return false;
+    }
+
+    /**
+     * Case 4: Account blocked.
+     * Specific account's API key is revoked, disabled, or has permission issues.
+     * Recovery: User regenerates API key on exchange.
+     */
+    public function isAccountBlocked(Throwable $exception): bool
+    {
+        // Default: not detected. Override in exchange-specific handlers.
+        return false;
+    }
+
+    /**
+     * ----------------------------------------
+     * Forbid methods for 4 blocking cases
+     * ----------------------------------------
+     */
+
+    /**
+     * Case 1: IP not whitelisted by user.
+     * User forgot to add server IP to their API key whitelist.
+     * Creates account-specific record, notifies the USER (not admin).
+     */
+    public function forbidIpNotWhitelisted(Throwable $exception): void
+    {
+        $errorData = $this->extractHttpErrorCodes($exception);
+
+        $this->createForbiddenRecord(
+            type: ForbiddenHostname::TYPE_IP_NOT_WHITELISTED,
+            accountId: $this->account->id, // Account-specific
+            forbiddenUntil: null, // Until user fixes it
+            errorCode: (string) ($errorData['status_code'] ?? ''),
+            errorMessage: $errorData['message'] ?? null
+        );
+    }
+
+    /**
+     * Case 2: IP temporarily rate-limited.
+     * Server hit rate limits and is temporarily blocked.
+     * Creates system-wide record (affects all accounts on this IP).
+     */
+    public function forbidIpRateLimited(Throwable $exception): void
+    {
+        $errorData = $this->extractHttpErrorCodes($exception);
+
+        // Calculate when the ban expires
+        $forbiddenUntil = $exception instanceof RequestException
+            ? $this->rateLimitUntil($exception)
+            : now()->addMinutes(10); // Default 10 minutes for Bybit
+
+        $this->createForbiddenRecord(
+            type: ForbiddenHostname::TYPE_IP_RATE_LIMITED,
+            accountId: null, // System-wide (all accounts affected)
+            forbiddenUntil: $forbiddenUntil,
+            errorCode: (string) ($errorData['status_code'] ?? ''),
+            errorMessage: $errorData['message'] ?? null
+        );
+    }
+
+    /**
+     * Case 3: IP permanently banned.
+     * Server is permanently banned from exchange for ALL accounts.
+     * Creates system-wide record, notifies admin.
+     */
+    public function forbidIpBanned(Throwable $exception): void
+    {
+        $errorData = $this->extractHttpErrorCodes($exception);
+
+        $this->createForbiddenRecord(
+            type: ForbiddenHostname::TYPE_IP_BANNED,
+            accountId: null, // System-wide (all accounts affected)
+            forbiddenUntil: null, // Permanent
+            errorCode: (string) ($errorData['status_code'] ?? ''),
+            errorMessage: $errorData['message'] ?? null
+        );
+    }
+
+    /**
+     * Case 4: Account blocked.
+     * Specific account's API key is revoked, disabled, or has permission issues.
+     * Creates account-specific record, notifies the USER.
+     */
+    public function forbidAccountBlocked(Throwable $exception): void
+    {
+        $errorData = $this->extractHttpErrorCodes($exception);
+
+        $this->createForbiddenRecord(
+            type: ForbiddenHostname::TYPE_ACCOUNT_BLOCKED,
+            accountId: $this->account->id, // Account-specific
+            forbiddenUntil: null, // Until user fixes it
+            errorCode: (string) ($errorData['status_code'] ?? ''),
+            errorMessage: $errorData['message'] ?? null
+        );
+    }
+
+    /**
+     * @deprecated Use specific forbid methods instead (forbidIpNotWhitelisted, forbidIpRateLimited, etc.)
      */
     public function forbid(): void
     {
-        $apiSystem = \Martingalian\Core\Models\ApiSystem::where('canonical', $this->getApiSystem())->firstOrFail();
-
-        // Determine account_id:
-        // - Admin accounts (transient, id is NULL) → save as NULL (system-wide ban)
-        // - User accounts (real, id has value) → save real ID (account-specific ban)
-        $accountId = $this->account->id;
-
-        $record = ForbiddenHostname::updateOrCreate(
-            [
-                'api_system_id' => $apiSystem->id,
-                'account_id' => $accountId,
-                'ip_address' => Martingalian::ip(),
-            ],
-            [
-                'updated_at' => now(),
-            ]
+        // Legacy fallback - treat as IP not whitelisted for backwards compatibility
+        $this->createForbiddenRecord(
+            type: ForbiddenHostname::TYPE_IP_NOT_WHITELISTED,
+            accountId: $this->account->id,
+            forbiddenUntil: null,
+            errorCode: null,
+            errorMessage: null
         );
-
-        log_step('api-exceptions', "----- HOSTNAME WAS FORBIDDEN: {$record->ip_address}");
-
-        // Only send notification if this is a NEW forbidden hostname (not an update)
-        if ($record->wasRecentlyCreated) {
-            try {
-                $hostname = gethostname();
-                $exchange = $this->getApiSystem();
-
-                NotificationService::send(
-                    user: Martingalian::admin(),
-                    canonical: 'server_ip_forbidden',
-                    referenceData: [
-                        'exchange' => $exchange,
-                        'ip_address' => $record->ip_address,
-                        'hostname' => $hostname,
-                        'account_id' => $this->account->id ?? null,
-                    ]
-                );
-            } catch (Throwable $notificationException) {
-                // Notification might fail in test environment - log but don't fail the job
-                log_step('api-exceptions', 'Failed to send forbidden hostname notification: '.$notificationException->getMessage());
-            }
-        }
     }
 
     public function retryException(Throwable $exception): bool
@@ -200,6 +309,41 @@ trait ApiExceptionHelpers
             'status_code' => $statusCode,
             'message' => $message,
         ];
+    }
+
+    /**
+     * Create or update a ForbiddenHostname record.
+     * Sends notification only for new records.
+     */
+    protected function createForbiddenRecord(
+        string $type,
+        ?int $accountId,
+        ?Carbon $forbiddenUntil,
+        ?string $errorCode,
+        ?string $errorMessage
+    ): void {
+        $apiSystem = \Martingalian\Core\Models\ApiSystem::where('canonical', $this->getApiSystem())->firstOrFail();
+        $ipAddress = Martingalian::ip();
+
+        $record = ForbiddenHostname::updateOrCreate(
+            [
+                'api_system_id' => $apiSystem->id,
+                'account_id' => $accountId,
+                'ip_address' => $ipAddress,
+                'type' => $type,
+            ],
+            [
+                'forbidden_until' => $forbiddenUntil,
+                'error_code' => $errorCode,
+                'error_message' => $errorMessage,
+                'updated_at' => now(),
+            ]
+        );
+
+        $typeLabel = str_replace('_', ' ', $type);
+        log_step('api-exceptions', "----- HOSTNAME FORBIDDEN ({$typeLabel}): {$record->ip_address}");
+
+        // Notification is sent by ForbiddenHostnameObserver::created() when the record is newly created
     }
 
     /**

@@ -6,6 +6,7 @@ namespace Martingalian\Core\Support\ApiExceptionHandlers;
 
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
+use Throwable;
 
 /**
  * AlternativeMeExceptionHandler
@@ -19,12 +20,6 @@ use Martingalian\Core\Concerns\ApiExceptionHelpers;
 final class AlternativeMeExceptionHandler extends BaseExceptionHandler
 {
     use ApiExceptionHelpers;
-
-    public function __construct()
-    {
-        // Conservative backoff for simple API
-        $this->backoffSeconds = 5;
-    }
 
     /**
      * Ignorable — no-ops / idempotent.
@@ -51,8 +46,23 @@ final class AlternativeMeExceptionHandler extends BaseExceptionHandler
      * 401: Unauthorized
      * 402: Payment required
      * 403: Forbidden
+     *
+     * NOTE: For AlternativeMe, all forbidden errors are account-specific.
+     * Use isAccountBlocked() for specific classification.
      */
     public array $serverForbiddenHttpCodes = [
+        401,
+        402,
+        403,
+    ];
+
+    /**
+     * Account blocked — authentication/authorization failures.
+     * These are all account-specific issues that require user action.
+     *
+     * @var array<int, array<int, int>|int>
+     */
+    public array $accountBlockedHttpCodes = [
         401,
         402,
         403,
@@ -71,6 +81,12 @@ final class AlternativeMeExceptionHandler extends BaseExceptionHandler
      */
     public array $recvWindowMismatchedHttpCodes = [];
 
+    public function __construct()
+    {
+        // Conservative backoff for simple API
+        $this->backoffSeconds = 5;
+    }
+
     /**
      * Ping the Alternative.me API to check connectivity.
      */
@@ -84,5 +100,15 @@ final class AlternativeMeExceptionHandler extends BaseExceptionHandler
     public function getApiSystem(): string
     {
         return 'alternativeme';
+    }
+
+    /**
+     * Case 4: Account blocked.
+     * For AlternativeMe, this includes all authentication/authorization failures.
+     * All require user action to resolve.
+     */
+    public function isAccountBlocked(Throwable $exception): bool
+    {
+        return $this->containsHttpExceptionIn($exception, $this->accountBlockedHttpCodes);
     }
 }

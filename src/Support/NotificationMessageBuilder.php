@@ -40,21 +40,39 @@ final class NotificationMessageBuilder
         // Extract common context variables with type safety
         $userName = $user !== null ? $user->name : 'there';
 
-        $exchangeRaw = $context['exchange'] ?? 'exchange';
-        $exchange = is_string($exchangeRaw) ? $exchangeRaw : ($exchangeRaw->canonical ?? 'exchange');
-        $exchangeTitle = is_string($exchangeRaw) ? ucfirst($exchangeRaw) : ($exchangeRaw->name ?? ucfirst($exchange));
+        // Support both Eloquent models (new format) and raw values (legacy format)
+        // New format: 'apiSystem' => $model, 'apiRequestLog' => $model, 'account' => $model
+        // Legacy format: 'exchange' => 'binance', 'http_code' => 418, etc.
+        $apiSystem = $context['apiSystem'] ?? null;
+        $apiRequestLog = $context['apiRequestLog'] ?? null;
+        $accountModel = $context['account'] ?? null;
+        $contextUser = $context['user'] ?? null;
 
-        $ipRaw = $context['ip'] ?? 'unknown';
-        $ip = is_string($ipRaw) ? $ipRaw : 'unknown';
+        // Extract exchange info from apiSystem model or legacy 'exchange' key
+        $exchangeRaw = $apiSystem ?? ($context['exchange'] ?? 'exchange');
+        $exchange = is_object($exchangeRaw) ? ($exchangeRaw->canonical ?? 'exchange') : (is_string($exchangeRaw) ? $exchangeRaw : 'exchange');
+        $exchangeTitle = is_object($exchangeRaw) ? ($exchangeRaw->name ?? ucfirst($exchange)) : (is_string($exchangeRaw) ? ucfirst($exchangeRaw) : ucfirst($exchange));
 
-        $hostnameRaw = $context['hostname'] ?? gethostname();
+        // Extract IP from Martingalian model or legacy 'ip' key
+        $ipRaw = $context['ip'] ?? null;
+        $ip = is_string($ipRaw) ? $ipRaw : \Martingalian\Core\Models\Martingalian::ip();
+
+        // Extract hostname from 'server' key (new) or 'hostname' key (legacy) or apiRequestLog
+        $hostnameRaw = $context['server'] ?? ($context['hostname'] ?? ($apiRequestLog?->hostname ?? gethostname()));
         $hostname = is_string($hostnameRaw) ? $hostnameRaw : (string) gethostname();
 
-        $accountNameRaw = $context['account_name'] ?? 'your account';
-        $accountName = is_string($accountNameRaw) ? $accountNameRaw : 'your account';
-
+        // Build account info string from account model or legacy 'account_info' key
         $accountInfoRaw = $context['account_info'] ?? null;
-        $accountInfo = is_string($accountInfoRaw) ? $accountInfoRaw : null;
+        if ($accountInfoRaw === null && $accountModel && $contextUser) {
+            $accountInfo = "{$contextUser->name} ({$accountModel->name})";
+        } elseif ($accountInfoRaw === null && $accountModel) {
+            $accountInfo = $accountModel->name;
+        } else {
+            $accountInfo = is_string($accountInfoRaw) ? $accountInfoRaw : null;
+        }
+
+        $accountNameRaw = $context['account_name'] ?? ($accountModel?->name ?? 'your account');
+        $accountName = is_string($accountNameRaw) ? $accountNameRaw : 'your account';
 
         $walletBalanceRaw = $context['wallet_balance'] ?? 'N/A';
         $walletBalance = is_string($walletBalanceRaw) ? $walletBalanceRaw : 'N/A';
@@ -65,14 +83,22 @@ final class NotificationMessageBuilder
         $exceptionRaw = $context['exception'] ?? null;
         $exception = is_string($exceptionRaw) ? $exceptionRaw : null;
 
-        $httpCodeRaw = $context['http_code'] ?? null;
+        // Extract HTTP code from apiRequestLog model or legacy 'http_code' key
+        $httpCodeRaw = $apiRequestLog?->http_response_code ?? ($context['http_code'] ?? null);
         $httpCode = is_int($httpCodeRaw) ? $httpCodeRaw : (is_string($httpCodeRaw) ? (int) $httpCodeRaw : null);
 
+        // Extract vendor code from apiRequestLog response or legacy 'vendor_code' key
         $vendorCodeRaw = $context['vendor_code'] ?? null;
+        if ($vendorCodeRaw === null && $apiRequestLog) {
+            $response = $apiRequestLog->response;
+            if (is_array($response)) {
+                $vendorCodeRaw = $response['code'] ?? $response['retCode'] ?? null;
+            }
+        }
         $vendorCode = is_int($vendorCodeRaw) ? $vendorCodeRaw : (is_string($vendorCodeRaw) ? (int) $vendorCodeRaw : null);
 
         return match ($canonicalString) {
-            
+
             'server_rate_limit_exceeded' => [
                 'severity' => NotificationSeverity::Info,
                 'title' => 'Rate Limit Exceeded',
@@ -91,8 +117,80 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            
-            
+            'server_ip_rate_limited' => (function () use ($context, $exchangeTitle, $ip, $hostname) {
+                // Extract rate limit details
+                $forbiddenUntil = is_string($context['forbidden_until'] ?? null) ? $context['forbidden_until'] : null;
+                $errorCode = is_string($context['error_code'] ?? null) ? $context['error_code'] : 'N/A';
+                $errorMessage = is_string($context['error_message'] ?? null) ? $context['error_message'] : 'N/A';
+
+                $forbiddenText = $forbiddenUntil
+                    ? "Rate limit expires: {$forbiddenUntil}"
+                    : 'Rate limit duration: Unknown (typically 2-10 minutes)';
+
+                return [
+                    'severity' => NotificationSeverity::High,
+                    'title' => 'Server IP Temporarily Rate Limited',
+                    'emailMessage' => "⚠️ Server IP Temporarily Rate Limited\n\n".
+                        "The server IP has been temporarily rate-limited by {$exchangeTitle}.\n\n".
+                        "📊 DETAILS:\n\n".
+                        "• Server IP: [COPY]{$ip}[/COPY]\n".
+                        "• Hostname: {$hostname}\n".
+                        "• {$forbiddenText}\n".
+                        "• Error Code: {$errorCode}\n".
+                        "• Error Message: {$errorMessage}\n\n".
+                        "✅ AUTOMATIC RECOVERY:\n\n".
+                        "• The system will automatically pause requests to {$exchangeTitle}\n".
+                        "• Requests will resume after the rate limit expires\n".
+                        "• No manual intervention required in most cases\n\n".
+                        "🔍 IF ISSUE PERSISTS:\n\n".
+                        "• Check recent API request volume:\n".
+                        "[CMD]SELECT DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') as minute, COUNT(*) as requests FROM api_request_logs WHERE created_at > NOW() - INTERVAL 30 MINUTE GROUP BY minute ORDER BY minute DESC;[/CMD]\n\n".
+                        "• Review request patterns by endpoint:\n".
+                        '[CMD]SELECT path, COUNT(*) as requests FROM api_request_logs WHERE created_at > NOW() - INTERVAL 10 MINUTE GROUP BY path ORDER BY requests DESC LIMIT 10;[/CMD]',
+                    'pushoverMessage' => "⚠️ {$exchangeTitle} rate limited\nIP: {$ip}\nServer: {$hostname}\nAuto-recovery pending",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
+            'server_ip_banned' => (function () use ($context, $exchangeTitle, $ip, $hostname) {
+                // Extract ban details
+                $errorCode = is_string($context['error_code'] ?? null) ? $context['error_code'] : 'N/A';
+                $errorMessage = is_string($context['error_message'] ?? null) ? $context['error_message'] : 'N/A';
+                $exchange = is_string($context['exchange'] ?? null) ? $context['exchange'] : 'exchange';
+
+                return [
+                    'severity' => NotificationSeverity::Critical,
+                    'title' => 'Server IP Permanently Banned',
+                    'emailMessage' => "🚨 CRITICAL: Server IP Permanently Banned\n\n".
+                        "The server IP has been permanently banned by {$exchangeTitle}.\n\n".
+                        "📊 DETAILS:\n\n".
+                        "• Server IP: [COPY]{$ip}[/COPY]\n".
+                        "• Hostname: {$hostname}\n".
+                        "• Error Code: {$errorCode}\n".
+                        "• Error Message: {$errorMessage}\n\n".
+                        "⚠️ IMPACT:\n\n".
+                        "• All API requests from this server to {$exchangeTitle} are BLOCKED\n".
+                        "• This ban does NOT expire automatically\n".
+                        "• Other workers (if available) will continue operating\n".
+                        "• Manual intervention REQUIRED\n\n".
+                        "🔧 RESOLUTION OPTIONS:\n\n".
+                        "1. Contact {$exchangeTitle} Support:\n".
+                        "   • Provide the banned IP address: {$ip}\n".
+                        "   • Request IP unban or whitelist\n".
+                        "   • Explain legitimate trading bot usage\n\n".
+                        "2. Server IP Rotation:\n".
+                        "   • Provision new server with different IP\n".
+                        "   • Update infrastructure configuration\n".
+                        "   • Migrate workloads to new server\n\n".
+                        "3. Review Rate Limiting Patterns:\n".
+                        "[CMD]SELECT DATE_FORMAT(created_at, '%Y-%m-%d %H:00') as hour, COUNT(*) as requests, SUM(CASE WHEN http_response_code = 429 THEN 1 ELSE 0 END) as rate_limits FROM api_request_logs WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchange}') AND created_at > NOW() - INTERVAL 24 HOUR GROUP BY hour ORDER BY hour DESC;[/CMD]",
+                    'pushoverMessage' => "🚨 CRITICAL: {$exchangeTitle} BANNED\nIP: {$ip}\nServer: {$hostname}\nManual intervention required!",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
             'stale_price_detected' => (function () use ($context, $exchange, $exchangeTitle) {
                 // Extract stale price details
                 $oldestSymbol = is_string($context['oldest_symbol'] ?? null) ? $context['oldest_symbol'] : 'N/A';
@@ -162,7 +260,7 @@ final class NotificationMessageBuilder
                         "• Redis connection issues\n".
                         "• Circuit breaker enabled (can_dispatch_steps = false)\n".
                         "• Step dispatcher not running properly\n".
-                        "• Database connectivity issues",
+                        '• Database connectivity issues',
                     'pushoverMessage' => "🚨 {$count} step(s) stuck in Dispatched\n".
                         "Oldest: Step #{$oldestStepId} ({$oldestCanonical})\n".
                         "Stuck for: {$oldestMinutesStuck}m\n".
@@ -172,10 +270,9 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-
-
             'exchange_symbol_no_taapi_data' => (function () use ($context) {
-                $exchangeSymbol = $context['exchange_symbol'] ?? null;
+                // Support both new format ('exchangeSymbol') and legacy format ('exchange_symbol')
+                $exchangeSymbol = $context['exchangeSymbol'] ?? ($context['exchange_symbol'] ?? null);
 
                 // Build display string manually: "SYMBOL/QUOTE@Exchange" for readability
                 $displayString = 'Exchange Symbol';
@@ -232,7 +329,7 @@ final class NotificationMessageBuilder
                 'severity' => NotificationSeverity::High,
                 'title' => "{$exchangeTitle} WebSocket: Invalid JSON",
                 'emailMessage' => "⚠️ {$exchangeTitle} WebSocket: Invalid JSON Response\n\nThe {$exchangeTitle} WebSocket is returning invalid JSON responses.\n\nHits in last minute: ".($context['hits'] ?? 'N/A')."\n\nThis may indicate an issue with the exchange API or network connectivity.",
-                'pushoverMessage' => "{$exchangeTitle} WebSocket invalid JSON - ".($context['hits'] ?? 0)." hits/min",
+                'pushoverMessage' => "{$exchangeTitle} WebSocket invalid JSON - ".($context['hits'] ?? 0).' hits/min',
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],
@@ -296,7 +393,7 @@ final class NotificationMessageBuilder
                         "📊 QUERY DETAILS:\n\n".
                         "• Execution Time: {$timeMs}ms (threshold: {$thresholdMs}ms)\n".
                         "• Connection: {$connection}\n".
-                        "• Slowdown Factor: ".round($timeMs / $thresholdMs, 2)."x threshold\n\n".
+                        '• Slowdown Factor: '.round($timeMs / $thresholdMs, 2)."x threshold\n\n".
                         "🔍 SQL QUERY (ready to copy-paste):\n\n".
                         "[COPY]{$sqlFull}[/COPY]\n\n".
                         "✅ RESOLUTION STEPS:\n\n".
@@ -307,10 +404,83 @@ final class NotificationMessageBuilder
                         "• Review recent slow queries:\n".
                         "[CMD]SELECT sql_full, time_ms, created_at FROM slow_queries ORDER BY created_at DESC LIMIT 10;[/CMD]\n\n".
                         "• Monitor slow query patterns:\n".
-                        "[CMD]SELECT connection, AVG(time_ms) as avg_ms, COUNT(*) as count FROM slow_queries WHERE created_at > NOW() - INTERVAL 1 HOUR GROUP BY connection;[/CMD]",
+                        '[CMD]SELECT connection, AVG(time_ms) as avg_ms, COUNT(*) as count FROM slow_queries WHERE created_at > NOW() - INTERVAL 1 HOUR GROUP BY connection;[/CMD]',
                     'pushoverMessage' => "⚠️ Slow query: {$timeMs}ms ({$connection})\n".
                         "Threshold: {$thresholdMs}ms\n".
                         "Query: {$truncatedSql}",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
+            'server_ip_not_whitelisted' => (function () use ($context, $exchangeTitle, $ip, $hostname, $accountName) {
+                // Extract details
+                $errorCode = is_string($context['error_code'] ?? null) ? $context['error_code'] : 'N/A';
+                $errorMessage = is_string($context['error_message'] ?? null) ? $context['error_message'] : 'N/A';
+                $accountId = $context['account_id'] ?? null;
+
+                return [
+                    'severity' => NotificationSeverity::High,
+                    'title' => 'Server IP Not Whitelisted',
+                    'emailMessage' => "⚠️ Server IP Not Whitelisted\n\n".
+                        "Your API key requires the server IP to be whitelisted on {$exchangeTitle}.\n\n".
+                        "📊 DETAILS:\n\n".
+                        "• Server IP: [COPY]{$ip}[/COPY]\n".
+                        "• Hostname: {$hostname}\n".
+                        "• Account: {$accountName}\n".
+                        "• Error Code: {$errorCode}\n".
+                        "• Error Message: {$errorMessage}\n\n".
+                        "🔧 HOW TO FIX:\n\n".
+                        "1. Log into your {$exchangeTitle} account\n".
+                        "2. Go to API Management settings\n".
+                        "3. Find your API key and click Edit\n".
+                        "4. Add this IP to the whitelist: {$ip}\n".
+                        "5. Save changes\n\n".
+                        "⏱️ WHAT HAPPENS NEXT:\n\n".
+                        "• Once you add the IP, the system will automatically resume\n".
+                        "• Pending operations will be retried\n".
+                        '• No further action needed after whitelisting',
+                    'pushoverMessage' => "⚠️ {$exchangeTitle} IP not whitelisted\nIP: {$ip}\nAccount: {$accountName}\nAdd IP to API key whitelist",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
+            'server_account_blocked' => (function () use ($context, $exchangeTitle, $ip, $hostname, $accountName) {
+                // Extract details
+                $errorCode = is_string($context['error_code'] ?? null) ? $context['error_code'] : 'N/A';
+                $errorMessage = is_string($context['error_message'] ?? null) ? $context['error_message'] : 'N/A';
+                $accountId = $context['account_id'] ?? null;
+
+                return [
+                    'severity' => NotificationSeverity::Critical,
+                    'title' => 'Account API Access Blocked',
+                    'emailMessage' => "🚨 Account API Access Blocked\n\n".
+                        "Your {$exchangeTitle} account API access has been blocked.\n\n".
+                        "📊 DETAILS:\n\n".
+                        "• Account: {$accountName}\n".
+                        "• Server IP: {$ip}\n".
+                        "• Hostname: {$hostname}\n".
+                        "• Error Code: {$errorCode}\n".
+                        "• Error Message: {$errorMessage}\n\n".
+                        "⚠️ POSSIBLE CAUSES:\n\n".
+                        "• API key has been revoked or disabled\n".
+                        "• API key permissions are insufficient\n".
+                        "• Account has been restricted by the exchange\n".
+                        "• Payment or subscription issues\n\n".
+                        "🔧 HOW TO FIX:\n\n".
+                        "1. Log into your {$exchangeTitle} account\n".
+                        "2. Go to API Management settings\n".
+                        "3. Check your API key status\n".
+                        "4. If needed, generate a new API key with correct permissions:\n".
+                        "   • Enable Futures trading (if using futures)\n".
+                        "   • Enable Spot trading (if using spot)\n".
+                        "   • Enable Read permissions\n".
+                        "5. Update your API credentials in the platform\n\n".
+                        "⏱️ WHAT HAPPENS NEXT:\n\n".
+                        "• Once you fix the API key, update your credentials in Settings\n".
+                        '• The system will automatically resume operations',
+                    'pushoverMessage' => "🚨 {$exchangeTitle} API BLOCKED\nAccount: {$accountName}\nCheck API key permissions",
                     'actionUrl' => null,
                     'actionLabel' => null,
                 ];

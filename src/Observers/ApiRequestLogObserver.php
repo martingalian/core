@@ -6,12 +6,12 @@ namespace Martingalian\Core\Observers;
 
 use DB;
 use Exception;
-use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\ApiRequestLog;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Martingalian;
+use Martingalian\Core\Support\NotificationHandlers\BaseNotificationHandler;
 use Martingalian\Core\Support\NotificationService;
 
 final class ApiRequestLogObserver
@@ -45,74 +45,63 @@ final class ApiRequestLogObserver
             return;
         }
 
-        // Load API system to determine which exception handler to use
+        // Load API system to determine which notification handler to use
         $apiSystem = ApiSystem::find($log->api_system_id);
         if (! $apiSystem) {
             return;
         }
 
-        // Create the appropriate exception handler for error code analysis
+        // Create the appropriate notification handler for error code analysis
         try {
-            $handler = BaseExceptionHandler::make($apiSystem->canonical);
+            $handler = BaseNotificationHandler::make($apiSystem->canonical);
         } catch (Exception $e) {
+            // No notification handler for this API system (e.g., taapi, coinmarketcap)
             return;
         }
 
         $httpCode = $log->http_response_code;
         $vendorCode = $this->extractVendorCode($log);
+
+        // Get the notification canonical for this error
+        $canonical = $handler->getCanonical($httpCode, $vendorCode);
+        if ($canonical === null) {
+            return;
+        }
+
+        // Load account with user for context
+        $account = $log->account()->with('user')->first();
         $hostname = $log->hostname ?? gethostname();
 
-        // Build base reference data
-        $baseData = [
-            'exchange' => $apiSystem->canonical,
-            'ip' => Martingalian::ip(),
-            'hostname' => $hostname,
-            'http_code' => $httpCode,
-            'vendor_code' => $vendorCode,
-            'path' => $log->path,
+        // Build reference data using Eloquent model names
+        $referenceData = [
+            'apiSystem' => $apiSystem,
+            'apiRequestLog' => $log,
+            'account' => $account,
+            'user' => $account?->user,
+            'server' => $hostname,
         ];
 
-        // Server rate limit errors (429, 400 with vendor codes)
-        if ($handler->isServerRateLimitedFromLog($httpCode, $vendorCode)) {
-            // Load account info for context (sent to admin, shows which account hit the limit)
-            $account = $log->account()->with('user')->first();
-            $accountInfo = null;
-            if ($account && $account->user) {
-                $accountInfo = "{$account->user->name} ({$account->name})";
-            }
+        // Build cache keys based on canonical
+        $cacheKeys = match ($canonical) {
+            'server_rate_limit_exceeded' => [
+                'api_system' => $apiSystem->canonical,
+                'account' => $log->account_id ?? 0,
+                'server' => $hostname,
+            ],
+            'server_ip_forbidden' => [
+                'api_system' => $apiSystem->canonical,
+                'server' => $hostname,
+            ],
+            default => [],
+        };
 
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'server_rate_limit_exceeded',
-                referenceData: array_merge($baseData, array_filter([
-                    'account_info' => $accountInfo,
-                ])),
-                relatable: $apiSystem,
-                cacheKey: [
-                    'api_system' => $apiSystem->canonical,
-                    'account' => $log->account_id ?? 0,
-                    'server' => $hostname,
-                ]
-            );
-
-            return;
-        }
-
-        // Server forbidden errors (418 and specific vendor codes - server/IP bans)
-        if ($handler->isServerForbiddenFromLog($httpCode, $vendorCode)) {
-            NotificationService::send(
-                user: Martingalian::admin(),
-                canonical: 'server_ip_forbidden',
-                referenceData: $baseData,
-                relatable: $apiSystem,
-                cacheKey: [
-                    'api_system' => $apiSystem->canonical,
-                    'server' => $hostname,
-                ]
-            );
-
-            return;
-        }
+        NotificationService::send(
+            user: Martingalian::admin(),
+            canonical: $canonical,
+            referenceData: $referenceData,
+            relatable: $apiSystem,
+            cacheKeys: $cacheKeys
+        );
     }
 
     /**
@@ -318,11 +307,11 @@ final class ApiRequestLogObserver
             user: Martingalian::admin(),
             canonical: 'exchange_symbol_no_taapi_data',
             referenceData: [
-                'exchange_symbol' => $exchangeSymbol,
+                'exchangeSymbol' => $exchangeSymbol,
                 'failure_count' => $failureCount,
             ],
             relatable: $exchangeSymbol,
-            cacheKey: [
+            cacheKeys: [
                 'exchange_symbol' => $exchangeSymbol->id,
                 'exchange' => $exchangeSymbol->apiSystem->canonical,
             ]

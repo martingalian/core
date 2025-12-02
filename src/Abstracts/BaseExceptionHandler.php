@@ -123,64 +123,6 @@ abstract class BaseExceptionHandler
     }
 
     /**
-     * Check if log represents a server forbidden error based on HTTP code and vendor code.
-     */
-    final public function isServerForbiddenFromLog(int $httpCode, ?int $vendorCode): bool
-    {
-        if (! property_exists($this, 'serverForbiddenHttpCodes')) {
-            return false;
-        }
-
-        // Check if httpCode exists as flat element (e.g., [418, 429])
-        if (in_array($httpCode, $this->serverForbiddenHttpCodes, true)) {
-            return true;
-        }
-
-        // If no vendor code, we can't check nested structure
-        if (! $vendorCode) {
-            return false;
-        }
-
-        // Check nested array structure (e.g., [403 => [-1004, -1005]])
-        foreach ($this->serverForbiddenHttpCodes as $code => $subCodes) {
-            if ($code === $httpCode && is_array($subCodes) && in_array($vendorCode, $subCodes, true)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Check if log represents a server rate limit error based on HTTP code and vendor code.
-     */
-    final public function isServerRateLimitedFromLog(int $httpCode, ?int $vendorCode): bool
-    {
-        if (! property_exists($this, 'serverRateLimitedHttpCodes')) {
-            return false;
-        }
-
-        // Check if httpCode exists as flat element (e.g., [429])
-        if (in_array($httpCode, $this->serverRateLimitedHttpCodes, true)) {
-            return true;
-        }
-
-        // If no vendor code, we can't check nested structure
-        if (! $vendorCode) {
-            return false;
-        }
-
-        // Check nested array structure (e.g., [400 => [-1003]])
-        foreach ($this->serverRateLimitedHttpCodes as $code => $subCodes) {
-            if ($code === $httpCode && is_array($subCodes) && in_array($vendorCode, $subCodes, true)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * Get the current server's IP address.
      * Used for IP-based rate limiting and ban coordination.
      */

@@ -121,14 +121,15 @@ trait SendsNotifications
             user: Martingalian::admin(),
             canonical: 'token_delisting',
             referenceData: [
-                'exchange' => $this->apiSystem,
+                'apiSystem' => $this->apiSystem,
+                'exchangeSymbol' => $this,
                 'pair_text' => $pairText,
                 'delivery_date' => $deliveryDate,
                 'positions_count' => $positions->count(),
                 'positions_details' => $positionsDetails,
             ],
             relatable: $this,
-            cacheKey: [
+            cacheKeys: [
                 'exchange_symbol' => $this->id,
             ]
         );

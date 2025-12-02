@@ -38,7 +38,7 @@ final class NotificationService
      * @param  array<string, mixed>  $referenceData  Reference data for template interpolation (e.g., ['exchange' => 'binance'])
      * @param  object|null  $relatable  Optional relatable model for audit trail
      * @param  int|null  $duration  Throttle duration in seconds (null = use default from notifications table, 0 = no throttle, >0 = custom throttle window)
-     * @param  array<string, mixed>|null  $cacheKey  Optional cache key data for cache-based throttling (e.g., ['api_system' => 'binance', 'account' => 1]). If null, uses database-based throttling via notification_logs.
+     * @param  array<string, mixed>|null  $cacheKeys  Optional cache key data for cache-based throttling (e.g., ['api_system' => 'binance', 'account' => 1]). If null, uses database-based throttling via notification_logs.
      * @return bool True if notification was sent, false otherwise
      */
     public static function send(
@@ -47,7 +47,7 @@ final class NotificationService
         array $referenceData = [],
         ?object $relatable = null,
         ?int $duration = null,
-        ?array $cacheKey = null
+        ?array $cacheKeys = null
     ): bool {
         return self::sendToSpecificUser(
             user: $user,
@@ -55,7 +55,7 @@ final class NotificationService
             referenceData: $referenceData,
             relatable: $relatable,
             duration: $duration,
-            cacheKey: $cacheKey
+            cacheKeys: $cacheKeys
         );
     }
 
@@ -68,7 +68,7 @@ final class NotificationService
      * @param  array<string, mixed>  $referenceData  Reference data for template interpolation
      * @param  object|null  $relatable  Optional relatable model for audit trail
      * @param  int|null  $duration  Throttle duration in seconds
-     * @param  array<string, mixed>|null  $cacheKey  Optional cache key data for throttling
+     * @param  array<string, mixed>|null  $cacheKeys  Optional cache key data for throttling
      * @return bool True if notification was sent, false otherwise
      */
     private static function sendToSpecificUser(
@@ -77,7 +77,7 @@ final class NotificationService
         array $referenceData = [],
         ?object $relatable = null,
         ?int $duration = null,
-        ?array $cacheKey = null
+        ?array $cacheKeys = null
     ): bool {
         // Check if notifications are globally enabled
         if (! config('martingalian.notifications_enabled', true)) {
@@ -93,10 +93,10 @@ final class NotificationService
         // - >0: use custom duration
         $throttleDuration = $duration ?? $notification?->cache_duration;
 
-        // Build cache key string if cacheKey data is provided
+        // Build cache key string if cacheKeys data is provided
         $builtCacheKey = null;
-        if ($cacheKey && $notification && $notification->cache_key) {
-            $builtCacheKey = self::buildCacheKey($canonical, $cacheKey, $notification->cache_key);
+        if ($cacheKeys && $notification && $notification->cache_key) {
+            $builtCacheKey = self::buildCacheKey($canonical, $cacheKeys, $notification->cache_key);
         }
 
         // Throttle check: only if throttleDuration is set and > 0

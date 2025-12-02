@@ -27,12 +27,6 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
         rateLimitUntil as baseRateLimitUntil;
     }
 
-    public function __construct()
-    {
-        // Base fallback when no Retry-After is present.
-        $this->backoffSeconds = 30;
-    }
-
     /**
      * Ignorable: Invalid symbol names or malformed requests that should not retry.
      * 400 = Bad Request (invalid symbol, malformed parameters, etc.)
@@ -54,12 +48,27 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
     /**
      * Server forbidden: authentication/plan/permission issues (server cannot make ANY calls).
      * Map explicit vendor error codes for clarity.
+     *
+     * NOTE: For CoinMarketCap, all forbidden errors are account-specific (API key issues).
+     * Use isAccountBlocked() for specific classification.
      */
     public array $serverForbiddenHttpCodes = [
         401 => [1001, 1002],       // invalid/missing API key
         402 => [1003, 1004],       // plan requires payment / payment expired
         403 => [1005, 1006, 1007], // key required / plan not authorized / key disabled
         // (If vendor code not present, we still treat 401/402/403 as forbidden.)
+    ];
+
+    /**
+     * Account blocked — API key issues, payment issues, or permission issues.
+     * These are all account-specific issues that require user action.
+     *
+     * @var array<int, array<int, int>|int>
+     */
+    public array $accountBlockedHttpCodes = [
+        401 => [1001, 1002],       // invalid/missing API key
+        402 => [1003, 1004],       // plan requires payment / payment expired
+        403 => [1005, 1006, 1007], // key required / plan not authorized / key disabled
     ];
 
     /**
@@ -81,6 +90,12 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
 
     public array $cmcMonthlyCodes = [1010];       // monthly cap
 
+    public function __construct()
+    {
+        // Base fallback when no Retry-After is present.
+        $this->backoffSeconds = 30;
+    }
+
     /**
      * Ping the CoinMarketCap API to check connectivity.
      */
@@ -94,6 +109,16 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
     public function getApiSystem(): string
     {
         return 'coinmarketcap';
+    }
+
+    /**
+     * Case 4: Account blocked.
+     * For CoinMarketCap, this includes API key issues (401), payment issues (402), and permission issues (403).
+     * All require user action to resolve (check API key, renew subscription, etc.).
+     */
+    public function isAccountBlocked(Throwable $exception): bool
+    {
+        return $this->containsHttpExceptionIn($exception, $this->accountBlockedHttpCodes);
     }
 
     /**

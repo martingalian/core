@@ -53,6 +53,8 @@ final class NotificationFactory extends Factory
 
     /**
      * Indicate that the notification is for server IP forbidden (418 IP ban).
+     *
+     * @deprecated Use specific states: serverIpNotWhitelisted, serverIpRateLimited, serverIpBanned, serverAccountBlocked
      */
     public function serverIpForbidden(): static
     {
@@ -65,6 +67,78 @@ final class NotificationFactory extends Factory
                 'verified' => true,
                 'cache_duration' => 60,
                 'cache_key' => ['api_system', 'server'],
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the notification is for IP not whitelisted (USER notification).
+     */
+    public function serverIpNotWhitelisted(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'canonical' => 'server_ip_not_whitelisted',
+                'title' => 'Server IP Not Whitelisted',
+                'description' => 'Sent when user\'s API key requires the server IP to be whitelisted',
+                'default_severity' => NotificationSeverity::High,
+                'verified' => true,
+                'cache_duration' => 3600,
+                'cache_key' => ['account_id', 'ip_address'],
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the notification is for IP rate limited (ADMIN notification).
+     */
+    public function serverIpRateLimited(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'canonical' => 'server_ip_rate_limited',
+                'title' => 'Server IP Rate Limited',
+                'description' => 'Sent when server IP is temporarily rate-limited by exchange',
+                'default_severity' => NotificationSeverity::High,
+                'verified' => true,
+                'cache_duration' => 300,
+                'cache_key' => ['api_system', 'ip_address'],
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the notification is for IP permanently banned (ADMIN notification).
+     */
+    public function serverIpBanned(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'canonical' => 'server_ip_banned',
+                'title' => 'Server IP Permanently Banned',
+                'description' => 'Sent when server IP is permanently banned by exchange',
+                'default_severity' => NotificationSeverity::Critical,
+                'verified' => true,
+                'cache_duration' => 3600,
+                'cache_key' => ['api_system', 'ip_address'],
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the notification is for account blocked (USER notification).
+     */
+    public function serverAccountBlocked(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'canonical' => 'server_account_blocked',
+                'title' => 'Account API Access Blocked',
+                'description' => 'Sent when user\'s exchange account API access is blocked',
+                'default_severity' => NotificationSeverity::Critical,
+                'verified' => true,
+                'cache_duration' => 3600,
+                'cache_key' => ['account_id', 'api_system'],
             ];
         });
     }

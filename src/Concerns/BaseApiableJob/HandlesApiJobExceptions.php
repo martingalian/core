@@ -45,15 +45,42 @@ trait HandlesApiJobExceptions
                 return;
             }
 
+            // Case 1: IP not whitelisted by user (user-fixable)
+            if ($this->exceptionHandler->isIpNotWhitelisted($e)) {
+                $this->exceptionHandler->forbidIpNotWhitelisted($e);
+                $this->retryJob(); // Put job back in queue for another worker
+
+                return;
+            }
+
+            // Case 2: IP temporarily rate-limited (auto-recovers)
+            // Check BEFORE generic isRateLimited() to ensure ForbiddenHostname record is created
+            if ($this->exceptionHandler->isIpRateLimited($e)) {
+                $this->exceptionHandler->forbidIpRateLimited($e);
+                $this->retryJob(); // Put job back in queue for when ban expires
+
+                return;
+            }
+
+            // Generic rate limiting (not IP-specific)
             if ($this->exceptionHandler->isRateLimited($e)) {
                 $this->retryPerApiThrottlingDelay($e);
 
                 return;
             }
 
-            if ($this->exceptionHandler->isForbidden($e)) {
-                $this->exceptionHandler->forbid();
-                $this->retryJob(); // Put job back in queue for another worker to pick up
+            // Case 3: IP permanently banned for ALL accounts
+            if ($this->exceptionHandler->isIpBanned($e)) {
+                $this->exceptionHandler->forbidIpBanned($e);
+                $this->retryJob(); // Put job back in queue for another worker/server
+
+                return;
+            }
+
+            // Case 4: Account blocked (API key issue)
+            if ($this->exceptionHandler->isAccountBlocked($e)) {
+                $this->exceptionHandler->forbidAccountBlocked($e);
+                $this->retryJob(); // Put job back in queue (won't help until user fixes key)
 
                 return;
             }

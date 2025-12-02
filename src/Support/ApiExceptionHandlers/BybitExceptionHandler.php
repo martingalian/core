@@ -20,12 +20,6 @@ final class BybitExceptionHandler extends BaseExceptionHandler
         rateLimitUntil as baseRateLimitUntil;
     }
 
-    public function __construct()
-    {
-        // Conservative backoff when no Retry-After is available
-        $this->backoffSeconds = 10;
-    }
-
     /**
      * Errors that should be ignored (no action needed).
      * HTTP 200 with ignorable retCodes in response body.
@@ -75,10 +69,12 @@ final class BybitExceptionHandler extends BaseExceptionHandler
      * HTTP 401: Authentication failed
      * HTTP 200 with permanent ban/credential retCodes.
      *
-     * IMPORTANT:
-     * • 10009 = IP banned by Bybit exchange (permanent until manual unban)
-     * • 10003-10007, 10010 = API key credential/permission issues
-     * • 403 is NOT here (it's a temporary rate limit, handled separately)
+     * NOTE: This array is used by the generic isForbidden() method.
+     * For more specific classification, use:
+     * - isIpNotWhitelisted(): User forgot to whitelist IP (10010)
+     * - isIpRateLimited(): Temporary ban (10018, 403)
+     * - isIpBanned(): Permanent ban (10009)
+     * - isAccountBlocked(): API key issues (10003, 10004, 10005, 10007)
      */
     public array $serverForbiddenHttpCodes = [
         401,     // HTTP-level: Authentication failed
@@ -90,6 +86,53 @@ final class BybitExceptionHandler extends BaseExceptionHandler
             10009,   // IP banned by exchange (permanent)
             10010,   // Unmatched IP, check API key's bound IP addresses
         ],
+    ];
+
+    /**
+     * IP not whitelisted by user on their API key settings.
+     * HTTP 200 with 10010: "Unmatched IP, please check your API key's bound IP addresses"
+     *
+     * @var array<int, array<int, int>|int>
+     */
+    public array $ipNotWhitelistedHttpCodes = [
+        200 => [10010],
+    ];
+
+    /**
+     * IP temporarily rate-limited (auto-recovers).
+     * HTTP 200 with 10018: "Exceeded the IP Rate Limit"
+     * HTTP 403: IP rate limit breached (temporary, lifts after 10 minutes)
+     *
+     * @var array<int, array<int, int>|int>
+     */
+    public array $ipRateLimitedHttpCodes = [
+        403,
+        200 => [10018],
+    ];
+
+    /**
+     * IP permanently banned by exchange.
+     * HTTP 200 with 10009: "IP has been banned"
+     *
+     * @var array<int, array<int, int>|int>
+     */
+    public array $ipBannedHttpCodes = [
+        200 => [10009],
+    ];
+
+    /**
+     * Account blocked — API key revoked, disabled, or permission issues.
+     * HTTP 401: Authentication failed at HTTP level
+     * HTTP 200 with 10003: API key is invalid or domain mismatch
+     * HTTP 200 with 10004: Invalid signature
+     * HTTP 200 with 10005: Permission denied
+     * HTTP 200 with 10007: User authentication failed
+     *
+     * @var array<int, array<int, int>|int>
+     */
+    public array $accountBlockedHttpCodes = [
+        401,
+        200 => [10003, 10004, 10005, 10007],
     ];
 
     /**
@@ -119,19 +162,69 @@ final class BybitExceptionHandler extends BaseExceptionHandler
         ],
     ];
 
+    public function __construct()
+    {
+        // Conservative backoff when no Retry-After is available
+        $this->backoffSeconds = 10;
+    }
+
     /**
-     * Check if exception represents an IP ban (HTTP 429).
+     * Case 1: IP not whitelisted by user.
+     * User forgot to add server IP to their API key whitelist on Bybit.
+     * Detected by: HTTP 200 with retCode 10010.
+     *
+     * Recovery: User adds IP to exchange whitelist.
+     */
+    public function isIpNotWhitelisted(Throwable $exception): bool
+    {
+        return $this->containsHttpExceptionIn($exception, $this->ipNotWhitelistedHttpCodes);
+    }
+
+    /**
+     * Case 2: IP temporarily rate-limited.
+     * Server hit rate limits and is temporarily blocked.
+     * Detected by: HTTP 403 or HTTP 200 with retCode 10018.
+     *
+     * Recovery: Auto-recovers after ~10 minutes.
+     */
+    public function isIpRateLimited(Throwable $exception): bool
+    {
+        return $this->containsHttpExceptionIn($exception, $this->ipRateLimitedHttpCodes);
+    }
+
+    /**
+     * Case 3: IP permanently banned.
+     * Server is permanently banned from Bybit for ALL accounts.
+     * Detected by: HTTP 200 with retCode 10009 OR HTTP 429.
+     *
+     * Recovery: Manual - contact exchange support.
      */
     public function isIpBanned(Throwable $exception): bool
     {
-        if (! $exception instanceof RequestException) {
+        // Check for explicit permanent ban code
+        if ($this->containsHttpExceptionIn($exception, $this->ipBannedHttpCodes)) {
+            return true;
+        }
+
+        // HTTP 429 is also treated as permanent ban by Bybit
+        if (! $exception instanceof RequestException || ! $exception->hasResponse()) {
             return false;
         }
 
-        return $exception->hasResponse()
-            && $exception->getResponse()->getStatusCode() === 429;
+        return $exception->getResponse()->getStatusCode() === 429;
     }
 
+    /**
+     * Case 4: Account blocked.
+     * Specific account's API key is revoked, disabled, or has permission issues.
+     * Detected by: HTTP 401 or HTTP 200 with retCodes 10003, 10004, 10005, 10007.
+     *
+     * Recovery: User regenerates API key on exchange.
+     */
+    public function isAccountBlocked(Throwable $exception): bool
+    {
+        return $this->containsHttpExceptionIn($exception, $this->accountBlockedHttpCodes);
+    }
 
     /**
      * Calculate when to retry after rate limit.
@@ -210,7 +303,6 @@ final class BybitExceptionHandler extends BaseExceptionHandler
     {
         return $this->containsHttpExceptionIn($exception, $this->ignorableHttpCodes);
     }
-
 
     /**
      * Ping the Bybit API to check connectivity.
