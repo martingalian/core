@@ -65,11 +65,6 @@ final class BybitApiClient extends BaseWebsocketClient
         $this->handleCallback($url, $callbacks);
     }
 
-    public function getLoop(): \React\EventLoop\LoopInterface
-    {
-        return $this->loop;
-    }
-
     protected function onConnectionEstablished(\Ratchet\Client\WebSocket $conn, array $callback): void
     {
         // IMMEDIATELY send subscription after connection (before event handlers are set up)

@@ -45,9 +45,4 @@ final class BinanceApiClient extends BaseWebsocketClient
         $url = $this->baseURL."/ws/{$listenKey}";
         $this->handleCallback($url, $callbacks);
     }
-
-    public function getLoop(): \React\EventLoop\LoopInterface
-    {
-        return $this->loop;
-    }
 }

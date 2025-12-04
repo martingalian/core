@@ -25,7 +25,6 @@ use Martingalian\Core\Transitions\PendingToSkipped;
 use Martingalian\Core\Transitions\RunningToCompleted;
 use Martingalian\Core\Transitions\RunningToFailed;
 use Martingalian\Core\Transitions\RunningToPending;
-use Martingalian\Core\Transitions\RunningToRunning;
 use Martingalian\Core\Transitions\RunningToSkipped;
 use Martingalian\Core\Transitions\RunningToStopped;
 use Spatie\ModelStates\State;
@@ -52,8 +51,6 @@ abstract class StepStatus extends State
             ->allowTransition(Running::class, Failed::class, RunningToFailed::class)
             ->allowTransition(Running::class, Skipped::class, RunningToSkipped::class)
             ->allowTransition(Running::class, Pending::class, RunningToPending::class)
-
-            ->allowTransition(Running::class, Running::class, RunningToRunning::class)
 
             ->allowTransition(NotRunnable::class, Pending::class, NotRunnableToPending::class)
 
