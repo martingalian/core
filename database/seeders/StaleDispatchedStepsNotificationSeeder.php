@@ -25,9 +25,9 @@ final class StaleDispatchedStepsNotificationSeeder extends Seeder
                 'Horizon workers not running, Redis connection issues, queue driver misconfiguration, circuit breaker enabled, or worker memory exhaustion. '.
                 'The notification includes the total count of stuck steps and details of the oldest stuck step (ID, canonical, group, index, parameters, minutes stuck).',
             'usage_reference' => 'Used in CheckStaleDataCommand - triggered automatically every 10 minutes when stale Dispatched steps are detected',
-            'verified' => true,
-            'default_severity' => NotificationSeverity::Critical,
-            'cache_duration' => 600, // 10 minutes
+            'verified' => false,
+            'default_severity' => NotificationSeverity::High,
+            'cache_duration' => 60, // 1 minute
             'cache_key' => null, // Global throttling - no cache keys needed
         ]);
     }

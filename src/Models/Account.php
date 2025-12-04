@@ -114,11 +114,6 @@ final class Account extends BaseModel
         return $this->morphMany(ApiRequestLog::class, 'relatable');
     }
 
-    public function throttleLogs(): MorphMany
-    {
-        return $this->morphMany(ThrottleLog::class, 'contextable');
-    }
-
     public function notificationLogs(): MorphMany
     {
         return $this->morphMany(NotificationLog::class, 'relatable');

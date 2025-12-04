@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\Position\HasAccessors;
@@ -15,8 +16,7 @@ use Martingalian\Core\Concerns\Position\InteractsWithApis;
 
 /**
  * @property Account $account
- *
- * @method \Martingalian\Core\Models\ExchangeSymbol exchangeSymbol()
+ * @property ExchangeSymbol $exchangeSymbol
  */
 final class Position extends BaseModel
 {
@@ -68,7 +68,10 @@ final class Position extends BaseModel
         return $this->morphMany(ApiRequestLog::class, 'relatable');
     }
 
-    public function exchangeSymbol()
+    /**
+     * @return BelongsTo<ExchangeSymbol, $this>
+     */
+    public function exchangeSymbol(): BelongsTo
     {
         return $this->belongsTo(ExchangeSymbol::class);
     }

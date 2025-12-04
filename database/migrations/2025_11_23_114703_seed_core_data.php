@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Database\Seeders\BaseAssetMappersSeeder;
 use Martingalian\Core\Database\Seeders\CandlesSeeder;
 use Martingalian\Core\Database\Seeders\ExchangeSymbolsSeeder;
@@ -30,6 +31,16 @@ return new class extends Migration
 
         // Seed exchange symbols (1,182 records)
         (new ExchangeSymbolsSeeder)->run();
+
+        // Set default status for exchange_symbols with CMC IDs (enabled for price updates)
+        DB::unprepared('
+            UPDATE exchange_symbols es
+            INNER JOIN symbols s ON es.symbol_id = s.id
+            SET es.auto_disabled = 0,
+                es.auto_disabled_reason = NULL,
+                es.is_manually_enabled = 1
+            WHERE s.cmc_id IS NOT NULL
+        ');
 
         // Seed candles (74,843 records)
         (new CandlesSeeder)->run();

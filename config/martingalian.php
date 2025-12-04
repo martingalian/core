@@ -28,6 +28,7 @@ return [
     'detect_orphan_positions' => env('DETECT_ORPHAN_POSITIONS', true),
     'can_open_positions' => env('CAN_OPEN_POSITIONS', false),
     'notifications_enabled' => env('NOTIFICATIONS_ENABLED', true),
+    'prefix_hostname_on_notifications' => env('PREFIX_HOSTNAME_ON_NOTIFICATIONS', false),
 
     /*
     |--------------------------------------------------------------------------

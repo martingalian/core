@@ -295,7 +295,7 @@ final class MartingalianSeeder extends Seeder
             'password' => bcrypt('password'),
             'is_active' => true,
             'is_admin' => true,
-            'pushover_key' => env('PUSHOVER_USER_KEY'),
+            'pushover_key' => env('TRADER_PUSHOVER_KEY'),
             'notification_channels' => ['mail', 'pushover'],
         ];
 
@@ -749,7 +749,7 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'stale_price_detected',
                 'title' => 'Stale Price Detected',
                 'description' => 'Sent when exchange symbol prices have not been updated within expected timeframe',
-                'usage_reference' => 'MonitorDataCoherencyCommand::checkAndNotifyStaleIssues() line 188',
+                'usage_reference' => 'CheckStaleDataCommand::reportStalePrices()',
                 'default_severity' => 'high',
                 'verified' => 1,
                 'cache_duration' => 600,
@@ -759,7 +759,7 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'update_prices_restart',
                 'title' => 'Price Stream Restart',
                 'description' => 'Sent when price monitoring restarts due to symbol changes (exchange-agnostic, uses relatable ApiSystem)',
-                'usage_reference' => 'Binance/UpdatePricesCommand line 117, Bybit/UpdatePricesCommand line 119',
+                'usage_reference' => 'Binance/UpdatePricesCommand, Bybit/UpdatePricesCommand',
                 'default_severity' => 'info',
                 'verified' => 1,
                 'cache_duration' => 600,
@@ -769,7 +769,7 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'websocket_error',
                 'title' => 'WebSocket Error',
                 'description' => 'Sent when WebSocket connection encounters errors (any exchange)',
-                'usage_reference' => 'Binance/UpdatePricesCommand WebSocket error callback, Bybit/UpdatePricesCommand WebSocket error callback',
+                'usage_reference' => 'Binance/UpdatePricesCommand, Bybit/UpdatePricesCommand',
                 'default_severity' => 'critical',
                 'verified' => 1,
                 'cache_duration' => 60,
@@ -779,7 +779,7 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'websocket_invalid_json',
                 'title' => 'WebSocket: Invalid JSON Response',
                 'description' => 'Sent when exchange WebSocket returns invalid JSON (exchange-agnostic, uses relatable ApiSystem)',
-                'usage_reference' => 'Binance/UpdatePricesCommand::processWebSocketMessage() line 165, Bybit/UpdatePricesCommand::processWebSocketMessage() line 166',
+                'usage_reference' => 'Binance/UpdatePricesCommand, Bybit/UpdatePricesCommand',
                 'default_severity' => 'medium',
                 'verified' => 1,
                 'cache_duration' => 600,
@@ -789,7 +789,7 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'websocket_prices_update_error',
                 'title' => 'WebSocket Prices: Database Update Error',
                 'description' => 'Sent when database update fails for WebSocket price data (any exchange)',
-                'usage_reference' => 'Binance/UpdatePricesCommand::updateExchangeSymbol(), Bybit/UpdatePricesCommand::updateExchangeSymbol()',
+                'usage_reference' => 'Binance/UpdatePricesCommand, Bybit/UpdatePricesCommand',
                 'default_severity' => 'critical',
                 'verified' => 1,
                 'cache_duration' => 60,
@@ -799,7 +799,7 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'server_rate_limit_exceeded',
                 'title' => 'Server Rate Limit Exceeded',
                 'description' => 'Sent when server hits API rate limit',
-                'usage_reference' => 'ApiRequestLogObserver line 84',
+                'usage_reference' => 'ApiRequestLogObserver',
                 'default_severity' => 'high',
                 'verified' => 1,
                 'cache_duration' => 600,
@@ -809,7 +809,7 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'server_ip_forbidden',
                 'title' => 'Server IP Forbidden by Exchange',
                 'description' => 'Sent when server/IP is forbidden from accessing exchange API (HTTP 418 IP ban)',
-                'usage_reference' => 'ApiRequestLogObserver line 99',
+                'usage_reference' => 'ApiRequestLogObserver',
                 'default_severity' => 'critical',
                 'verified' => 1,
                 'cache_duration' => 60,
@@ -819,7 +819,7 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'exchange_symbol_no_taapi_data',
                 'title' => 'Exchange Symbol Auto-Deactivated - No TAAPI Data',
                 'description' => 'Sent when an exchange symbol is automatically deactivated due to consistent lack of TAAPI indicator data',
-                'usage_reference' => 'ApiRequestLogObserver::sendDeactivationNotification() line 201',
+                'usage_reference' => 'ApiRequestLogObserver',
                 'default_severity' => 'info',
                 'verified' => 1,
                 'cache_duration' => 600,
@@ -829,11 +829,107 @@ final class MartingalianSeeder extends Seeder
                 'canonical' => 'token_delisting',
                 'title' => 'Token Delisting Detected',
                 'description' => 'Sent when a token delisting is detected (contract rollover for Binance, perpetual delisting for Bybit)',
-                'usage_reference' => 'SendsNotifications::sendDelistingNotification() line 84',
+                'usage_reference' => 'ExchangeSymbol/SendsNotifications',
                 'default_severity' => 'high',
                 'verified' => 1,
                 'cache_duration' => 600,
                 'cache_key' => ['exchange_symbol'],
+            ],
+            // Slow query detection
+            [
+                'canonical' => 'slow_query_detected',
+                'title' => 'Slow Database Query Detected',
+                'description' => 'Triggered when a database query exceeds the configured slow_query_threshold_ms value (default: 2500ms)',
+                'detailed_description' => 'This notification is sent when a database query takes longer than the threshold configured in config/martingalian.php. '.
+                    'The notification includes the full SQL query with binded values (ready to copy-paste into SQL editor), execution time, and connection name. '.
+                    'Slow queries can indicate performance issues, missing indexes, or inefficient queries that need optimization.',
+                'usage_reference' => 'Used in CoreServiceProvider::registerSlowQueryListener() - triggered automatically when DB::listen() detects slow queries',
+                'default_severity' => 'high',
+                'verified' => 1,
+                'cache_duration' => 300,
+                'cache_key' => null,
+            ],
+            // Stale dispatched steps (with self-healing)
+            [
+                'canonical' => 'stale_dispatched_steps_detected',
+                'title' => 'Stale Dispatched Steps Detected',
+                'description' => 'Triggered when steps remain in Dispatched state for more than 5 minutes without starting processing',
+                'detailed_description' => 'This notification is sent when steps are stuck in Dispatched state for over 5 minutes. '.
+                    'Steps in Dispatched state should normally transition to Running state within seconds. '.
+                    'The system auto-promotes stale steps to priority queue for faster processing. '.
+                    'If steps remain stuck after promotion, a CRITICAL notification (stale_priority_steps_detected) will be sent.',
+                'usage_reference' => 'CheckStaleDataCommand',
+                'default_severity' => 'high',
+                'verified' => 1,
+                'cache_duration' => 60,
+                'cache_key' => null,
+            ],
+            // Stale priority steps (critical - self-healing failed)
+            [
+                'canonical' => 'stale_priority_steps_detected',
+                'title' => 'Priority Steps Still Stuck - Manual Action Required',
+                'description' => 'Triggered when steps remain stuck in Dispatched state even after being promoted to the priority queue',
+                'detailed_description' => 'This CRITICAL notification is sent when steps are still stuck in Dispatched state after '.
+                    'being automatically promoted to the priority queue with high priority. '.
+                    'This means the self-healing mechanism has FAILED and manual intervention is required. '.
+                    'Possible causes include: Horizon priority workers not running, Redis connection issues, '.
+                    'queue driver misconfiguration, or worker memory exhaustion.',
+                'usage_reference' => 'CheckStaleDataCommand',
+                'default_severity' => 'critical',
+                'verified' => 1,
+                'cache_duration' => 60,
+                'cache_key' => null,
+            ],
+            // Forbidden hostname notifications
+            [
+                'canonical' => 'server_ip_not_whitelisted',
+                'title' => 'Server IP Not Whitelisted',
+                'description' => 'Your API key requires the server IP to be whitelisted. Please add the IP address to your exchange API key settings.',
+                'detailed_description' => 'This notification is sent when the exchange API rejects requests because the server IP address is not in your API key\'s whitelist. '.
+                    'To fix this, log into your exchange account, go to API settings, and add the IP address shown in this notification to your API key\'s allowed IP list.',
+                'usage_reference' => 'ForbiddenHostnameObserver',
+                'default_severity' => 'high',
+                'verified' => 1,
+                'cache_duration' => 3600,
+                'cache_key' => ['account_id', 'ip_address'],
+            ],
+            [
+                'canonical' => 'server_ip_rate_limited',
+                'title' => 'Server IP Rate Limited',
+                'description' => 'The server IP has been temporarily rate-limited by the exchange. Requests will automatically resume after the ban expires.',
+                'detailed_description' => 'This notification is sent when the exchange temporarily blocks the server IP due to excessive requests. '.
+                    'This is typically an automatic protection that expires after a few minutes. The system will automatically resume operations once the ban lifts.',
+                'usage_reference' => 'ForbiddenHostnameObserver',
+                'default_severity' => 'high',
+                'verified' => 1,
+                'cache_duration' => 300,
+                'cache_key' => ['api_system', 'ip_address'],
+            ],
+            [
+                'canonical' => 'server_ip_banned',
+                'title' => 'Server IP Permanently Banned',
+                'description' => 'The server IP has been permanently banned by the exchange. Manual intervention required.',
+                'detailed_description' => 'This notification is sent when the exchange permanently bans the server IP address. '.
+                    'This typically occurs after repeated violations of rate limits or terms of service. '.
+                    'To resolve this, you may need to contact the exchange support team directly.',
+                'usage_reference' => 'ForbiddenHostnameObserver',
+                'default_severity' => 'critical',
+                'verified' => 1,
+                'cache_duration' => 3600,
+                'cache_key' => ['api_system', 'ip_address'],
+            ],
+            [
+                'canonical' => 'server_account_blocked',
+                'title' => 'Account API Access Blocked',
+                'description' => 'Your exchange account API access has been blocked. Please check your API key settings or regenerate your API key.',
+                'detailed_description' => 'This notification is sent when the exchange rejects your API key. '.
+                    'Common causes include: API key revoked, API key disabled, insufficient permissions, payment required, or account restrictions. '.
+                    'To fix this, log into your exchange account, check your API key status, and if needed, generate a new API key with the correct permissions.',
+                'usage_reference' => 'ForbiddenHostnameObserver',
+                'default_severity' => 'critical',
+                'verified' => 1,
+                'cache_duration' => 3600,
+                'cache_key' => ['account_id', 'api_system'],
             ],
         ];
 
@@ -972,7 +1068,7 @@ final class MartingalianSeeder extends Seeder
                 INNER JOIN symbols s ON es.symbol_id = s.id
                 SET es.auto_disabled = 0,
                     es.auto_disabled_reason = NULL,
-                    es.is_manually_enabled = 0
+                    es.is_manually_enabled = 1
                 WHERE s.cmc_id IS NOT NULL
             ');
         } catch (Throwable $e) {

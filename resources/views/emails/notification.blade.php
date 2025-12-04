@@ -294,7 +294,16 @@
                                         '/\[CMD\](.*?)\[\/CMD\]/s',
                                         function($matches) use (&$specialItems, &$index, $placeholder) {
                                             $text = trim($matches[1]);
-                                            $html = '<div class="command-block">' . e($text) . '</div>';
+
+                                            // Format SQL with line breaks for readability
+                                            $sqlKeywords = ['SELECT', 'FROM', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'JOIN', 'WHERE', 'AND', 'OR', 'GROUP BY', 'ORDER BY', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'INSERT INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE FROM'];
+                                            foreach ($sqlKeywords as $keyword) {
+                                                $text = preg_replace('/\b(' . preg_quote($keyword, '/') . ')\b/i', "\n$1", $text);
+                                            }
+                                            $text = trim($text);
+
+                                            // Escape HTML but convert newlines to <br> for email client compatibility
+                                            $html = '<div class="command-block">' . nl2br(e($text)) . '</div>';
                                             $specialItems[$index] = $html;
                                             return sprintf($placeholder, $index++);
                                         },

@@ -102,7 +102,7 @@ final class NotificationMessageBuilder
             'server_rate_limit_exceeded' => [
                 'severity' => NotificationSeverity::Info,
                 'title' => 'Rate Limit Exceeded',
-                'emailMessage' => "{$exchangeTitle} API rate limit exceeded.\n\n".($accountInfo ? "Account: {$accountInfo}\n" : "Type: System-level API call\n")."Server: {$hostname}\n\nPlatform automatically implemented request throttling and exponential backoff. Pending operations queued for retry.\n\nResolution steps:\n\n• Check recent API request patterns:\n[CMD]SELECT endpoint, COUNT(*) as requests, AVG(response_time_ms) as avg_ms FROM api_request_logs WHERE exchange = '{$exchange}' AND created_at > NOW() - INTERVAL 5 MINUTE GROUP BY endpoint ORDER BY requests DESC LIMIT 10;[/CMD]\n\n• Monitor rate limit headers in logs:\n[CMD]tail -100 storage/logs/laravel.log | grep -i \"rate\\|limit\\|429\"[/CMD]",
+                'emailMessage' => "{$exchangeTitle} API rate limit exceeded.\n\n".($accountInfo ? "Account: {$accountInfo}\n" : "Type: System-level API call\n")."Server: {$hostname}\n\nPlatform automatically implemented request throttling and exponential backoff. Pending operations queued for retry.\n\nResolution steps:\n\n1. Check recent API request patterns:\n[CMD]SELECT path, COUNT(*) as requests, AVG(duration) as avg_ms FROM api_request_logs WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchange}') AND created_at > NOW() - INTERVAL 5 MINUTE GROUP BY path ORDER BY requests DESC LIMIT 10;[/CMD]\n\n2. Check recent rate limit errors:\n[CMD]SELECT created_at, path, http_response_code, hostname FROM api_request_logs WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchange}') AND http_response_code = 429 AND created_at > NOW() - INTERVAL 1 HOUR ORDER BY created_at DESC LIMIT 10;[/CMD]",
                 'pushoverMessage' => "{$exchangeTitle} rate limit exceeded - {$hostname}".($accountInfo ? " - {$accountInfo}" : ''),
                 'actionUrl' => null,
                 'actionLabel' => null,
@@ -119,13 +119,27 @@ final class NotificationMessageBuilder
 
             'server_ip_rate_limited' => (function () use ($context, $exchangeTitle, $ip, $hostname) {
                 // Extract rate limit details
-                $forbiddenUntil = is_string($context['forbidden_until'] ?? null) ? $context['forbidden_until'] : null;
+                $forbiddenUntilRaw = $context['forbidden_until'] ?? null;
                 $errorCode = is_string($context['error_code'] ?? null) ? $context['error_code'] : 'N/A';
                 $errorMessage = is_string($context['error_message'] ?? null) ? $context['error_message'] : 'N/A';
 
-                $forbiddenText = $forbiddenUntil
-                    ? "Rate limit expires: {$forbiddenUntil}"
+                // Parse forbidden_until for display
+                $forbiddenUntilCarbon = null;
+                if (is_string($forbiddenUntilRaw)) {
+                    try {
+                        $forbiddenUntilCarbon = \Carbon\Carbon::parse($forbiddenUntilRaw);
+                    } catch (\Exception $e) {
+                        // Invalid date format, ignore
+                    }
+                }
+
+                $forbiddenText = $forbiddenUntilCarbon
+                    ? "Rate limit expires: {$forbiddenUntilCarbon->format('H:i:s')} ({$forbiddenUntilCarbon->diffForHumans()})"
                     : 'Rate limit duration: Unknown (typically 2-10 minutes)';
+
+                $pushoverRecovery = $forbiddenUntilCarbon
+                    ? "Resumes: {$forbiddenUntilCarbon->format('H:i:s')}"
+                    : 'Resumes: ~2-10 min';
 
                 return [
                     'severity' => NotificationSeverity::High,
@@ -147,7 +161,7 @@ final class NotificationMessageBuilder
                         "[CMD]SELECT DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') as minute, COUNT(*) as requests FROM api_request_logs WHERE created_at > NOW() - INTERVAL 30 MINUTE GROUP BY minute ORDER BY minute DESC;[/CMD]\n\n".
                         "• Review request patterns by endpoint:\n".
                         '[CMD]SELECT path, COUNT(*) as requests FROM api_request_logs WHERE created_at > NOW() - INTERVAL 10 MINUTE GROUP BY path ORDER BY requests DESC LIMIT 10;[/CMD]',
-                    'pushoverMessage' => "⚠️ {$exchangeTitle} rate limited\nIP: {$ip}\nServer: {$hostname}\nAuto-recovery pending",
+                    'pushoverMessage' => "{$exchangeTitle}: IP rate limited\nServer: {$hostname}\nError: {$errorCode} - {$errorMessage}\n{$pushoverRecovery}",
                     'actionUrl' => null,
                     'actionLabel' => null,
                 ];
@@ -209,17 +223,55 @@ final class NotificationMessageBuilder
                         "• Last Price: {$oldestPrice}\n".
                         "• Last Updated: {$oldestMinutes} minutes ago\n\n".
                         "🔍 RESOLUTION STEPS:\n\n".
-                        "• Check stale prices:\n".
-                        "[CMD]SELECT parsed_trading_pair, mark_price, mark_price_synced_at, TIMESTAMPDIFF(SECOND, mark_price_synced_at, NOW()) as seconds_stale FROM exchange_symbols WHERE api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}') ORDER BY mark_price_synced_at ASC LIMIT 10;[/CMD]\n\n".
-                        "• Check supervisor status:\n".
-                        "[CMD]supervisorctl status update-{$exchangeLower}-prices[/CMD]\n".
-                        "Or tail logs:\n".
-                        "[CMD]supervisorctl tail update-{$exchangeLower}-prices[/CMD]\n\n".
-                        "• Restart supervisor if needed:\n".
+                        "1. Check stale prices (symbols with auto_disabled=0 and stale mark_price_synced_at):\n".
+                        "[CMD]SELECT CONCAT(s.token, '/', q.canonical) AS pair, es.mark_price, es.mark_price_synced_at, TIMESTAMPDIFF(SECOND, es.mark_price_synced_at, NOW()) AS seconds_stale FROM exchange_symbols es JOIN symbols s ON es.symbol_id = s.id JOIN quotes q ON es.quote_id = q.id WHERE es.api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}') AND es.auto_disabled = 0 AND es.mark_price IS NOT NULL ORDER BY es.mark_price_synced_at ASC LIMIT 10;[/CMD]\n\n".
+                        "2. Check supervisor status:\n".
+                        "[CMD]supervisorctl status update-{$exchangeLower}-prices[/CMD]\n\n".
+                        "3. Check logs for errors:\n".
+                        "[CMD]supervisorctl tail -f update-{$exchangeLower}-prices[/CMD]\n\n".
+                        "4. Restart if needed:\n".
                         "[CMD]supervisorctl restart update-{$exchangeLower}-prices[/CMD]",
                     'pushoverMessage' => "⚠️ {$exchangeTitle} stale prices detected\n".
                         "Example: {$oldestSymbol} ({$oldestMinutes}m ago)\n".
-                        'Manual supervisor restart may be required',
+                        'Check supervisor: update-'.$exchangeLower.'-prices',
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
+            'stale_priority_steps_detected' => (function () use ($context, $hostname) {
+                // Extract stale step details - CRITICAL: steps stuck even after promotion
+                $count = is_int($context['count'] ?? null) ? $context['count'] : 0;
+                $oldestStepId = is_int($context['oldest_step_id'] ?? null) ? $context['oldest_step_id'] : 0;
+                $oldestCanonical = is_string($context['oldest_canonical'] ?? null) ? $context['oldest_canonical'] : 'N/A';
+                $oldestGroup = is_string($context['oldest_group'] ?? null) ? $context['oldest_group'] : 'N/A';
+                $oldestIndex = is_int($context['oldest_index'] ?? null) ? $context['oldest_index'] : 0;
+                $oldestMinutesStuck = is_int($context['oldest_minutes_stuck'] ?? null) ? $context['oldest_minutes_stuck'] : 0;
+                $oldestDispatchedAt = is_string($context['oldest_dispatched_at'] ?? null) ? $context['oldest_dispatched_at'] : 'N/A';
+
+                return [
+                    'severity' => NotificationSeverity::Critical,
+                    'title' => 'Priority Steps Still Stuck - Manual Action Required',
+                    'emailMessage' => "🚨 CRITICAL: {$count} step(s) still stuck after promotion to priority queue!\n\n".
+                        "Self-healing FAILED. These steps were promoted to high priority but are still not being processed.\n\n".
+                        "Oldest stuck step:\n\n".
+                        "• Step ID: {$oldestStepId}\n".
+                        "• Class: {$oldestCanonical}\n".
+                        "• Group: {$oldestGroup}\n".
+                        "• Index: {$oldestIndex}\n".
+                        "• Minutes Stuck: {$oldestMinutesStuck}\n".
+                        "• Dispatched At: {$oldestDispatchedAt}\n".
+                        "• Server: {$hostname}\n\n".
+                        "MANUAL INTERVENTION REQUIRED:\n\n".
+                        "• Check priority queue workers: supervisorctl status\n".
+                        "• Check Redis connection\n".
+                        "• Check circuit breaker (can_dispatch_steps)\n".
+                        '• Consider resetting steps to Pending state',
+                    'pushoverMessage' => "🚨 CRITICAL: {$count} step(s) STILL stuck after promotion!\n".
+                        "Self-healing FAILED\n".
+                        "Oldest: Step #{$oldestStepId}\n".
+                        "Stuck: {$oldestMinutesStuck}m\n".
+                        'MANUAL ACTION REQUIRED',
                     'actionUrl' => null,
                     'actionLabel' => null,
                 ];
@@ -234,37 +286,30 @@ final class NotificationMessageBuilder
                 $oldestIndex = is_int($context['oldest_index'] ?? null) ? $context['oldest_index'] : 0;
                 $oldestMinutesStuck = is_int($context['oldest_minutes_stuck'] ?? null) ? $context['oldest_minutes_stuck'] : 0;
                 $oldestDispatchedAt = is_string($context['oldest_dispatched_at'] ?? null) ? $context['oldest_dispatched_at'] : 'N/A';
-                $oldestParameters = is_string($context['oldest_parameters'] ?? null) ? $context['oldest_parameters'] : '{}';
+                $promotedCount = is_int($context['promoted_count'] ?? null) ? $context['promoted_count'] : 0;
 
                 return [
-                    'severity' => NotificationSeverity::Critical,
+                    'severity' => NotificationSeverity::High,
                     'title' => 'Stale Dispatched Steps Detected',
-                    'emailMessage' => "🚨 CRITICAL: Stale Dispatched Steps Detected\n\n".
-                        "{$count} step(s) stuck in Dispatched state for over 5 minutes. These jobs were dispatched but never started processing.\n\n".
-                        "📊 OLDEST STUCK STEP:\n\n".
+                    'emailMessage' => "{$count} step(s) stuck in Dispatched state for over 5 minutes.\n\n".
+                        "✅ SELF-HEALING APPLIED:\n\n".
+                        "{$promotedCount} step(s) promoted to high priority queue.\n\n".
+                        "Oldest stuck step:\n\n".
                         "• Step ID: {$oldestStepId}\n".
-                        "• Class (Canonical): {$oldestCanonical}\n".
+                        "• Class: {$oldestCanonical}\n".
                         "• Group: {$oldestGroup}\n".
                         "• Index: {$oldestIndex}\n".
                         "• Minutes Stuck: {$oldestMinutesStuck}\n".
                         "• Dispatched At: {$oldestDispatchedAt}\n".
                         "• Server: {$hostname}\n\n".
-                        "📝 PARAMETERS:\n\n".
-                        "{$oldestParameters}\n\n".
-                        "🔍 RESOLUTION STEPS:\n\n".
-                        "• Check all stale steps:\n".
-                        "[CMD]SELECT id, class, `group`, `index`, updated_at, TIMESTAMPDIFF(MINUTE, updated_at, NOW()) as minutes_stuck FROM steps WHERE state = 'Martingalian\\\\Core\\\\States\\\\Dispatched' AND updated_at < NOW() - INTERVAL 5 MINUTE ORDER BY updated_at ASC;[/CMD]\n\n".
-                        "• Reset stale steps to Pending:\n".
-                        "[CMD]UPDATE steps SET state = 'Martingalian\\\\Core\\\\States\\\\Pending', updated_at = NOW() WHERE state = 'Martingalian\\\\Core\\\\States\\\\Dispatched' AND updated_at < NOW() - INTERVAL 5 MINUTE;[/CMD]\n\n".
-                        "⚠️ LIKELY CAUSES:\n\n".
-                        "• Redis connection issues\n".
-                        "• Circuit breaker enabled (can_dispatch_steps = false)\n".
-                        "• Step dispatcher not running properly\n".
-                        '• Database connectivity issues',
-                    'pushoverMessage' => "🚨 {$count} step(s) stuck in Dispatched\n".
-                        "Oldest: Step #{$oldestStepId} ({$oldestCanonical})\n".
-                        "Stuck for: {$oldestMinutesStuck}m\n".
-                        "Server: {$hostname}",
+                        "If issue persists, check:\n\n".
+                        "• Redis connection\n".
+                        "• Priority queue workers (supervisorctl status)\n".
+                        '• Circuit breaker (can_dispatch_steps)',
+                    'pushoverMessage' => "{$count} step(s) stuck in Dispatched\n".
+                        "Self-healing: {$promotedCount} promoted to priority queue\n".
+                        "Oldest: Step #{$oldestStepId}\n".
+                        "Stuck: {$oldestMinutesStuck}m",
                     'actionUrl' => null,
                     'actionLabel' => null,
                 ];
@@ -294,11 +339,12 @@ final class NotificationMessageBuilder
                         'This exchange symbol has been automatically deactivated because TAAPI (Technical Analysis API) consistently failed to provide indicator data. '.
                         "After multiple consecutive failures, the platform determined this symbol is not supported by TAAPI and deactivated it to prevent further errors.\n\n".
                         "✅ IMPACT:\n\n".
-                        "• Symbol marked as inactive (is_active = false)\n".
-                        "• Symbol marked as ineligible (has_taapi_data = false)\n".
+                        "• Symbol marked as auto_disabled = true\n".
+                        "• Symbol marked with auto_disabled_reason = 'no_indicator_data'\n".
+                        "• Symbol marked as receives_indicator_data = false\n".
                         "• No more TAAPI requests will be made for this symbol\n".
-                        "• Trading operations for this symbol will be suspended\n".
-                        '• Already ongoing Trading operations will continue',
+                        "• No new positions will be opened for this symbol\n".
+                        '• Already open positions will continue normally',
                     'pushoverMessage' => 'Exchange Symbol: '.$displayString."\n".
                         'Reason: '.($context['failure_count'] ?? 'N/A')." Taapi failures\n".
                         'Action: Changed to Deactivated and Ineligible',
@@ -311,7 +357,7 @@ final class NotificationMessageBuilder
                 'severity' => NotificationSeverity::Info,
                 'title' => "{$exchangeTitle} Price Stream Restart",
                 'emailMessage' => "ℹ️ {$exchangeTitle} Price Stream Restart\n\nThe {$exchangeTitle} price WebSocket stream has been restarted due to symbol count changes.\n\nOld Symbol Count: ".($context['old_count'] ?? 'N/A')."\nNew Symbol Count: ".($context['new_count'] ?? 'N/A')."\n\nThe stream will automatically reconnect and resume price updates for all active symbols.",
-                'pushoverMessage' => "{$exchangeTitle} price stream restarted - symbol count changed",
+                'pushoverMessage' => "{$exchangeTitle} price stream restarted\nSymbols: ".($context['old_count'] ?? '?').' → '.($context['new_count'] ?? '?'),
                 'actionUrl' => null,
                 'actionLabel' => null,
             ],
@@ -351,20 +397,19 @@ final class NotificationMessageBuilder
                 $positionsDetails = is_string($context['positions_details'] ?? null) ? $context['positions_details'] : '';
 
                 $message = "🚨 Token Delisting Detected\n\n".
-                    "Token: {$pairText}\n".
                     "Exchange: {$exchangeTitle}\n".
-                    "Delivery Date: {$deliveryDate} UTC\n\n";
+                    "Token: {$pairText}\n".
+                    "Deadline: {$deliveryDate} UTC\n".
+                    "Total open positions: {$positionsCount}\n\n";
 
-                if ($positionsCount === 0) {
-                    $message .= 'No open positions for this symbol.';
-                } else {
-                    $message .= "Open positions requiring manual review:\n\n{$positionsDetails}\n".
-                        "Total positions requiring attention: {$positionsCount}";
+                if ($positionsCount > 0) {
+                    $message .= "⚠️ OPEN POSITIONS - System will not take any action on them:\n\n{$positionsDetails}";
                 }
 
-                $pushoverMessage = "{$exchangeTitle} delisting: {$pairText}\n".
-                    "Delivery: {$deliveryDate}\n".
-                    ($positionsCount > 0 ? "{$positionsCount} open position(s)" : 'No open positions');
+                $pushoverMessage = "Exchange: {$exchangeTitle}\n".
+                    "Token: {$pairText}\n".
+                    "Deadline: {$deliveryDate}\n".
+                    "Total open positions: {$positionsCount}";
 
                 return [
                     'severity' => NotificationSeverity::High,
@@ -388,24 +433,13 @@ final class NotificationMessageBuilder
                 return [
                     'severity' => NotificationSeverity::High,
                     'title' => 'Slow Database Query Detected',
-                    'emailMessage' => "⚠️ Slow Database Query Detected\n\n".
-                        "A database query exceeded the configured threshold and requires attention.\n\n".
-                        "📊 QUERY DETAILS:\n\n".
-                        "• Execution Time: {$timeMs}ms (threshold: {$thresholdMs}ms)\n".
-                        "• Connection: {$connection}\n".
-                        '• Slowdown Factor: '.round($timeMs / $thresholdMs, 2)."x threshold\n\n".
-                        "🔍 SQL QUERY (ready to copy-paste):\n\n".
-                        "[COPY]{$sqlFull}[/COPY]\n\n".
-                        "✅ RESOLUTION STEPS:\n\n".
-                        "• Analyze query execution plan:\n".
-                        "[CMD]EXPLAIN {$sqlFull}[/CMD]\n\n".
-                        "• Check for missing indexes:\n".
-                        "[CMD]SHOW INDEX FROM <table_name>;[/CMD]\n\n".
-                        "• Review recent slow queries:\n".
-                        "[CMD]SELECT sql_full, time_ms, created_at FROM slow_queries ORDER BY created_at DESC LIMIT 10;[/CMD]\n\n".
-                        "• Monitor slow query patterns:\n".
-                        '[CMD]SELECT connection, AVG(time_ms) as avg_ms, COUNT(*) as count FROM slow_queries WHERE created_at > NOW() - INTERVAL 1 HOUR GROUP BY connection;[/CMD]',
-                    'pushoverMessage' => "⚠️ Slow query: {$timeMs}ms ({$connection})\n".
+                    'emailMessage' => "A database query exceeded the configured threshold.\n\n".
+                        "Query duration: {$timeMs}ms\n".
+                        "Threshold: {$thresholdMs}ms\n".
+                        "Connection: {$connection}\n\n".
+                        "Query:\n\n".
+                        "[CMD]{$sqlFull}[/CMD]",
+                    'pushoverMessage' => "Query duration: {$timeMs}ms\n".
                         "Threshold: {$thresholdMs}ms\n".
                         "Query: {$truncatedSql}",
                     'actionUrl' => null,
@@ -413,34 +447,24 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'server_ip_not_whitelisted' => (function () use ($context, $exchangeTitle, $ip, $hostname, $accountName) {
-                // Extract details
-                $errorCode = is_string($context['error_code'] ?? null) ? $context['error_code'] : 'N/A';
-                $errorMessage = is_string($context['error_message'] ?? null) ? $context['error_message'] : 'N/A';
-                $accountId = $context['account_id'] ?? null;
-
+            'server_ip_not_whitelisted' => (function () use ($context, $exchangeTitle, $ip, $accountName) {
                 return [
                     'severity' => NotificationSeverity::High,
-                    'title' => 'Server IP Not Whitelisted',
-                    'emailMessage' => "⚠️ Server IP Not Whitelisted\n\n".
-                        "Your API key requires the server IP to be whitelisted on {$exchangeTitle}.\n\n".
-                        "📊 DETAILS:\n\n".
-                        "• Server IP: [COPY]{$ip}[/COPY]\n".
-                        "• Hostname: {$hostname}\n".
-                        "• Account: {$accountName}\n".
-                        "• Error Code: {$errorCode}\n".
-                        "• Error Message: {$errorMessage}\n\n".
-                        "🔧 HOW TO FIX:\n\n".
-                        "1. Log into your {$exchangeTitle} account\n".
-                        "2. Go to API Management settings\n".
-                        "3. Find your API key and click Edit\n".
+                    'title' => 'Please Whitelist Our Server IP',
+                    'emailMessage' => "Hi!\n\n".
+                        "We noticed that your {$exchangeTitle} API key requires IP whitelisting. ".
+                        "To ensure uninterrupted service, please add our server IP to your API key whitelist.\n\n".
+                        "Exchange: {$exchangeTitle}\n".
+                        "Account: {$accountName}\n".
+                        "IP to whitelist: [COPY]{$ip}[/COPY]\n\n".
+                        "🔧 HOW TO ADD:\n\n".
+                        "1. Log into {$exchangeTitle}\n".
+                        "2. Go to API Management\n".
+                        "3. Edit the API key used for \"{$accountName}\"\n".
                         "4. Add this IP to the whitelist: {$ip}\n".
-                        "5. Save changes\n\n".
-                        "⏱️ WHAT HAPPENS NEXT:\n\n".
-                        "• Once you add the IP, the system will automatically resume\n".
-                        "• Pending operations will be retried\n".
-                        '• No further action needed after whitelisting',
-                    'pushoverMessage' => "⚠️ {$exchangeTitle} IP not whitelisted\nIP: {$ip}\nAccount: {$accountName}\nAdd IP to API key whitelist",
+                        "5. Save\n\n".
+                        'Once done, everything will work seamlessly. Thank you!',
+                    'pushoverMessage' => "{$exchangeTitle}: Please whitelist IP {$ip}\nAccount: {$accountName}",
                     'actionUrl' => null,
                     'actionLabel' => null,
                 ];

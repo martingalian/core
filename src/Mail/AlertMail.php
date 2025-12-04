@@ -36,8 +36,14 @@ final class AlertMail extends Mailable
      */
     public function envelope(): Envelope
     {
-        // Build subject line with optional exchange context
+        // Build subject line with optional hostname prefix and exchange context
         $subject = $this->notificationTitle;
+
+        // Prefix hostname if enabled
+        if (config('martingalian.prefix_hostname_on_notifications', false)) {
+            $hostname = $this->hostname ?? gethostname();
+            $subject = "[{$hostname}] {$subject}";
+        }
 
         // Add exchange context if provided
         if ($this->exchange) {

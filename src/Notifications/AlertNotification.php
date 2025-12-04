@@ -85,8 +85,15 @@ final class AlertNotification extends Notification
         // Use pushoverMessage if provided, otherwise use the main message
         $pushoverText = $this->pushoverMessage ?? $this->message;
 
+        // Build title with optional hostname prefix
+        $title = $this->title;
+        if (config('martingalian.prefix_hostname_on_notifications', false)) {
+            $hostname = gethostname();
+            $title = "[{$hostname}] {$title}";
+        }
+
         $message = PushoverMessage::create($pushoverText)
-            ->title($this->title);
+            ->title($title);
 
         // Determine priority based on severity
         // Critical = emergency priority (2), all others = normal priority (0)
