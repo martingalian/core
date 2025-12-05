@@ -35,7 +35,14 @@ trait MapsPositionsQuery
 
                 return $position;
             })
-            ->keyBy('symbol')
+            ->keyBy(function ($position) {
+                // Key by symbol:direction to support hedge mode (LONG + SHORT on same symbol)
+                // Bybit uses 'side' with Buy/Sell values
+                $side = mb_strtoupper($position['side'] ?? 'BOTH');
+                $direction = $side === 'BUY' ? 'LONG' : ($side === 'SELL' ? 'SHORT' : 'BOTH');
+
+                return $position['symbol'].':'.$direction;
+            })
             ->toArray();
 
         // Remove positions with zero size (Bybit uses 'size' field)

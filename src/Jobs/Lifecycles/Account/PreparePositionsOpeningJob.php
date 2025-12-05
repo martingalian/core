@@ -6,6 +6,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Account;
 
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
+use Martingalian\Core\Jobs\Models\Account\CreatePositionSlotsJob;
 use Martingalian\Core\Jobs\Models\Account\QueryPositionsJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
@@ -46,15 +47,15 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
             'index' => 1,
         ]);
 
-        // Step 2: Match positions and create empty Position records for slots to fill
-        // Step::create([
-        //     'class' => MatchPositionsJob::class,
-        //     'arguments' => [
-        //         'accountId' => $this->account->id,
-        //     ],
-        //     'block_uuid' => $blockUuid,
-        //     'index' => 2,
-        // ]);
+        // Step 2: Create empty Position records for available slots
+        Step::create([
+            'class' => CreatePositionSlotsJob::class,
+            'arguments' => [
+                'accountId' => $this->account->id,
+            ],
+            'block_uuid' => $blockUuid,
+            'index' => 2,
+        ]);
 
         return [
             'account_id' => $this->account->id,
