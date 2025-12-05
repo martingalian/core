@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\Account\HasAccessors;
 use Martingalian\Core\Concerns\Account\HasCollections;
+use Martingalian\Core\Concerns\Account\HasGetters;
 use Martingalian\Core\Concerns\Account\HasScopes;
 use Martingalian\Core\Concerns\Account\HasStatuses;
 use Martingalian\Core\Concerns\Account\HasTokenDiscovery;
@@ -44,6 +45,7 @@ final class Account extends BaseModel
     use HasAccessors;
     use HasCollections;
     use HasFactory;
+    use HasGetters;
     use HasScopes;
     use HasStatuses;
     use HasTokenDiscovery;

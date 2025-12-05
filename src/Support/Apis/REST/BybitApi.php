@@ -81,4 +81,28 @@ final class BybitApi
 
         return $this->client->signRequest($apiRequest);
     }
+
+    // https://bybit-exchange.github.io/docs/v5/position/position-info
+    public function getPositions(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        // Bybit requires category parameter - default to linear (USDT perpetual)
+        if (! $properties->get('options.category')) {
+            $properties->set('options.category', 'linear');
+        }
+
+        // Bybit requires settleCoin parameter for linear positions
+        if (! $properties->get('options.settleCoin')) {
+            $properties->set('options.settleCoin', 'USDT');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/v5/position/list',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
 }

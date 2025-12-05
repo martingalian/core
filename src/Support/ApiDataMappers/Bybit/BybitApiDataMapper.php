@@ -11,6 +11,7 @@ use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsAccountQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsExchangeInformationQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsLeverageBracketsQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsServerTimeQuery;
 
 final class BybitApiDataMapper extends BaseDataMapper
@@ -18,6 +19,7 @@ final class BybitApiDataMapper extends BaseDataMapper
     use MapsAccountQuery;
     use MapsExchangeInformationQuery;
     use MapsLeverageBracketsQuery;
+    use MapsPositionsQuery;
     use MapsServerTimeQuery;
 
     public function long()
