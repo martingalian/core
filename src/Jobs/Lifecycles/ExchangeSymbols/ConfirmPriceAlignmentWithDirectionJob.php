@@ -61,7 +61,9 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
         // Extract data from stored JSON
         $data = $history->data;
 
-        if (! isset($data['close']) || count($data['close']) < 2) {
+        // Validate we have the required candle data (open and close arrays with at least 2 entries)
+        // Index 0 = previous candle, Index 1 = current candle
+        if (! isset($data['open'], $data['close']) || count($data['open']) < 2 || count($data['close']) < 2) {
             $this->exchangeSymbol->updateSaving([
                 'direction' => null,
                 'indicators_values' => null,
@@ -74,13 +76,19 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
             return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair} REMOVED due to invalid indicator data format"];
         }
 
-        $first = $data['close'][0];
-        $last = $data['close'][1];
+        // Compare current candle's open vs close to determine if price movement aligns with direction
+        // This is more reliable than comparing previous close vs current close because:
+        // - The current candle's open is fixed (doesn't change)
+        // - The current candle's close represents the actual price movement within this timeframe
+        $currentOpen = (float) $data['open'][1];
+        $currentClose = (float) $data['close'][1];
         $direction = $this->exchangeSymbol->direction;
         $timeframe = $this->exchangeSymbol->indicators_timeframe;
 
-        if (($direction === 'LONG' && $last <= $first) ||
-        ($direction === 'SHORT' && $last >= $first)
+        // LONG requires price to be rising (close > open)
+        // SHORT requires price to be falling (close < open)
+        if (($direction === 'LONG' && $currentClose <= $currentOpen) ||
+            ($direction === 'SHORT' && $currentClose >= $currentOpen)
         ) {
             $this->exchangeSymbol->updateSaving([
                 'direction' => null,
@@ -91,7 +99,7 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
                 'auto_disabled_reason' => 'price_misalignment',
             ]);
 
-            return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair}-{$direction} REMOVED due to price misalignment (Last: {$data['close'][1]} Previous: {$data['close'][0]}, timeframe: {$timeframe})"];
+            return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair}-{$direction} REMOVED due to price misalignment (Open: {$currentOpen}, Close: {$currentClose}, timeframe: {$timeframe})"];
         }
 
         // Last step: activate exchange symbol for trading.
@@ -103,7 +111,7 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
         // Send notification based on direction change status from previous step
         $this->sendDirectionNotification($direction, $timeframe);
 
-        return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair}-{$direction} CONFIRMED (Last: {$data['close'][1]} Previous: {$data['close'][0]}, timeframe: {$timeframe})"];
+        return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair}-{$direction} CONFIRMED (Open: {$currentOpen}, Close: {$currentClose}, timeframe: {$timeframe})"];
     }
 
     public function resolveException(Throwable $e)

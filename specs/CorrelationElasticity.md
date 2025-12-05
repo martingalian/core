@@ -1,7 +1,29 @@
 # BTC Correlation & Elasticity Analysis System
 
 ## Overview
-Multi-timeframe statistical analysis system that measures how tokens move relative to Bitcoin. Calculates correlation (strength of relationship) and elasticity (amplification/dampening) to identify asymmetric risk/reward profiles for optimal position selection.
+
+Multi-timeframe statistical analysis system that measures how tokens move relative to Bitcoin. Calculates correlation (strength of relationship) and elasticity (amplification/dampening) for optimal position selection.
+
+### Key Design: BTC Bias-Based Token Selection
+
+**The system uses BTC's current direction as a market bias to select optimal tokens:**
+
+1. **BTC direction determines correlation sign needed**:
+   - Same direction (BTC=LONG, position=LONG) → want **positive** correlation
+   - Opposite direction (BTC=LONG, position=SHORT) → want **negative** correlation
+
+2. **Single timeframe scoring**: Uses only the timeframe where BTC's direction signal was detected
+
+3. **Conservative approach**: If BTC has no direction → no positions can be opened
+
+**Configuration** (`config/martingalian.php`):
+```php
+'token_discovery' => [
+    'correlation_type' => env('TOKEN_DISCOVERY_CORRELATION_TYPE', 'pearson'),
+],
+```
+
+Options: `pearson`, `spearman`, `rolling`
 
 ## Core Concepts
 
@@ -279,126 +301,227 @@ config('martingalian.elasticity') => [
 
 ## Token Selection Algorithm
 
+### BTC Bias-Based Selection
+
+The token selection algorithm uses **BTC's current direction** as a bias to select optimal tokens. This is a fundamental change from direction-agnostic selection.
+
+**Key Concept**: We don't just select tokens that move with/against BTC - we select tokens that align with BTC's **current trend direction**.
+
+### How BTC Bias Works
+
+1. **BTC ExchangeSymbol** stores `direction` (LONG or SHORT) and `indicators_timeframe` (which timeframe triggered the signal)
+2. When selecting tokens, we look up BTC for the same `api_system_id` and `quote_id`
+3. If BTC has no direction → **No positions can be opened** (delete all empty slots)
+4. If BTC has direction → Use that direction + timeframe to score tokens
+
+### Correlation Sign Matters
+
+The correlation sign determines whether a token moves **with** or **against** BTC:
+
+| BTC Direction | Position Direction | Desired Correlation | Why |
+|---------------|-------------------|---------------------|-----|
+| LONG | LONG | **Highest positive** (→ +1) | Token should rise WITH BTC |
+| LONG | SHORT | **Highest negative** (→ -1) | Token should fall AGAINST BTC |
+| SHORT | LONG | **Highest negative** (→ -1) | Token should rise AGAINST BTC |
+| SHORT | SHORT | **Highest positive** (→ +1) | Token should fall WITH BTC |
+
+**Rule**: `BTC direction == position direction` → want **positive** correlation
+**Rule**: `BTC direction != position direction` → want **negative** correlation
+
+### Configurable Correlation Type
+
+The correlation type used for scoring is configurable via `config/martingalian.php`:
+
+```php
+'token_discovery' => [
+    'correlation_type' => env('TOKEN_DISCOVERY_CORRELATION_TYPE', 'rolling'),
+],
+```
+
+**Options**:
+- `rolling`: Rolling correlation (btc_correlation_rolling) - recent window only
+- `pearson`: Pearson correlation (btc_correlation_pearson) - full dataset linear
+- `spearman`: Spearman correlation (btc_correlation_spearman) - rank-based, robust to outliers
+
 ### assignBestTokenToNewPositions()
+
 **Location**: `Concerns/Account/HasTokenDiscovery.php`
-**Purpose**: Assign optimal tokens to new positions based on elasticity and correlation
+**Purpose**: Assign optimal tokens to new positions based on BTC bias, elasticity, and correlation
 
 **Execution Flow**:
 
 ```php
 public function assignBestTokenToNewPositions()
 {
-    // STEP 1: Load available symbols (excludes already opened positions)
-    $this->availableExchangeSymbols = $this->availableExchangeSymbols();
+    // STEP 1: Get BTC ExchangeSymbol for same api_system and quote
+    $btcExchangeSymbol = $this->getBtcExchangeSymbol();
 
-    // STEP 2: Filter to only symbols with complete data
-    $this->availableExchangeSymbols = $this->availableExchangeSymbols->filter(
-        fn($s) => filled($s->btc_elasticity_long)
-               && filled($s->btc_elasticity_short)
-               && filled($s->btc_correlation_rolling)
-    );
+    // STEP 2: Check if BTC has a direction signal
+    if (!$btcExchangeSymbol || !filled($btcExchangeSymbol->direction)) {
+        // No BTC bias → Cannot open positions → Delete all empty slots
+        $this->deleteUnassignedPositionSlots();
+        return;
+    }
 
-    // STEP 3: Get all new positions with direction set but no token
+    $btcDirection = $btcExchangeSymbol->direction;           // LONG or SHORT
+    $btcTimeframe = $btcExchangeSymbol->indicators_timeframe; // e.g., "4h"
+
+    // STEP 3: Load available symbols with complete data for this timeframe
+    $correlationType = config('martingalian.token_discovery.correlation_type', 'rolling');
+    $correlationField = 'btc_correlation_' . $correlationType;
+
+    $this->availableExchangeSymbols = $this->availableExchangeSymbols()
+        ->filter(fn($s) =>
+            filled($s->btc_elasticity_long[$btcTimeframe] ?? null) &&
+            filled($s->btc_elasticity_short[$btcTimeframe] ?? null) &&
+            filled($s->{$correlationField}[$btcTimeframe] ?? null)
+        );
+
+    // STEP 4: Get new positions waiting for token assignment
     $newPositions = $this->positions()
         ->where('status', 'new')
         ->whereNotNull('direction')
         ->whereNull('exchange_symbol_id')
         ->get();
 
-    // STEP 4: Track batch exclusions (prevent duplicates)
+    // STEP 5: Track batch exclusions (prevent duplicate assignments)
     $batchExclusions = [];
 
-    // STEP 5: Iterate each position and assign best token
+    // STEP 6: Assign tokens using BTC bias
     foreach ($newPositions as $position) {
-        $bestToken = null;
-
-        // PRIORITY 1: Fast-tracked symbols (recently profitable)
-        $fastTrackedSymbol = $this->getFastTrackedSymbolForDirection(
+        $bestToken = $this->selectBestTokenByBtcBias(
             $position->direction,
+            $btcDirection,
+            $btcTimeframe,
             $batchExclusions
         );
-        if ($fastTrackedSymbol) {
-            $bestToken = $fastTrackedSymbol;
-        }
 
-        // PRIORITY 2: Best elasticity-based symbol
-        if (!$bestToken) {
-            $bestToken = $this->selectBestTokenByElasticity(
-                $position->direction,
-                $batchExclusions
-            );
-        }
-
-        // Skip if no token available
         if (!$bestToken) continue;
 
-        // Assign token and add to exclusions
         $position->updateSaving([
             'exchange_symbol_id' => $bestToken->id,
             'direction' => $bestToken->direction,
         ]);
         $batchExclusions[] = $bestToken->id;
     }
+
+    // STEP 7: Delete unassigned slots
+    $this->deleteUnassignedPositionSlots();
 }
 ```
 
-### selectBestTokenByElasticity()
+### selectBestTokenByBtcBias()
+
 **Location**: `Concerns/Account/HasTokenDiscovery.php`
-**Purpose**: Score and rank symbols by elasticity for given direction
+**Purpose**: Score and rank symbols using BTC bias + elasticity + correlation
 
-**Scoring Formulas**:
+**Algorithm**:
 
-#### SHORT Positions
 ```php
-// Goal: Maximize downside amplification, weighted by correlation reliability
-$score = abs($elasticity_short) × abs($correlation_rolling)
-```
+public function selectBestTokenByBtcBias(
+    string $positionDirection,  // LONG or SHORT
+    string $btcDirection,       // LONG or SHORT
+    string $timeframe,          // e.g., "4h"
+    array $batchExclusions
+) {
+    $correlationType = config('martingalian.token_discovery.correlation_type', 'rolling');
+    $correlationField = 'btc_correlation_' . $correlationType;
 
-**Logic**: We want tokens that fall HARD when BTC falls (high `elasticity_short`), but only if the relationship is reliable (high `correlation`).
+    // Determine if we want same-direction or inverse correlation
+    $wantPositiveCorrelation = ($btcDirection === $positionDirection);
 
-**Example**:
-- SQD: `elasticity_short = 25.96`, `correlation = 0.48` → Score = `25.96 × 0.48 = 12.46` ✅ **Winner**
-- VOLATILE: `elasticity_short = 30.0`, `correlation = 0.1` → Score = `30.0 × 0.1 = 3.0` ❌ Unreliable
+    // Filter candidates by direction and correlation sign
+    $candidates = $this->availableExchangeSymbols
+        ->where('direction', $positionDirection)
+        ->whereNotIn('id', $batchExclusions)
+        ->filter(function ($symbol) use ($correlationField, $timeframe, $wantPositiveCorrelation) {
+            $correlation = $symbol->{$correlationField}[$timeframe] ?? null;
+            if ($correlation === null) return false;
 
-#### LONG Positions
-```php
-// Goal: Maximize upside capture while minimizing downside risk
-$asymmetry = $elasticity_long - $elasticity_short;
-$score = $asymmetry × abs($correlation_rolling)
-```
+            // Filter by correlation sign
+            if ($wantPositiveCorrelation) {
+                return $correlation > 0; // Want positive correlation
+            } else {
+                return $correlation < 0; // Want negative correlation
+            }
+        });
 
-**Logic**: We want tokens with high upside (`elasticity_long`) and low downside (`elasticity_short`). Inverted correlations (negative `elasticity_short`) are premium candidates.
+    if ($candidates->isEmpty()) return null;
 
-**Examples**:
-- MYX: `elasticity_long = 29.3`, `elasticity_short = -57.4`, `correlation = 0.52`
-  - Asymmetry = `29.3 - (-57.4) = 86.7`
-  - Score = `86.7 × 0.52 = 45.08` ✅ **Premium LONG** (rises when BTC falls!)
+    // Score and rank candidates
+    $scored = $candidates->map(function ($symbol) use ($correlationField, $timeframe, $positionDirection) {
+        $elasticityLong = $symbol->btc_elasticity_long[$timeframe];
+        $elasticityShort = $symbol->btc_elasticity_short[$timeframe];
+        $correlation = $symbol->{$correlationField}[$timeframe];
 
-- SAFE: `elasticity_long = 6.0`, `elasticity_short = 0.5`, `correlation = 0.8`
-  - Asymmetry = `6.0 - 0.5 = 5.5`
-  - Score = `5.5 × 0.8 = 4.4` ✅ **Good LONG** (high upside, low downside)
+        // Select elasticity based on position direction
+        if ($positionDirection === 'LONG') {
+            $elasticity = $elasticityLong;
+        } else {
+            $elasticity = abs($elasticityShort);
+        }
 
-- RISKY: `elasticity_long = 10.0`, `elasticity_short = 9.0`, `correlation = 0.8`
-  - Asymmetry = `10.0 - 9.0 = 1.0`
-  - Score = `1.0 × 0.8 = 0.8` ❌ **Poor LONG** (high downside risk)
+        // Score = elasticity × |correlation|
+        // Higher elasticity = more amplification
+        // Higher |correlation| = closer to +1 or -1 = more extreme/reliable
+        $score = $elasticity * abs($correlation);
 
-**Best Timeframe Selection**:
-```php
-// For each symbol, evaluate ALL timeframes and take the BEST score
-$timeframes = ['1h', '4h', '6h', '12h', '1d'];
-$bestScore = 0;
-$bestTimeframe = null;
+        return ['symbol' => $symbol, 'score' => $score];
+    });
 
-foreach ($timeframes as $timeframe) {
-    $score = calculateScore($symbol, $timeframe, $direction);
-    if ($score > $bestScore) {
-        $bestScore = $score;
-        $bestTimeframe = $timeframe;
-    }
+    // Return symbol with highest score
+    return $scored->sortByDesc('score')->first()['symbol'] ?? null;
 }
-
-return $bestScore; // Use symbol's best timeframe, not average
 ```
+
+### Scoring Logic Explained
+
+#### When BTC = LONG, Position = LONG (same direction)
+- **Goal**: Find tokens that RISE when BTC rises
+- **Filter**: Only tokens with **positive** correlation
+- **Score**: `elasticity_long × correlation`
+- **Best**: Highest elasticity + highest positive correlation (closest to +1)
+
+#### When BTC = LONG, Position = SHORT (opposite direction)
+- **Goal**: Find tokens that FALL when BTC rises (inverse relationship)
+- **Filter**: Only tokens with **negative** correlation
+- **Score**: `|elasticity_short| × |correlation|`
+- **Best**: Highest elasticity + highest negative correlation (closest to -1)
+
+#### When BTC = SHORT, Position = LONG (opposite direction)
+- **Goal**: Find tokens that RISE when BTC falls (inverse relationship)
+- **Filter**: Only tokens with **negative** correlation
+- **Score**: `elasticity_long × |correlation|`
+- **Best**: Highest elasticity + highest negative correlation (closest to -1)
+
+#### When BTC = SHORT, Position = SHORT (same direction)
+- **Goal**: Find tokens that FALL when BTC falls
+- **Filter**: Only tokens with **positive** correlation
+- **Score**: `|elasticity_short| × correlation`
+- **Best**: Highest elasticity + highest positive correlation (closest to +1)
+
+### Edge Cases
+
+1. **BTC has no direction** → Delete all empty position slots, no positions opened
+2. **No tokens match correlation sign** → Position slot deleted (no suitable candidates)
+3. **All suitable tokens in use** → Remaining slots deleted
+4. **Token missing timeframe data** → Excluded from candidates
+
+### Single Timeframe Selection
+
+Unlike the previous algorithm that evaluated ALL timeframes and picked the best score, the new algorithm uses **only the timeframe from BTC's signal**:
+
+```php
+// OLD: Evaluate all timeframes, pick best
+foreach (['1h', '4h', '6h', '12h', '1d'] as $timeframe) { ... }
+
+// NEW: Use only BTC's signal timeframe
+$btcTimeframe = $btcExchangeSymbol->indicators_timeframe; // e.g., "4h"
+$elasticity = $symbol->btc_elasticity_long[$btcTimeframe];
+$correlation = $symbol->btc_correlation_pearson[$btcTimeframe];
+```
+
+**Why**: The BTC direction signal was calculated on a specific timeframe. Using the same timeframe for token scoring ensures consistency.
 
 ### Fast-Track Priority
 **Location**: `Concerns/Account/HasTokenDiscovery.php → getFastTrackedSymbolForDirection()`
@@ -551,67 +674,146 @@ Critical indexes for fast queries:
 - Only USDT pairs calculated (quote_id = 1)
 - BTC symbol excluded (cannot correlate with itself)
 
-## Common Patterns
+## Common Patterns (BTC Bias Algorithm)
+
+### Check BTC Direction Before Opening Positions
+```php
+use Martingalian\Core\Models\ExchangeSymbol;
+use Martingalian\Core\Models\Symbol;
+
+// Get BTC for this account's exchange and quote
+$btcSymbol = Symbol::where('token', 'BTC')->first();
+$btcExchangeSymbol = ExchangeSymbol::query()
+    ->where('symbol_id', $btcSymbol->id)
+    ->where('api_system_id', $account->api_system_id)
+    ->where('quote_id', $account->trading_quote_id)
+    ->first();
+
+if (!$btcExchangeSymbol || !filled($btcExchangeSymbol->direction)) {
+    echo "BTC has no direction - cannot open positions\n";
+    return;
+}
+
+$btcDirection = $btcExchangeSymbol->direction;
+$btcTimeframe = $btcExchangeSymbol->indicators_timeframe;
+
+echo "BTC is {$btcDirection} on {$btcTimeframe} timeframe\n";
+```
+
+### Finding Best Tokens for BTC LONG Bias
+```php
+// BTC is LONG - find tokens that correlate WITH BTC
+$correlationType = config('martingalian.token_discovery.correlation_type', 'pearson');
+$correlationField = 'btc_correlation_' . $correlationType;
+$btcTimeframe = '4h'; // from BTC's indicators_timeframe
+
+// For LONG positions: want positive correlation
+$bestLongs = ExchangeSymbol::query()
+    ->where('direction', 'LONG')
+    ->tradeable()
+    ->get()
+    ->filter(fn($s) => ($s->{$correlationField}[$btcTimeframe] ?? 0) > 0)
+    ->map(function ($symbol) use ($correlationField, $btcTimeframe) {
+        $elasticity = $symbol->btc_elasticity_long[$btcTimeframe] ?? 0;
+        $correlation = $symbol->{$correlationField}[$btcTimeframe] ?? 0;
+        return [
+            'symbol' => $symbol->symbol->token,
+            'elasticity' => round($elasticity, 2),
+            'correlation' => round($correlation, 3),
+            'score' => round($elasticity * $correlation, 2),
+        ];
+    })
+    ->sortByDesc('score')
+    ->take(10);
+
+// For SHORT positions: want negative correlation (inverse to BTC)
+$bestShorts = ExchangeSymbol::query()
+    ->where('direction', 'SHORT')
+    ->tradeable()
+    ->get()
+    ->filter(fn($s) => ($s->{$correlationField}[$btcTimeframe] ?? 0) < 0)
+    ->map(function ($symbol) use ($correlationField, $btcTimeframe) {
+        $elasticity = abs($symbol->btc_elasticity_short[$btcTimeframe] ?? 0);
+        $correlation = $symbol->{$correlationField}[$btcTimeframe] ?? 0;
+        return [
+            'symbol' => $symbol->symbol->token,
+            'elasticity' => round($elasticity, 2),
+            'correlation' => round($correlation, 3),
+            'score' => round($elasticity * abs($correlation), 2),
+        ];
+    })
+    ->sortByDesc('score')
+    ->take(10);
+```
+
+### Finding Best Tokens for BTC SHORT Bias
+```php
+// BTC is SHORT - find tokens that correlate WITH BTC falling
+$correlationType = config('martingalian.token_discovery.correlation_type', 'pearson');
+$correlationField = 'btc_correlation_' . $correlationType;
+$btcTimeframe = '1d'; // from BTC's indicators_timeframe
+
+// For SHORT positions: want positive correlation (falls with BTC)
+$bestShorts = ExchangeSymbol::query()
+    ->where('direction', 'SHORT')
+    ->tradeable()
+    ->get()
+    ->filter(fn($s) => ($s->{$correlationField}[$btcTimeframe] ?? 0) > 0)
+    ->map(function ($symbol) use ($correlationField, $btcTimeframe) {
+        $elasticity = abs($symbol->btc_elasticity_short[$btcTimeframe] ?? 0);
+        $correlation = $symbol->{$correlationField}[$btcTimeframe] ?? 0;
+        return [
+            'symbol' => $symbol->symbol->token,
+            'elasticity' => round($elasticity, 2),
+            'correlation' => round($correlation, 3),
+            'score' => round($elasticity * $correlation, 2),
+        ];
+    })
+    ->sortByDesc('score')
+    ->take(10);
+
+// For LONG positions: want negative correlation (rises against BTC)
+$bestLongs = ExchangeSymbol::query()
+    ->where('direction', 'LONG')
+    ->tradeable()
+    ->get()
+    ->filter(fn($s) => ($s->{$correlationField}[$btcTimeframe] ?? 0) < 0)
+    ->map(function ($symbol) use ($correlationField, $btcTimeframe) {
+        $elasticity = $symbol->btc_elasticity_long[$btcTimeframe] ?? 0;
+        $correlation = $symbol->{$correlationField}[$btcTimeframe] ?? 0;
+        return [
+            'symbol' => $symbol->symbol->token,
+            'elasticity' => round($elasticity, 2),
+            'correlation' => round($correlation, 3),
+            'score' => round($elasticity * abs($correlation), 2),
+        ];
+    })
+    ->sortByDesc('score')
+    ->take(10);
+```
 
 ### Analyzing a Specific Symbol
 ```php
 use Martingalian\Core\Models\ExchangeSymbol;
 
 $symbol = ExchangeSymbol::find(42);
+$correlationType = config('martingalian.token_discovery.correlation_type', 'pearson');
+$correlationField = 'btc_correlation_' . $correlationType;
 
-// Check correlation across timeframes
+// Check all timeframes
 foreach (['1h', '4h', '6h', '12h', '1d'] as $tf) {
-    echo "[$tf] Correlation: {$symbol->btc_correlation_rolling[$tf]}\n";
-    echo "[$tf] Long: {$symbol->btc_elasticity_long[$tf]}\n";
-    echo "[$tf] Short: {$symbol->btc_elasticity_short[$tf]}\n";
-    echo "[$tf] Asymmetry: " .
-        ($symbol->btc_elasticity_long[$tf] - $symbol->btc_elasticity_short[$tf]) .
-        "\n\n";
+    $correlation = $symbol->{$correlationField}[$tf] ?? null;
+    $elasticityLong = $symbol->btc_elasticity_long[$tf] ?? null;
+    $elasticityShort = $symbol->btc_elasticity_short[$tf] ?? null;
+
+    if ($correlation === null) continue;
+
+    $sign = $correlation > 0 ? '+' : '';
+    echo "[$tf] Correlation: {$sign}{$correlation}\n";
+    echo "[$tf] Elasticity Long: {$elasticityLong}\n";
+    echo "[$tf] Elasticity Short: {$elasticityShort}\n";
+    echo "[$tf] Good for: " . ($correlation > 0 ? 'same-direction' : 'opposite-direction') . " positions\n\n";
 }
-```
-
-### Finding Best SHORT Candidates
-```php
-$bestShorts = ExchangeSymbol::query()
-    ->where('direction', 'SHORT')
-    ->tradeable()
-    ->get()
-    ->map(function ($symbol) {
-        $bestScore = 0;
-        foreach (['1h', '4h', '6h', '12h', '1d'] as $tf) {
-            if (isset($symbol->btc_elasticity_short[$tf])) {
-                $score = abs($symbol->btc_elasticity_short[$tf]) *
-                         abs($symbol->btc_correlation_rolling[$tf] ?? 0);
-                $bestScore = max($bestScore, $score);
-            }
-        }
-        return ['symbol' => $symbol->symbol->token, 'score' => $bestScore];
-    })
-    ->sortByDesc('score')
-    ->take(10);
-```
-
-### Finding Best LONG Candidates
-```php
-$bestLongs = ExchangeSymbol::query()
-    ->where('direction', 'LONG')
-    ->tradeable()
-    ->get()
-    ->map(function ($symbol) {
-        $bestScore = 0;
-        foreach (['1h', '4h', '6h', '12h', '1d'] as $tf) {
-            if (isset($symbol->btc_elasticity_long[$tf])
-                && isset($symbol->btc_elasticity_short[$tf])) {
-                $asymmetry = $symbol->btc_elasticity_long[$tf] -
-                            $symbol->btc_elasticity_short[$tf];
-                $score = $asymmetry * abs($symbol->btc_correlation_rolling[$tf] ?? 0);
-                $bestScore = max($bestScore, $score);
-            }
-        }
-        return ['symbol' => $symbol->symbol->token, 'score' => $bestScore];
-    })
-    ->sortByDesc('score')
-    ->take(10);
 ```
 
 ### Debugging Missing Data
@@ -639,61 +841,113 @@ $candleCount = Candle::where('exchange_symbol_id', $btcExchangeSymbol->id)
 echo "BTC candles available: $candleCount\n";
 ```
 
-## Real-World Examples
+## Real-World Examples (BTC Bias Algorithm)
 
-### Example 1: SQD (Excellent SHORT Candidate)
+### Example 1: BTC = LONG, Opening LONG Position
 ```
-Token: SQD/USDT
-Direction: SHORT
+BTC Direction: LONG (on 4h timeframe)
+Position Direction: LONG
+Rule: Same direction → Want POSITIVE correlation (token rises WITH BTC)
 
-Timeframe Analysis:
-[1d] Correlation: 0.48, Long: -0.97, Short: 25.96, Asymmetry: -26.93
-[1h] Correlation: 0.74, Long: 0.88,  Short: 6.72,  Asymmetry: -5.84
-[4h] Correlation: 0.84, Long: 0.12,  Short: 3.10,  Asymmetry: -3.22
+Candidates (4h timeframe, positive correlation only):
+┌─────────┬───────────────┬─────────────┬─────────┐
+│ Token   │ Elasticity_L  │ Correlation │ Score   │
+├─────────┼───────────────┼─────────────┼─────────┤
+│ ETH     │ 1.2           │ 0.95        │ 1.14    │
+│ SOL     │ 2.5           │ 0.85        │ 2.13    │
+│ DOGE    │ 3.8           │ 0.72        │ 2.74 ←  │ Winner
+└─────────┴───────────────┴─────────────┴─────────┘
 
-Scoring (SHORT):
-[1d] Score = |25.96| × |0.48| = 12.46 ← Best timeframe
-[1h] Score = |6.72| × |0.74| = 4.97
-[4h] Score = |3.10| × |0.84| = 2.60
-
-Selection: SQD selected with score 12.46 (1d timeframe)
-Profile: "Weak hands" - massive downside amplification (25.96x), poor upside
-```
-
-### Example 2: MYX (Premium LONG Candidate)
-```
-Token: MYX/USDT
-Direction: LONG
-
-Timeframe Analysis:
-[6h]  Correlation: 0.52,  Long: 29.3,  Short: -57.4, Asymmetry: 86.7
-[1h]  Correlation: -0.02, Long: 5.56,  Short: 2.89,  Asymmetry: 2.67
-[1d]  Correlation: 0.25,  Long: 2.66,  Short: -57.37, Asymmetry: 60.03
-
-Scoring (LONG):
-[6h] Score = (29.3 - (-57.4)) × |0.52| = 86.7 × 0.52 = 45.08 ← Best timeframe
-[1d] Score = (2.66 - (-57.37)) × |0.25| = 60.03 × 0.25 = 15.01
-[1h] Score = (5.56 - 2.89) × |-0.02| = 2.67 × 0.02 = 0.05
-
-Selection: MYX selected with score 45.08 (6h timeframe)
-Profile: "Defensive powerhouse" - RISES when BTC falls, good upside when BTC rises
+Selection: DOGE (score 2.74)
+Why: Highest elasticity × positive correlation = best amplification with BTC trend
 ```
 
-### Example 3: Correlation Weighting in Action
+### Example 2: BTC = LONG, Opening SHORT Position
 ```
-VOLATILE vs STABLE (both SHORT candidates):
+BTC Direction: LONG (on 4h timeframe)
+Position Direction: SHORT
+Rule: Opposite direction → Want NEGATIVE correlation (token falls AGAINST BTC)
 
-VOLATILE:
-- elasticity_short: 30.0 (very high)
-- correlation: 0.1 (very low - unreliable!)
-- Score: 30.0 × 0.1 = 3.0
+Candidates (4h timeframe, negative correlation only):
+┌─────────┬───────────────┬─────────────┬─────────┐
+│ Token   │ Elasticity_S  │ Correlation │ Score   │
+├─────────┼───────────────┼─────────────┼─────────┤
+│ XYZ     │ 5.2           │ -0.65       │ 3.38    │
+│ ABC     │ 8.1           │ -0.82       │ 6.64 ←  │ Winner
+│ DEF     │ 12.0          │ -0.35       │ 4.20    │
+└─────────┴───────────────┴─────────────┴─────────┘
 
-STABLE:
-- elasticity_short: 8.0 (moderate)
-- correlation: 0.95 (very high - reliable!)
-- Score: 8.0 × 0.95 = 7.6 ← Winner
+Selection: ABC (score 6.64)
+Why: Best combination of high downside elasticity + strong negative correlation
+     When BTC rises, ABC falls hard (inverse relationship)
+```
 
-Result: STABLE selected despite lower elasticity due to reliable correlation
+### Example 3: BTC = SHORT, Opening LONG Position
+```
+BTC Direction: SHORT (on 1d timeframe)
+Position Direction: LONG
+Rule: Opposite direction → Want NEGATIVE correlation (token rises AGAINST BTC)
+
+Candidates (1d timeframe, negative correlation only):
+┌─────────┬───────────────┬─────────────┬─────────┐
+│ Token   │ Elasticity_L  │ Correlation │ Score   │
+├─────────┼───────────────┼─────────────┼─────────┤
+│ GOLD    │ 1.5           │ -0.88       │ 1.32    │
+│ HEDGE   │ 3.2           │ -0.91       │ 2.91 ←  │ Winner
+│ SAFE    │ 2.1           │ -0.72       │ 1.51    │
+└─────────┴───────────────┴─────────────┴─────────┘
+
+Selection: HEDGE (score 2.91)
+Why: Rises when BTC falls - perfect defensive LONG during bearish BTC
+```
+
+### Example 4: BTC = SHORT, Opening SHORT Position
+```
+BTC Direction: SHORT (on 1d timeframe)
+Position Direction: SHORT
+Rule: Same direction → Want POSITIVE correlation (token falls WITH BTC)
+
+Candidates (1d timeframe, positive correlation only):
+┌─────────┬───────────────┬─────────────┬─────────┐
+│ Token   │ Elasticity_S  │ Correlation │ Score   │
+├─────────┼───────────────┼─────────────┼─────────┤
+│ WEAK    │ 25.96         │ 0.48        │ 12.46 ← │ Winner
+│ MEDIUM  │ 8.0           │ 0.75        │ 6.00    │
+│ STABLE  │ 3.5           │ 0.92        │ 3.22    │
+└─────────┴───────────────┴─────────────┴─────────┘
+
+Selection: WEAK (score 12.46)
+Why: Extreme downside amplification (25.96x) + positive correlation
+     When BTC falls, WEAK falls 26x harder - perfect SHORT during bearish BTC
+```
+
+### Example 5: No Suitable Tokens Available
+```
+BTC Direction: LONG (on 4h timeframe)
+Position Direction: SHORT
+Rule: Want NEGATIVE correlation
+
+Available tokens (4h timeframe):
+┌─────────┬─────────────┐
+│ Token   │ Correlation │
+├─────────┼─────────────┤
+│ ETH     │ 0.95        │ ← Positive, excluded
+│ SOL     │ 0.85        │ ← Positive, excluded
+│ DOGE    │ 0.72        │ ← Positive, excluded
+└─────────┴─────────────┘
+
+Result: No candidates with negative correlation → Position slot DELETED
+```
+
+### Example 6: BTC Has No Direction
+```
+BTC ExchangeSymbol:
+- direction: NULL
+- indicators_timeframe: NULL
+
+Result: Cannot determine market bias
+Action: ALL empty position slots DELETED
+Reason: System only opens positions when BTC has a clear directional signal
 ```
 
 ## Troubleshooting

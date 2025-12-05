@@ -6,6 +6,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Account;
 
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
+use Martingalian\Core\Jobs\Models\Account\AssignBestTokensToPositionSlotsJob;
 use Martingalian\Core\Jobs\Models\Account\CreatePositionSlotsJob;
 use Martingalian\Core\Jobs\Models\Account\QueryPositionsJob;
 use Martingalian\Core\Models\Account;
@@ -15,9 +16,9 @@ use Martingalian\Core\Models\Step;
  * PreparePositionsOpeningJob
  *
  * Prepares and validates position opening for an account:
- * • Step 1: QueryAccountPositionsJob - Fetches open positions from exchange, stores in api_snapshots
- * • Step 2: MatchPositionsJob - Compares exchange positions with limits, creates empty Position records
- * • Step 3+: Future steps for actual position opening
+ * • Step 1: QueryPositionsJob - Fetches open positions from exchange, stores in api_snapshots
+ * • Step 2: CreatePositionSlotsJob - Compares exchange positions with limits, creates empty Position records
+ * • Step 3: AssignBestTokensToPositionSlotsJob - Assigns optimal tokens to slots, deletes unassigned
  */
 final class PreparePositionsOpeningJob extends BaseQueueableJob
 {
@@ -55,6 +56,16 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
             ],
             'block_uuid' => $blockUuid,
             'index' => 2,
+        ]);
+
+        // Step 3: Assign best tokens to position slots (deletes unassigned slots)
+        Step::create([
+            'class' => AssignBestTokensToPositionSlotsJob::class,
+            'arguments' => [
+                'accountId' => $this->account->id,
+            ],
+            'block_uuid' => $blockUuid,
+            'index' => 3,
         ]);
 
         return [

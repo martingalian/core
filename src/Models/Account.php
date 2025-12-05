@@ -6,6 +6,7 @@ namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Martingalian\Core\Abstracts\BaseModel;
@@ -106,16 +107,25 @@ final class Account extends BaseModel
         return self::temporary($apiSystemCanonical, $source->all_credentials);
     }
 
-    public function steps()
+    /**
+     * @return MorphMany<Step, $this>
+     */
+    public function steps(): MorphMany
     {
         return $this->morphMany(Step::class, 'relatable');
     }
 
-    public function apiRequestLogs()
+    /**
+     * @return MorphMany<ApiRequestLog, $this>
+     */
+    public function apiRequestLogs(): MorphMany
     {
         return $this->morphMany(ApiRequestLog::class, 'relatable');
     }
 
+    /**
+     * @return MorphMany<NotificationLog, $this>
+     */
     public function notificationLogs(): MorphMany
     {
         return $this->morphMany(NotificationLog::class, 'relatable');
@@ -137,36 +147,57 @@ final class Account extends BaseModel
         return $this->belongsTo(ApiSystem::class);
     }
 
-    public function portfolioQuote()
+    /**
+     * @return BelongsTo<Quote, $this>
+     */
+    public function portfolioQuote(): BelongsTo
     {
         return $this->belongsTo(Quote::class, 'portfolio_quote_id');
     }
 
-    public function tradingQuote()
+    /**
+     * @return BelongsTo<Quote, $this>
+     */
+    public function tradingQuote(): BelongsTo
     {
         return $this->belongsTo(Quote::class, 'trading_quote_id');
     }
 
+    /**
+     * @return MorphMany<ApiSnapshot, $this>
+     */
     public function apiSnapshots(): MorphMany
     {
         return $this->morphMany(ApiSnapshot::class, 'responsable');
     }
 
-    public function positions()
+    /**
+     * @return HasMany<Position, $this>
+     */
+    public function positions(): HasMany
     {
         return $this->hasMany(Position::class);
     }
 
-    public function forbiddenHostnames()
+    /**
+     * @return HasMany<ForbiddenHostname, $this>
+     */
+    public function forbiddenHostnames(): HasMany
     {
         return $this->hasMany(ForbiddenHostname::class);
     }
 
-    public function balanceHistory()
+    /**
+     * @return HasMany<AccountBalanceHistory, $this>
+     */
+    public function balanceHistory(): HasMany
     {
         return $this->hasMany(AccountBalanceHistory::class);
     }
 
+    /**
+     * @return BelongsTo<TradeConfiguration, $this>
+     */
     public function tradeConfiguration(): BelongsTo
     {
         return $this->belongsTo(TradeConfiguration::class);

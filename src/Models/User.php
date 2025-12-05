@@ -6,6 +6,9 @@ namespace Martingalian\Core\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use NotificationChannels\Pushover\PushoverChannel;
@@ -65,27 +68,42 @@ final class User extends Authenticatable
         'behaviours' => 'array',
     ];
 
-    public function steps()
+    /**
+     * @return MorphMany<Step, $this>
+     */
+    public function steps(): MorphMany
     {
         return $this->morphMany(Step::class, 'relatable');
     }
 
-    public function accounts()
+    /**
+     * @return HasMany<Account, $this>
+     */
+    public function accounts(): HasMany
     {
         return $this->hasMany(Account::class);
     }
 
-    public function positions()
+    /**
+     * @return HasManyThrough<Position, Account, $this>
+     */
+    public function positions(): HasManyThrough
     {
         return $this->hasManyThrough(Position::class, Account::class);
     }
 
-    public function apiRequestLogs()
+    /**
+     * @return MorphMany<ApiRequestLog, $this>
+     */
+    public function apiRequestLogs(): MorphMany
     {
         return $this->morphMany(ApiRequestLog::class, 'relatable');
     }
 
-    public function notificationLogs()
+    /**
+     * @return MorphMany<NotificationLog, $this>
+     */
+    public function notificationLogs(): MorphMany
     {
         return $this->morphMany(NotificationLog::class, 'relatable');
     }
