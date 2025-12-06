@@ -103,19 +103,34 @@ final class StepDispatcher
             $progress = 4;
             log_step('dispatcher', 'Progress: 4 - Transition parents to failed check complete');
 
-            log_step('dispatcher', '→ Calling cascadeFailureToChildren()');
-            $result = self::cascadeFailureToChildren($group);
-            log_step('dispatcher', '← cascadeFailureToChildren() returned: '.($result ? 'true' : 'false'));
+            // Check if we need to transition parent steps to Stopped (child was stopped)
+            log_step('dispatcher', '→ Calling transitionParentsToStopped()');
+            $result = self::transitionParentsToStopped($group);
+            log_step('dispatcher', '← transitionParentsToStopped() returned: '.($result ? 'true' : 'false'));
             if ($result) {
-                info_if('-= TICK ENDED (cascadeFailureToChildren = true) =-');
+                info_if('-= TICK ENDED (transitionParentsToStopped = true) =-');
                 log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-                log_step('dispatcher', '  TICK ENDED EARLY at progress 4 (cascade failure to children)');
+                log_step('dispatcher', '  TICK ENDED EARLY at progress 4 (transition parents to stopped)');
 
                 return;
             }
 
             $progress = 5;
-            log_step('dispatcher', 'Progress: 5 - Cascade failure to children check complete');
+            log_step('dispatcher', 'Progress: 5 - Transition parents to stopped check complete');
+
+            log_step('dispatcher', '→ Calling cascadeCancellationToChildren()');
+            $result = self::cascadeCancellationToChildren($group);
+            log_step('dispatcher', '← cascadeCancellationToChildren() returned: '.($result ? 'true' : 'false'));
+            if ($result) {
+                info_if('-= TICK ENDED (cascadeCancellationToChildren = true) =-');
+                log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
+                log_step('dispatcher', '  TICK ENDED EARLY at progress 5 (cascade cancellation to children)');
+
+                return;
+            }
+
+            $progress = 6;
+            log_step('dispatcher', 'Progress: 6 - Cascade cancellation to children check complete');
 
             // Check if we need to transition parent steps to Completed
             log_step('dispatcher', '→ Calling transitionParentsToComplete()');
@@ -124,13 +139,13 @@ final class StepDispatcher
             if ($result) {
                 info_if('-= TICK ENDED (transitionParentsToComplete = true) =-');
                 log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-                log_step('dispatcher', '  TICK ENDED EARLY at progress 5 (transition parents to complete)');
+                log_step('dispatcher', '  TICK ENDED EARLY at progress 6 (transition parents to complete)');
 
                 return;
             }
 
-            $progress = 6;
-            log_step('dispatcher', 'Progress: 6 - Transition parents to complete check complete');
+            $progress = 7;
+            log_step('dispatcher', 'Progress: 7 - Transition parents to complete check complete');
 
             // Distribute the steps to be dispatched (only if no cancellations or failures happened)
             log_step('dispatcher', '→ Starting pending step evaluation and dispatch');
@@ -224,10 +239,10 @@ final class StepDispatcher
             info_if('Total steps dispatched: '.$dispatchedSteps->count().($group ? " [group={$group}]" : ''));
             info_if('-= TICK ENDED (full cycle) =-');
             log_step('dispatcher', '╚══════════════════════════════════════════════════════════════╝');
-            log_step('dispatcher', '  TICK ENDED NORMALLY at progress 6 (full cycle complete)');
+            log_step('dispatcher', '  TICK ENDED NORMALLY at progress 7 (full cycle complete)');
             log_step('dispatcher', '  Total steps dispatched: '.$dispatchedSteps->count());
 
-            $progress = 7;
+            $progress = 8;
         } finally {
             StepsDispatcher::endDispatch($progress, $group);
         }
@@ -352,6 +367,7 @@ final class StepDispatcher
 
     /**
      * Transition running parents to Failed if any child in their block failed.
+     * Note: Only handles Failed children. Stopped children are handled by transitionParentsToStopped().
      */
     public static function transitionParentsToFailed(?string $group = null): bool
     {
@@ -385,14 +401,14 @@ final class StepDispatcher
             $allChildStates = $childSteps->map(fn ($s) => "ID:{$s->id}=".class_basename($s->state))->join(', ');
             log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | All child states: [{$allChildStates}]");
 
+            // Only check for Failed children (not Stopped - that's handled by transitionParentsToStopped)
             $failedChildSteps = $childSteps->filter(
-                fn ($step) => in_array(get_class($step->state), Step::failedStepStates())
+                fn ($step) => get_class($step->state) === Failed::class
             );
 
             if ($failedChildSteps->isNotEmpty()) {
                 $failedIds = $failedChildSteps->pluck('id')->join(', ');
-                $failedStates = $failedChildSteps->map(fn ($s) => class_basename($s->state))->join(', ');
-                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | Failed children detected: [{$failedIds}] | States: [{$failedStates}]");
+                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | Failed children detected: [{$failedIds}]");
 
                 // Check if there are any non-terminal resolve-exception steps in the child block.
                 // If so, wait for them to complete before failing the parent.
@@ -416,7 +432,7 @@ final class StepDispatcher
 
                 // Set error message before transitioning to Failed
                 $parentStep->update([
-                    'error_message' => "Child step(s) failed/stopped: [{$failedIds}] with states: [{$failedStates}]",
+                    'error_message' => "Child step(s) failed: [{$failedIds}]",
                 ]);
 
                 $parentStep->state->transitionTo(Failed::class);
@@ -425,6 +441,68 @@ final class StepDispatcher
             }
 
             log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: SKIP - No failed children");
+        }
+
+        return false;
+    }
+
+    /**
+     * Transition running parents to Stopped if any child in their block was stopped.
+     */
+    public static function transitionParentsToStopped(?string $group = null): bool
+    {
+        $runningParents = Step::where('state', Running::class)
+            ->when($group !== null, static fn ($q) => $q->where('group', $group))
+            ->whereNotNull('child_block_uuid')
+            ->get();
+
+        if ($runningParents->isEmpty()) {
+            return false;
+        }
+
+        $childBlockUuids = $runningParents->pluck('child_block_uuid')->filter()->unique()->all();
+
+        $childStepsByBlock = Step::whereIn('block_uuid', $childBlockUuids)
+            ->when($group !== null, static fn ($q) => $q->where('group', $group))
+            ->get()
+            ->groupBy('block_uuid');
+
+        foreach ($runningParents as $parentStep) {
+            $childSteps = $childStepsByBlock->get($parentStep->child_block_uuid, collect());
+
+            log_step($parentStep->id, "[StepDispatcher.transitionParentsToStopped] Checking Parent Step #{$parentStep->id} | CLASS: {$parentStep->class} | child_block_uuid: {$parentStep->child_block_uuid} | Children count: ".$childSteps->count());
+
+            if ($childSteps->isEmpty()) {
+                log_step($parentStep->id, "[StepDispatcher.transitionParentsToStopped] Parent Step #{$parentStep->id} | WARNING: No children found for child_block_uuid");
+
+                continue;
+            }
+
+            $allChildStates = $childSteps->map(fn ($s) => "ID:{$s->id}=".class_basename($s->state))->join(', ');
+            log_step($parentStep->id, "[StepDispatcher.transitionParentsToStopped] Parent Step #{$parentStep->id} | All child states: [{$allChildStates}]");
+
+            // Check for Stopped children
+            $stoppedChildSteps = $childSteps->filter(
+                fn ($step) => get_class($step->state) === Stopped::class
+            );
+
+            if ($stoppedChildSteps->isNotEmpty()) {
+                $stoppedIds = $stoppedChildSteps->pluck('id')->join(', ');
+                log_step($parentStep->id, "[StepDispatcher.transitionParentsToStopped] Parent Step #{$parentStep->id} | Stopped children detected: [{$stoppedIds}]");
+
+                log_step($parentStep->id, "[StepDispatcher.transitionParentsToStopped] Parent Step #{$parentStep->id} | DECISION: TRANSITION TO STOPPED");
+
+                // Set error message before transitioning to Stopped
+                $parentStep->update([
+                    'error_message' => "Child step(s) stopped: [{$stoppedIds}]",
+                ]);
+
+                $parentStep->state->transitionTo(Stopped::class);
+
+                return true;
+            }
+
+            log_step($parentStep->id, "[StepDispatcher.transitionParentsToStopped] Parent Step #{$parentStep->id} | DECISION: SKIP - No stopped children");
         }
 
         return false;
@@ -626,31 +704,34 @@ final class StepDispatcher
     }
 
     /**
-     * If a parent failed/stopped, fail all its non-terminal children.
+     * If a parent failed/stopped/cancelled, cancel all its non-terminal children.
+     * Children that never ran should be Cancelled, not Failed.
+     * Also handles recursive cancellation when a cancelled parent has children.
      */
-    public static function cascadeFailureToChildren(?string $group = null): bool
+    public static function cascadeCancellationToChildren(?string $group = null): bool
     {
         log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '→→→ cascadeFailureToChildren START ←←←');
+        log_step('dispatcher', '→→→ cascadeCancellationToChildren START ←←←');
         log_step('dispatcher', '═══════════════════════════════════════════════════════════');
 
-        $failedParents = Step::whereIn('state', [Failed::class, Stopped::class])
+        // Also include Cancelled - a cancelled parent must also cancel its children recursively
+        $failedOrStoppedParents = Step::whereIn('state', [Failed::class, Stopped::class, Cancelled::class])
             ->when($group !== null, static fn ($q) => $q->where('group', $group))
             ->whereNotNull('child_block_uuid')
             ->get();
 
-        log_step('dispatcher', 'Found '.$failedParents->count().' failed/stopped parent steps with children');
+        log_step('dispatcher', 'Found '.$failedOrStoppedParents->count().' failed/stopped/cancelled parent steps with children');
 
-        if ($failedParents->isEmpty()) {
-            log_step('dispatcher', 'No failed parents found - returning false');
+        if ($failedOrStoppedParents->isEmpty()) {
+            log_step('dispatcher', 'No failed/stopped/cancelled parents found - returning false');
             log_step('dispatcher', '═══════════════════════════════════════════════════════════');
 
             return false;
         }
 
-        foreach ($failedParents as $parent) {
+        foreach ($failedOrStoppedParents as $parent) {
             $childBlock = $parent->child_block_uuid;
-            log_step($parent->id, 'FAILED PARENT: Step #'.$parent->id.' | state: '.$parent->state.' | child_block_uuid: '.$childBlock);
+            log_step($parent->id, 'FAILED/STOPPED/CANCELLED PARENT: Step #'.$parent->id.' | state: '.$parent->state.' | child_block_uuid: '.$childBlock);
             log_step('dispatcher', 'Checking child block '.$childBlock.' for parent Step #'.$parent->id);
 
             $nonTerminalChildIds = Step::where('block_uuid', $childBlock)
@@ -662,31 +743,31 @@ final class StepDispatcher
             log_step('dispatcher', 'Found '.count($nonTerminalChildIds).' non-terminal children in block '.$childBlock);
 
             if (empty($nonTerminalChildIds)) {
-                log_step('dispatcher', 'No non-terminal children to fail for parent Step #'.$parent->id);
+                log_step('dispatcher', 'No non-terminal children to cancel for parent Step #'.$parent->id);
 
                 continue;
             }
 
-            info_if('[StepDispatcher.cascadeFailureToChildren] Batch failing '.count($nonTerminalChildIds)." children in block {$childBlock}");
-            log_step('dispatcher', 'Batch failing '.count($nonTerminalChildIds).' children in block '.$childBlock);
+            info_if('[StepDispatcher.cascadeCancellationToChildren] Batch cancelling '.count($nonTerminalChildIds)." children in block {$childBlock}");
+            log_step('dispatcher', 'Batch cancelling '.count($nonTerminalChildIds).' children in block '.$childBlock);
 
             foreach ($nonTerminalChildIds as $childId) {
-                log_step($childId, '⚠️ BATCH FAILED: Step #'.$childId.' is being failed (parent failed/stopped)');
+                log_step($childId, '⚠️ BATCH CANCELLED: Step #'.$childId.' is being cancelled (parent failed/stopped/cancelled)');
             }
 
-            self::batchTransitionSteps($nonTerminalChildIds, Failed::class);
-            log_step('dispatcher', 'batchTransitionSteps() completed - children now FAILED');
+            self::batchTransitionSteps($nonTerminalChildIds, Cancelled::class);
+            log_step('dispatcher', 'batchTransitionSteps() completed - children now CANCELLED');
             log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-            log_step('dispatcher', '→→→ cascadeFailureToChildren END ←←←');
-            log_step('dispatcher', 'Returning true (ended tick after failing one child block)');
+            log_step('dispatcher', '→→→ cascadeCancellationToChildren END ←←←');
+            log_step('dispatcher', 'Returning true (ended tick after cancelling one child block)');
             log_step('dispatcher', '═══════════════════════════════════════════════════════════');
 
-            return true; // end tick after failing one block
+            return true; // end tick after cancelling one block
         }
 
         log_step('dispatcher', '═══════════════════════════════════════════════════════════');
-        log_step('dispatcher', '→→→ cascadeFailureToChildren END ←←←');
-        log_step('dispatcher', 'Returning false (no children to fail)');
+        log_step('dispatcher', '→→→ cascadeCancellationToChildren END ←←←');
+        log_step('dispatcher', 'Returning false (no children to cancel)');
         log_step('dispatcher', '═══════════════════════════════════════════════════════════');
 
         return false;
