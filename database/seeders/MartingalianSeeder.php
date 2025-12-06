@@ -641,6 +641,7 @@ final class MartingalianSeeder extends Seeder
 
     /**
      * Seed the servers table with the current server.
+     * Secrets are read from env vars for health check authentication.
      */
     public function seedServers(): void
     {
@@ -653,6 +654,7 @@ final class MartingalianSeeder extends Seeder
                 'own_queue_name' => 'worker5',
                 'description' => 'Worker server for job processing',
                 'type' => 'worker',
+                'secret' => env('SERVER_SECRET_WORKER5'),
             ],
             [
                 'hostname' => 'worker4',
@@ -662,6 +664,7 @@ final class MartingalianSeeder extends Seeder
                 'own_queue_name' => 'worker4',
                 'description' => 'Worker server for job processing',
                 'type' => 'worker',
+                'secret' => env('SERVER_SECRET_WORKER4'),
             ],
             [
                 'hostname' => 'worker3',
@@ -671,6 +674,7 @@ final class MartingalianSeeder extends Seeder
                 'own_queue_name' => 'worker3',
                 'description' => 'Worker server for job processing',
                 'type' => 'worker',
+                'secret' => env('SERVER_SECRET_WORKER3'),
             ],
             [
                 'hostname' => 'worker2',
@@ -680,6 +684,7 @@ final class MartingalianSeeder extends Seeder
                 'own_queue_name' => 'worker2',
                 'description' => 'Worker server for job processing',
                 'type' => 'worker',
+                'secret' => env('SERVER_SECRET_WORKER2'),
             ],
             [
                 'hostname' => 'worker1',
@@ -689,6 +694,7 @@ final class MartingalianSeeder extends Seeder
                 'own_queue_name' => 'worker1',
                 'description' => 'Worker server for job processing',
                 'type' => 'worker',
+                'secret' => env('SERVER_SECRET_WORKER1'),
             ],
             [
                 'hostname' => 'ingestion',
@@ -698,6 +704,7 @@ final class MartingalianSeeder extends Seeder
                 'own_queue_name' => 'ingestion',
                 'description' => 'Ingestion server - cron & dispatch',
                 'type' => 'ingestion',
+                'secret' => env('SERVER_SECRET_INGESTION'),
             ],
             [
                 'hostname' => 'redis',
@@ -707,6 +714,7 @@ final class MartingalianSeeder extends Seeder
                 'own_queue_name' => null,
                 'description' => 'Redis cache server',
                 'type' => 'redis',
+                'secret' => null,
             ],
             [
                 'hostname' => 'database',
@@ -716,6 +724,7 @@ final class MartingalianSeeder extends Seeder
                 'own_queue_name' => null,
                 'description' => 'Database server',
                 'type' => 'database',
+                'secret' => null,
             ],
             [
                 'hostname' => 'frontend',
@@ -725,6 +734,7 @@ final class MartingalianSeeder extends Seeder
                 'own_queue_name' => null,
                 'description' => 'Frontend application server',
                 'type' => 'frontend',
+                'secret' => null,
             ],
         ];
 

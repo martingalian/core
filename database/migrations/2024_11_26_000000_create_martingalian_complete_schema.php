@@ -488,6 +488,7 @@ return new class extends Migration
             $table->string('own_queue_name')->nullable()->comment('Unique queue name for sending jobs directly to this server');
             $table->text('description')->nullable()->comment('Description of what this server is used for');
             $table->string('type')->default('ingestion')->comment('Server type (ingestion, worker, etc)');
+            $table->string('secret')->nullable()->comment('Secret token for health check authentication');
             $table->timestamps();
 
             $table->index('is_apiable', 'idx_servers_is_apiable');

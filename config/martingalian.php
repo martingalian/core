@@ -32,6 +32,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Health Check Authentication
+    |--------------------------------------------------------------------------
+    |
+    | Secret token for authenticating /health-check endpoint requests.
+    | Each server has its own secret; the dashboard sends the token via X-Health-Token header.
+    | Leave empty to disable authentication (not recommended in production).
+    */
+    'health_check_secret' => env('HEALTH_CHECK_SECRET'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Logging
     |--------------------------------------------------------------------------
     |

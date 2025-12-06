@@ -17,6 +17,7 @@ use Martingalian\Core\Abstracts\BaseModel;
  * @property string|null $own_queue_name
  * @property string|null $description
  * @property string $type
+ * @property string|null $secret
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
