@@ -170,6 +170,7 @@ return new class extends Migration
             $table->boolean('is_manually_enabled')->default(0)->comment('Manual admin override: 0=default behavior, 1=force enabled');
             $table->boolean('auto_disabled')->default(false)->comment('System automatic disable flag');
             $table->string('auto_disabled_reason')->nullable()->comment('Why system disabled it: no_indicator_data, insufficient_liquidity, excessive_spread, etc');
+            $table->boolean('has_taapi_data')->default(false);
             $table->string('direction')->nullable()->comment('The exchange symbol open position direction (LONG, SHORT)');
             $table->decimal('percentage_gap_long', 5, 2)->default(8.50);
             $table->decimal('percentage_gap_short', 5, 2)->default(9.50);
@@ -232,9 +233,15 @@ return new class extends Migration
             $table->foreignId('api_system_id')->constrained('api_systems');
             $table->unsignedBigInteger('account_id')->nullable();
             $table->string('ip_address', 45);
+            $table->string('type', 32)->default('ip_not_whitelisted')->comment('Type: ip_not_whitelisted, ip_rate_limited, ip_banned, account_blocked');
+            $table->timestamp('forbidden_until')->nullable()->comment('When temporary ban expires, null for permanent/user-fixable');
+            $table->string('error_code', 32)->nullable()->comment('Original error code from exchange (e.g., -2015, 10010)');
+            $table->string('error_message')->nullable()->comment('Original error message from exchange');
             $table->timestamps();
 
             $table->foreign('account_id')->references('id')->on('accounts')->onDelete('cascade');
+            $table->index(['api_system_id', 'ip_address', 'type'], 'fh_system_ip_type_idx');
+            $table->index(['account_id', 'type'], 'fh_account_type_idx');
         });
 
         // fundings table
@@ -296,6 +303,7 @@ return new class extends Migration
             $table->longText('admin_pushover_application_key')->nullable();
             $table->string('email')->nullable();
             $table->boolean('allow_opening_positions')->default(false);
+            $table->boolean('is_cooling_down')->default(false)->comment('When true, scheduler stops dispatching steps for safe deployment');
             $table->timestamps();
         });
 
@@ -519,6 +527,7 @@ return new class extends Migration
             $table->string('execution_mode')->default('default');
             $table->unsignedTinyInteger('double_check')->default(0)->comment('0 => Not yet double checked at all, 1=First double check done, 2=No more double checks to do');
             $table->unsignedBigInteger('tick_id')->nullable();
+            $table->uuid('workflow_id')->nullable()->comment('Tracks the entire graph/tree of steps that belong together');
             $table->string('queue')->default('default');
             $table->json('arguments')->nullable();
             $table->unsignedInteger('retries')->default(0);
@@ -549,6 +558,7 @@ return new class extends Migration
             $table->index('relatable_type', 'steps_relatable_type_index');
             $table->index('relatable_id', 'steps_relatable_id_index');
             $table->index('tick_id', 'idx_steps_tick_id');
+            $table->index('workflow_id', 'steps_workflow_id_index');
             $table->index('created_at', 'idx_steps_created_at');
             $table->index(['block_uuid', 'state', 'type'], 'steps_block_state_type_idx');
             $table->index(['relatable_type', 'relatable_id', 'created_at'], 'steps_rel_idx');
@@ -561,6 +571,7 @@ return new class extends Migration
             $table->index(['block_uuid', 'index', 'type', 'state'], 'idx_steps_block_index_type_state');
             $table->index(['child_block_uuid', 'state'], 'idx_steps_child_uuid_state');
             $table->index(['block_uuid', 'child_block_uuid'], 'idx_steps_block_child_uuids');
+            $table->index(['state', 'child_block_uuid'], 'idx_steps_state_child_block_uuid');
         });
 
         // steps_dispatcher table
@@ -658,11 +669,11 @@ return new class extends Migration
             $table->string('attribute_name')->nullable(); // For attribute changes
 
             // Human-readable message
-            $table->text('message')->nullable(); // "Attribute 'status' changed from 'pending' to 'completed'"
+            $table->longText('message')->nullable(); // "Attribute 'status' changed from 'pending' to 'completed'"
 
-            // Values (stored as JSON for flexibility)
-            $table->json('previous_value')->nullable(); // The old value
-            $table->json('new_value')->nullable();      // The new value
+            // Values (stored as LONGTEXT for flexibility - supports raw values and large arrays)
+            $table->longText('previous_value')->nullable(); // The old value
+            $table->longText('new_value')->nullable();      // The new value
 
             // Metadata for custom manual logs
             $table->json('metadata')->nullable();
