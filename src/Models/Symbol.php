@@ -16,6 +16,8 @@ use Martingalian\Core\Database\Factories\SymbolFactory;
  * @property string $name
  * @property string|null $description
  * @property int|null $cmc_id
+ * @property int|null $cmc_ranking
+ * @property bool $is_stable_coin
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  */
@@ -24,6 +26,10 @@ final class Symbol extends BaseModel
     use HasBaseAssetParsing;
     use HasFactory;
     use InteractsWithApis;
+
+    protected $casts = [
+        'is_stable_coin' => 'boolean',
+    ];
 
     protected static function newFactory(): SymbolFactory
     {

@@ -134,14 +134,18 @@ $failedSteps = Step::where('state', Failed::class)->get();
 #### Cancelled
 **Class**: `Martingalian\Core\States\Cancelled`
 **Value**: `"cancelled"`
-**Meaning**: Step cancelled before execution
+**Meaning**: Step cancelled before execution (never ran)
 
 **When**:
+- Parent step failed → children cancelled
+- Parent step stopped → children cancelled
+- Sibling at lower index failed/stopped → higher index siblings cancelled
 - User-initiated cancellation
-- Parent step failed/cancelled
 - System shutdown requested
 
 **Transition From**: Pending, Dispatched
+
+**Important**: Cancelled is used for steps that never executed. It's the result of cascading from a Failed or Stopped parent/sibling - the step itself didn't fail, it was preemptively cancelled.
 
 **Query**:
 ```php
@@ -226,6 +230,66 @@ if ($this->order->status === 'FILLED') {
                                            │
                                            └────► Pending (retry)
 ```
+
+---
+
+### State Propagation Rules
+
+When a step fails or stops, states propagate through the step hierarchy:
+
+#### Upward Propagation (Child → Parent)
+
+| Child State | Parent Becomes |
+|-------------|----------------|
+| **Failed**  | Failed         |
+| **Stopped** | Stopped        |
+
+- Parent receives `error_message` listing the failed/stopped child IDs
+- Only affects **Running** parents (already-completed parents unaffected)
+- Propagates recursively up the tree (grandchild failed → child failed → parent failed)
+
+#### Downward Propagation (Parent → Children)
+
+| Parent State | Children Become |
+|--------------|-----------------|
+| **Failed**   | Cancelled       |
+| **Stopped**  | Cancelled       |
+
+- Only affects **Pending** or **Dispatched** children (not running/completed)
+- Children are Cancelled, not Failed (they never ran)
+- Propagates recursively down the tree
+
+#### Sibling Propagation (Same block_uuid, sequential index)
+
+| Sibling State | Higher-Index Siblings Become |
+|---------------|------------------------------|
+| **Failed**    | Cancelled                    |
+| **Stopped**   | Cancelled                    |
+
+- Steps at the same `block_uuid` are siblings
+- If step at `index=2` fails, steps at `index=3,4,5...` are cancelled
+- Only affects Pending/Dispatched siblings
+
+#### Propagation Example
+
+```
+Parent (Running)
+├── Child A (index=0) → Completed ✓
+├── Child B (index=1) → Failed ✗
+│   ├── Grandchild B1 (Pending) → Cancelled (downward)
+│   └── Grandchild B2 (Pending) → Cancelled (downward)
+└── Child C (index=2, Pending) → Cancelled (sibling)
+
+Result: Parent → Failed (upward from Child B)
+```
+
+#### Key Distinction: Failed vs Stopped vs Cancelled
+
+| State | Meaning | When Used |
+|-------|---------|-----------|
+| **Failed** | Step ran and encountered an error | Exception thrown during execution |
+| **Stopped** | Step ran and was intentionally stopped | Manual stop, timeout, soft failure |
+| **Cancelled** | Step never ran | Cascade from failed/stopped parent or sibling |
 
 ---
 

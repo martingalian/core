@@ -1051,6 +1051,14 @@ final class MartingalianSeeder extends Seeder
         }
 
         try {
+            // Disable foreign key checks for truncation
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+            // Truncate tables before loading dumps (in reverse order due to FK constraints)
+            DB::table('base_asset_mappers')->truncate();
+            DB::table('exchange_symbols')->truncate();
+            DB::table('symbols')->truncate();
+
             // Execute each dump file in order
             foreach ($dumps as $table => $file) {
                 $sql = File::get($file);
@@ -1061,6 +1069,9 @@ final class MartingalianSeeder extends Seeder
                 // Execute SQL using unprepared statements (faster for bulk inserts)
                 DB::unprepared($sql);
             }
+
+            // Re-enable foreign key checks
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
             // Set default status for exchange_symbols with CMC IDs (not auto-disabled)
             DB::unprepared('

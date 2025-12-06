@@ -301,17 +301,156 @@ GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 
 ## Tab: Dispatcher
 
+Real-time monitoring of step processing across all servers.
+
 ### Header Controls (`header-controls.blade.php`)
 
-Toggle for cooling down state.
+**Features:**
+- **Restart Semaphore**: Green when safe to restart Horizon (no active steps), red otherwise
+- **Cooldown Toggle**: Pauses cron jobs from creating new steps (Horizon still processes existing queue)
+- **Queue Size Badge**: Total unprocessed steps (pending + dispatched + running + throttled)
+- **Cooldown Banner**: Shows when cooldown is active with active step count
+
+**API Endpoint**: `GET /analytics/api/dispatcher/header`
+
+**API Response:**
+```json
+{
+  "is_cooling_down": false,
+  "active_non_parent_count": 42,
+  "queue_size": 150
+}
+```
+
+**Toggle Endpoint**: `POST /analytics/api/dispatcher/toggle-cooling`
+
+---
 
 ### Total Stats (`total-stats.blade.php`)
 
-Aggregate metrics across all hostnames.
+Aggregate metrics across all hostnames with collapsible group/class breakdowns.
+
+**Features:**
+- **State Grid**: 8-column display showing step counts by state
+  - PEND (yellow), DISP (blue), RUN (cyan), THRT (orange)
+  - DONE (green), FAIL (red), STOP (rose), SKIP (gray)
+- **Child Counts**: Secondary row showing non-parent steps (child_block_uuid IS NULL)
+- **Volume Stats**: Steps created in last 1h, 4h, 24h
+- **Oldest Unprocessed**: Age of oldest unprocessed step (last 4h window)
+- **Groups Section**: Collapsible breakdown by step `group` field
+- **Classes Section**: Collapsible breakdown by step `class` field
+- Auto-refresh every 5 seconds
+
+**API Endpoint**: `GET /analytics/api/dispatcher/total-stats`
+
+**API Response:**
+```json
+{
+  "pending": 50,
+  "dispatched": 10,
+  "running": 5,
+  "completed": 1200,
+  "failed": 3,
+  "stopped": 0,
+  "skipped": 15,
+  "throttled": 20,
+  "child_pending": 45,
+  "child_dispatched": 8,
+  "child_running": 4,
+  "child_completed": 1100,
+  "child_failed": 2,
+  "child_stopped": 0,
+  "child_skipped": 12,
+  "child_throttled": 18,
+  "steps_last_1h": 150,
+  "steps_last_4h": 500,
+  "steps_last_24h": 2000,
+  "oldest_unprocessed_label": "1h 35m",
+  "group_stats": [
+    {
+      "group": "position_opening",
+      "child_pending": 10,
+      "child_dispatched": 2,
+      "child_running": 1,
+      "child_completed": 50,
+      "child_failed": 0,
+      "child_stopped": 0,
+      "child_skipped": 5,
+      "child_throttled": 3
+    }
+  ],
+  "step_class_stats": [
+    {
+      "class": "App\\Jobs\\PreparePositionsOpeningJob",
+      "child_pending": 5,
+      "child_dispatched": 1,
+      "child_running": 1,
+      "child_completed": 30,
+      "child_failed": 0,
+      "child_stopped": 0,
+      "child_skipped": 2,
+      "child_throttled": 1
+    }
+  ]
+}
+```
+
+**Oldest Unprocessed Label:**
+- Uses Carbon's `diffForHumans()` with `parts: 2, short: true`
+- Only considers unprocessed steps (pending, dispatched, running, throttled) created in last 4 hours
+- Returns `null` if no unprocessed steps exist
+- Examples: `<1m`, `5m`, `1h 35m`, `3h 45m`
+
+---
 
 ### Hostname Stats (`hostname-stats.blade.php`)
 
-Per-hostname breakdown of step processing.
+Per-hostname breakdown showing step processing metrics for each server.
+
+**Features:**
+- **Server Tiles**: One tile per apiable server (is_apiable=true)
+- **State Grid**: Same 8 states as Total Stats, per server
+- **Child Counts**: Secondary row per state
+- **Server Count**: Total apiable servers displayed
+- Auto-refresh every 3 seconds per tile
+
+**API Endpoint (metadata)**: `GET /analytics/api/dispatcher/hostname-stats`
+
+**API Response (metadata):**
+```json
+{
+  "hostnames": [
+    { "hostname": "ingestion", "ip_address": "46.62.203.165" },
+    { "hostname": "worker1", "ip_address": "46.62.215.85" }
+  ]
+}
+```
+
+**API Endpoint (per-hostname)**: `GET /analytics/api/dispatcher/hostname-stats/{hostname}`
+
+**API Response (per-hostname):**
+```json
+{
+  "hostname": "ingestion",
+  "ip_address": "46.62.203.165",
+  "pending": 10,
+  "dispatched": 2,
+  "running": 1,
+  "completed": 500,
+  "failed": 0,
+  "stopped": 0,
+  "skipped": 5,
+  "throttled": 3,
+  "child_pending": 8,
+  "child_dispatched": 1,
+  "child_running": 1,
+  "child_completed": 450,
+  "child_failed": 0,
+  "child_stopped": 0,
+  "child_skipped": 4,
+  "child_throttled": 2
+}
+```
 
 ---
 
@@ -319,12 +458,73 @@ Per-hostname breakdown of step processing.
 
 ### Artisan Commands (`artisan-commands.blade.php`)
 
-List and execute artisan commands.
+Execute whitelisted artisan commands from the web UI.
 
 **Features:**
-- Searchable command list
-- Command execution with output display
-- Grouped by namespace
+- Card-based command display with description
+- Options rendered as toggles/inputs based on command definition
+- Real-time output display after execution
+- Only whitelisted commands available (security)
+
+**Whitelisted Commands:**
+- `cronjobs:refresh-core-data` - Refresh symbol discovery, eligibility, and exchange data
+- `cronjobs:conclude-symbols-direction` - Trigger atomic workflow to conclude trading directions
+- `cronjobs:create-positions` - Create new trading positions based on market conditions
+- `taapi:store-candles` - Store candle data for all eligible exchange symbols
+
+**API Endpoint (list)**: `GET /analytics/api/artisan/commands`
+
+**API Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "commands": [
+      {
+        "name": "cronjobs:create-positions",
+        "description": "Creates new trading positions based on market conditions",
+        "options": [
+          {
+            "name": "--clean",
+            "description": "Truncate positions, orders, and related tables before running",
+            "accepts_value": false,
+            "is_required": false,
+            "default": false
+          },
+          {
+            "name": "--output",
+            "description": "Display command output (silent by default)",
+            "accepts_value": false,
+            "is_required": false,
+            "default": false
+          }
+        ],
+        "arguments": []
+      }
+    ]
+  }
+}
+```
+
+**API Endpoint (run)**: `POST /analytics/api/artisan/run`
+
+**Request Body:**
+```json
+{
+  "command": "cronjobs:create-positions",
+  "options": "--clean --output",
+  "params": ""
+}
+```
+
+**API Response:**
+```json
+{
+  "success": true,
+  "output": "Truncating positions, orders, steps...\n✓ Tables truncated\n...",
+  "exit_code": 0
+}
+```
 
 ---
 

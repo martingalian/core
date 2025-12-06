@@ -26,6 +26,8 @@ final class SymbolFactory extends Factory
             'site_url' => fake()->url(),
             'image_url' => fake()->imageUrl(),
             'cmc_id' => fake()->numberBetween(1, 999999),
+            'cmc_ranking' => fake()->numberBetween(1, 10000),
+            'is_stable_coin' => false,
         ];
     }
 
@@ -40,6 +42,8 @@ final class SymbolFactory extends Factory
                 'name' => 'Bitcoin',
                 'description' => 'The first and largest cryptocurrency',
                 'cmc_id' => 1,
+                'cmc_ranking' => 1,
+                'is_stable_coin' => false,
             ];
         });
     }
@@ -55,6 +59,37 @@ final class SymbolFactory extends Factory
                 'name' => 'Ethereum',
                 'description' => 'Smart contract platform',
                 'cmc_id' => 1027,
+                'cmc_ranking' => 2,
+                'is_stable_coin' => false,
+            ];
+        });
+    }
+
+    /**
+     * State: Stablecoin symbol.
+     */
+    public function stablecoin(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'is_stable_coin' => true,
+            ];
+        });
+    }
+
+    /**
+     * State: USDT stablecoin.
+     */
+    public function usdt(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'token' => 'USDT',
+                'name' => 'Tether USDt',
+                'description' => 'USD-pegged stablecoin',
+                'cmc_id' => 825,
+                'cmc_ranking' => 3,
+                'is_stable_coin' => true,
             ];
         });
     }

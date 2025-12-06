@@ -96,14 +96,14 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
             // Search CMC for the canonical token
             $account = Account::admin('coinmarketcap');
             $apiMapper = $account->apiMapper();
-            $cmcId = $this->searchCMCByToken($canonicalToken, $account, $apiMapper);
+            $cmcResult = $this->searchCMCByToken($canonicalToken, $account, $apiMapper);
 
             // If not found and token has leading digits, try stripping them
-            if ($cmcId === null && preg_match('/^\d+(.+)$/', $canonicalToken, $matches)) {
+            if ($cmcResult === null && preg_match('/^\d+(.+)$/', $canonicalToken, $matches)) {
                 $strippedToken = $matches[1];
-                $cmcId = $this->searchCMCByToken($strippedToken, $account, $apiMapper);
+                $cmcResult = $this->searchCMCByToken($strippedToken, $account, $apiMapper);
 
-                if ($cmcId !== null) {
+                if ($cmcResult !== null) {
                     $canonicalToken = $strippedToken;
 
                     // Create BaseAssetMapper to track exchange→canonical mapping
@@ -121,15 +121,18 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
                 }
             }
 
-            // If existing Symbol found, update it with CMC ID
+            // If existing Symbol found, update it with CMC ID and rank
             if ($existingSymbol) {
-                if ($cmcId !== null) {
-                    $existingSymbol->update(['cmc_id' => $cmcId]);
+                if ($cmcResult !== null) {
+                    $existingSymbol->update([
+                        'cmc_id' => $cmcResult['id'],
+                        'cmc_ranking' => $cmcResult['rank'],
+                    ]);
 
                     return [
                         'symbol_id' => $existingSymbol->id,
                         'token' => $this->token,
-                        'cmc_id' => $cmcId,
+                        'cmc_id' => $cmcResult['id'],
                         'message' => 'Symbol updated with CMC ID',
                     ];
                 }
@@ -145,11 +148,12 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
                 ];
             }
 
-            // Create Symbol with CMC ID (handle race condition if another job already created it)
+            // Create Symbol with CMC ID and rank (handle race condition if another job already created it)
             try {
                 $symbol = Symbol::create([
                     'token' => mb_strtoupper($canonicalToken),
-                    'cmc_id' => $cmcId,
+                    'cmc_id' => $cmcResult['id'] ?? null,
+                    'cmc_ranking' => $cmcResult['rank'] ?? null,
                     'name' => null,
                     'description' => null,
                     'site_url' => null,
@@ -157,15 +161,15 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
                 ]);
 
                 // Send notification if CMC ID was not found
-                if ($cmcId === null) {
+                if ($cmcResult === null) {
                     $this->sendCmcIdNotFoundNotification($canonicalToken);
                 }
 
                 return [
                     'symbol_id' => $symbol->id,
                     'token' => $this->token,
-                    'cmc_id' => $cmcId,
-                    'message' => $cmcId ? 'Symbol created with CMC ID' : 'Symbol created (CMC ID not found)',
+                    'cmc_id' => $cmcResult['id'] ?? null,
+                    'message' => $cmcResult ? 'Symbol created with CMC ID' : 'Symbol created (CMC ID not found)',
                 ];
             } catch (QueryException $e) {
                 // Duplicate key error - another job already created this symbol
@@ -178,19 +182,22 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
                 }
 
                 // If existing symbol has no CMC ID but we found one, update it
-                if ($existingSymbol->cmc_id === null && $cmcId !== null) {
-                    $existingSymbol->update(['cmc_id' => $cmcId]);
+                if ($existingSymbol->cmc_id === null && $cmcResult !== null) {
+                    $existingSymbol->update([
+                        'cmc_id' => $cmcResult['id'],
+                        'cmc_ranking' => $cmcResult['rank'],
+                    ]);
 
                     return [
                         'symbol_id' => $existingSymbol->id,
                         'token' => $this->token,
-                        'cmc_id' => $cmcId,
+                        'cmc_id' => $cmcResult['id'],
                         'message' => 'Symbol already exists - updated with CMC ID',
                     ];
                 }
 
                 // If existing symbol has no CMC ID and we didn't find one either, notify
-                if ($existingSymbol->cmc_id === null && $cmcId === null) {
+                if ($existingSymbol->cmc_id === null && $cmcResult === null) {
                     $this->sendCmcIdNotFoundNotification($canonicalToken);
                 }
 
@@ -209,12 +216,14 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
 
     /**
      * Search CoinMarketCap API for a symbol by token.
-     * Returns CMC ID if found, null otherwise.
+     * Returns array with CMC ID and rank if found, null otherwise.
+     *
+     * @return array{id: int, rank: int|null}|null
      *
      * Note: API errors (rate limits, network issues, etc.) will bubble up
      * to the exception handler which will retry the job appropriately.
      */
-    private function searchCMCByToken(string $token, $account, $mapper): ?int
+    private function searchCMCByToken(string $token, $account, $mapper): ?array
     {
         try {
             // Prepare API properties using the mapper
@@ -229,17 +238,25 @@ final class GetCMCIDForSymbolJob extends BaseApiableJob
             $response = $account->withApi()->getSymbols($properties);
             $result = $mapper->resolveSearchSymbolByTokenResponse($response);
 
-            // Extract CMC ID from the first matching result
+            // Extract CMC ID and rank from the first matching result
             if (isset($result['data']) && is_array($result['data']) && ! empty($result['data'])) {
                 // Find exact match (CMC may return multiple results)
                 foreach ($result['data'] as $item) {
                     if (mb_strtoupper($item['symbol'] ?? '') === mb_strtoupper($token)) {
-                        return $item['id'] ?? null;
+                        return [
+                            'id' => (int) $item['id'],
+                            'rank' => isset($item['rank']) ? (int) $item['rank'] : null,
+                        ];
                     }
                 }
 
                 // Fallback to first result if no exact match
-                return $result['data'][0]['id'] ?? null;
+                $firstItem = $result['data'][0];
+
+                return [
+                    'id' => (int) $firstItem['id'],
+                    'rank' => isset($firstItem['rank']) ? (int) $firstItem['rank'] : null,
+                ];
             }
 
             return null;

@@ -35,11 +35,15 @@ trait InteractsWithApis
         $marketData = collect($result['data'])->first();
 
         if ($marketData) {
+            // Detect if this is a stablecoin by checking the tags array
+            $isStableCoin = in_array('stablecoin', $marketData['tags'] ?? [], true);
+
             $updateData = [
                 'name' => $marketData['name'],
                 'description' => $marketData['description'],
                 'image_url' => $marketData['logo'],
                 'site_url' => $this->sanitizeWebsiteAttribute($marketData['urls']['website']),
+                'is_stable_coin' => $isStableCoin,
             ];
 
             // Only update token if not already set (preserve exchange-specific naming)
