@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Martingalian\Core\Abstracts\BaseModel;
@@ -21,6 +22,7 @@ use Martingalian\Core\Concerns\Position\InteractsWithApis;
 final class Position extends BaseModel
 {
     use HasAccessors;
+    use HasFactory;
     use HasGetters;
     use HasScopes;
     use HasStatuses;
@@ -94,5 +96,10 @@ final class Position extends BaseModel
     public function tradeConfiguration()
     {
         return $this->belongsTo(TradeConfiguration::class);
+    }
+
+    protected static function newFactory()
+    {
+        return \Martingalian\Core\Database\Factories\PositionFactory::new();
     }
 }

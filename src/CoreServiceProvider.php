@@ -29,7 +29,6 @@ use Martingalian\Core\Models\NotificationLog;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Quote;
-use Martingalian\Core\Models\Repeater;
 use Martingalian\Core\Models\SlowQuery;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\Symbol;
@@ -49,7 +48,6 @@ use Martingalian\Core\Observers\NotificationLogObserver;
 use Martingalian\Core\Observers\OrderObserver;
 use Martingalian\Core\Observers\PositionObserver;
 use Martingalian\Core\Observers\QuoteObserver;
-use Martingalian\Core\Observers\RepeaterObserver;
 use Martingalian\Core\Observers\StepObserver;
 use Martingalian\Core\Observers\SymbolObserver;
 use Martingalian\Core\Observers\UserObserver;
@@ -100,7 +98,6 @@ final class CoreServiceProvider extends ServiceProvider
         Order::observe(OrderObserver::class);
         Position::observe(PositionObserver::class);
         Quote::observe(QuoteObserver::class);
-        Repeater::observe(RepeaterObserver::class);
         ForbiddenHostname::observe(ForbiddenHostnameObserver::class);
         Symbol::observe(SymbolObserver::class);
         User::observe(UserObserver::class);
@@ -126,6 +123,11 @@ final class CoreServiceProvider extends ServiceProvider
             }
 
             if (Str::contains(Str::lower($query->sql), 'slow_queries')) {
+                return;
+            }
+
+            // Skip during migrations when slow_queries table may not exist yet
+            if (! \Schema::hasTable('slow_queries')) {
                 return;
             }
 

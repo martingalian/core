@@ -695,26 +695,6 @@ $exchangeSymbol->symbol->canonical // Symbol doesn't have 'canonical'!
 
 ---
 
-### Repeater
-**Location**: `Martingalian\Core\Models\Repeater`
-**Purpose**: Scheduled task configuration
-
-**Schema**:
-- `id` - Identifier
-- `canonical` - Unique name
-- `class` - Job class
-- `arguments` (JSON) - Job parameters
-- `frequency` - Cron expression
-- `is_active` - Enabled flag
-- `last_run_at` - Last execution
-- `created_at`, `updated_at`
-
-**No Relationships**
-
-**Observer**: `RepeaterObserver`
-
----
-
 ### Notification
 **Location**: `Martingalian\Core\Models\Notification`
 **Purpose**: Notification definitions

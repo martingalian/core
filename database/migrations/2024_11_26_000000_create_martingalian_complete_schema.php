@@ -470,23 +470,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // repeaters table
-        Schema::create('repeaters', function (Blueprint $table) {
-            $table->id();
-            $table->string('class');
-            $table->json('parameters')->nullable();
-            $table->string('queue')->default('repeaters');
-            $table->timestamp('next_run_at')->index();
-            $table->integer('attempts')->default(0);
-            $table->integer('max_attempts')->default(10);
-            $table->timestamp('last_run_at')->nullable();
-            $table->text('last_error')->nullable();
-            $table->string('status')->default('pending');
-            $table->string('retry_strategy')->default('exponential');
-            $table->integer('retry_interval_minutes')->default(5);
-            $table->timestamps();
-        });
-
         // servers table
         Schema::create('servers', function (Blueprint $table) {
             $table->id();
@@ -713,7 +696,6 @@ return new class extends Migration
         Schema::dropIfExists('api_snapshots');
         Schema::dropIfExists('base_asset_mappers');
         Schema::dropIfExists('api_systems');
-        Schema::dropIfExists('repeaters');
         Schema::dropIfExists('servers');
         Schema::dropIfExists('forbidden_hostnames');
         Schema::dropIfExists('notification_logs');

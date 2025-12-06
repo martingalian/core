@@ -81,6 +81,9 @@ trait HasTokenDiscovery
          *    c) Delete unassigned slots
          */
 
+        // Reset tokens string for each call
+        $this->tokens = '';
+
         /*
          * Step 1: Load Available Exchange Symbols Pool
          *
