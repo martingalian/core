@@ -8,17 +8,21 @@ use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseDataMapper;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\BaseAssetMapper;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsAccountBalanceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsAccountQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsExchangeInformationQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsLeverageBracketsQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsOpenOrdersQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsServerTimeQuery;
 
 final class BybitApiDataMapper extends BaseDataMapper
 {
+    use MapsAccountBalanceQuery;
     use MapsAccountQuery;
     use MapsExchangeInformationQuery;
     use MapsLeverageBracketsQuery;
+    use MapsOpenOrdersQuery;
     use MapsPositionsQuery;
     use MapsServerTimeQuery;
 

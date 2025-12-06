@@ -105,4 +105,35 @@ final class BybitApi
 
         return $this->client->signRequest($apiRequest);
     }
+
+    // https://bybit-exchange.github.io/docs/v5/account/wallet-balance
+    public function getAccountBalance(ApiProperties $properties)
+    {
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/v5/account/wallet-balance',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    // https://bybit-exchange.github.io/docs/v5/order/open-order
+    public function getCurrentOpenOrders(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        // Bybit requires category parameter - default to linear (USDT perpetual)
+        if (! $properties->get('options.category')) {
+            $properties->set('options.category', 'linear');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/v5/order/realtime',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
 }
