@@ -97,8 +97,12 @@ final class GetCMCRemainingSymbolDataJob extends BaseApiableJob
                 ];
             }
 
-            // Check if symbol already has metadata (another job might have synced it)
-            if ($symbol->name && $symbol->description) {
+            // Check if symbol already has complete metadata (another job might have synced it)
+            // Re-fetch if cmc_category is 'other' (fallback value) in case CMC has added proper tags
+            $hasCompleteMetadata = $symbol->name && $symbol->description;
+            $hasPendingCategory = $symbol->cmc_category === 'other';
+
+            if ($hasCompleteMetadata && ! $hasPendingCategory) {
                 return [
                     'symbol_id' => $symbol->id,
                     'token' => $this->token,

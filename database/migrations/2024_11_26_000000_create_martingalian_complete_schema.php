@@ -595,13 +595,18 @@ return new class extends Migration
         // symbols table
         Schema::create('symbols', function (Blueprint $table) {
             $table->id();
-            $table->string('token')->nullable()->unique();
+            $table->string('token')->nullable();
             $table->string('name')->nullable();
             $table->text('description')->nullable();
             $table->string('site_url')->nullable();
             $table->string('image_url')->nullable();
             $table->unsignedInteger('cmc_id')->nullable();
+            $table->unsignedInteger('cmc_ranking')->nullable();
+            $table->boolean('is_stable_coin')->default(false);
+            $table->string('cmc_category')->nullable();
             $table->timestamps();
+
+            $table->index('token', 'symbols_token_index');
         });
 
         // trade_configuration table

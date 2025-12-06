@@ -18,6 +18,7 @@ use Martingalian\Core\Database\Factories\SymbolFactory;
  * @property int|null $cmc_id
  * @property int|null $cmc_ranking
  * @property bool $is_stable_coin
+ * @property string|null $cmc_category
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  */
