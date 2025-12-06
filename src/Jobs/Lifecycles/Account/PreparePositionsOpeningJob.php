@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Account;
 
-use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Models\Account\AssignBestTokensToPositionSlotsJob;
 use Martingalian\Core\Jobs\Models\Account\CreatePositionSlotsJob;
@@ -36,15 +35,13 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
 
     public function compute()
     {
-        $blockUuid = (string) Str::uuid();
-
         // Step 1: Query exchange for actual open positions
         Step::create([
             'class' => QueryPositionsJob::class,
             'arguments' => [
                 'accountId' => $this->account->id,
             ],
-            'block_uuid' => $blockUuid,
+            'block_uuid' => $this->uuid(),
             'index' => 1,
         ]);
 
@@ -54,7 +51,7 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
             'arguments' => [
                 'accountId' => $this->account->id,
             ],
-            'block_uuid' => $blockUuid,
+            'block_uuid' => $this->uuid(),
             'index' => 2,
         ]);
 
@@ -64,7 +61,7 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
             'arguments' => [
                 'accountId' => $this->account->id,
             ],
-            'block_uuid' => $blockUuid,
+            'block_uuid' => $this->uuid(),
             'index' => 3,
         ]);
 

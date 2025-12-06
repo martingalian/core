@@ -413,6 +413,12 @@ final class StepDispatcher
                 }
 
                 log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: TRANSITION TO FAILED | No pending resolve-exceptions in child block");
+
+                // Set error message before transitioning to Failed
+                $parentStep->update([
+                    'error_message' => "Child step(s) failed/stopped: [{$failedIds}] with states: [{$failedStates}]",
+                ]);
+
                 $parentStep->state->transitionTo(Failed::class);
 
                 return true;
