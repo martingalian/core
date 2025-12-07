@@ -1,7 +1,7 @@
 # API Data Mapping System
 
 ## Overview
-Exchange-agnostic data transformation layer that converts between internal data models and exchange-specific API formats. Provides unified interface for interacting with multiple exchanges (Binance, Bybit) and data providers (TAAPI, CoinMarketCap) while handling format differences transparently.
+Exchange-agnostic data transformation layer that converts between internal data models and exchange-specific API formats. Provides unified interface for interacting with multiple exchanges (Binance, Bybit, Kraken Futures) and data providers (TAAPI, CoinMarketCap) while handling format differences transparently.
 
 ## Architecture
 
@@ -137,6 +137,62 @@ $properties->set('options.orderType', 'Market'); // Not 'type'
 
 ---
 
+### KrakenApiDataMapper
+**Location**: `Martingalian\Core\Support\ApiDataMappers\Kraken\KrakenApiDataMapper`
+**Purpose**: Maps data to/from Kraken Futures API format
+
+**Traits**:
+- `MapsServerTimeQuery` - Server time query
+- `MapsExchangeInformationQuery` - Instruments/symbols query
+- `MapsPositionsQuery` - Open positions query
+- `MapsAccountBalanceQuery` - Account balance query
+- `MapsOpenOrdersQuery` - Open orders query
+- `MapsAccountQuery` - Account info query
+
+**Common Methods**:
+```php
+public function long(): string; // Returns 'long'
+public function short(): string; // Returns 'short'
+public function directionType(string $canonical): string; // Maps direction
+public function sideType(string $canonical): string; // Maps buy/sell
+public function baseWithQuote(string $token, string $quote): string; // Builds trading pair
+public function identifyBaseAndQuote(string $token): array; // Parses trading pair
+```
+
+**Trading Pair Handling**:
+```php
+// Kraken Futures uses different symbol formats
+// PI_XBTUSD = Bitcoin perpetual inverse
+// PF_XBTUSD = Bitcoin perpetual fixed-margin
+
+// Build trading pair
+$pair = $mapper->baseWithQuote('BTC', 'USD'); // Returns: "PI_XBTUSD"
+
+// Parse trading pair
+$parts = $mapper->identifyBaseAndQuote('PI_XBTUSD');
+// Returns: ['base' => 'BTC', 'quote' => 'USD']
+```
+
+**API Endpoints**:
+```php
+// Server time
+GET /derivatives/api/v3/time
+
+// Exchange information (instruments)
+GET /derivatives/api/v3/instruments
+
+// Open positions
+GET /derivatives/api/v3/openpositions
+
+// Account balance
+GET /derivatives/api/v3/accounts
+
+// Open orders
+GET /derivatives/api/v3/openorders
+```
+
+---
+
 ### TaapiApiDataMapper
 **Location**: `Martingalian\Core\Support\ApiDataMappers\Taapi\TaapiApiDataMapper`
 **Purpose**: Maps data to/from TAAPI.io indicator API
@@ -191,6 +247,9 @@ $mapper = ApiDataMapperProxy::make('binance');
 
 $mapper = ApiDataMapperProxy::make('bybit');
 // Returns: BybitApiDataMapper instance
+
+$mapper = ApiDataMapperProxy::make('kraken');
+// Returns: KrakenApiDataMapper instance
 
 // Use mapper
 $properties = $mapper->preparePlaceOrderProperties($order);

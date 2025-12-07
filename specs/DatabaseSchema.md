@@ -26,6 +26,8 @@ CREATE TABLE martingalian (
     binance_api_secret TEXT NULL COMMENT 'Encrypted',
     bybit_api_key TEXT NULL COMMENT 'Encrypted',
     bybit_api_secret TEXT NULL COMMENT 'Encrypted',
+    kraken_api_key TEXT NULL COMMENT 'Encrypted',
+    kraken_private_key TEXT NULL COMMENT 'Encrypted',
     coinmarketcap_api_key TEXT NULL COMMENT 'Encrypted',
     taapi_secret TEXT NULL COMMENT 'Encrypted',
     admin_pushover_user_key TEXT NULL COMMENT 'Encrypted',
@@ -42,6 +44,7 @@ CREATE TABLE martingalian (
 - `can_dispatch_steps`: **Circuit breaker** - When `false`, StepDispatcher stops dispatching new jobs (enables graceful Horizon restarts)
 - `binance_api_key`/`binance_api_secret`: Default Binance credentials (encrypted)
 - `bybit_api_key`/`bybit_api_secret`: Default Bybit credentials (encrypted)
+- `kraken_api_key`/`kraken_private_key`: Default Kraken Futures credentials (encrypted)
 - `coinmarketcap_api_key`: CoinMarketCap API key (encrypted)
 - `taapi_secret`: TaaPI indicator service secret (encrypted)
 - `admin_pushover_user_key`/`admin_pushover_application_key`: Admin notification credentials (encrypted)
@@ -103,37 +106,45 @@ CREATE TABLE users (
 - Has many `positions` (through exchange_accounts)
 - Has many `orders` (through exchange_accounts)
 
-### exchange_accounts
+### accounts
 
-Exchange API credentials and account configuration.
+Exchange API credentials and account configuration. Each account is linked to a user and an api_system.
 
 ```sql
-CREATE TABLE exchange_accounts (
+CREATE TABLE accounts (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
-    exchange_name VARCHAR(50) NOT NULL COMMENT 'binance, bybit',
-    account_name VARCHAR(255) NOT NULL COMMENT 'User-friendly name',
-    account_type VARCHAR(50) NOT NULL COMMENT 'spot, margin, futures',
-    api_key TEXT NOT NULL COMMENT 'Encrypted',
-    api_secret TEXT NOT NULL COMMENT 'Encrypted',
+    api_system_id BIGINT UNSIGNED NOT NULL COMMENT 'References api_systems (binance, bybit, kraken)',
+    quote_id BIGINT UNSIGNED NOT NULL COMMENT 'Trading quote currency (USDT, USD)',
+    canonical VARCHAR(255) NOT NULL COMMENT 'User-friendly name',
+    binance_api_key TEXT NULL COMMENT 'Encrypted - for Binance accounts',
+    binance_api_secret TEXT NULL COMMENT 'Encrypted - for Binance accounts',
+    bybit_api_key TEXT NULL COMMENT 'Encrypted - for Bybit accounts',
+    bybit_api_secret TEXT NULL COMMENT 'Encrypted - for Bybit accounts',
+    kraken_api_key TEXT NULL COMMENT 'Encrypted - for Kraken accounts',
+    kraken_private_key TEXT NULL COMMENT 'Encrypted - for Kraken accounts',
     is_active BOOLEAN DEFAULT TRUE,
-    testnet BOOLEAN DEFAULT FALSE,
+    can_trade BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL,
 
     FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (api_system_id) REFERENCES api_systems(id),
+    FOREIGN KEY (quote_id) REFERENCES quotes(id),
     INDEX idx_user_id (user_id),
-    INDEX idx_exchange_name (exchange_name),
+    INDEX idx_api_system_id (api_system_id),
     INDEX idx_is_active (is_active)
 );
 ```
 
 **Key Fields**:
-- `exchange_name`: 'binance' or 'bybit'
-- `account_type`: 'spot', 'margin', or 'futures'
-- `api_key`/`api_secret`: Encrypted credentials (Laravel encryption)
-- `is_active`: Account enabled for trading
-- `testnet`: Using testnet API endpoints
+- `api_system_id`: References api_systems table (binance, bybit, kraken)
+- `quote_id`: Trading quote currency (USDT for Binance/Bybit, USD for Kraken)
+- `binance_api_key`/`binance_api_secret`: Binance credentials (encrypted)
+- `bybit_api_key`/`bybit_api_secret`: Bybit credentials (encrypted)
+- `kraken_api_key`/`kraken_private_key`: Kraken Futures credentials (encrypted)
+- `is_active`: Account enabled for operations
+- `can_trade`: Account enabled for trading (can be disabled on errors)
 
 **Relationships**:
 - Belongs to `user`

@@ -1,7 +1,7 @@
 # Exception Handling System
 
 ## Overview
-Comprehensive exception handling system for API interactions, job execution, and error recovery. Provides unified error handling across multiple exchanges (Binance, Bybit) and data providers (TAAPI, CoinMarketCap, AlternativeMe) with intelligent retry logic, throttling, and notification routing.
+Comprehensive exception handling system for API interactions, job execution, and error recovery. Provides unified error handling across multiple exchanges (Binance, Bybit, Kraken Futures) and data providers (TAAPI, CoinMarketCap, AlternativeMe) with intelligent retry logic, throttling, and notification routing.
 
 ## Architecture
 
@@ -95,6 +95,9 @@ $handler = BaseExceptionHandler::make('binance');
 $handler = BaseExceptionHandler::make('bybit');
 // Returns BybitExceptionHandler instance
 
+$handler = BaseExceptionHandler::make('kraken');
+// Returns KrakenExceptionHandler instance
+
 // With account for per-account ORDER limits (Binance)
 $handler = BaseExceptionHandler::make('binance')->withAccount($account);
 ```
@@ -183,6 +186,38 @@ if ($handler->isCurrentlyBanned()) {
 - `10010`: IP not whitelisted
 - `110007`: Insufficient balance
 - `110043`: Reduce-only mode
+
+### KrakenExceptionHandler
+**Location**: `Martingalian\Core\Support\ApiExceptionHandlers\KrakenExceptionHandler`
+**Specialty**: Kraken Futures API error handling
+
+**Key Features**:
+- HTTP status code based error classification
+- Handles Retry-After header for rate limits
+- Distinguishes between account blocked (401) and forbidden (403)
+- Retryable server errors with exponential backoff
+
+**Error Code Arrays**:
+```php
+$serverForbiddenHttpCodes = [403];        // IP blocked / permission denied
+$serverRateLimitedHttpCodes = [429];      // Rate limit exceeded
+$accountBlockedHttpCodes = [401];         // Auth failed / API key invalid
+$retryableHttpCodes = [408, 500, 502, 503, 504]; // Temporary errors
+```
+
+**Retry-After Logic**:
+```php
+// 429 response with Retry-After header
+if ($handler->isRateLimited($exception)) {
+    $retryAfter = $response->getHeader('Retry-After')[0] ?? 60;
+    $retryTime = now()->addSeconds($retryAfter);
+}
+```
+
+**Account Blocked Handling**:
+- 401 errors create `ForbiddenHostname` record with type `account_blocked`
+- Prevents further API calls until credentials are verified
+- Sends critical notification to admin
 
 ### TaapiExceptionHandler
 **Location**: `Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler`

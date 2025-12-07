@@ -1,7 +1,7 @@
 # API Clients
 
 ## Overview
-External API integration layer supporting cryptocurrency exchanges (Binance, Bybit), market data providers (TAAPI, CoinMarketCap), and sentiment analysis (Alternative.me). All clients include exception handling, rate limiting, and user-friendly error notifications.
+External API integration layer supporting cryptocurrency exchanges (Binance, Bybit, Kraken Futures), market data providers (TAAPI, CoinMarketCap), and sentiment analysis (Alternative.me). All clients include exception handling, rate limiting, and user-friendly error notifications.
 
 ## Architecture
 
@@ -25,6 +25,7 @@ External API integration layer supporting cryptocurrency exchanges (Binance, Byb
 3. **Exception Handlers** (`BaseExceptionHandler`)
    - `BinanceExceptionHandler` - Handles Binance-specific errors, delegates to BinanceThrottler
    - `BybitExceptionHandler` - Handles Bybit-specific errors, delegates to BybitThrottler
+   - `KrakenExceptionHandler` - Handles Kraken Futures errors, delegates to KrakenThrottler
    - `TaapiExceptionHandler` - Handles TAAPI errors (no IP ban tracking)
    - `CoinMarketCapExceptionHandler` - Handles CoinMarketCap errors (no IP ban tracking)
    - `AlternativeMeExceptionHandler` - Handles Alternative.me errors (no IP ban tracking)
@@ -32,6 +33,7 @@ External API integration layer supporting cryptocurrency exchanges (Binance, Byb
 4. **Throttlers** (IP-based rate limiting coordination)
    - `BinanceThrottler` - Parses Binance headers, IP ban tracking, rate limit proximity (>80%)
    - `BybitThrottler` - Conservative limits (500 req/5s = 83% of 600 limit), IP ban tracking
+   - `KrakenThrottler` - Conservative limits (500 req/10s), IP ban tracking
    - `TaapiThrottler` - Simple throttling (no IP ban tracking)
    - Two-phase throttling: `isSafeToDispatch()` (IP ban, proximity) + `canDispatch()` (window limits, backoff)
 
@@ -99,6 +101,54 @@ Streams:
 - Ping every 20 seconds: `{"op": "ping"}`
 
 **Key Fix**: Removed non-existent `isConnected()` method call in periodic timer (line 85). Timer runs inside `onConnectionEstablished()` callback, so connection is guaranteed.
+
+### Kraken Futures
+
+**REST API Client**: `packages/martingalian/core/src/Support/ApiClients/Rest/KrakenApiClient.php`
+
+Features:
+- Kraken Futures API (derivatives)
+- Account information
+- Positions and orders
+- Market data
+- HMAC-SHA512 signature authentication
+- Nonce-based request signing
+
+Rate Limits:
+- 500 requests per 10 seconds per IP
+- Different tiers for different endpoint types
+
+Authentication:
+```php
+// Kraken Futures signing algorithm:
+// 1. Build POST data string
+$postData = http_build_query($options);
+
+// 2. Create signature payload: postData + nonce + endpoint
+$sha256Hash = hash('sha256', $postData . $nonce . $endpoint, true);
+
+// 3. Sign with HMAC-SHA512 using base64-decoded private key
+$signature = hash_hmac('sha512', $sha256Hash, base64_decode($privateKey), true);
+
+// 4. Base64 encode the signature
+$authent = base64_encode($signature);
+
+// Headers: APIKey, Authent, Nonce
+```
+
+Common Errors:
+- `401`: Authentication failed (invalid API key or signature)
+- `403`: Permission denied / IP not whitelisted
+- `429`: Rate limit exceeded
+- `500`, `502`, `503`, `504`: Server errors (retryable)
+
+**WebSocket Client**: `packages/martingalian/core/src/Support/ApiClients/Websocket/KrakenApiClient.php`
+
+Streams:
+- Public: `wss://futures.kraken.com/ws/v1`
+- Ticker streams for mark prices
+- Ping every 60 seconds (Kraken requirement)
+- Challenge-based authentication for private feeds
 
 ## Market Data Providers
 
@@ -234,6 +284,29 @@ Canonical examples:
 - `server_rate_limit_exceeded`
 - `bybit_server_rate_limit_exceeded`
 - `bybit_invalid_api_credentials`
+
+### KrakenExceptionHandler
+
+Located: `packages/martingalian/core/src/Support/ApiExceptionHandlers/KrakenExceptionHandler.php`
+
+Handles:
+- Rate limits (`429`)
+- Authentication failures (`401`)
+- Forbidden/IP blocked (`403`)
+- Server errors (`500`, `502`, `503`, `504`)
+- Request timeout (`408`)
+
+Canonical examples:
+- `server_rate_limit_exceeded`
+- `kraken_server_rate_limit_exceeded`
+- `kraken_account_blocked`
+- `kraken_api_key_invalid`
+
+Error Code Classification:
+- `$serverForbiddenHttpCodes = [403]` - Permission/IP errors
+- `$serverRateLimitedHttpCodes = [429]` - Rate limit errors
+- `$accountBlockedHttpCodes = [401]` - Account/credential errors
+- `$retryableHttpCodes = [408, 500, 502, 503, 504]` - Temporary errors
 
 ### TaapiExceptionHandler
 
@@ -425,6 +498,11 @@ BINANCE_BASE_URL=https://api.binance.com
 BYBIT_API_KEY=xxx
 BYBIT_API_SECRET=xxx
 BYBIT_BASE_URL=https://api.bybit.com
+
+# Kraken Futures
+KRAKEN_API_KEY=xxx
+KRAKEN_PRIVATE_KEY=xxx
+KRAKEN_BASE_URL=https://futures.kraken.com
 
 # TAAPI
 TAAPI_API_SECRET=xxx

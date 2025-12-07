@@ -64,6 +64,7 @@ Redis Cache (coordinated across all workers on same IP)
 2. **Throttlers** (`packages/martingalian/core/src/Support/Throttlers/`)
    - `BinanceThrottler` - Complex IP + per-account throttling with weight tracking
    - `BybitThrottler` - IP-based throttling with header tracking
+   - `KrakenThrottler` - IP-based throttling (500 req/10s), IP ban tracking
    - `TaapiThrottler`, `CoinMarketCapThrottler`, `AlternativeMeThrottler` - Simple window-based
 
 3. **Exception Handlers** (delegate to throttlers)
@@ -370,6 +371,76 @@ public static function isSafeToDispatch(?int $accountId = null): int
 - 166 requests in 3 seconds = **55 req/sec**
 - 1,660 requests in 18 seconds = **92 req/sec**
 - Well below 120 req/sec limit
+
+## KrakenThrottler
+
+### Responsibilities
+
+1. **IP Ban Tracking** - Coordinate IP bans (429/403 responses) across workers
+2. **Rate Limit Tracking** - Fixed window (500 requests per 10 seconds)
+3. **Retry-After Handling** - Honor Retry-After header from rate limit responses
+
+### Configuration
+
+```php
+'kraken' => [
+    // Safety threshold: stop at this percentage of limit
+    'safety_threshold' => (float) env('KRAKEN_THROTTLER_SAFETY_THRESHOLD', 0.85),
+
+    // Fallback rate limit
+    'requests_per_window' => (int) env('KRAKEN_THROTTLER_REQUESTS_PER_WINDOW', 500),
+    'window_seconds' => (int) env('KRAKEN_THROTTLER_WINDOW_SECONDS', 10),
+
+    // Optional minimum delay between requests (in milliseconds)
+    'min_delay_ms' => (int) env('KRAKEN_THROTTLER_MIN_DELAY_MS', 0),
+],
+```
+
+### Cache Keys
+
+```php
+// IP ban state
+'kraken:{ip}:banned_until' => timestamp
+
+// Request count tracking
+'kraken:{ip}:requests:10s' => count
+```
+
+### Methods
+
+#### isSafeToDispatch(?int $accountId = null): int
+
+```php
+public static function isSafeToDispatch(?int $accountId = null): int
+{
+    // 1. Check IP ban (429/403 response)
+    if (self::isCurrentlyBanned()) {
+        return self::getSecondsUntilBanLifts();
+    }
+
+    // 2. Check request count threshold
+    $ip = self::getCurrentIp();
+    $count = Cache::get("kraken:{$ip}:requests:10s") ?? 0;
+    $limit = config('martingalian.throttlers.kraken.requests_per_window', 500);
+    $safetyThreshold = config('martingalian.throttlers.kraken.safety_threshold', 0.85);
+
+    if ($count / $limit > $safetyThreshold) {
+        return 10; // Wait for next 10-second window
+    }
+
+    return 0; // Safe to proceed
+}
+```
+
+### Throughput
+
+**Kraken Futures Rate Limits:**
+- HTTP Level: ~500 requests per 10 seconds per IP (varies by endpoint tier)
+- Safety threshold: 425 requests per 10 seconds (85% of 500)
+
+**Expected Performance:**
+- ~42.5 req/sec sustained
+- Conservative approach due to less documentation on exact limits
 
 ## Simple Throttlers (TAAPI, CoinMarketCap, Alternative.me)
 
