@@ -88,7 +88,7 @@ trait InteractsWithApis
 
         return new ApiResponse(
             response: $this->apiResponse,
-            result: $this->apiMapper()->resolveGetBalanceResponse($this->apiResponse)
+            result: $this->apiMapper()->resolveGetBalanceResponse($this->apiResponse, $this)
         );
     }
 }

@@ -20,25 +20,60 @@ trait MapsAccountBalanceQuery
     }
 
     /**
-     * Resolves Bybit wallet balance response.
-     * Returns asset => balance pairs, filtering out zero balances.
+     * Returns structured balance data for the account's trading quote.
+     *
+     * Response format:
+     * [
+     *     'wallet-balance' => '3997.21',
+     *     'available-balance' => '2000.00',
+     *     'cross-wallet-balance' => '3997.21',
+     *     'cross-unrealized-pnl' => '0.00',
+     * ]
      *
      * Bybit V5 response structure:
-     * { result: { list: [{ coin: [{ coin: "USDT", walletBalance: "1000.00" }, ...] }] } }
+     * { result: { list: [{ totalWalletBalance, coin: [{ coin: "USDT", walletBalance, ... }] }] } }
      */
-    public function resolveGetBalanceResponse(Response $response): array
+    public function resolveGetBalanceResponse(Response $response, Account $account): array
     {
         $data = json_decode((string) $response->getBody(), true);
+        $tradingQuote = $account->tradingQuote->canonical ?? 'USDT';
 
-        if (! isset($data['result']['list'][0]['coin'])) {
-            return [];
+        if (! isset($data['result']['list'][0])) {
+            return [
+                'wallet-balance' => '0',
+                'available-balance' => '0',
+                'cross-wallet-balance' => '0',
+                'cross-unrealized-pnl' => '0',
+            ];
         }
 
-        $coins = $data['result']['list'][0]['coin'];
+        $accountData = $data['result']['list'][0];
+        $coins = $accountData['coin'] ?? [];
 
-        return collect($coins)
-            ->filter(fn ($item) => (float) ($item['walletBalance'] ?? 0) !== 0.0)
-            ->mapWithKeys(fn ($item) => [$item['coin'] => $item['walletBalance']])
-            ->toArray();
+        $quoteBalance = collect($coins)
+            ->first(function ($item) use ($tradingQuote) {
+                return $item['coin'] === $tradingQuote;
+            });
+
+        if ($quoteBalance === null) {
+            return [
+                'wallet-balance' => '0',
+                'available-balance' => '0',
+                'cross-wallet-balance' => '0',
+                'cross-unrealized-pnl' => '0',
+            ];
+        }
+
+        // Calculate available = wallet - locked (availableToWithdraw is deprecated)
+        $walletBalance = $quoteBalance['walletBalance'] ?? '0';
+        $locked = $quoteBalance['locked'] ?? '0';
+        $availableBalance = bcsub($walletBalance, $locked, 8);
+
+        return [
+            'wallet-balance' => $walletBalance,
+            'available-balance' => $availableBalance,
+            'cross-wallet-balance' => $walletBalance,
+            'cross-unrealized-pnl' => $quoteBalance['unrealisedPnl'] ?? '0',
+        ];
     }
 }

@@ -19,19 +19,40 @@ trait MapsAccountBalanceQuery
     }
 
     /**
+     * Returns structured balance data for the account's trading quote.
+     *
+     * Response format:
      * [
-        "BNB" => "0.00000002",
-        "BTC" => "155.432",
-        ...
-        ]
-
-        Quotes with zero are discarded.
+     *     'wallet-balance' => '3997.21',
+     *     'available-balance' => '2000.00',
+     *     'cross-wallet-balance' => '3997.21',
+     *     'cross-unrealized-pnl' => '0.00',
+     * ]
      */
-    public function resolveGetBalanceResponse(Response $response): array
+    public function resolveGetBalanceResponse(Response $response, Account $account): array
     {
-        return collect(json_decode((string) $response->getBody(), true))
-            ->filter(fn ($item) => (float) $item['balance'] !== 0.0)
-            ->mapWithKeys(fn ($item) => [$item['asset'] => $item['balance']])
-            ->toArray();
+        $assets = json_decode((string) $response->getBody(), true);
+        $tradingQuote = $account->tradingQuote->canonical ?? 'USDT';
+
+        $quoteBalance = collect($assets)
+            ->first(function ($item) use ($tradingQuote) {
+                return $item['asset'] === $tradingQuote;
+            });
+
+        if ($quoteBalance === null) {
+            return [
+                'wallet-balance' => '0',
+                'available-balance' => '0',
+                'cross-wallet-balance' => '0',
+                'cross-unrealized-pnl' => '0',
+            ];
+        }
+
+        return [
+            'wallet-balance' => $quoteBalance['balance'] ?? '0',
+            'available-balance' => $quoteBalance['availableBalance'] ?? '0',
+            'cross-wallet-balance' => $quoteBalance['crossWalletBalance'] ?? '0',
+            'cross-unrealized-pnl' => $quoteBalance['crossUnPnl'] ?? '0',
+        ];
     }
 }

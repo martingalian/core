@@ -10,7 +10,18 @@ use Martingalian\Core\Concerns\TradeConfiguration\HasGetters;
 use Martingalian\Core\Concerns\TradeConfiguration\HasScopes;
 
 /**
- * @property array<int, string> $indicator_timeframes
+ * @property int $id
+ * @property bool $is_default
+ * @property string $canonical
+ * @property string|null $description
+ * @property int $least_timeframe_index_to_change_indicator
+ * @property int $fast_trade_position_duration_seconds
+ * @property int $fast_trade_position_closed_age_seconds
+ * @property bool $disable_exchange_symbol_from_negative_pnl_position
+ * @property array<int, string>|null $indicator_timeframes
+ * @property string $min_account_balance
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
  */
 final class TradeConfiguration extends BaseModel
 {

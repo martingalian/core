@@ -632,6 +632,7 @@ return new class extends Migration
             $table->unsignedInteger('fast_trade_position_closed_age_seconds')->default(3600)->comment('Total seconds after a position as been closed to consider a position as fast tracked. E.g: 3600 means only take in consideration for possible fast track positions that were closed no more than 1h ago');
             $table->boolean('disable_exchange_symbol_from_negative_pnl_position')->default(false)->comment('If a position is closed with a negative PnL, then the exchange symbol is immediately disabled for trading');
             $table->json('indicator_timeframes')->nullable()->comment('Taapi timeframes considered for the trade configuration');
+            $table->decimal('min_account_balance', 20, 8)->default(100)->comment('Minimum account balance required to dispatch new positions');
             $table->timestamps();
         });
 

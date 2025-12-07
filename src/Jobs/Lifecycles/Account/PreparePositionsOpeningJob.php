@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Account;
 
+use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Models\Account\AssignBestTokensToPositionSlotsJob;
 use Martingalian\Core\Jobs\Models\Account\CreatePositionSlotsJob;
@@ -18,6 +19,7 @@ use Martingalian\Core\Models\Step;
  * • Step 1: QueryPositionsJob - Fetches open positions from exchange, stores in api_snapshots
  * • Step 2: CreatePositionSlotsJob - Compares exchange positions with limits, creates empty Position records
  * • Step 3: AssignBestTokensToPositionSlotsJob - Assigns optimal tokens to slots, deletes unassigned
+ * • Step 4: DispatchPositionsJob - Dispatches positions for trading
  */
 final class PreparePositionsOpeningJob extends BaseQueueableJob
 {
@@ -63,6 +65,17 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
             ],
             'block_uuid' => $this->uuid(),
             'index' => 3,
+        ]);
+
+        // Step 4: Dispatch positions for trading
+        Step::create([
+            'class' => DispatchPositionsJob::class,
+            'arguments' => [
+                'accountId' => $this->account->id,
+            ],
+            'block_uuid' => $this->uuid(),
+            'child_block_uuid' => (string) Str::uuid(),
+            'index' => 4,
         ]);
 
         return [
