@@ -4,26 +4,38 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Models\Account;
 
-use Martingalian\Core\Abstracts\BaseQueueableJob;
+use Martingalian\Core\Abstracts\BaseApiableJob;
+use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
+use Martingalian\Core\Models\ApiSystem;
 
 /*
  * VerifyMinAccountBalanceJob
  *
- * • Reads the account balance snapshot from api_snapshots (canonical: account-balance).
+ * • Queries the exchange for account balance and stores in api_snapshots.
  * • Compares available-balance against the trade configuration's min_account_balance.
  * • Stops the workflow gracefully if balance is insufficient.
  */
-final class VerifyMinAccountBalanceJob extends BaseQueueableJob
+final class VerifyMinAccountBalanceJob extends BaseApiableJob
 {
     public Account $account;
+
+    public ApiSystem $apiSystem;
 
     public bool $hasMinBalance = false;
 
     public function __construct(int $accountId)
     {
         $this->account = Account::findOrFail($accountId);
+        $this->apiSystem = $this->account->apiSystem;
+    }
+
+    public function assignExceptionHandler(): void
+    {
+        $canonical = $this->apiSystem->canonical;
+        $this->exceptionHandler = BaseExceptionHandler::make($canonical)
+            ->withAccount($this->account);
     }
 
     public function relatable()
@@ -31,11 +43,15 @@ final class VerifyMinAccountBalanceJob extends BaseQueueableJob
         return $this->account;
     }
 
-    public function compute()
+    public function computeApiable()
     {
-        // Get balance from the snapshot stored by QueryAccountBalanceJob
-        $balanceData = ApiSnapshot::getFrom($this->account, 'account-balance') ?? [];
+        // Query balance from exchange and store in api_snapshots
+        $apiResponse = $this->account->apiQueryBalance();
+        $balanceData = $apiResponse->result;
 
+        ApiSnapshot::storeFor($this->account, 'account-balance', $balanceData);
+
+        // Verify minimum balance
         $availableBalance = $balanceData['available-balance'] ?? '0';
         $minAccountBalance = $this->account->tradeConfiguration->min_account_balance ?? '100';
 
@@ -44,6 +60,7 @@ final class VerifyMinAccountBalanceJob extends BaseQueueableJob
 
         return [
             'account_id' => $this->account->id,
+            'balance' => $balanceData,
             'available_balance' => $availableBalance,
             'min_account_balance' => $minAccountBalance,
             'has_min_balance' => $this->hasMinBalance,

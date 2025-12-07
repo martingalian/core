@@ -7,20 +7,16 @@ namespace Martingalian\Core\Jobs\Lifecycles\Account;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob;
-use Martingalian\Core\Jobs\Models\Account\QueryAccountBalanceJob;
-use Martingalian\Core\Jobs\Models\Account\VerifyMinAccountBalanceJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
 
 /*
- * DispatchPositionsJob
+ * DispatchPositionSlotsJob
  *
  * Dispatches all new positions for an account that have tokens assigned.
- * • Step 1: QueryAccountBalanceJob - Fetches account balance from exchange, stores in api_snapshots
- * • Step 2: VerifyMinAccountBalanceJob - Verifies balance meets minimum, stops if insufficient
- * • Step 3: DispatchPositionJob (parallel) - Dispatches each position for trading
+ * • Step 1: DispatchPositionJob (parallel) - Dispatches each position for trading
  */
-final class DispatchPositionsJob extends BaseQueueableJob
+final class DispatchPositionSlotsJob extends BaseQueueableJob
 {
     public Account $account;
 
@@ -50,27 +46,7 @@ final class DispatchPositionsJob extends BaseQueueableJob
             ];
         }
 
-        // Step 1: Query account balance from exchange
-        Step::create([
-            'class' => QueryAccountBalanceJob::class,
-            'arguments' => [
-                'accountId' => $this->account->id,
-            ],
-            'block_uuid' => $this->uuid(),
-            'index' => 1,
-        ]);
-
-        // Step 2: Verify minimum account balance (stops workflow if insufficient)
-        Step::create([
-            'class' => VerifyMinAccountBalanceJob::class,
-            'arguments' => [
-                'accountId' => $this->account->id,
-            ],
-            'block_uuid' => $this->uuid(),
-            'index' => 2,
-        ]);
-
-        // Step 3: Dispatch each position (all with same index = parallel execution)
+        // Step 1: Dispatch each position (all with same index = parallel execution)
         foreach ($positions as $position) {
             Step::create([
                 'class' => DispatchPositionJob::class,
@@ -78,8 +54,8 @@ final class DispatchPositionsJob extends BaseQueueableJob
                     'positionId' => $position->id,
                 ],
                 'block_uuid' => $this->uuid(),
-                //'child_block_uuid' => (string) Str::uuid(),
-                'index' => 3,
+                'child_block_uuid' => (string) Str::uuid(),
+                'index' => 1,
             ]);
         }
 

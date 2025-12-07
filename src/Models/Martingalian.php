@@ -19,6 +19,8 @@ use Throwable;
  * @property string|null $binance_api_secret
  * @property string|null $bybit_api_key
  * @property string|null $bybit_api_secret
+ * @property string|null $kraken_api_key
+ * @property string|null $kraken_private_key
  * @property string|null $coinmarketcap_api_key
  * @property string|null $taapi_secret
  * @property string|null $admin_pushover_user_key
@@ -43,6 +45,8 @@ final class Martingalian extends BaseModel
         'binance_api_secret' => 'encrypted',
         'bybit_api_key' => 'encrypted',
         'bybit_api_secret' => 'encrypted',
+        'kraken_api_key' => 'encrypted',
+        'kraken_private_key' => 'encrypted',
         'coinmarketcap_api_key' => 'encrypted',
         'taapi_secret' => 'encrypted',
         'admin_pushover_user_key' => 'encrypted',

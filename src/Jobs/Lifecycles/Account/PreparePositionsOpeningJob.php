@@ -7,8 +7,9 @@ namespace Martingalian\Core\Jobs\Lifecycles\Account;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Models\Account\AssignBestTokensToPositionSlotsJob;
-use Martingalian\Core\Jobs\Models\Account\CreatePositionSlotsJob;
-use Martingalian\Core\Jobs\Models\Account\QueryPositionsJob;
+use Martingalian\Core\Jobs\Models\Account\QueryAccountOpenOrdersJob;
+use Martingalian\Core\Jobs\Models\Account\QueryAccountPositionsJob;
+use Martingalian\Core\Jobs\Models\Account\VerifyMinAccountBalanceJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Step;
 
@@ -16,10 +17,11 @@ use Martingalian\Core\Models\Step;
  * PreparePositionsOpeningJob
  *
  * Prepares and validates position opening for an account:
- * • Step 1: QueryPositionsJob - Fetches open positions from exchange, stores in api_snapshots
- * • Step 2: CreatePositionSlotsJob - Compares exchange positions with limits, creates empty Position records
- * • Step 3: AssignBestTokensToPositionSlotsJob - Assigns optimal tokens to slots, deletes unassigned
- * • Step 4: DispatchPositionsJob - Dispatches positions for trading
+ * • Step 1: VerifyMinAccountBalanceJob - Queries balance + verifies minimum (showstopper)
+ * • Step 2: QueryAccountPositionsJob - Fetches open positions from exchange (parallel)
+ * • Step 2: QueryAccountOpenOrdersJob - Fetches open orders from exchange (parallel)
+ * • Step 3: AssignBestTokensToPositionSlotsJob - Creates slots + assigns optimal tokens
+ * • Step 4: DispatchPositionSlotsJob - Dispatches positions for trading
  */
 final class PreparePositionsOpeningJob extends BaseQueueableJob
 {
@@ -37,9 +39,9 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
 
     public function compute()
     {
-        // Step 1: Query exchange for actual open positions
+        // Step 1: Query balance + verify minimum (showstopper)
         Step::create([
-            'class' => QueryPositionsJob::class,
+            'class' => VerifyMinAccountBalanceJob::class,
             'arguments' => [
                 'accountId' => $this->account->id,
             ],
@@ -47,9 +49,9 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
             'index' => 1,
         ]);
 
-        // Step 2: Create empty Position records for available slots
+        // Step 2: Query exchange for open positions (parallel)
         Step::create([
-            'class' => CreatePositionSlotsJob::class,
+            'class' => QueryAccountPositionsJob::class,
             'arguments' => [
                 'accountId' => $this->account->id,
             ],
@@ -57,7 +59,17 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
             'index' => 2,
         ]);
 
-        // Step 3: Assign best tokens to position slots (deletes unassigned slots)
+        // Step 2: Query exchange for open orders (parallel)
+        Step::create([
+            'class' => QueryAccountOpenOrdersJob::class,
+            'arguments' => [
+                'accountId' => $this->account->id,
+            ],
+            'block_uuid' => $this->uuid(),
+            'index' => 2,
+        ]);
+
+        // Step 3: Create slots + assign best tokens (deletes unassigned slots)
         Step::create([
             'class' => AssignBestTokensToPositionSlotsJob::class,
             'arguments' => [
@@ -69,7 +81,7 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
 
         // Step 4: Dispatch positions for trading
         Step::create([
-            'class' => DispatchPositionsJob::class,
+            'class' => DispatchPositionSlotsJob::class,
             'arguments' => [
                 'accountId' => $this->account->id,
             ],

@@ -239,6 +239,27 @@ return [
             'requests_per_window' => (int) env('BYBIT_THROTTLER_REQUESTS_PER_WINDOW', 550), // 92% of 600
             'window_seconds' => (int) env('BYBIT_THROTTLER_WINDOW_SECONDS', 5),
         ],
+
+        'kraken' => [
+            // Minimum delay between requests in milliseconds
+            'min_delay_ms' => (int) env('KRAKEN_THROTTLER_MIN_DELAY_MS', 200),
+
+            // Safety threshold: stop making requests when reaching this percentage of limit (0.0-1.0)
+            // 0.85 = stop at 85% to leave 15% buffer before hitting the limit
+            'safety_threshold' => (float) env('KRAKEN_THROTTLER_SAFETY_THRESHOLD', 0.85),
+
+            // Rate limit configuration
+            // KRAKEN FUTURES API OFFICIAL LIMITS:
+            // - 500 requests per 10 seconds per IP
+            // - Different tiers for different endpoint types
+            //
+            // PROFILE GUIDE:
+            // Conservative (80% capacity): 400 req/10s, 200ms delay
+            // Balanced (85% capacity): 425 req/10s, 100ms delay
+            // Aggressive (95% capacity): 475 req/10s, 50ms delay
+            'requests_per_window' => (int) env('KRAKEN_THROTTLER_REQUESTS_PER_WINDOW', 425), // 85% of 500
+            'window_seconds' => (int) env('KRAKEN_THROTTLER_WINDOW_SECONDS', 10),
+        ],
     ],
 
     /*
@@ -259,6 +280,11 @@ return [
             'bybit' => [
                 'rest' => 'https://api.bybit.com',
                 'stream' => 'wss://stream.bybit.com',
+            ],
+
+            'kraken' => [
+                'rest' => 'https://futures.kraken.com',
+                'stream' => 'wss://futures.kraken.com/ws/v1',
             ],
 
             'alternativeme' => [
@@ -325,6 +351,12 @@ return [
             'bybit' => [
                 'api_key' => env('BYBIT_API_KEY'),
                 'api_secret' => env('BYBIT_API_SECRET'),
+            ],
+
+            // Live Kraken Futures keys (service-level; NOT user account keys used to place orders).
+            'kraken' => [
+                'api_key' => env('KRAKEN_API_KEY'),
+                'private_key' => env('KRAKEN_PRIVATE_KEY'),
             ],
 
             // TAAPI indicator provider.

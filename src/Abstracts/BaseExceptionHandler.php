@@ -12,6 +12,7 @@ use Martingalian\Core\Support\ApiExceptionHandlers\AlternativeMeExceptionHandler
 use Martingalian\Core\Support\ApiExceptionHandlers\BinanceExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\BybitExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\CoinmarketCapExceptionHandler;
+use Martingalian\Core\Support\ApiExceptionHandlers\KrakenExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -107,6 +108,7 @@ abstract class BaseExceptionHandler
         return match ($apiCanonical) {
             'binance' => new BinanceExceptionHandler,
             'bybit' => new BybitExceptionHandler,
+            'kraken' => new KrakenExceptionHandler,
             'taapi' => new TaapiExceptionHandler,
             'alternativeme' => new AlternativeMeExceptionHandler,
             'coinmarketcap' => new CoinmarketCapExceptionHandler,

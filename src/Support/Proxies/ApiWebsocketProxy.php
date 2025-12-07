@@ -7,6 +7,7 @@ namespace Martingalian\Core\Support\Proxies;
 use Exception;
 use Martingalian\Core\Support\Apis\Websocket\BinanceApi;
 use Martingalian\Core\Support\Apis\Websocket\BybitApi;
+use Martingalian\Core\Support\Apis\Websocket\KrakenApi;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 
 /**
@@ -25,6 +26,9 @@ final class ApiWebsocketProxy
                 break;
             case 'bybit':
                 $this->api = new BybitApi($credentials);
+                break;
+            case 'kraken':
+                $this->api = new KrakenApi($credentials);
                 break;
             default:
                 throw new Exception("Unsupported WebSocket API: {$apiType}");

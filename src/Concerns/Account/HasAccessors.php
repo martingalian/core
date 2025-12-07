@@ -23,6 +23,8 @@ trait HasAccessors
             'binance_api_secret',
             'bybit_api_key',
             'bybit_api_secret',
+            'kraken_api_key',
+            'kraken_private_key',
             'coinmarketcap_api_key',
             'taapi_secret',
         ];
@@ -57,6 +59,8 @@ trait HasAccessors
             'binance_api_secret',
             'bybit_api_key',
             'bybit_api_secret',
+            'kraken_api_key',
+            'kraken_private_key',
             'coinmarketcap_api_key',
             'taapi_secret',
         ];

@@ -242,6 +242,142 @@ $quantity = $riskAmount / $riskPerUnit; // 0.2 BTC
 
 ## Lifecycle Jobs
 
+### Position Creation Workflow
+**Entry Point**: `cronjobs:create-positions` command
+**Purpose**: Automated position slot creation and dispatching for all tradeable accounts
+
+#### Pre-Flight Checks (Command Level)
+
+The command iterates through all tradeable users and accounts, applying these guards before dispatching the workflow:
+
+| Check | Source | Condition |
+|-------|--------|-----------|
+| User tradeable | `users.can_trade` | Must be `true` |
+| Account tradeable | `accounts.can_trade` | Must be `true` |
+| Global guard | `martingalian.allow_opening_positions` | Must be `true` |
+| Slots available | `openPositions < maxSlots` | DB count check (cheap) |
+| Directional guard | `canOpenLongs() OR canOpenShorts()` | At least one must be `true` |
+
+If ALL checks pass → Dispatch `PreparePositionsOpeningJob`
+
+#### Workflow Diagram
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  cronjobs:create-positions [--clean] [--output]                             │
+│                                                                             │
+│  ITERATION: User.where(can_trade=true) → Account.where(can_trade=true)      │
+│                                                                             │
+│  PRE-FLIGHT CHECKS (per account):                                           │
+│  ├─ ❓ Martingalian.canOpenPositions() → checks allow_opening_positions     │
+│  ├─ ❓ openPositions < maxSlots (DB count only - cheap check)               │
+│  └─ ❓ canOpenLongs() OR canOpenShorts() (directional guards)               │
+│                                                                             │
+│  If ALL pass → Dispatch PreparePositionsOpeningJob                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+PreparePositionsOpeningJob(accountId) ← PARENT
+│
+├─ [1] VerifyMinAccountBalanceJob(accountId)
+│       ├─ API: Queries balance from exchange via apiQueryBalance()
+│       ├─ Stores in api_snapshots('account-balance')
+│       ├─ Compares available_balance vs min_account_balance
+│       └─ 🛑 SHOWSTOPPER: stops workflow if balance < minimum
+│
+├─ [2] QueryAccountPositionsJob(accountId)          ─┐
+│       ├─ API: Fetches open positions from exchange │ PARALLEL
+│       └─ Stores in api_snapshots('account-positions')
+│                                                    │
+├─ [2] QueryAccountOpenOrdersJob(accountId)         ─┘
+│       ├─ API: Fetches open orders from exchange
+│       └─ Stores in api_snapshots('account-open-orders')
+│
+├─ [3] AssignBestTokensToPositionSlotsJob(accountId)
+│       ├─ Reads api_snapshots to count exchange positions
+│       ├─ Calculates: available_slots = max_slots - MAX(exchange, db)
+│       ├─ Creates Position records (status='new', direction=LONG/SHORT)
+│       ├─ Assigns optimal tokens using HasTokenDiscovery algorithm
+│       │   ├─ Excludes tokens with open positions (from api_snapshots)
+│       │   └─ Excludes tokens with open orders (from api_snapshots)
+│       ├─ Deletes unassigned position slots
+│       └─ 🛑 SHOWSTOPPER: stops if totalCreated=0 OR assignedCount=0
+│
+└─ [4] DispatchPositionSlotsJob(accountId) ← PARENT
+        │
+        │   Queries: positions.where(status='new', exchange_symbol_id NOT NULL)
+        │
+        └─ [1] DispatchPositionJob(positionId) ← PARENT [parallel per position]
+                │
+                │   Guard: startOrStop() checks direction + exchange_symbol_id + status='new'
+                │
+                └─ [1] VerifyTradingPairNotOpenJob(positionId)
+                        ├─ Reads api_snapshots('account-positions')
+                        ├─ Reads api_snapshots('account-open-orders')
+                        ├─ Checks if trading pair already open/has orders
+                        └─ 🛑 SHOWSTOPPER: stops if pair already open
+```
+
+#### Showstoppers Summary
+
+| Step | Job | Condition |
+|------|-----|-----------|
+| 1 | `VerifyMinAccountBalanceJob` | `available_balance < min_account_balance` |
+| 3 | `AssignBestTokensToPositionSlotsJob` | `totalCreated = 0` OR `assignedCount = 0` |
+| 4.1 | `DispatchPositionJob` | Missing direction/token OR status ≠ 'new' |
+| 4.1.1 | `VerifyTradingPairNotOpenJob` | Trading pair already open on exchange |
+
+#### Key Jobs
+
+**VerifyMinAccountBalanceJob** (`Jobs/Models/Account/`)
+- API call: Queries exchange for account balance via `apiQueryBalance()`
+- Stores balance in `ApiSnapshot::storeFor($account, 'account-balance', $balanceData)`
+- Compares `available-balance` against `TradeConfiguration.min_account_balance`
+- Calls `stopJob()` if balance is below minimum (graceful workflow stop)
+- Does NOT affect other accounts in the batch
+
+**QueryAccountPositionsJob** (`Jobs/Models/Account/`)
+- API call: Fetches open positions from exchange via `apiQueryPositions()`
+- Stores in `ApiSnapshot::storeFor($account, 'account-positions', $positions)`
+- Runs in parallel with `QueryAccountOpenOrdersJob` (same index)
+
+**QueryAccountOpenOrdersJob** (`Jobs/Models/Account/`)
+- API call: Fetches open orders from exchange via `apiQueryOpenOrders()`
+- Stores in `ApiSnapshot::storeFor($account, 'account-open-orders', $orders)`
+- Runs in parallel with `QueryAccountPositionsJob` (same index)
+
+**AssignBestTokensToPositionSlotsJob** (`Jobs/Models/Account/`)
+- Creates position slots based on available capacity:
+  - Reads exchange positions from `ApiSnapshot::getFrom($account, 'account-positions')`
+  - Calculates: `available_slots = max_slots - MAX(exchange_positions, db_positions)`
+  - Creates Position records with `status='new'` and direction (LONG/SHORT)
+- Assigns optimal tokens using `HasTokenDiscovery` trait:
+  - Excludes tokens with open positions (from api_snapshots)
+  - Excludes tokens with open orders (from api_snapshots)
+  - Uses BTC bias algorithm for scoring
+- Deletes position slots that couldn't be assigned a token
+- Calls `stopJob()` if no slots created or no tokens assigned
+
+**DispatchPositionSlotsJob** (`Jobs/Lifecycles/Account/`)
+- Queries all new positions with assigned tokens
+- Creates parallel `DispatchPositionJob` steps (one per position)
+
+**DispatchPositionJob** (`Jobs/Lifecycles/Position/`)
+- Guard (`startOrStop`): Requires direction, exchange_symbol_id, status='new'
+- Creates `VerifyTradingPairNotOpenJob` as first step
+- TODO: Add remaining steps (margin, leverage, orders, etc.)
+
+**VerifyTradingPairNotOpenJob** (`Jobs/Models/Position/`)
+- Final safety check before trading
+- Reads positions and orders from api_snapshots
+- Verifies trading pair is not already open on exchange
+- Calls `stopJob()` if pair already open (prevents duplicate positions)
+
+#### Configuration
+- **TradeConfiguration.min_account_balance**: Minimum account balance required to dispatch positions (default: 100 USDT)
+- **Account.total_positions_long**: Maximum LONG positions for account
+- **Account.total_positions_short**: Maximum SHORT positions for account
+- **Martingalian.allow_opening_positions**: Global circuit breaker for position opening
+
 ### Account Lifecycle
 **Location**: `Jobs/Lifecycles/Accounts/`
 **Jobs**:

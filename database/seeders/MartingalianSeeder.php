@@ -224,6 +224,16 @@ final class MartingalianSeeder extends Seeder
             ]
         );
 
+        $kraken = ApiSystem::firstOrCreate(
+            ['canonical' => 'kraken'],
+            [
+                'name' => 'Kraken',
+                'logo_url' => 'https://www.kraken.com/favicon.ico',
+                'is_exchange' => true,
+                'taapi_canonical' => 'kraken',
+            ]
+        );
+
         $coinmarketcap = ApiSystem::firstOrCreate(
             ['canonical' => 'coinmarketcap'],
             [
@@ -251,6 +261,7 @@ final class MartingalianSeeder extends Seeder
         return [
             'binance' => $binance,
             'bybit' => $bybit,
+            'kraken' => $kraken,
             'coinmarketcap' => $coinmarketcap,
             'alternativeme' => $alternativeMe,
             'taapi' => $taapi,
@@ -285,17 +296,17 @@ final class MartingalianSeeder extends Seeder
     }
 
     /**
-     * Seed the default user/trader.
+     * Seed the Binance+Bybit user/trader.
      */
     public function seedUser(): User
     {
         $userData = [
-            'name' => env('TRADER_NAME'),
-            'email' => env('TRADER_EMAIL'),
-            'password' => bcrypt('password'),
+            'name' => env('TRADER_BB_NAME'),
+            'email' => env('TRADER_BB_EMAIL'),
+            'password' => bcrypt(env('TRADER_BB_PASSWORD', 'password')),
             'is_active' => true,
             'is_admin' => true,
-            'pushover_key' => env('TRADER_PUSHOVER_KEY'),
+            'pushover_key' => env('TRADER_BB_PUSHOVER_KEY'),
             'notification_channels' => ['mail', 'pushover'],
         ];
 
@@ -321,7 +332,7 @@ final class MartingalianSeeder extends Seeder
     }
 
     /**
-     * Seed the Binance account for the trader.
+     * Seed the Binance account for the Binance+Bybit trader.
      */
     public function seedBinanceAccount(User $trader, ApiSystem $binance, Quote $usdt): void
     {
@@ -336,8 +347,8 @@ final class MartingalianSeeder extends Seeder
                 'portfolio_quote_id' => $usdt->id,
                 'trading_quote_id' => $usdt->id,
                 'trade_configuration_id' => 1,
-                'binance_api_key' => env('BINANCE_API_KEY'),
-                'binance_api_secret' => env('BINANCE_API_SECRET'),
+                'binance_api_key' => env('TRADER_BB_BINANCE_API_KEY'),
+                'binance_api_secret' => env('TRADER_BB_BINANCE_API_SECRET'),
             ]
         );
     }
@@ -525,6 +536,8 @@ final class MartingalianSeeder extends Seeder
         if ($martingalian) {
             $martingalian->binance_api_key = env('BINANCE_API_KEY');
             $martingalian->binance_api_secret = env('BINANCE_API_SECRET');
+            $martingalian->kraken_api_key = env('KRAKEN_API_KEY');
+            $martingalian->kraken_private_key = env('KRAKEN_PRIVATE_KEY');
             $martingalian->coinmarketcap_api_key = env('COINMARKETCAP_API_KEY');
             $martingalian->taapi_secret = env('TAAPI_SECRET');
             $martingalian->save();
@@ -554,7 +567,7 @@ final class MartingalianSeeder extends Seeder
             );
         }
 
-        // SchemaSeeder21: Create Bybit account
+        // SchemaSeeder21: Create Bybit account for Binance+Bybit trader
         $existingBybitAccount = Account::where('user_id', $trader->id)
             ->where('api_system_id', $bybitApiSystem->id)
             ->first();
@@ -568,8 +581,96 @@ final class MartingalianSeeder extends Seeder
                 'portfolio_quote_id' => $usdt->id,
                 'trading_quote_id' => $usdt->id,
                 'trade_configuration_id' => 1,
-                'bybit_api_key' => env('BYBIT_API_KEY'),
-                'bybit_api_secret' => env('BYBIT_API_SECRET'),
+                'bybit_api_key' => env('TRADER_BB_BYBIT_API_KEY'),
+                'bybit_api_secret' => env('TRADER_BB_BYBIT_API_SECRET'),
+            ]);
+        }
+    }
+
+    /**
+     * Setup Binance-only integration: Create Binance-only user and account.
+     */
+    public function setupBinanceOnlyIntegration(ApiSystem $binanceApiSystem, Quote $usdt): void
+    {
+        // Create Binance-only user
+        $binanceEmail = env('TRADER_B_EMAIL');
+
+        if (! $binanceEmail) {
+            return;
+        }
+
+        $binanceUser = User::updateOrCreate(
+            ['email' => $binanceEmail],
+            [
+                'name' => env('TRADER_B_NAME'),
+                'password' => bcrypt(env('TRADER_B_PASSWORD', 'password')),
+                'is_active' => true,
+                'is_admin' => false,
+                'pushover_key' => env('TRADER_B_PUSHOVER_KEY'),
+                'notification_channels' => ['mail', 'pushover'],
+            ]
+        );
+
+        // Create Binance account for this user
+        $existingBinanceAccount = Account::where('user_id', $binanceUser->id)
+            ->where('api_system_id', $binanceApiSystem->id)
+            ->first();
+
+        if (! $existingBinanceAccount) {
+            Account::create([
+                'uuid' => (string) Str::uuid(),
+                'name' => 'Main Binance Account',
+                'user_id' => $binanceUser->id,
+                'api_system_id' => $binanceApiSystem->id,
+                'portfolio_quote_id' => $usdt->id,
+                'trading_quote_id' => $usdt->id,
+                'trade_configuration_id' => 1,
+                'binance_api_key' => env('TRADER_B_BINANCE_API_KEY'),
+                'binance_api_secret' => env('TRADER_B_BINANCE_API_SECRET'),
+            ]);
+        }
+    }
+
+    /**
+     * Setup Kraken integration: Create Kraken user and account.
+     */
+    public function setupKrakenIntegration(ApiSystem $krakenApiSystem, Quote $usdt): void
+    {
+        // Create Kraken user (separate from the Binance+Bybit trader)
+        $krakenEmail = env('TRADER_K_EMAIL');
+
+        if (! $krakenEmail) {
+            return;
+        }
+
+        $krakenUser = User::updateOrCreate(
+            ['email' => $krakenEmail],
+            [
+                'name' => env('TRADER_K_NAME'),
+                'password' => bcrypt(env('TRADER_K_PASSWORD', 'password')),
+                'is_active' => true,
+                'is_admin' => false,
+                'pushover_key' => env('TRADER_K_PUSHOVER_KEY'),
+                'notification_channels' => ['mail', 'pushover'],
+            ]
+        );
+
+        // Create Kraken account for this user
+        $existingKrakenAccount = Account::where('user_id', $krakenUser->id)
+            ->where('api_system_id', $krakenApiSystem->id)
+            ->first();
+
+        if (! $existingKrakenAccount) {
+            Account::create([
+                'uuid' => (string) Str::uuid(),
+                'name' => 'Main Kraken Account',
+                'user_id' => $krakenUser->id,
+                'api_system_id' => $krakenApiSystem->id,
+                'portfolio_quote_id' => $usdt->id,
+                'trading_quote_id' => $usdt->id,
+                'trade_configuration_id' => 1,
+                'kraken_api_key' => env('TRADER_K_API_KEY'),
+                'kraken_private_key' => env('TRADER_K_PRIVATE_KEY'),
             ]);
         }
     }
@@ -1017,6 +1118,12 @@ final class MartingalianSeeder extends Seeder
 
         // SECTION 17: Setup Bybit Integration (SchemaSeeder19, SchemaSeeder20, SchemaSeeder21)
         $this->setupBybitIntegration($trader, $apiSystems['bybit'], $quotes['usdt']);
+
+        // SECTION 17b: Setup Kraken Integration (separate user and account)
+        $this->setupKrakenIntegration($apiSystems['kraken'], $quotes['usdt']);
+
+        // SECTION 17c: Setup Binance-only Integration (separate user and account)
+        $this->setupBinanceOnlyIntegration($apiSystems['binance'], $quotes['usdt']);
 
         // SECTION 18: Cleanup Bybit Account Credentials (SchemaSeeder22)
         $this->cleanupAccountCredentials();

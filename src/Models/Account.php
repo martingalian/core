@@ -36,6 +36,8 @@ use Martingalian\Core\Concerns\Account\InteractsWithApis;
  * @property string|null $binance_api_secret
  * @property string|null $bybit_api_key
  * @property string|null $bybit_api_secret
+ * @property string|null $kraken_api_key
+ * @property string|null $kraken_private_key
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
@@ -63,6 +65,8 @@ final class Account extends BaseModel
         'binance_api_secret' => 'encrypted',
         'bybit_api_key' => 'encrypted',
         'bybit_api_secret' => 'encrypted',
+        'kraken_api_key' => 'encrypted',
+        'kraken_private_key' => 'encrypted',
         // Note: The following casts support Account::admin() in-memory instances
         // These columns don't exist in the accounts table (admin-only, stored in martingalian table)
         'coinmarketcap_api_key' => 'encrypted',

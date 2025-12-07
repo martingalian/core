@@ -11,13 +11,13 @@ use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\ApiSystem;
 
 /*
- * QueryPositionsJob
+ * QueryAccountPositionsJob
  *
  * • Queries the exchange for currently open positions on a specific account.
  * • Stores the API result in the `api_snapshots` table for subsequent jobs.
  * • Uses the API system's canonical name to assign proper limiter and handler.
  */
-final class QueryPositionsJob extends BaseApiableJob
+final class QueryAccountPositionsJob extends BaseApiableJob
 {
     public Account $account;
 

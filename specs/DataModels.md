@@ -144,9 +144,18 @@ $account = Account::factory()->create([
 **Schema**:
 - `id` - Identifier
 - `is_default` - Default configuration flag
+- `canonical` - Unique identifier (e.g., "standard")
+- `description` - Human-readable description
+- `least_timeframe_index_to_change_indicator` - Minimum timeframe index for direction change
+- `fast_trade_position_duration_seconds` - Position duration to consider "fast trade"
+- `fast_trade_position_closed_age_seconds` - Age threshold for fast trade consideration
 - `disable_exchange_symbol_from_negative_pnl_position` - Disable symbol after loss
 - `indicator_timeframes` (JSON) - Timeframes for analysis
+- `min_account_balance` (decimal, default 100) - Minimum account balance required to dispatch new positions
 - `created_at`, `updated_at`
+
+**Key Fields**:
+- `min_account_balance`: Used by `VerifyMinAccountBalanceJob` to stop position dispatching if account's `available-balance` falls below this threshold
 
 **Relationships**:
 - `hasMany(Account)` - Accounts using this config

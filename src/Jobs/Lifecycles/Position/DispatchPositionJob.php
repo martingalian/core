@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Lifecycles\Position;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
+use Martingalian\Core\Jobs\Models\Position\VerifyTradingPairNotOpenJob;
 use Martingalian\Core\Models\Position;
+use Martingalian\Core\Models\Step;
 
 /*
  * DispatchPositionJob
  *
  * Dispatches a single position for trading on the exchange.
- * TODO: Implement position dispatching logic (place orders, etc.)
+ * • Step 1: VerifyTradingPairNotOpenJob - Verifies trading pair is not already open, stops if it is
+ * • Step 2+: TODO - Remaining position dispatch steps (margin, leverage, orders, etc.)
  */
 final class DispatchPositionJob extends BaseQueueableJob
 {
@@ -40,7 +43,17 @@ final class DispatchPositionJob extends BaseQueueableJob
 
     public function compute()
     {
-        // TODO: Implement position dispatching logic
+        // Step 1: Verify trading pair is not already open on exchange
+        Step::create([
+            'class' => VerifyTradingPairNotOpenJob::class,
+            'arguments' => [
+                'positionId' => $this->position->id,
+            ],
+            'block_uuid' => $this->uuid(),
+            'index' => 1,
+        ]);
+
+        // TODO: Add remaining steps (margin, leverage, orders, etc.)
 
         return [
             'position_id' => $this->position->id,

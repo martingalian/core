@@ -71,6 +71,8 @@ return new class extends Migration
             $table->longText('binance_api_secret')->nullable();
             $table->longText('bybit_api_key')->nullable();
             $table->longText('bybit_api_secret')->nullable();
+            $table->longText('kraken_api_key')->nullable();
+            $table->longText('kraken_private_key')->nullable();
             $table->unsignedBigInteger('last_report_id')->nullable();
             $table->timestamps();
             $table->softDeletes();
@@ -296,6 +298,8 @@ return new class extends Migration
             $table->longText('binance_api_secret')->nullable();
             $table->longText('bybit_api_key')->nullable();
             $table->longText('bybit_api_secret')->nullable();
+            $table->longText('kraken_api_key')->nullable();
+            $table->longText('kraken_private_key')->nullable();
             $table->longText('coinmarketcap_api_key')->nullable();
             $table->longText('taapi_secret')->nullable();
             $table->json('notification_channels')->nullable();

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests;
+namespace Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
 use Martingalian\Core\Models\Account;
@@ -18,11 +18,33 @@ trait MapsPositionsQuery
         return $properties;
     }
 
+    /**
+     * Resolves Kraken open positions response.
+     *
+     * Kraken Futures response structure:
+     * {
+     *     "result": "success",
+     *     "openPositions": [
+     *         {
+     *             "side": "long",
+     *             "symbol": "PF_XBTUSD",
+     *             "price": 30000.0,
+     *             "fillTime": "2024-01-15T10:30:00.000Z",
+     *             "size": 1000,
+     *             "unrealizedPnl": 100.0
+     *         }
+     *     ]
+     * }
+     */
     public function resolveQueryPositionsResponse(Response $response): array
     {
-        $positions = collect(json_decode((string) $response->getBody(), true))
+        $body = json_decode((string) $response->getBody(), true);
+
+        $positionsList = $body['openPositions'] ?? [];
+
+        $positions = collect($positionsList)
             ->map(function ($position) {
-                // Format symbol using exchange-specific convention (BTCUSDT for Binance)
+                // Normalize the symbol format
                 if (isset($position['symbol'])) {
                     $parts = $this->identifyBaseAndQuote($position['symbol']);
                     $position['symbol'] = $this->baseWithQuote($parts['base'], $parts['quote']);
@@ -32,15 +54,17 @@ trait MapsPositionsQuery
             })
             ->keyBy(function ($position) {
                 // Key by symbol:direction to support hedge mode (LONG + SHORT on same symbol)
-                $direction = $position['positionSide'] ?? 'BOTH';
+                // Kraken uses 'side' with long/short values
+                $side = mb_strtoupper($position['side'] ?? 'BOTH');
+                $direction = $side === 'LONG' ? 'LONG' : ($side === 'SHORT' ? 'SHORT' : 'BOTH');
 
                 return $position['symbol'].':'.$direction;
             })
             ->toArray();
 
-        // Remove false positive positions (positionAmt = 0.0)
+        // Remove positions with zero size
         $positions = array_filter($positions, function ($position) {
-            return (float) $position['positionAmt'] !== 0.0;
+            return (float) ($position['size'] ?? 0) !== 0.0;
         });
 
         return $positions;

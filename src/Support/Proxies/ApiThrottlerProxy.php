@@ -7,6 +7,7 @@ namespace Martingalian\Core\Support\Proxies;
 use Martingalian\Core\Support\Throttlers\BinanceThrottler;
 use Martingalian\Core\Support\Throttlers\BybitThrottler;
 use Martingalian\Core\Support\Throttlers\CoinmarketCapThrottler;
+use Martingalian\Core\Support\Throttlers\KrakenThrottler;
 use Martingalian\Core\Support\Throttlers\TaapiThrottler;
 
 /**
@@ -30,6 +31,7 @@ final class ApiThrottlerProxy
             'coinmarketcap' => CoinmarketCapThrottler::class,
             'binance' => BinanceThrottler::class,
             'bybit' => BybitThrottler::class,
+            'kraken' => KrakenThrottler::class,
             default => null, // No throttler = no rate limiting
         };
     }

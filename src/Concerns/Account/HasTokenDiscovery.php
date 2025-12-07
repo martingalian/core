@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Concerns\Account;
 
 use Illuminate\Support\Collection;
+use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Symbol;
@@ -90,9 +91,49 @@ trait HasTokenDiscovery
          * availableExchangeSymbols() returns symbols that:
          * - Are tradeable (is_active=1, is_tradeable=1, has direction)
          * - Match account's trading_quote_id (usually USDT)
-         * - Are NOT already in opened positions for this account
+         * - Are NOT already in opened positions for this account (local DB)
+         *
+         * We then filter to only include symbols from this account's exchange.
          */
-        $this->availableExchangeSymbols = $this->availableExchangeSymbols();
+        $this->availableExchangeSymbols = $this->availableExchangeSymbols()
+            ->where('api_system_id', $this->api_system_id);
+
+        /*
+         * Step 1b: Exclude Tokens Already Open on Exchange
+         *
+         * Check api_snapshots for both:
+         * - 'account-positions': Open positions on exchange
+         * - 'account-open-orders': Pending orders on exchange
+         *
+         * Keys in account-positions are formatted as 'BTCUSDT:LONG'.
+         * Orders in account-open-orders have 'symbol' field (e.g., 'BTCUSDT').
+         */
+        $openTradingPairs = collect();
+
+        // Check open positions
+        $openPositionsOnExchange = ApiSnapshot::getFrom($this, 'account-positions') ?? [];
+        $positionPairs = collect(array_keys($openPositionsOnExchange))
+            ->map(function (string $key): string {
+                // Extract trading pair from 'BTCUSDT:LONG' -> 'BTCUSDT'
+                return explode(':', $key)[0];
+            });
+        $openTradingPairs = $openTradingPairs->merge($positionPairs);
+
+        // Check open orders
+        $openOrdersOnExchange = ApiSnapshot::getFrom($this, 'account-open-orders') ?? [];
+        $orderPairs = collect($openOrdersOnExchange)
+            ->pluck('symbol')
+            ->filter();
+        $openTradingPairs = $openTradingPairs->merge($orderPairs);
+
+        $openTradingPairs = $openTradingPairs->unique()->values();
+
+        if ($openTradingPairs->isNotEmpty()) {
+            $this->availableExchangeSymbols = $this->availableExchangeSymbols
+                ->filter(function (ExchangeSymbol $symbol) use ($openTradingPairs): bool {
+                    return ! $openTradingPairs->contains($symbol->parsed_trading_pair);
+                });
+        }
 
         /*
          * Step 2: Filter Pool - Only Complete Symbols

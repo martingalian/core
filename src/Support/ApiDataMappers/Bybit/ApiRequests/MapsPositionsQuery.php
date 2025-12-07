@@ -27,10 +27,10 @@ trait MapsPositionsQuery
 
         $positions = collect($positionsList)
             ->map(function ($position) {
-                // Normalize symbol from 'BTCUSDT' to 'BTC/USDT' format
+                // Format symbol using exchange-specific convention (BTCUSDT for Bybit)
                 if (isset($position['symbol'])) {
                     $parts = $this->identifyBaseAndQuote($position['symbol']);
-                    $position['symbol'] = $parts['base'].'/'.$parts['quote'];
+                    $position['symbol'] = $this->baseWithQuote($parts['base'], $parts['quote']);
                 }
 
                 return $position;
