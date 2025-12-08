@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\ExchangeSymbol;
 
+use Exception;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\NotificationService;
+use Martingalian\Core\Support\Proxies\TradingMapperProxy;
 
 /**
  * SendsNotifications
@@ -21,58 +23,24 @@ trait SendsNotifications
      * Send delisting notification if delivery date changed in a way that indicates delisting.
      * Called by ExchangeSymbolObserver::saved() after the symbol is saved.
      *
-     * Exchange-specific logic:
-     * - Binance: Delivery date changed (value → different value) = contract rollover/delisting
-     * - Bybit: Delivery date set (null → value) = perpetual being delisted
+     * Exchange-specific logic is delegated to TradingMapper classes.
      */
     public function sendDelistingNotificationIfNeeded(): void
     {
-        // Check if delivery_ts_ms changed - this works for both creates and updates
-        if (! $this->wasChanged('delivery_ts_ms')) {
+        $canonical = $this->apiSystem->canonical ?? null;
+
+        if (! $canonical) {
             return;
         }
 
-        $oldValue = $this->getOriginal('delivery_ts_ms');
-        $newValue = $this->delivery_ts_ms;
+        try {
+            $mapper = new TradingMapperProxy($canonical);
 
-        // Get exchange to determine notification logic
-        $exchange = $this->apiSystem->canonical ?? null;
-        if (! $exchange) {
-            return;
-        }
-
-        $shouldNotify = false;
-
-        // Binance perpetual default (Dec 25, 2100) - any other value indicates delisting
-        $binancePerpetualDefault = 4133404800000;
-
-        // Binance: Delivery date changed to non-perpetual value
-        // - First time set (null → value): Just initial sync, DO NOT notify
-        // - Changed (value → different value): Delisting reschedule, notify
-        // - Ignore perpetual default value (4133404800000)
-        if ($exchange === 'binance') {
-            $isDelistedValue = $newValue !== null && $newValue !== $binancePerpetualDefault;
-
-            if ($isDelistedValue) {
-                // Notify ONLY if: changed to different value (not first time set)
-                if ($oldValue !== null && $oldValue !== $newValue) {
-                    $shouldNotify = true;
-                }
+            if ($mapper->isNowDelisted($this)) {
+                $this->sendDelistingNotification($this->delivery_ts_ms);
             }
-        }
-
-        // Bybit: Delivery date set for first time (null → value)
-        // This indicates a perpetual is being delisted
-        // Also handle delivery date changes (rare but possible)
-        if ($exchange === 'bybit') {
-            if (($oldValue === null && $newValue !== null) ||
-                ($oldValue !== null && $newValue !== null && $oldValue !== $newValue)) {
-                $shouldNotify = true;
-            }
-        }
-
-        if ($shouldNotify) {
-            $this->sendDelistingNotification($newValue);
+        } catch (Exception $e) {
+            // Unsupported exchange - no delisting detection
         }
     }
 

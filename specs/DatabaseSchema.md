@@ -115,7 +115,8 @@ CREATE TABLE accounts (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     api_system_id BIGINT UNSIGNED NOT NULL COMMENT 'References api_systems (binance, bybit, kraken)',
-    quote_id BIGINT UNSIGNED NOT NULL COMMENT 'Trading quote currency (USDT, USD)',
+    portfolio_quote VARCHAR(20) DEFAULT 'USDT' COMMENT 'Quote currency for portfolio display',
+    trading_quote VARCHAR(20) DEFAULT 'USDT' COMMENT 'Quote currency for trading pairs',
     canonical VARCHAR(255) NOT NULL COMMENT 'User-friendly name',
     binance_api_key TEXT NULL COMMENT 'Encrypted - for Binance accounts',
     binance_api_secret TEXT NULL COMMENT 'Encrypted - for Binance accounts',
@@ -130,7 +131,6 @@ CREATE TABLE accounts (
 
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (api_system_id) REFERENCES api_systems(id),
-    FOREIGN KEY (quote_id) REFERENCES quotes(id),
     INDEX idx_user_id (user_id),
     INDEX idx_api_system_id (api_system_id),
     INDEX idx_is_active (is_active)
@@ -139,7 +139,8 @@ CREATE TABLE accounts (
 
 **Key Fields**:
 - `api_system_id`: References api_systems table (binance, bybit, kraken)
-- `quote_id`: Trading quote currency (USDT for Binance/Bybit, USD for Kraken)
+- `portfolio_quote`: Quote currency for portfolio display (string: 'USDT', 'USD')
+- `trading_quote`: Quote currency for trading pairs (string: 'USDT', 'USD')
 - `binance_api_key`/`binance_api_secret`: Binance credentials (encrypted)
 - `bybit_api_key`/`bybit_api_secret`: Bybit credentials (encrypted)
 - `kraken_api_key`/`kraken_private_key`: Kraken Futures credentials (encrypted)

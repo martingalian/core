@@ -43,22 +43,40 @@ trait MapsExchangeInformationQuery
 
         $instruments = $data['instruments'] ?? [];
 
-        return collect($instruments)
+        $filtered = collect($instruments)
             // Only include tradeable instruments
             ->filter(function ($instrument) {
                 return ($instrument['tradeable'] ?? false) === true;
             })
             // Only include perpetual futures (PF_ prefix for multi-collateral, PI_ for inverse)
+            // Excludes fixed-maturity futures like FF_XBTUSD_251226
             ->filter(function ($instrument) {
                 $symbol = $instrument['symbol'] ?? '';
-                $type = $instrument['type'] ?? '';
 
-                // Include flexible_futures (multi-collateral perpetuals)
-                // and perpetual_inverse contracts
-                return in_array($type, ['flexible_futures', 'perpetual_inverse'], true)
-                    || str_starts_with($symbol, 'PF_')
-                    || str_starts_with($symbol, 'PI_');
+                // Only include symbols starting with PF_ (perpetual flex) or PI_ (perpetual inverse)
+                // This excludes FF_ (fixed-maturity futures) which have expiry dates
+                return str_starts_with($symbol, 'PF_') || str_starts_with($symbol, 'PI_');
+            });
+
+        // Prioritize PF_ (flexible_futures) over PI_ (inverse) when both exist for same token/quote
+        // Group by base+quote, then select PF_ if available, otherwise PI_
+        $prioritized = $filtered
+            ->groupBy(function ($instrument) {
+                $baseQuote = $this->identifyBaseAndQuote($instrument['symbol']);
+
+                return $baseQuote['base'].'-'.$baseQuote['quote'];
             })
+            ->map(function ($group) {
+                // If group has a PF_ contract, use it; otherwise use the first available
+                $pfContract = $group->first(function ($instrument) {
+                    return str_starts_with($instrument['symbol'], 'PF_');
+                });
+
+                return $pfContract ?? $group->first();
+            })
+            ->values();
+
+        return $prioritized
             ->map(function ($instrument) {
                 // Kraken uses symbol format like PF_XBTUSD or PI_ETHUSD
                 $symbol = $instrument['symbol'] ?? '';
@@ -87,7 +105,10 @@ trait MapsExchangeInformationQuery
                     // Status and contract information
                     'status' => ($instrument['tradeable'] ?? false) ? 'Trading' : 'Break',
                     'contractType' => $instrument['type'] ?? null,
-                    'deliveryDate' => 0,
+                    // lastTradingTime indicates delisting - convert ISO 8601 to milliseconds
+                    'deliveryDate' => isset($instrument['lastTradingTime'])
+                        ? strtotime($instrument['lastTradingTime']) * 1000
+                        : null,
                     'onboardDate' => isset($instrument['openingDate'])
                         ? strtotime($instrument['openingDate']) * 1000
                         : 0,

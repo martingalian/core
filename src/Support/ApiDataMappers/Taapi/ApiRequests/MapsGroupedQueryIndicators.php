@@ -6,7 +6,6 @@ namespace Martingalian\Core\Support\ApiDataMappers\Taapi\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Database\Eloquent\Collection;
-use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
@@ -21,17 +20,10 @@ trait MapsGroupedQueryIndicators
 
         $apiDataMapper = new ApiDataMapperProxy('taapi');
 
-        // Check if there's a BaseAssetMapper entry for this symbol+exchange
-        $mapper = BaseAssetMapper::where('api_system_id', $exchangeSymbol->api_system_id)
-            ->where('symbol_token', $exchangeSymbol->symbol->token)
-            ->first();
-
-        // Use exchange_token if mapper exists, otherwise fallback to symbol token
-        $base = $mapper?->exchange_token ?? $exchangeSymbol->symbol->token;
-
+        // Token and quote are stored directly on exchange_symbols
         $symbol = $apiDataMapper->baseWithQuote(
-            $base,
-            $exchangeSymbol->quote->canonical
+            $exchangeSymbol->token,
+            $exchangeSymbol->quote
         );
 
         $properties->set('options.symbol', $symbol);

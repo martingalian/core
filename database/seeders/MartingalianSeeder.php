@@ -11,12 +11,10 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Models\TradeConfiguration;
 use Martingalian\Core\Models\User;
@@ -268,32 +266,6 @@ final class MartingalianSeeder extends Seeder
         ];
     }
 
-    /**
-     * Seed quotes and return them for reference.
-     */
-    public function seedQuotes(): array
-    {
-        $usdt = Quote::updateOrCreate(
-            ['canonical' => 'USDT'],
-            ['name' => 'USDT (Tether)']
-        );
-
-        $usdc = Quote::updateOrCreate(
-            ['canonical' => 'USDC'],
-            ['name' => 'USDC (USD Coin)']
-        );
-
-        $bfusdt = Quote::updateOrCreate(
-            ['canonical' => 'BFUSDT'],
-            ['name' => 'BFUSDT (USD Coin)']
-        );
-
-        return [
-            'usdt' => $usdt,
-            'usdc' => $usdc,
-            'bfusdt' => $bfusdt,
-        ];
-    }
 
     /**
      * Seed the Binance+Bybit user/trader.
@@ -334,7 +306,7 @@ final class MartingalianSeeder extends Seeder
     /**
      * Seed the Binance account for the Binance+Bybit trader.
      */
-    public function seedBinanceAccount(User $trader, ApiSystem $binance, Quote $usdt): void
+    public function seedBinanceAccount(User $trader, ApiSystem $binance): void
     {
         Account::updateOrCreate(
             [
@@ -344,8 +316,8 @@ final class MartingalianSeeder extends Seeder
             [
                 'uuid' => (string) Str::uuid(),
                 'name' => 'Main Binance Account',
-                'portfolio_quote_id' => $usdt->id,
-                'trading_quote_id' => $usdt->id,
+                'portfolio_quote' => 'USDT',
+                'trading_quote' => 'USDT',
                 'trade_configuration_id' => 1,
                 'binance_api_key' => env('TRADER_BB_BINANCE_API_KEY'),
                 'binance_api_secret' => env('TRADER_BB_BINANCE_API_SECRET'),
@@ -374,29 +346,6 @@ final class MartingalianSeeder extends Seeder
         Symbol::insert($rows);
     }
 
-    /**
-     * Seed Binance base asset mappers.
-     */
-    public function seedBinanceBaseAssetMappers(ApiSystem $binance): void
-    {
-        // From SchemaSeeder1 - BONK mapping
-        BaseAssetMapper::updateOrCreate(
-            [
-                'api_system_id' => $binance->id,
-                'symbol_token' => 'BONK',
-            ],
-            ['exchange_token' => '1000BONK']
-        );
-
-        // From SchemaSeeder2 - BROCCOLI mapping
-        BaseAssetMapper::updateOrCreate(
-            [
-                'api_system_id' => $binance->id,
-                'symbol_token' => 'BROCCOLI',
-            ],
-            ['exchange_token' => 'BROCCOLI714']
-        );
-    }
 
     /**
      * Seed steps dispatchers.
@@ -545,29 +494,11 @@ final class MartingalianSeeder extends Seeder
     }
 
     /**
-     * Setup Bybit integration: API system, mappers, and account.
+     * Setup Bybit integration: API system and account.
      */
-    public function setupBybitIntegration(User $trader, ApiSystem $bybitApiSystem, Quote $usdt): void
+    public function setupBybitIntegration(User $trader, ApiSystem $bybitApiSystem): void
     {
-        // SchemaSeeder19: Create Bybit base asset mappers
-        $mappers = [
-            ['symbol_token' => 'BONK', 'exchange_token' => '1000BONK'],
-            ['symbol_token' => 'BROCCOLI', 'exchange_token' => 'BROCCOLI714'],
-        ];
-
-        foreach ($mappers as $mapper) {
-            BaseAssetMapper::updateOrCreate(
-                [
-                    'api_system_id' => $bybitApiSystem->id,
-                    'symbol_token' => $mapper['symbol_token'],
-                ],
-                [
-                    'exchange_token' => $mapper['exchange_token'],
-                ]
-            );
-        }
-
-        // SchemaSeeder21: Create Bybit account for Binance+Bybit trader
+        // Create Bybit account for Binance+Bybit trader
         $existingBybitAccount = Account::where('user_id', $trader->id)
             ->where('api_system_id', $bybitApiSystem->id)
             ->first();
@@ -578,8 +509,8 @@ final class MartingalianSeeder extends Seeder
                 'name' => 'Main Bybit Account',
                 'user_id' => $trader->id,
                 'api_system_id' => $bybitApiSystem->id,
-                'portfolio_quote_id' => $usdt->id,
-                'trading_quote_id' => $usdt->id,
+                'portfolio_quote' => 'USDT',
+                'trading_quote' => 'USDT',
                 'trade_configuration_id' => 1,
                 'bybit_api_key' => env('TRADER_BB_BYBIT_API_KEY'),
                 'bybit_api_secret' => env('TRADER_BB_BYBIT_API_SECRET'),
@@ -590,7 +521,7 @@ final class MartingalianSeeder extends Seeder
     /**
      * Setup Binance-only integration: Create Binance-only user and account.
      */
-    public function setupBinanceOnlyIntegration(ApiSystem $binanceApiSystem, Quote $usdt): void
+    public function setupBinanceOnlyIntegration(ApiSystem $binanceApiSystem): void
     {
         // Create Binance-only user
         $binanceEmail = env('TRADER_B_EMAIL');
@@ -622,8 +553,8 @@ final class MartingalianSeeder extends Seeder
                 'name' => 'Main Binance Account',
                 'user_id' => $binanceUser->id,
                 'api_system_id' => $binanceApiSystem->id,
-                'portfolio_quote_id' => $usdt->id,
-                'trading_quote_id' => $usdt->id,
+                'portfolio_quote' => 'USDT',
+                'trading_quote' => 'USDT',
                 'trade_configuration_id' => 1,
                 'binance_api_key' => env('TRADER_B_BINANCE_API_KEY'),
                 'binance_api_secret' => env('TRADER_B_BINANCE_API_SECRET'),
@@ -634,7 +565,7 @@ final class MartingalianSeeder extends Seeder
     /**
      * Setup Kraken integration: Create Kraken user and account.
      */
-    public function setupKrakenIntegration(ApiSystem $krakenApiSystem, Quote $usdt): void
+    public function setupKrakenIntegration(ApiSystem $krakenApiSystem): void
     {
         // Create Kraken user (separate from the Binance+Bybit trader)
         $krakenEmail = env('TRADER_K_EMAIL');
@@ -666,8 +597,8 @@ final class MartingalianSeeder extends Seeder
                 'name' => 'Main Kraken Account',
                 'user_id' => $krakenUser->id,
                 'api_system_id' => $krakenApiSystem->id,
-                'portfolio_quote_id' => $usdt->id,
-                'trading_quote_id' => $usdt->id,
+                'portfolio_quote' => 'USDT',
+                'trading_quote' => 'USDT',
                 'trade_configuration_id' => 1,
                 'kraken_api_key' => env('TRADER_K_API_KEY'),
                 'kraken_private_key' => env('TRADER_K_PRIVATE_KEY'),
@@ -1074,23 +1005,17 @@ final class MartingalianSeeder extends Seeder
         // SECTION 2: Create API Systems (SchemaSeeder1)
         $apiSystems = $this->seedApiSystems();
 
-        // SECTION 3: Create Quotes (SchemaSeeder1)
-        $quotes = $this->seedQuotes();
-
-        // SECTION 4: Create User (SchemaSeeder1)
+        // SECTION 3: Create User (SchemaSeeder1)
         $trader = $this->seedUser();
 
-        // SECTION 5: Create Default Trade Configuration (SchemaSeeder1)
+        // SECTION 4: Create Default Trade Configuration (SchemaSeeder1)
         $this->seedTradeConfiguration();
 
-        // SECTION 6: Create Binance Account (SchemaSeeder1)
-        $this->seedBinanceAccount($trader, $apiSystems['binance'], $quotes['usdt']);
+        // SECTION 5: Create Binance Account (SchemaSeeder1)
+        $this->seedBinanceAccount($trader, $apiSystems['binance']);
 
-        // SECTION 7: Create Initial Symbols (SchemaSeeder1, SchemaSeeder2)
+        // SECTION 6: Create Initial Symbols (SchemaSeeder1, SchemaSeeder2)
         $this->seedSymbols();
-
-        // SECTION 8: Create Base Asset Mappers (SchemaSeeder1, SchemaSeeder2)
-        $this->seedBinanceBaseAssetMappers($apiSystems['binance']);
 
         // SECTION 9: Create StepsDispatcher (SchemaSeeder3, StepsDispatcherSeeder)
         $this->seedStepsDispatchers();
@@ -1117,13 +1042,13 @@ final class MartingalianSeeder extends Seeder
         $this->migrateMartingalianCredentials();
 
         // SECTION 17: Setup Bybit Integration (SchemaSeeder19, SchemaSeeder20, SchemaSeeder21)
-        $this->setupBybitIntegration($trader, $apiSystems['bybit'], $quotes['usdt']);
+        $this->setupBybitIntegration($trader, $apiSystems['bybit']);
 
         // SECTION 17b: Setup Kraken Integration (separate user and account)
-        $this->setupKrakenIntegration($apiSystems['kraken'], $quotes['usdt']);
+        $this->setupKrakenIntegration($apiSystems['kraken']);
 
         // SECTION 17c: Setup Binance-only Integration (separate user and account)
-        $this->setupBinanceOnlyIntegration($apiSystems['binance'], $quotes['usdt']);
+        $this->setupBinanceOnlyIntegration($apiSystems['binance']);
 
         // SECTION 18: Cleanup Bybit Account Credentials (SchemaSeeder22)
         $this->cleanupAccountCredentials();
@@ -1140,68 +1065,49 @@ final class MartingalianSeeder extends Seeder
         // SECTION 22: Seed Notifications
         $this->seedNotifications();
 
-        // SECTION 23: Seed Core Symbol Data (symbols, exchange_symbols, base_asset_mappers)
+        // SECTION 23: Seed Core Symbol Data (symbols, exchange_symbols)
         $this->seedCoreSymbolData();
     }
 
     /**
-     * Seed core symbol data from SQL dumps.
-     * This avoids running the 3-hour refresh-core-data discovery process.
-     * If dumps don't exist or are incompatible, seeding is skipped.
+     * Seed symbols table from SQL dump.
+     * Exchange symbols are populated separately via cronjobs:refresh-exchange-symbols.
+     * If dump doesn't exist or is incompatible, seeding is skipped.
      */
     private function seedCoreSymbolData(): void
     {
         $dumpsPath = __DIR__.'/../dumps';
+        $symbolsDump = $dumpsPath.'/symbols.sql';
 
-        $dumps = [
-            'symbols' => $dumpsPath.'/symbols.sql',
-            'exchange_symbols' => $dumpsPath.'/exchange_symbols.sql',
-            'base_asset_mappers' => $dumpsPath.'/base_asset_mappers.sql',
-        ];
-
-        // Check if all dump files exist
-        foreach ($dumps as $table => $file) {
-            if (! File::exists($file)) {
-                // Dumps don't exist - skip seeding (use refresh-core-data command instead)
-                return;
-            }
+        // Check if dump file exists
+        if (! File::exists($symbolsDump)) {
+            // Dump doesn't exist - skip seeding
+            return;
         }
 
         try {
             // Disable foreign key checks for truncation
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
-            // Truncate tables before loading dumps (in reverse order due to FK constraints)
-            DB::table('base_asset_mappers')->truncate();
-            DB::table('exchange_symbols')->truncate();
+            // Truncate symbols table before loading dump
             DB::table('symbols')->truncate();
 
-            // Execute each dump file in order
-            foreach ($dumps as $table => $file) {
-                $sql = File::get($file);
+            // Execute dump file
+            $sql = File::get($symbolsDump);
 
-                // Remove mysqldump warnings from SQL
-                $sql = preg_replace('/^mysqldump:.*$/m', '', $sql);
+            // Remove mysqldump warnings from SQL
+            $sql = preg_replace('/^mysqldump:.*$/m', '', $sql);
 
-                // Execute SQL using unprepared statements (faster for bulk inserts)
-                DB::unprepared($sql);
-            }
+            // Execute SQL using unprepared statements (faster for bulk inserts)
+            DB::unprepared($sql);
+
+            // Delete symbols without cmc_id (orphaned records from old workflows)
+            DB::table('symbols')->whereNull('cmc_id')->delete();
 
             // Re-enable foreign key checks
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
-
-            // Set default status for exchange_symbols with CMC IDs (not auto-disabled)
-            DB::unprepared('
-                UPDATE exchange_symbols es
-                INNER JOIN symbols s ON es.symbol_id = s.id
-                SET es.auto_disabled = 0,
-                    es.auto_disabled_reason = NULL,
-                    es.is_manually_enabled = 1
-                WHERE s.cmc_id IS NOT NULL
-            ');
         } catch (Throwable $e) {
-            // Dump files are incompatible with current schema - skip seeding
-            // User needs to regenerate dumps with: php artisan refresh-core-data
+            // Dump file is incompatible with current schema - skip seeding
             return;
         }
     }

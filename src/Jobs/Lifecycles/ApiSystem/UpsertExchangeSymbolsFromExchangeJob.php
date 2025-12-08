@@ -1,0 +1,124 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Martingalian\Core\Jobs\Lifecycles\ApiSystem;
+
+use Martingalian\Core\Abstracts\BaseApiableJob;
+use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\ApiSystem;
+use Martingalian\Core\Models\ExchangeSymbol;
+use Martingalian\Core\Models\Symbol;
+
+/**
+ * UpsertExchangeSymbolsFromExchangeJob
+ *
+ * Fetches all available symbols from an exchange API and upserts them
+ * directly into exchange_symbols table with token, quote, and metadata.
+ *
+ * This is the simplified approach that replaces the old CMC-lookup workflow.
+ * No symbol table lookup needed - we store token/quote directly.
+ */
+final class UpsertExchangeSymbolsFromExchangeJob extends BaseApiableJob
+{
+    public ApiSystem $apiSystem;
+
+    public function __construct(int $apiSystemId)
+    {
+        $this->apiSystem = ApiSystem::findOrFail($apiSystemId);
+    }
+
+    public function relatable()
+    {
+        return $this->apiSystem;
+    }
+
+    public function assignExceptionHandler()
+    {
+        $canonical = $this->apiSystem->canonical;
+        $this->exceptionHandler = BaseExceptionHandler::make($canonical)
+            ->withAccount(Account::admin($canonical));
+    }
+
+    public function startOrFail()
+    {
+        return $this->apiSystem->is_exchange;
+    }
+
+    public function computeApiable()
+    {
+        // Fetch all symbols from the exchange
+        // Mappers already filter out:
+        // - Symbols with underscores (test/synthetic symbols)
+        // - Non-perpetual contracts (only LinearPerpetual for Bybit, PERPETUAL for Binance)
+        // - Non-trading status symbols
+        $apiResponse = $this->apiSystem->apiQueryMarketData();
+
+        // Pre-load all symbols indexed by token for efficient lookup
+        $symbolsByToken = Symbol::pluck('id', 'token');
+
+        $upsertedCount = 0;
+        $linkedCount = 0;
+        $skippedCount = 0;
+
+        foreach ($apiResponse->result as $symbolData) {
+            $token = $symbolData['baseAsset'] ?? null;
+            $quote = $symbolData['quoteAsset'] ?? null;
+
+            if (! $token || ! $quote) {
+                $skippedCount++;
+
+                continue;
+            }
+
+            // Upsert exchange symbol with all available metadata
+            // Ensure precision values are non-negative (some exchanges return negative values)
+            $pricePrecision = $symbolData['pricePrecision'] ?? null;
+            $quantityPrecision = $symbolData['quantityPrecision'] ?? null;
+
+            if ($pricePrecision !== null && $pricePrecision < 0) {
+                $pricePrecision = 0;
+            }
+            if ($quantityPrecision !== null && $quantityPrecision < 0) {
+                $quantityPrecision = 0;
+            }
+
+            // Try to find matching symbol_id by token
+            $symbolId = $symbolsByToken->get($token);
+
+            if ($symbolId) {
+                $linkedCount++;
+            }
+
+            ExchangeSymbol::updateOrCreate(
+                [
+                    'token' => $token,
+                    'api_system_id' => $this->apiSystem->id,
+                    'quote' => $quote,
+                ],
+                [
+                    'symbol_id' => $symbolId,
+                    'price_precision' => $pricePrecision,
+                    'quantity_precision' => $quantityPrecision,
+                    'tick_size' => $symbolData['tickSize'] ?? null,
+                    'min_notional' => $symbolData['minNotional'] ?? null,
+                    'min_price' => $symbolData['minPrice'] ?? null,
+                    'max_price' => $symbolData['maxPrice'] ?? null,
+                    'delivery_ts_ms' => $symbolData['deliveryDate'] ?? null,
+                    'symbol_information' => $symbolData,
+                ]
+            );
+
+            $upsertedCount++;
+        }
+
+        return [
+            'exchange' => $this->apiSystem->canonical,
+            'upserted' => $upsertedCount,
+            'linked_to_symbols' => $linkedCount,
+            'skipped' => $skippedCount,
+            'total_from_api' => count($apiResponse->result),
+        ];
+    }
+}

@@ -224,7 +224,7 @@ final class NotificationMessageBuilder
                         "• Last Updated: {$oldestMinutes} minutes ago\n\n".
                         "🔍 RESOLUTION STEPS:\n\n".
                         "1. Check stale prices (symbols with auto_disabled=0 and stale mark_price_synced_at):\n".
-                        "[CMD]SELECT CONCAT(s.token, '/', q.canonical) AS pair, es.mark_price, es.mark_price_synced_at, TIMESTAMPDIFF(SECOND, es.mark_price_synced_at, NOW()) AS seconds_stale FROM exchange_symbols es JOIN symbols s ON es.symbol_id = s.id JOIN quotes q ON es.quote_id = q.id WHERE es.api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}') AND es.auto_disabled = 0 AND es.mark_price IS NOT NULL ORDER BY es.mark_price_synced_at ASC LIMIT 10;[/CMD]\n\n".
+                        "[CMD]SELECT CONCAT(es.token, '/', es.quote) AS pair, es.mark_price, es.mark_price_synced_at, TIMESTAMPDIFF(SECOND, es.mark_price_synced_at, NOW()) AS seconds_stale FROM exchange_symbols es WHERE es.api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}') AND es.auto_disabled = 0 AND es.mark_price IS NOT NULL ORDER BY es.mark_price_synced_at ASC LIMIT 10;[/CMD]\n\n".
                         "2. Check supervisor status:\n".
                         "[CMD]supervisorctl status update-{$exchangeLower}-prices[/CMD]\n\n".
                         "3. Check logs for errors:\n".
@@ -319,11 +319,11 @@ final class NotificationMessageBuilder
                 // Support both new format ('exchangeSymbol') and legacy format ('exchange_symbol')
                 $exchangeSymbol = $context['exchangeSymbol'] ?? ($context['exchange_symbol'] ?? null);
 
-                // Build display string manually: "SYMBOL/QUOTE@Exchange" for readability
+                // Build display string manually: "TOKEN/QUOTE@Exchange" for readability
                 $displayString = 'Exchange Symbol';
                 if ($exchangeSymbol) {
-                    $symbolToken = $exchangeSymbol->symbol?->token ?? 'UNKNOWN';
-                    $quoteCanonical = $exchangeSymbol->quote?->canonical ?? 'UNKNOWN';
+                    $symbolToken = $exchangeSymbol->token ?? 'UNKNOWN';
+                    $quoteCanonical = $exchangeSymbol->quote ?? 'UNKNOWN';
                     $exchangeName = $exchangeSymbol->apiSystem?->name ?? 'UNKNOWN';
                     $displayString = "{$symbolToken}/{$quoteCanonical}@{$exchangeName}";
                 }

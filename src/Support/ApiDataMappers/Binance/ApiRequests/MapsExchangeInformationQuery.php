@@ -54,7 +54,8 @@ trait MapsExchangeInformationQuery
                     // New fields needed for delisting/tradeability logic and metadata
                     'status' => $symbolData['status'] ?? null,     // e.g. TRADING, BREAK, SETTLING, DELIVERING, PENDING_TRADING
                     'contractType' => $symbolData['contractType'] ?? null,     // e.g. PERPETUAL, CURRENT_QUARTER, NEXT_QUARTER
-                    'deliveryDate' => isset($symbolData['deliveryDate']) ? (int) $symbolData['deliveryDate'] : 0, // ms epoch; >0 means delisting/settlement scheduled
+                    // deliveryDate in ms epoch; perpetuals have default 4133404800000 (Dec 25, 2100)
+                    'deliveryDate' => isset($symbolData['deliveryDate']) ? (int) $symbolData['deliveryDate'] : null,
                     'onboardDate' => isset($symbolData['onboardDate']) ? (int) $symbolData['onboardDate'] : 0, // ms epoch
                     'baseAsset' => $symbolData['baseAsset'] ?? null,
                     'quoteAsset' => $symbolData['quoteAsset'] ?? null,

@@ -69,7 +69,7 @@ final class CalculateBtcElasticityJob extends BaseQueueableJob
         $btcExchangeSymbol = ExchangeSymbol::query()
             ->where('symbol_id', $btcSymbol->id)
             ->where('api_system_id', $exchangeSymbol->api_system_id)
-            ->where('quote_id', $exchangeSymbol->quote_id)
+            ->where('quote', $exchangeSymbol->quote)
             ->first();
 
         if (! $btcExchangeSymbol) {

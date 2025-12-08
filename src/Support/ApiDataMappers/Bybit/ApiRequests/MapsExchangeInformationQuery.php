@@ -70,7 +70,11 @@ trait MapsExchangeInformationQuery
                     // Status and contract information
                     'status' => $symbolData['status'] ?? null,
                     'contractType' => $symbolData['contractType'] ?? null,
-                    'deliveryDate' => isset($symbolData['deliveryTime']) ? (int) $symbolData['deliveryTime'] : 0,
+                    // Bybit perpetuals have deliveryTime = "0" (string), which means no delivery
+                    // Only return a value when it's a real timestamp (> 0)
+                    'deliveryDate' => isset($symbolData['deliveryTime']) && (int) $symbolData['deliveryTime'] > 0
+                        ? (int) $symbolData['deliveryTime']
+                        : null,
                     'onboardDate' => isset($symbolData['launchTime']) ? (int) $symbolData['launchTime'] : 0,
                     'baseAsset' => $symbolData['baseCoin'] ?? null,
                     'quoteAsset' => $symbolData['quoteCoin'] ?? null,

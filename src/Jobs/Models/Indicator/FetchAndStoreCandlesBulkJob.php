@@ -11,7 +11,6 @@ use Illuminate\Support\Sleep;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
-use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
@@ -73,7 +72,7 @@ final class FetchAndStoreCandlesBulkJob extends BaseApiableJob
 
         // Load exchange symbols with relationships for construct building
         $this->exchangeSymbols = ExchangeSymbol::query()
-            ->with(['symbol', 'quote', 'apiSystem'])
+            ->with(['symbol', 'apiSystem'])
             ->whereIn('id', $exchangeSymbolIds)
             ->get()
             ->keyBy('id');
@@ -154,20 +153,11 @@ final class FetchAndStoreCandlesBulkJob extends BaseApiableJob
 
     /**
      * Build the symbol string for TAAPI API (e.g., "BTC/USDT").
-     * Uses BaseAssetMapper for token mapping if available.
+     * Uses token and quote columns directly from exchange_symbols.
      */
     private function buildSymbolForTaapi(ExchangeSymbol $exchangeSymbol): string
     {
-        // Check if there's a BaseAssetMapper entry for this symbol+exchange
-        $mapper = BaseAssetMapper::where('api_system_id', $exchangeSymbol->api_system_id)
-            ->where('symbol_token', $exchangeSymbol->symbol->token)
-            ->first();
-
-        // Use exchange_token if mapper exists, otherwise fallback to symbol token
-        $base = $mapper?->exchange_token ?? $exchangeSymbol->symbol->token;
-        $quote = $exchangeSymbol->quote->canonical;
-
-        return "{$base}/{$quote}";
+        return "{$exchangeSymbol->token}/{$exchangeSymbol->quote}";
     }
 
     /**
@@ -293,7 +283,6 @@ final class FetchAndStoreCandlesBulkJob extends BaseApiableJob
         }
 
         // Find matching exchange symbol by building TAAPI format and comparing
-        // Uses buildSymbolForTaapi() to ensure BaseAssetMapper lookups are consistent
         return $this->exchangeSymbols->first(function (ExchangeSymbol $es) use ($symbol, $exchange) {
             $apiCanonical = mb_strtolower($es->apiSystem->taapi_canonical ?? $es->apiSystem->canonical);
 

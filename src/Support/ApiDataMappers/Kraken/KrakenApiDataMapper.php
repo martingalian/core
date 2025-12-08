@@ -6,8 +6,6 @@ namespace Martingalian\Core\Support\ApiDataMappers\Kraken;
 
 use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseDataMapper;
-use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsAccountBalanceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsAccountQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsExchangeInformationQuery;
@@ -67,20 +65,10 @@ final class KrakenApiDataMapper extends BaseDataMapper
      * PF_ = Perpetual Flex (multi-collateral)
      * PI_ = Perpetual Inverse
      *
-     * Takes into account exceptions for the current token by leveraging
-     * BaseAssetMapper entries.
+     * Token and quote are stored directly on exchange_symbols.
      */
     public function baseWithQuote(string $token, string $quote): string
     {
-        $apiSystem = ApiSystem::firstWhere('canonical', 'kraken');
-
-        // Leverage the asset mapper to return the right token for the exchange (if available)
-        if ($apiSystem) {
-            $token = BaseAssetMapper::where('api_system_id', $apiSystem->id)
-                ->where('symbol_token', $token)
-                ->first()->exchange_token ?? $token;
-        }
-
         // Kraken uses XBT instead of BTC
         if ($token === 'BTC') {
             $token = 'XBT';

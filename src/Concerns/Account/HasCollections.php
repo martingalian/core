@@ -19,7 +19,7 @@ trait HasCollections
 
         return ExchangeSymbol::query()
             ->tradeable()
-            ->where('exchange_symbols.quote_id', $this->trading_quote_id)
+            ->where('exchange_symbols.quote', $this->trading_quote)
             ->whereNotIn('exchange_symbols.id', $activeIds)
             ->get()
             ->values();

@@ -7,14 +7,13 @@ namespace Martingalian\Core\Concerns\Position;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\ApiSnapshot;
-use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
 
 trait HasTradingActions
 {
     public function getParsedTradingPair(): ?string
     {
-        if (! $this->exchangeSymbol?->symbol?->token) {
+        if (! $this->exchangeSymbol?->token) {
             return null;
         }
 
@@ -22,15 +21,8 @@ trait HasTradingActions
 
         $dataMapper = new ApiDataMapperProxy($apiSystem->canonical);
 
-        $exchangeBaseAsset = BaseAssetMapper::where('symbol_token', $this->exchangeSymbol->symbol->token)
-            ->where('api_system_id', $apiSystem->id)
-            ->first();
-
-        $baseToken = $exchangeBaseAsset
-        ? $exchangeBaseAsset->exchange_token
-        : $this->exchangeSymbol->symbol->token;
-
-        return $dataMapper->baseWithQuote($baseToken, $this->exchangeSymbol->quote->canonical);
+        // Token and quote are stored directly on exchange_symbols
+        return $dataMapper->baseWithQuote($this->exchangeSymbol->token, $this->exchangeSymbol->quote);
     }
 
     public function isOpenedOnExchange()

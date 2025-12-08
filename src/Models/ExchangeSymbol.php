@@ -19,8 +19,9 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
 
 /**
  * @property int $id
- * @property int $symbol_id
- * @property int $quote_id
+ * @property string $token
+ * @property string $quote
+ * @property int|null $symbol_id
  * @property int $api_system_id
  * @property bool|null $is_manually_enabled
  * @property bool $auto_disabled
@@ -47,8 +48,7 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property \Illuminate\Support\Carbon|null $mark_price_synced_at
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
- * @property-read Symbol $symbol
- * @property-read Quote $quote
+ * @property-read Symbol|null $symbol
  * @property-read ApiSystem $apiSystem
  * @property-read string|null $parsed_trading_pair
  * @property-read string|null $parsed_trading_pair_extended
@@ -121,11 +121,6 @@ final class ExchangeSymbol extends BaseModel
     public function symbol(): BelongsTo
     {
         return $this->belongsTo(Symbol::class);
-    }
-
-    public function quote(): BelongsTo
-    {
-        return $this->belongsTo(Quote::class);
     }
 
     public function apiSystem(): BelongsTo

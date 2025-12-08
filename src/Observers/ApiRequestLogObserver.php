@@ -8,7 +8,6 @@ use DB;
 use Exception;
 use Martingalian\Core\Models\ApiRequestLog;
 use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Support\NotificationHandlers\BaseNotificationHandler;
@@ -229,24 +228,10 @@ final class ApiRequestLogObserver
             return null;
         }
 
-        // Check BaseAssetMapper for reverse mapping (e.g., 1000BONK → BONK)
-        $symbolToken = $baseToken;
-        $mapper = BaseAssetMapper::where('api_system_id', $apiSystem->id)
-            ->where('exchange_token', $baseToken)
-            ->first();
-
-        if ($mapper) {
-            $symbolToken = $mapper->symbol_token;
-        }
-
-        // Find the ExchangeSymbol
+        // Find the ExchangeSymbol using token and quote columns directly
         return ExchangeSymbol::where('api_system_id', $apiSystem->id)
-            ->whereHas('symbol', function ($q) use ($symbolToken) {
-                $q->where('token', $symbolToken);
-            })
-            ->whereHas('quote', function ($q) use ($quoteCanonical) {
-                $q->where('canonical', $quoteCanonical);
-            })
+            ->where('token', $baseToken)
+            ->where('quote', $quoteCanonical)
             ->first();
     }
 

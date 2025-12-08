@@ -70,7 +70,7 @@ trait HasTokenDiscovery
          *
          * Flow:
          * 1. Load available exchange symbols pool
-         * 2. Get BTC ExchangeSymbol (same api_system_id and quote_id)
+         * 2. Get BTC ExchangeSymbol (same api_system_id and quote)
          * 3. Check BTC direction:
          *    - HAS direction: Use BTC bias algorithm with BTC's timeframe
          *    - NO direction: Check btc_biased_restriction config
@@ -90,7 +90,7 @@ trait HasTokenDiscovery
          *
          * availableExchangeSymbols() returns symbols that:
          * - Are tradeable (is_active=1, is_tradeable=1, has direction)
-         * - Match account's trading_quote_id (usually USDT)
+         * - Match account's trading_quote (usually USDT)
          * - Are NOT already in opened positions for this account (local DB)
          *
          * We then filter to only include symbols from this account's exchange.
@@ -160,7 +160,7 @@ trait HasTokenDiscovery
          *
          * Find BTC's ExchangeSymbol with:
          * - Same api_system_id (same exchange: Binance/Bybit)
-         * - Same quote_id (same trading pair quote: USDT)
+         * - Same quote (same trading pair quote: USDT)
          *
          * BTC provides:
          * - direction: LONG/SHORT/null (market bias signal)
@@ -173,7 +173,7 @@ trait HasTokenDiscovery
             $btcExchangeSymbol = ExchangeSymbol::query()
                 ->where('symbol_id', $btcSymbol->id)
                 ->where('api_system_id', $this->api_system_id)
-                ->where('quote_id', $this->trading_quote_id)
+                ->where('quote', $this->trading_quote)
                 ->first();
         }
 

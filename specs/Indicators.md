@@ -316,7 +316,7 @@ Acts as final validation that price action aligns with other directional indicat
 Response IDs follow format: `binancefutures_BTC/USDT_1h_ema_40_2_1`
 - Parses exchange, symbol, interval from ID parts
 - Matches indicator by endpoint (e.g., 'ema') and optional period parameter
-- Uses `BaseAssetMapper` for symbol token mapping
+- Maps token directly from exchange_symbols.token
 
 **Computed Indicators**:
 After fetching API indicators, processes computed indicators (e.g., `EMAsSameDirection`):
@@ -546,10 +546,10 @@ The job handles two TAAPI response formats:
 ```
 
 **Symbol Matching**:
-Uses `BaseAssetMapper` to match TAAPI response IDs back to exchange symbols:
+Matches TAAPI response IDs back to exchange symbols:
 - Response ID format: `binancefutures_BTC/USDT_1h_candle_20_0_true`
 - Extracts token from ID using regex
-- Maps token to exchange_symbol_id via `BaseAssetMapper::getTaapiCanonical()`
+- Matches directly via `exchange_symbols.token`
 
 **Upsert Logic**:
 - Uses `updateOrCreate()` with composite key: `exchange_symbol_id` + `timestamp` + `timeframe`

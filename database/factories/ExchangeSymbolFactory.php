@@ -7,7 +7,6 @@ namespace Martingalian\Core\Database\Factories;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Models\Quote;
 use Martingalian\Core\Models\Symbol;
 
 /**
@@ -23,14 +22,14 @@ final class ExchangeSymbolFactory extends Factory
     public function definition(): array
     {
         return [
-            'symbol_id' => Symbol::factory(),
-            'quote_id' => Quote::factory(),
+            'token' => strtoupper(fake()->lexify('???')),
+            'quote' => 'USDT',
+            'symbol_id' => null,
             'api_system_id' => ApiSystem::factory(),
             'is_manually_enabled' => true,
             'auto_disabled' => false,
             'auto_disabled_reason' => null,
             'has_taapi_data' => false,
-            'receives_indicator_data' => true,
             'direction' => null,
             'percentage_gap_long' => 8.50,
             'percentage_gap_short' => 9.50,

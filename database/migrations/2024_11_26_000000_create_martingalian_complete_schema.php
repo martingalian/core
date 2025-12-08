@@ -199,7 +199,6 @@ return new class extends Migration
             $table->json('btc_correlation_rolling')->nullable();
             $table->json('btc_elasticity_long')->nullable();
             $table->json('btc_elasticity_short')->nullable();
-            $table->boolean('receives_indicator_data')->default(true)->comment('Whether this symbol should receive indicator data from Taapi');
             $table->timestamp('mark_price_synced_at')->nullable()->index('idx_mark_price_synced_at');
             $table->timestamp('tradeable_at')->nullable()->comment('Cooldown timestamp so a symbol cannot be tradeable until a certain moment');
             $table->timestamps();
@@ -208,7 +207,6 @@ return new class extends Migration
             $table->index('auto_disabled', 'idx_exchange_symbols_auto_disabled');
             $table->index(['api_system_id', 'auto_disabled'], 'idx_exchange_symbols_api_auto_disabled');
             $table->index('direction', 'idx_exchange_symbols_direction');
-            $table->index('receives_indicator_data', 'idx_exchange_symbols_receives_indicator_data');
         });
 
         // candles table (requires exchange_symbols to exist first)

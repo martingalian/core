@@ -72,11 +72,8 @@ public function identifyBaseAndQuote(string $token): array; // Parses trading pa
 
 **Trading Pair Handling**:
 ```php
-// Build trading pair
+// Build trading pair (simple concatenation)
 $pair = $mapper->baseWithQuote('BTC', 'USDT'); // Returns: "BTCUSDT"
-
-// Handle special cases via BaseAssetMapper
-// 1000PEPEUSDT → PEPEUSDT (exchange uses 1000x multiplier)
 
 // Parse trading pair
 $parts = $mapper->identifyBaseAndQuote('BTCUSDT');
@@ -378,46 +375,6 @@ This ensures consistency with `Position::parsed_trading_pair` and enables symbol
 
 ---
 
-### BaseAssetMapper Pattern
-Handles exchange-specific symbol naming differences.
-
-**Problem**: Exchanges use different naming conventions for the same asset.
-- Binance: `1000PEPEUSDT` (1000x multiplier for low-priced coins)
-- Our system: `PEPEUSDT` (canonical name)
-
-**Solution**: BaseAssetMapper model stores mappings.
-
-**Schema**:
-- `api_system_id` - Exchange (Binance, Bybit)
-- `symbol_id` - Our canonical symbol (PEPE)
-- `exchange_base_asset` - Exchange's name (1000PEPE)
-- `canonical_base_asset` - Our name (PEPE)
-
-**Usage in Mapper**:
-```php
-public function baseWithQuote(string $token, string $quote): string
-{
-    $apiSystem = ApiSystem::firstWhere('canonical', 'binance');
-
-    // Check for special mapping
-    $mappedToken = BaseAssetMapper::where('api_system_id', $apiSystem->id)
-        ->where('symbol_token', $token)
-        ->first()
-        ->exchange_token ?? $token;
-
-    return $mappedToken . $quote; // "1000PEPEUSDT"
-}
-```
-
-**Examples**:
-| Canonical | Binance | Bybit |
-|-----------|---------|-------|
-| PEPE | 1000PEPEUSDT | PEPEUSDT |
-| SHIB | 1000SHIBUSDT | SHIBUSDT |
-| FLOKI | 1000FLOKIUSDT | FLOKIUSDT |
-
----
-
 ## Data Formatting Helpers
 
 ### Price Formatting
@@ -679,7 +636,6 @@ class PlaceOrderJob extends BaseApiableJob
 **Location**: `tests/Unit/ApiDataMappers/`
 - Request property mapping
 - Response transformation
-- BaseAssetMapper lookups
 - Price/quantity formatting
 - Trading pair parsing
 
@@ -735,14 +691,12 @@ $price = api_format_price(45678.123456789, $exchangeSymbol);
 ```
 
 ### Symbol Name Mapping
-**Problem**: Forgetting BaseAssetMapper
-**Solution**: Always use mapper's `baseWithQuote()`
+**Problem**: Inconsistent symbol building across codebase
+**Solution**: Always use mapper's `baseWithQuote()` for consistency
 ```php
-// Wrong
-$symbol = $token . $quote; // May miss 1000PEPE mapping
-
-// Right
+// Consistent approach
 $symbol = $mapper->baseWithQuote($token, $quote);
+// Handles exchange-specific formatting (e.g., Bybit PERP suffix for USDC pairs)
 ```
 
 ---
@@ -792,13 +746,13 @@ Both exchanges normalize to identical JSON structure:
 
 **Problem**: Bybit's API doesn't return all symbols without pagination. When queried without a symbol parameter, it returns ~15 random symbols.
 
-**Solution**: Query each symbol individually using the symbol from `symbol_information.pair`:
+**Solution**: Query each symbol individually using the symbol's token and quote:
 ```php
 // Build symbol string using mapper (handles PERP suffix)
 $mapper = $this->exchangeSymbol->apiSystem->apiMapper();
 $symbolString = $mapper->baseWithQuote(
-    $this->exchangeSymbol->symbol->token,
-    $this->exchangeSymbol->quote->canonical
+    $this->exchangeSymbol->token,
+    $this->exchangeSymbol->quote
 );
 // For USDC: Returns "BNBPERP"
 // For USDT: Returns "BNBUSDT"

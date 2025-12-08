@@ -6,7 +6,6 @@ namespace Martingalian\Core\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Martingalian\Core\Abstracts\BaseModel;
-use Martingalian\Core\Concerns\Symbol\HasBaseAssetParsing;
 use Martingalian\Core\Concerns\Symbol\InteractsWithApis;
 use Martingalian\Core\Database\Factories\SymbolFactory;
 
@@ -24,7 +23,6 @@ use Martingalian\Core\Database\Factories\SymbolFactory;
  */
 final class Symbol extends BaseModel
 {
-    use HasBaseAssetParsing;
     use HasFactory;
     use InteractsWithApis;
 

@@ -6,8 +6,6 @@ namespace Martingalian\Core\Support\ApiDataMappers\Binance;
 
 use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseDataMapper;
-use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsAccountBalanceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsAccountQuery;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsAccountQueryTrades;
@@ -82,21 +80,10 @@ final class BinanceApiDataMapper extends BaseDataMapper
 
     /**
      * Returns the well formed base symbol with the quote on it.
-     * E.g.: AVAXUSDT. On other cases, for other exchanges, it can
-     * return AVAX/USDT (Coinbase for instance).
-     *
-     * Takes in account, exceptions for the current token by leveraging
-     * BaseAssetMapper entries.
+     * E.g.: AVAXUSDT. Token and quote are stored directly on exchange_symbols.
      */
     public function baseWithQuote(string $token, string $quote): string
     {
-        $apiSystem = ApiSystem::firstWhere('canonical', 'binance');
-
-        // Leverage the asset mapper to return the right token for the exchange.
-        $token = BaseAssetMapper::where('api_system_id', $apiSystem->id)
-            ->where('symbol_token', $token)
-            ->first()->exchange_token ?? $token;
-
         return $token.$quote;
     }
 

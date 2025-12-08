@@ -25,8 +25,8 @@ use Martingalian\Core\Concerns\Account\InteractsWithApis;
  * @property int $api_system_id
  * @property string $name
  * @property int $trade_configuration_id
- * @property int|null $portfolio_quote_id
- * @property int|null $trading_quote_id
+ * @property string|null $portfolio_quote
+ * @property string|null $trading_quote
  * @property float|null $margin
  * @property bool $can_trade
  * @property int|null $last_notified_account_balance_history_id
@@ -151,21 +151,6 @@ final class Account extends BaseModel
         return $this->belongsTo(ApiSystem::class);
     }
 
-    /**
-     * @return BelongsTo<Quote, $this>
-     */
-    public function portfolioQuote(): BelongsTo
-    {
-        return $this->belongsTo(Quote::class, 'portfolio_quote_id');
-    }
-
-    /**
-     * @return BelongsTo<Quote, $this>
-     */
-    public function tradingQuote(): BelongsTo
-    {
-        return $this->belongsTo(Quote::class, 'trading_quote_id');
-    }
 
     /**
      * @return MorphMany<ApiSnapshot, $this>

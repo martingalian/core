@@ -4,17 +4,15 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\ExchangeSymbol;
 
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Models\BaseAssetMapper;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
 
 trait HasAccessors
 {
     /**
      * Accessor for the `parsed_trading_pair` attribute.
-     * Returns a unified trading pair string from exchange and quote tokens.
-     * This is a derived value, not persisted in the database.
+     * Returns a unified trading pair string from token and quote.
+     * Token and quote are now stored directly on exchange_symbols.
      */
     public function getParsedTradingPairAttribute(): ?string
     {
@@ -25,15 +23,7 @@ trait HasAccessors
 
         $dataMapper = new ApiDataMapperProxy($apiSystem->canonical);
 
-        $exchangeBaseAsset = BaseAssetMapper::where('symbol_token', $this->symbol->token)
-            ->where('api_system_id', $this->api_system_id)
-            ->first();
-
-        $baseToken = $exchangeBaseAsset
-        ? $exchangeBaseAsset->exchange_token
-        : $this->symbol->token;
-
-        return $dataMapper->baseWithQuote($baseToken, $this->quote->canonical);
+        return $dataMapper->baseWithQuote($this->token, $this->quote);
     }
 
     public function getParsedTradingPairExtendedAttribute(): ?string

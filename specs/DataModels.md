@@ -49,8 +49,8 @@ Comprehensive catalog of all Eloquent models in the Martingalian Core package. D
 - `api_system_id` - FK to api_systems (Binance, Bybit)
 - `name` (NOT NULL) - User-friendly account name for identification in notifications (e.g., "Main Binance Account")
 - `trade_configuration_id` - FK to trade_configuration - **REQUIRED**
-- `portfolio_quote_id` - FK to quotes (portfolio valuation currency)
-- `trading_quote_id` - FK to quotes (trading pair quote currency)
+- `portfolio_quote` - Quote currency string for portfolio valuation (e.g., 'USDT', 'USD')
+- `trading_quote` - Quote currency string for trading pairs (e.g., 'USDT', 'USD')
 - `margin` - Available margin
 - `can_trade` - Trading enabled flag
 - `last_notified_account_balance_history_id` - Last balance notification
@@ -86,8 +86,6 @@ $account = Account::factory()->create([
 - `belongsTo(User)` - Account owner
 - `belongsTo(ApiSystem)` - Exchange/API provider
 - `belongsTo(TradeConfiguration)` - Trading rules
-- `belongsTo(Quote, 'portfolio_quote_id')` - Portfolio currency
-- `belongsTo(Quote, 'trading_quote_id')` - Trading currency
 - `hasMany(Position)` - Open/closed positions
 - `hasMany(ForbiddenHostname)` - Blocked API endpoints
 - `hasMany(AccountBalanceHistory)` - Balance snapshots
@@ -201,51 +199,15 @@ $symbol = Symbol::where('canonical', 'btc')->first();  // Field doesn't exist!
 
 ---
 
-### Quote
-**Location**: `Martingalian\Core\Models\Quote`
-**Purpose**: Quote currency (USDT, USD, BTC)
-
-**Schema**:
-- `id` - Identifier
-- `canonical` - Unique identifier (usdt, usd, btc) - **NOT 'token'**
-- `name` - Display name (Tether, US Dollar, Bitcoin)
-- `created_at`, `updated_at`
-
-**IMPORTANT**: Quotes use `canonical` field, NOT `token`:
-```php
-// ✓ CORRECT
-$quote = Quote::where('canonical', 'usdt')->first();
-$quote = Quote::firstOrCreate(['canonical' => 'usdt'], ['name' => 'Tether']);
-
-// ❌ WRONG
-$quote = Quote::where('token', 'USDT')->first();  // Field doesn't exist!
-```
-
-**Critical Distinction**:
-- **Symbol** (base assets like BTC, ETH) uses `token` field
-- **Quote** (quote assets like USDT, USD) uses `canonical` field
-- They are **separate models** with **separate tables**
-- ExchangeSymbol links both: `symbol_id` + `quote_id`
-
-**Relationships**:
-- `hasMany(ExchangeSymbol)` - Symbols quoted in this currency
-- `hasMany(Account, 'portfolio_quote_id')` - Accounts valued in this currency
-- `hasMany(Account, 'trading_quote_id')` - Accounts trading in this currency
-
-**No Concerns**
-
-**Observer**: `QuoteObserver`
-
----
-
 ### ExchangeSymbol
 **Location**: `Martingalian\Core\Models\ExchangeSymbol`
 **Purpose**: Trading pair on specific exchange (BTCUSDT on Binance)
 
 **Schema**:
 - `id` - Identifier
-- `symbol_id` - FK to symbols (base asset)
-- `quote_id` - FK to quotes (quote asset)
+- `token` - Base asset token (e.g., 'BTC', 'ETH', 'SOL')
+- `quote` - Quote currency (e.g., 'USDT', 'USD')
+- `symbol_id` - Optional FK to symbols (for CMC metadata enrichment, nullable)
 - `api_system_id` - FK to api_systems (exchange)
 - `is_manually_enabled` (nullable boolean) - Admin override (NULL=follow auto, true=force enable, false=force disable)
 - `auto_disabled` (boolean) - System automatic deactivation flag
@@ -282,8 +244,7 @@ $quote = Quote::where('token', 'USDT')->first();  // Field doesn't exist!
    - `false` = Skip indicator fetching (set by ApiRequestLogObserver after 3+ consecutive failures)
 
 **Relationships**:
-- `belongsTo(Symbol)` - Base asset
-- `belongsTo(Quote)` - Quote asset
+- `belongsTo(Symbol)` - Optional CMC metadata (nullable)
 - `belongsTo(ApiSystem)` - Exchange
 - `hasMany(PriceHistory)` - Price snapshots
 - `hasMany(Candle)` - OHLCV candles
@@ -304,16 +265,15 @@ $quote = Quote::where('token', 'USDT')->first();  // Field doesn't exist!
 - `InteractsWithApis` - Exchange API interactions
 - `SendsNotifications` - Notification dispatching
 
-**Critical HasAccessors Pattern**:
-The `HasAccessors` trait provides the `parsed_trading_pair` accessor which accesses:
+**Direct Token/Quote Access**:
+ExchangeSymbol stores `token` and `quote` directly as strings:
 ```php
-// ✓ CORRECT: Access quote->canonical and symbol->token
-$exchangeSymbol->quote->canonical  // Quote uses 'canonical'
-$exchangeSymbol->symbol->token     // Symbol uses 'token'
+// ✓ Simple and direct
+$exchangeSymbol->token  // 'BTC'
+$exchangeSymbol->quote  // 'USDT'
 
-// ❌ WRONG: These fields don't exist
-$exchangeSymbol->quote->token      // Quote doesn't have 'token'!
-$exchangeSymbol->symbol->canonical // Symbol doesn't have 'canonical'!
+// The parsed_trading_pair accessor uses these directly
+$exchangeSymbol->parsed_trading_pair  // 'BTCUSDT'
 ```
 
 **Observer**: `ExchangeSymbolObserver`
@@ -854,26 +814,6 @@ $exchangeSymbol->symbol->canonical // Symbol doesn't have 'canonical'!
 **No Concerns**
 
 **No Observer**
-
----
-
-### BaseAssetMapper
-**Location**: `Martingalian\Core\Models\BaseAssetMapper`
-**Purpose**: Maps exchange-specific symbol names to canonical symbols
-
-**Schema**:
-- `id` - Identifier
-- `api_system_id` - FK to api_systems
-- `symbol_id` - FK to symbols
-- `exchange_base_asset` - Exchange's symbol name (e.g., "1000PEPEUSDT")
-- `canonical_base_asset` - Canonical name (e.g., "PEPE")
-- `created_at`, `updated_at`
-
-**Relationships**:
-- `belongsTo(ApiSystem)` - Exchange
-- `belongsTo(Symbol)` - Canonical symbol
-
-**Observer**: `BaseAssetMapperObserver`
 
 ---
 
