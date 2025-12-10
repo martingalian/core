@@ -129,7 +129,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
         }
 
         return [
-            'exchange' => mb_strtolower($exchangeSymbol->apiSystem->taapi_canonical),
+            'exchange' => 'binancefutures',
             'symbol' => str_replace('-', '/', $exchangeSymbol->symbol->token.'/'.$exchangeSymbol->quote->canonical),
             'interval' => $this->timeframe,
             'indicators' => $indicatorsArray,

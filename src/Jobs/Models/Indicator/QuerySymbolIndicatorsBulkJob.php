@@ -149,7 +149,7 @@ final class QuerySymbolIndicatorsBulkJob extends BaseApiableJob
 
             $constructs[] = [
                 'id' => (string) $exchangeSymbol->id,
-                'exchange' => mb_strtolower($exchangeSymbol->apiSystem->taapi_canonical ?? $exchangeSymbol->apiSystem->canonical),
+                'exchange' => 'binancefutures',
                 'symbol' => $this->buildSymbolForTaapi($exchangeSymbol),
                 'interval' => $this->timeframe,
                 'indicators' => $indicatorsArray,
@@ -403,12 +403,11 @@ final class QuerySymbolIndicatorsBulkJob extends BaseApiableJob
     private function findExchangeSymbolFromResponse(string $exchange, string $symbol): ?ExchangeSymbol
     {
         return $this->exchangeSymbols->first(function (ExchangeSymbol $es) use ($symbol, $exchange) {
-            $apiCanonical = mb_strtolower($es->apiSystem->taapi_canonical ?? $es->apiSystem->canonical);
-
             // Build the TAAPI symbol format using the same method as request building
             $taapiSymbol = $this->buildSymbolForTaapi($es);
 
-            return $taapiSymbol === $symbol && $apiCanonical === $exchange;
+            // TAAPI always uses 'binancefutures' as exchange
+            return $taapiSymbol === $symbol && $exchange === 'binancefutures';
         });
     }
 

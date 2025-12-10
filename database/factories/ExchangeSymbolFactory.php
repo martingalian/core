@@ -29,7 +29,7 @@ final class ExchangeSymbolFactory extends Factory
             'is_manually_enabled' => true,
             'auto_disabled' => false,
             'auto_disabled_reason' => null,
-            'has_taapi_data' => false,
+            'api_statuses' => [],
             'direction' => null,
             'percentage_gap_long' => 8.50,
             'percentage_gap_short' => 9.50,
@@ -70,14 +70,35 @@ final class ExchangeSymbolFactory extends Factory
     }
 
     /**
-     * State: Inactive due to no TAAPI data.
+     * State: TAAPI verified with data available.
+     */
+    public function taapiVerified(): static
+    {
+        return $this->state(function (array $attributes) {
+            $apiStatuses = $attributes['api_statuses'] ?? [];
+            $apiStatuses['taapi_verified'] = true;
+            $apiStatuses['has_taapi_data'] = true;
+
+            return [
+                'api_statuses' => $apiStatuses,
+            ];
+        });
+    }
+
+    /**
+     * State: TAAPI verified but no data available.
      */
     public function noTaapiData(): static
     {
         return $this->state(function (array $attributes) {
+            $apiStatuses = $attributes['api_statuses'] ?? [];
+            $apiStatuses['taapi_verified'] = true;
+            $apiStatuses['has_taapi_data'] = false;
+
             return [
                 'auto_disabled' => true,
                 'auto_disabled_reason' => 'no_indicator_data',
+                'api_statuses' => $apiStatuses,
             ];
         });
     }

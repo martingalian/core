@@ -1,7 +1,7 @@
 # API Clients
 
 ## Overview
-External API integration layer supporting cryptocurrency exchanges (Binance, Bybit, Kraken Futures), market data providers (TAAPI, CoinMarketCap), and sentiment analysis (Alternative.me). All clients include exception handling, rate limiting, and user-friendly error notifications.
+External API integration layer supporting cryptocurrency exchanges (Binance, Bybit, Kraken Futures, KuCoin Futures, BitGet Futures), market data providers (TAAPI, CoinMarketCap), and sentiment analysis (Alternative.me). All clients include exception handling, rate limiting, and user-friendly error notifications.
 
 ## Architecture
 
@@ -26,6 +26,8 @@ External API integration layer supporting cryptocurrency exchanges (Binance, Byb
    - `BinanceExceptionHandler` - Handles Binance-specific errors, delegates to BinanceThrottler
    - `BybitExceptionHandler` - Handles Bybit-specific errors, delegates to BybitThrottler
    - `KrakenExceptionHandler` - Handles Kraken Futures errors, delegates to KrakenThrottler
+   - `KucoinExceptionHandler` - Handles KuCoin Futures errors, delegates to KucoinThrottler
+   - `BitgetExceptionHandler` - Handles BitGet Futures errors, delegates to BitgetThrottler
    - `TaapiExceptionHandler` - Handles TAAPI errors (no IP ban tracking)
    - `CoinMarketCapExceptionHandler` - Handles CoinMarketCap errors (no IP ban tracking)
    - `AlternativeMeExceptionHandler` - Handles Alternative.me errors (no IP ban tracking)
@@ -34,6 +36,8 @@ External API integration layer supporting cryptocurrency exchanges (Binance, Byb
    - `BinanceThrottler` - Parses Binance headers, IP ban tracking, rate limit proximity (>80%)
    - `BybitThrottler` - Conservative limits (500 req/5s = 83% of 600 limit), IP ban tracking
    - `KrakenThrottler` - Conservative limits (500 req/10s), IP ban tracking
+   - `KucoinThrottler` - Conservative limits (90 req/60s), IP ban tracking
+   - `BitgetThrottler` - Conservative limits (90 req/60s), IP ban tracking
    - `TaapiThrottler` - Simple throttling (no IP ban tracking)
    - Two-phase throttling: `isSafeToDispatch()` (IP ban, proximity) + `canDispatch()` (window limits, backoff)
 
@@ -149,6 +153,165 @@ Streams:
 - Ticker streams for mark prices
 - Ping every 60 seconds (Kraken requirement)
 - Challenge-based authentication for private feeds
+
+### KuCoin Futures
+
+**REST API Client**: `packages/martingalian/core/src/Support/ApiClients/Rest/KucoinApiClient.php`
+
+Features:
+- KuCoin Futures API (derivatives)
+- Account information
+- Positions and orders
+- Market data
+- HMAC-SHA256 signature authentication with 3 credentials
+- Passphrase is HMAC-encrypted before sending (unlike BitGet)
+
+Rate Limits:
+- 500 requests per 10 seconds per IP
+- Conservative throttler: 90 requests per 60 seconds
+
+Authentication:
+```php
+// KuCoin Futures signing algorithm:
+// 1. Build signature payload: timestamp + method + endpoint + body
+$timestamp = (string) round(microtime(true) * 1000);
+$stringToSign = $timestamp . strtoupper($method) . $endpoint . $body;
+
+// 2. Sign with HMAC-SHA256
+$signature = base64_encode(hash_hmac('sha256', $stringToSign, $secret, true));
+
+// 3. ENCRYPT passphrase with HMAC-SHA256 (KEY DIFFERENCE from BitGet!)
+$encryptedPassphrase = base64_encode(hash_hmac('sha256', $passphrase, $secret, true));
+
+// Headers
+'KC-API-KEY' => $apiKey
+'KC-API-SIGN' => $signature
+'KC-API-TIMESTAMP' => $timestamp
+'KC-API-PASSPHRASE' => $encryptedPassphrase  // ENCRYPTED!
+'KC-API-KEY-VERSION' => '2'
+```
+
+Common Errors:
+- `400100`: Invalid API-Key
+- `411100`: User is frozen
+- `429000`: Rate limit exceeded
+- `300000`: Internal error (retryable)
+- `401`: Authentication failed
+- `403`: Forbidden
+
+Environment Variables:
+```env
+KUCOIN_API_KEY=xxx
+KUCOIN_API_SECRET=xxx
+KUCOIN_PASSPHRASE=xxx
+```
+
+**WebSocket Client**: `packages/martingalian/core/src/Support/ApiClients/Websocket/KucoinApiClient.php`
+
+Connection Flow (requires token from REST API first):
+1. Fetch WebSocket token via REST: `POST /api/v1/bullet-public`
+2. Connect to returned URL with token
+3. Subscribe to ticker channels
+4. Send ping every 30 seconds
+
+Streams:
+- URL from token response (dynamic)
+- Ticker streams for mark prices
+- Ping every 30 seconds
+
+### BitGet Futures
+
+**REST API Client**: `packages/martingalian/core/src/Support/ApiClients/Rest/BitgetApiClient.php`
+
+Features:
+- BitGet Futures V2 API (derivatives)
+- Account information
+- Positions and orders
+- Market data
+- HMAC-SHA256 signature authentication with 3 credentials
+- Passphrase is sent as PLAIN TEXT (unlike KuCoin)
+
+Rate Limits:
+- 6000 requests per minute per IP
+- 20 requests per second (public endpoints)
+- 10 requests per second (order endpoints)
+- Conservative throttler: 90 requests per 60 seconds
+
+Authentication:
+```php
+// BitGet Futures signing algorithm:
+// 1. Build signature payload: timestamp + method + endpoint + queryString/body
+$timestamp = (string) round(microtime(true) * 1000);
+$queryString = $method === 'GET' ? http_build_query($options) : '';
+$body = in_array($method, ['POST', 'PUT']) ? json_encode($options) : '';
+$stringToSign = $timestamp . strtoupper($method) . $endpoint . $queryString . $body;
+
+// 2. Sign with HMAC-SHA256
+$signature = base64_encode(hash_hmac('sha256', $stringToSign, $secret, true));
+
+// Headers (passphrase is PLAIN TEXT - KEY DIFFERENCE from KuCoin!)
+'ACCESS-KEY' => $apiKey
+'ACCESS-SIGN' => $signature
+'ACCESS-TIMESTAMP' => $timestamp
+'ACCESS-PASSPHRASE' => $passphrase  // PLAIN TEXT!
+'Content-Type' => 'application/json'
+```
+
+Common Errors:
+- `00000`: Success
+- `40014`: Invalid API key
+- `40017`: Parameter verification failed or not a trader
+- `40018`: Invalid passphrase
+- `40808`: Parameter verification exception
+- `45001`: System maintenance (retryable)
+- `40725`: System release error (retryable)
+- `40015`: System release error (retryable)
+- `401`: Authentication failed
+- `403`: Forbidden
+- `429`: Rate limit exceeded
+
+Environment Variables:
+```env
+BITGET_API_KEY=xxx
+BITGET_API_SECRET=xxx
+BITGET_PASSPHRASE=xxx
+```
+
+**WebSocket Client**: `packages/martingalian/core/src/Support/ApiClients/Websocket/BitgetApiClient.php`
+
+Connection Flow (direct connect - simpler than KuCoin):
+1. Connect directly to `wss://ws.bitget.com/v2/ws/public` (no token needed)
+2. Subscribe to ticker channels
+3. Send "ping" string every 30 seconds
+
+Subscription Format:
+```json
+{
+  "op": "subscribe",
+  "args": [
+    {
+      "instType": "USDT-FUTURES",
+      "channel": "ticker",
+      "instId": "BTCUSDT"
+    }
+  ]
+}
+```
+
+Response Format:
+```json
+{
+  "action": "snapshot",
+  "arg": {"instType": "USDT-FUTURES", "channel": "ticker", "instId": "BTCUSDT"},
+  "data": [{"markPrice": "50000.5", ...}]
+}
+```
+
+Streams:
+- Public: `wss://ws.bitget.com/v2/ws/public`
+- Private: `wss://ws.bitget.com/v2/ws/private`
+- Ticker streams for mark prices
+- Ping every 30 seconds (send "ping" string, receive "pong")
 
 ## Market Data Providers
 
@@ -503,6 +666,16 @@ BYBIT_BASE_URL=https://api.bybit.com
 KRAKEN_API_KEY=xxx
 KRAKEN_PRIVATE_KEY=xxx
 KRAKEN_BASE_URL=https://futures.kraken.com
+
+# KuCoin Futures
+KUCOIN_API_KEY=xxx
+KUCOIN_API_SECRET=xxx
+KUCOIN_PASSPHRASE=xxx
+
+# BitGet Futures
+BITGET_API_KEY=xxx
+BITGET_API_SECRET=xxx
+BITGET_PASSPHRASE=xxx
 
 # TAAPI
 TAAPI_API_SECRET=xxx

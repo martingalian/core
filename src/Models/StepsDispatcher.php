@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 
 final class StepsDispatcher extends BaseModel
 {
@@ -190,16 +189,12 @@ final class StepsDispatcher extends BaseModel
                     ]);
 
                     if ($durationMs > 40000) {
-                        NotificationThrottler::using(NotificationService::class)
-                            ->withCanonical('steps_dispatcher')
-                            ->execute(function () {
-                                NotificationService::send(
-                                    user: Martingalian::admin(),
-                                    message: "Dispatch took too long: {$durationMs}ms.",
-                                    title: 'Step Dispatcher Tick Warning',
-                                    deliveryGroup: 'exceptions'
-                                );
-                            });
+                        NotificationService::send(
+                            user: Martingalian::admin(),
+                            message: "Dispatch took too long: {$durationMs}ms.",
+                            title: 'Step Dispatcher Tick Warning',
+                            deliveryGroup: 'exceptions'
+                        );
                     }
                 } else {
                     $tick->update([

@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\ApiClients\Websocket;
 
 use Martingalian\Core\Abstracts\BaseWebsocketClient;
-use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 
 /**
  * KrakenApiClient (WebSocket)
@@ -86,28 +83,6 @@ final class KrakenApiClient extends BaseWebsocketClient
         // Send periodic ping every 30 seconds as per Kraken requirements
         $this->loop->addPeriodicTimer(30, function () use ($conn) {
             $conn->send(json_encode(['event' => 'ping']));
-        });
-
-        // Add a message handler specifically for checking subscription failures
-        $conn->on('message', function ($msg) {
-            $payload = (string) $msg;
-            $decoded = json_decode($payload, true);
-
-            if (is_array($decoded) && isset($decoded['event'])) {
-                // Handle subscription error
-                if ($decoded['event'] === 'error') {
-                    NotificationThrottler::using(NotificationService::class)
-                        ->withCanonical('kraken_subscription_failed')
-                        ->execute(function () use ($decoded) {
-                            NotificationService::send(
-                                user: Martingalian::admin(),
-                                message: 'Kraken subscription failed: '.json_encode($decoded),
-                                title: 'Kraken WebSocket Subscription Error',
-                                deliveryGroup: 'exceptions'
-                            );
-                        });
-                }
-            }
         });
     }
 }

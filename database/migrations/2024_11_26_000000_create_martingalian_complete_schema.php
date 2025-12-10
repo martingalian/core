@@ -130,7 +130,6 @@ return new class extends Migration
             $table->unsignedInteger('recvwindow_margin')->default(10000)->comment('The miliseconds margin so we dont get errors due to server time vs exchange time desynchronizations');
             $table->string('canonical')->unique();
             $table->string('websocket_class')->nullable();
-            $table->string('taapi_canonical')->nullable();
             $table->timestamps();
 
             $table->index('is_exchange', 'idx_api_systems_is_exchange');
@@ -172,7 +171,7 @@ return new class extends Migration
             $table->boolean('is_manually_enabled')->default(0)->comment('Manual admin override: 0=default behavior, 1=force enabled');
             $table->boolean('auto_disabled')->default(false)->comment('System automatic disable flag');
             $table->string('auto_disabled_reason')->nullable()->comment('Why system disabled it: no_indicator_data, insufficient_liquidity, excessive_spread, etc');
-            $table->boolean('has_taapi_data')->default(false);
+            $table->json('api_statuses')->nullable()->comment('JSON object tracking API call statuses: cmc_api_called, taapi_verified');
             $table->string('direction')->nullable()->comment('The exchange symbol open position direction (LONG, SHORT)');
             $table->decimal('percentage_gap_long', 5, 2)->default(8.50);
             $table->decimal('percentage_gap_short', 5, 2)->default(9.50);
@@ -201,9 +200,12 @@ return new class extends Migration
             $table->json('btc_elasticity_short')->nullable();
             $table->timestamp('mark_price_synced_at')->nullable()->index('idx_mark_price_synced_at');
             $table->timestamp('tradeable_at')->nullable()->comment('Cooldown timestamp so a symbol cannot be tradeable until a certain moment');
+            $table->string('websocket_group', 20)->default('group-1')->comment('WebSocket subscription group for exchanges with subscription limits (e.g., KuCoin max 300)');
+            $table->boolean('overlaps_with_binance')->nullable()->index()->comment('True if this token exists on Binance (for TAAPI indicator compatibility)');
             $table->timestamps();
 
             $table->unique(['symbol_id', 'api_system_id', 'quote_id'], 'exchange_symbols_symbol_id_api_system_id_quote_id_unique');
+            $table->index('websocket_group', 'idx_exchange_symbols_websocket_group');
             $table->index('auto_disabled', 'idx_exchange_symbols_auto_disabled');
             $table->index(['api_system_id', 'auto_disabled'], 'idx_exchange_symbols_api_auto_disabled');
             $table->index('direction', 'idx_exchange_symbols_direction');
@@ -623,6 +625,20 @@ return new class extends Migration
             $table->index('token', 'symbols_token_index');
         });
 
+        // token_mappers table - Maps token naming conventions between exchanges
+        // Used to translate Binance token names (used for TAAPI indicators) to other exchange token names
+        Schema::create('token_mappers', function (Blueprint $table) {
+            $table->id();
+            $table->string('binance_token', 50)->comment('The Binance token name (reference for TAAPI indicators)');
+            $table->string('other_token', 50)->comment('The equivalent token name on the other exchange');
+            $table->unsignedInteger('other_api_system_id')->comment('The api_system_id of the other exchange');
+            $table->timestamps();
+
+            $table->unique(['binance_token', 'other_api_system_id'], 'token_mappers_binance_other_unique');
+            $table->index('other_api_system_id', 'token_mappers_other_api_system_id_index');
+            $table->index(['other_token', 'other_api_system_id'], 'token_mappers_other_token_system_index');
+        });
+
         // trade_configuration table
         Schema::create('trade_configuration', function (Blueprint $table) {
             $table->id();
@@ -723,6 +739,7 @@ return new class extends Migration
         Schema::dropIfExists('martingalian');
         Schema::dropIfExists('trade_configuration');
         Schema::dropIfExists('quotes');
+        Schema::dropIfExists('token_mappers');
         Schema::dropIfExists('symbols');
         Schema::dropIfExists('fundings');
         Schema::dropIfExists('early_access');

@@ -175,7 +175,7 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
             }
 
             $constructs[] = [
-                'exchange' => mb_strtolower($exchangeSymbol->apiSystem->taapi_canonical),
+                'exchange' => 'binancefutures',
                 'symbol' => str_replace('-', '/', $exchangeSymbol->symbol->token.'/'.$exchangeSymbol->quote->canonical),
                 'interval' => $this->timeframe,
                 'indicators' => $indicatorsArray,

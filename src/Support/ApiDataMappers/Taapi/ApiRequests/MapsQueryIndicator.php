@@ -21,7 +21,7 @@ trait MapsQueryIndicator
 
         // Token and quote are stored directly on exchange_symbols
         $properties->set('options.symbol', $this->baseWithQuote($exchangeSymbol->token, $exchangeSymbol->quote));
-        $properties->set('options.exchange', $exchangeSymbol->apiSystem->taapi_canonical);
+        $properties->set('options.exchange', 'binancefutures');
 
         return $properties;
     }

@@ -134,7 +134,7 @@ final class FetchAndStoreCandlesBulkJob extends BaseApiableJob
 
             $constructs[] = [
                 'id' => (string) $exchangeSymbol->id, // Use ID for response mapping
-                'exchange' => mb_strtolower($exchangeSymbol->apiSystem->taapi_canonical ?? $exchangeSymbol->apiSystem->canonical),
+                'exchange' => 'binancefutures',
                 'symbol' => $symbol,
                 'interval' => $this->timeframe,
                 'indicators' => [
@@ -284,12 +284,11 @@ final class FetchAndStoreCandlesBulkJob extends BaseApiableJob
 
         // Find matching exchange symbol by building TAAPI format and comparing
         return $this->exchangeSymbols->first(function (ExchangeSymbol $es) use ($symbol, $exchange) {
-            $apiCanonical = mb_strtolower($es->apiSystem->taapi_canonical ?? $es->apiSystem->canonical);
-
             // Build the TAAPI symbol format using the same method as request building
             $taapiSymbol = $this->buildSymbolForTaapi($es);
 
-            return $taapiSymbol === $symbol && $apiCanonical === $exchange;
+            // TAAPI always uses 'binancefutures' as exchange
+            return $taapiSymbol === $symbol && $exchange === 'binancefutures';
         });
     }
 

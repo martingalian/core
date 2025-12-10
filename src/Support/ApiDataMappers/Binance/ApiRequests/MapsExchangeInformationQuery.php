@@ -22,6 +22,9 @@ trait MapsExchangeInformationQuery
     {
         $data = json_decode((string) $response->getBody(), true);
 
+        // Stablecoins to exclude - these don't need price tracking as they're pegged to fiat
+        $stablecoins = ['USDC', 'USDT', 'USDE', 'DAI', 'TUSD', 'BUSD', 'FRAX', 'USDP', 'GUSD', 'PAX', 'LUSD', 'SUSD', 'FDUSD', 'PYUSD', 'RLUSD', 'CUSD', 'USDD', 'USDJ', 'USTC', 'EURC', 'EURT'];
+
         return collect($data['symbols'] ?? [])
             // Remove symbols with underscores in the name.
             ->filter(function ($symbolData) {
@@ -34,6 +37,19 @@ trait MapsExchangeInformationQuery
             // Only include actively trading symbols (exclude PENDING_TRADING, BREAK, SETTLING, etc.)
             ->filter(function ($symbolData) {
                 return ($symbolData['status'] ?? null) === 'TRADING';
+            })
+            // Only include ASCII tokens (exclude Chinese/special character tokens)
+            ->filter(function ($symbolData) {
+                $baseAsset = $symbolData['baseAsset'] ?? '';
+
+                // Only allow alphanumeric ASCII characters in token names
+                return preg_match('/^[A-Za-z0-9]+$/', $baseAsset) === 1;
+            })
+            // Exclude stablecoins - they don't need price tracking
+            ->filter(function ($symbolData) use ($stablecoins) {
+                $baseAsset = mb_strtoupper($symbolData['baseAsset'] ?? '');
+
+                return ! in_array($baseAsset, $stablecoins, true);
             })
             ->map(function ($symbolData) {
                 $filters = collect($symbolData['filters'] ?? []);

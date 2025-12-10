@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\ApiClients\Websocket;
 
 use Martingalian\Core\Abstracts\BaseWebsocketClient;
-use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Support\NotificationService;
-use Martingalian\Core\Support\NotificationThrottler;
 
 final class BybitApiClient extends BaseWebsocketClient
 {
@@ -79,27 +76,6 @@ final class BybitApiClient extends BaseWebsocketClient
         // Send periodic ping every 20 seconds as per Bybit requirements
         $this->loop->addPeriodicTimer(20, function () use ($conn) {
             $conn->send(json_encode(['op' => 'ping']));
-        });
-
-        // Add a message handler specifically for checking subscription failures
-        $conn->on('message', function ($msg) {
-            $payload = (string) $msg;
-            $decoded = json_decode($payload, true);
-
-            if (is_array($decoded) && isset($decoded['op']) && $decoded['op'] === 'subscribe') {
-                if (isset($decoded['success']) && $decoded['success'] === false) {
-                    NotificationThrottler::using(NotificationService::class)
-                        ->withCanonical('bybit_subscription_failed')
-                        ->execute(function () {
-                            NotificationService::send(
-                                user: Martingalian::admin(),
-                                message: 'Bybit subscription failed: '.json_encode($decoded),
-                                title: 'Bybit WebSocket Subscription Error',
-                                deliveryGroup: 'exceptions'
-                            );
-                        });
-                }
-            }
         });
     }
 }

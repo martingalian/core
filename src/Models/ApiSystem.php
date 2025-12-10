@@ -18,7 +18,6 @@ use Martingalian\Core\Concerns\ApiSystem\InteractsWithApis;
  * @property string $name
  * @property int $recvwindow_margin
  * @property string $canonical
- * @property string|null $taapi_canonical
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property bool $should_restart_websocket
@@ -48,6 +47,14 @@ final class ApiSystem extends BaseModel
     public function positions(): HasManyThrough
     {
         return $this->hasManyThrough(Position::class, Account::class);
+    }
+
+    /**
+     * Token mappings where this exchange uses different token names than Binance.
+     */
+    public function tokenMappers(): HasMany
+    {
+        return $this->hasMany(TokenMapper::class, 'other_api_system_id');
     }
 
     protected static function newFactory()

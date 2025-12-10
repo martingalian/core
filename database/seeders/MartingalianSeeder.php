@@ -16,6 +16,7 @@ use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Symbol;
+use Martingalian\Core\Models\TokenMapper;
 use Martingalian\Core\Models\TradeConfiguration;
 use Martingalian\Core\Models\User;
 use Throwable;
@@ -208,7 +209,6 @@ final class MartingalianSeeder extends Seeder
                 'name' => 'Binance',
                 'logo_url' => 'https://public.bnbstatic.com/static/images/common/favicon.ico',
                 'is_exchange' => true,
-                'taapi_canonical' => 'binancefutures',
             ]
         );
 
@@ -218,7 +218,6 @@ final class MartingalianSeeder extends Seeder
                 'name' => 'Bybit',
                 'logo_url' => 'https://www.bybit.com/favicon.ico',
                 'is_exchange' => true,
-                'taapi_canonical' => 'bybit',
             ]
         );
 
@@ -228,7 +227,24 @@ final class MartingalianSeeder extends Seeder
                 'name' => 'Kraken',
                 'logo_url' => 'https://www.kraken.com/favicon.ico',
                 'is_exchange' => true,
-                'taapi_canonical' => 'kraken',
+            ]
+        );
+
+        $kucoin = ApiSystem::firstOrCreate(
+            ['canonical' => 'kucoin'],
+            [
+                'name' => 'KuCoin',
+                'logo_url' => 'https://www.kucoin.com/favicon.ico',
+                'is_exchange' => true,
+            ]
+        );
+
+        $bitget = ApiSystem::firstOrCreate(
+            ['canonical' => 'bitget'],
+            [
+                'name' => 'BitGet',
+                'logo_url' => 'https://www.bitget.com/favicon.ico',
+                'is_exchange' => true,
             ]
         );
 
@@ -260,12 +276,13 @@ final class MartingalianSeeder extends Seeder
             'binance' => $binance,
             'bybit' => $bybit,
             'kraken' => $kraken,
+            'kucoin' => $kucoin,
+            'bitget' => $bitget,
             'coinmarketcap' => $coinmarketcap,
             'alternativeme' => $alternativeMe,
             'taapi' => $taapi,
         ];
     }
-
 
     /**
      * Seed the Binance+Bybit user/trader.
@@ -345,7 +362,6 @@ final class MartingalianSeeder extends Seeder
 
         Symbol::insert($rows);
     }
-
 
     /**
      * Seed steps dispatchers.
@@ -487,6 +503,12 @@ final class MartingalianSeeder extends Seeder
             $martingalian->binance_api_secret = env('BINANCE_API_SECRET');
             $martingalian->kraken_api_key = env('KRAKEN_API_KEY');
             $martingalian->kraken_private_key = env('KRAKEN_PRIVATE_KEY');
+            $martingalian->kucoin_api_key = env('KUCOIN_API_KEY');
+            $martingalian->kucoin_api_secret = env('KUCOIN_API_SECRET');
+            $martingalian->kucoin_passphrase = env('KUCOIN_PASSPHRASE');
+            $martingalian->bitget_api_key = env('BITGET_API_KEY');
+            $martingalian->bitget_api_secret = env('BITGET_API_SECRET');
+            $martingalian->bitget_passphrase = env('BITGET_PASSPHRASE');
             $martingalian->coinmarketcap_api_key = env('COINMARKETCAP_API_KEY');
             $martingalian->taapi_secret = env('TAAPI_SECRET');
             $martingalian->save();
@@ -602,6 +624,96 @@ final class MartingalianSeeder extends Seeder
                 'trade_configuration_id' => 1,
                 'kraken_api_key' => env('TRADER_K_API_KEY'),
                 'kraken_private_key' => env('TRADER_K_PRIVATE_KEY'),
+            ]);
+        }
+    }
+
+    /**
+     * Setup KuCoin integration: Create KuCoin user and account.
+     */
+    public function setupKucoinIntegration(ApiSystem $kucoinApiSystem): void
+    {
+        // Create KuCoin user (separate from other exchange traders)
+        $kucoinEmail = env('TRADER_KC_EMAIL');
+
+        if (! $kucoinEmail) {
+            return;
+        }
+
+        $kucoinUser = User::updateOrCreate(
+            ['email' => $kucoinEmail],
+            [
+                'name' => env('TRADER_KC_NAME'),
+                'password' => bcrypt(env('TRADER_KC_PASSWORD', 'password')),
+                'is_active' => true,
+                'is_admin' => false,
+                'pushover_key' => env('TRADER_KC_PUSHOVER_KEY'),
+                'notification_channels' => ['mail', 'pushover'],
+            ]
+        );
+
+        // Create KuCoin account for this user
+        $existingKucoinAccount = Account::where('user_id', $kucoinUser->id)
+            ->where('api_system_id', $kucoinApiSystem->id)
+            ->first();
+
+        if (! $existingKucoinAccount) {
+            Account::create([
+                'uuid' => (string) Str::uuid(),
+                'name' => 'Main KuCoin Account',
+                'user_id' => $kucoinUser->id,
+                'api_system_id' => $kucoinApiSystem->id,
+                'portfolio_quote' => 'USDT',
+                'trading_quote' => 'USDT',
+                'trade_configuration_id' => 1,
+                'kucoin_api_key' => env('TRADER_KC_API_KEY'),
+                'kucoin_api_secret' => env('TRADER_KC_API_SECRET'),
+                'kucoin_passphrase' => env('TRADER_KC_PASSPHRASE'),
+            ]);
+        }
+    }
+
+    /**
+     * Setup BitGet integration: Create BitGet user and account.
+     */
+    public function setupBitgetIntegration(ApiSystem $bitgetApiSystem): void
+    {
+        // Create BitGet user (separate from other exchange traders)
+        $bitgetEmail = env('TRADER_BG_EMAIL');
+
+        if (! $bitgetEmail) {
+            return;
+        }
+
+        $bitgetUser = User::updateOrCreate(
+            ['email' => $bitgetEmail],
+            [
+                'name' => env('TRADER_BG_NAME'),
+                'password' => bcrypt(env('TRADER_BG_PASSWORD', 'password')),
+                'is_active' => true,
+                'is_admin' => false,
+                'pushover_key' => env('TRADER_BG_PUSHOVER_KEY'),
+                'notification_channels' => ['mail', 'pushover'],
+            ]
+        );
+
+        // Create BitGet account for this user
+        $existingBitgetAccount = Account::where('user_id', $bitgetUser->id)
+            ->where('api_system_id', $bitgetApiSystem->id)
+            ->first();
+
+        if (! $existingBitgetAccount) {
+            Account::create([
+                'uuid' => (string) Str::uuid(),
+                'name' => 'Main BitGet Account',
+                'user_id' => $bitgetUser->id,
+                'api_system_id' => $bitgetApiSystem->id,
+                'portfolio_quote' => 'USDT',
+                'trading_quote' => 'USDT',
+                'trade_configuration_id' => 1,
+                'bitget_api_key' => env('TRADER_BG_API_KEY'),
+                'bitget_api_secret' => env('TRADER_BG_API_SECRET'),
+                'bitget_passphrase' => env('TRADER_BG_PASSPHRASE'),
             ]);
         }
     }
@@ -1047,7 +1159,13 @@ final class MartingalianSeeder extends Seeder
         // SECTION 17b: Setup Kraken Integration (separate user and account)
         $this->setupKrakenIntegration($apiSystems['kraken']);
 
-        // SECTION 17c: Setup Binance-only Integration (separate user and account)
+        // SECTION 17c: Setup KuCoin Integration (separate user and account)
+        $this->setupKucoinIntegration($apiSystems['kucoin']);
+
+        // SECTION 17d: Setup BitGet Integration (separate user and account)
+        $this->setupBitgetIntegration($apiSystems['bitget']);
+
+        // SECTION 17e: Setup Binance-only Integration (separate user and account)
         $this->setupBinanceOnlyIntegration($apiSystems['binance']);
 
         // SECTION 18: Cleanup Bybit Account Credentials (SchemaSeeder22)
@@ -1065,8 +1183,56 @@ final class MartingalianSeeder extends Seeder
         // SECTION 22: Seed Notifications
         $this->seedNotifications();
 
-        // SECTION 23: Seed Core Symbol Data (symbols, exchange_symbols)
+        // SECTION 23: Seed Token Mappers (Binance to other exchanges name mappings)
+        $this->seedTokenMappers($apiSystems);
+
+        // SECTION 24: Seed Core Symbol Data (symbols, exchange_symbols)
         $this->seedCoreSymbolData();
+    }
+
+    /**
+     * Seed token mappers for exchanges that use different token naming conventions than Binance.
+     * Binance token names are the reference since TAAPI indicators use Binance data.
+     *
+     * Only seeding for exchanges with active API keys: KuCoin and Bybit.
+     * Kraken and BitGet mappings can be added later when their API keys are configured.
+     */
+    public function seedTokenMappers(array $apiSystems): void
+    {
+        $mappings = [
+            // KuCoin mappings (api_system_id from $apiSystems['kucoin'])
+            // Pattern: 1000X -> 10000X
+            ['binance_token' => '1000CAT', 'other_token' => '10000CAT', 'exchange' => 'kucoin'],
+            ['binance_token' => '1000SATS', 'other_token' => '10000SATS', 'exchange' => 'kucoin'],
+            // Pattern: 1000X -> X (remove prefix)
+            ['binance_token' => '1000FLOKI', 'other_token' => 'FLOKI', 'exchange' => 'kucoin'],
+            ['binance_token' => '1000LUNC', 'other_token' => 'LUNC', 'exchange' => 'kucoin'],
+            ['binance_token' => '1000PEPE', 'other_token' => 'PEPE', 'exchange' => 'kucoin'],
+            ['binance_token' => '1000SHIB', 'other_token' => 'SHIB', 'exchange' => 'kucoin'],
+            ['binance_token' => '1000XEC', 'other_token' => 'XEC', 'exchange' => 'kucoin'],
+
+            // Bybit mappings (api_system_id from $apiSystems['bybit'])
+            // Pattern: 1000X -> 10000X
+            ['binance_token' => '1000SATS', 'other_token' => '10000SATS', 'exchange' => 'bybit'],
+        ];
+
+        foreach ($mappings as $mapping) {
+            $apiSystem = $apiSystems[$mapping['exchange']] ?? null;
+
+            if (! $apiSystem) {
+                continue;
+            }
+
+            TokenMapper::updateOrCreate(
+                [
+                    'binance_token' => $mapping['binance_token'],
+                    'other_api_system_id' => $apiSystem->id,
+                ],
+                [
+                    'other_token' => $mapping['other_token'],
+                ]
+            );
+        }
     }
 
     /**

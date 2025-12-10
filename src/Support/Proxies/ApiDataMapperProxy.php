@@ -6,9 +6,11 @@ namespace Martingalian\Core\Support\Proxies;
 
 use Exception;
 use Martingalian\Core\Support\ApiDataMappers\Binance\BinanceApiDataMapper;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\BitgetApiDataMapper;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\BybitApiDataMapper;
 use Martingalian\Core\Support\ApiDataMappers\CoinmarketCap\CoinmarketCapDataMapper;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\KrakenApiDataMapper;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\KucoinApiDataMapper;
 use Martingalian\Core\Support\ApiDataMappers\Taapi\TaapiApiDataMapper;
 
 /**
@@ -38,6 +40,12 @@ final class ApiDataMapperProxy
                 break;
             case 'kraken':
                 $this->api = new KrakenApiDataMapper;
+                break;
+            case 'kucoin':
+                $this->api = new KucoinApiDataMapper;
+                break;
+            case 'bitget':
+                $this->api = new BitgetApiDataMapper;
                 break;
             default:
                 throw new Exception('Unsupported API Mapper: '.$apiCanonical);

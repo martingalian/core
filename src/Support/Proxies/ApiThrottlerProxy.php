@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\Proxies;
 
 use Martingalian\Core\Support\Throttlers\BinanceThrottler;
+use Martingalian\Core\Support\Throttlers\BitgetThrottler;
 use Martingalian\Core\Support\Throttlers\BybitThrottler;
 use Martingalian\Core\Support\Throttlers\CoinmarketCapThrottler;
 use Martingalian\Core\Support\Throttlers\KrakenThrottler;
+use Martingalian\Core\Support\Throttlers\KucoinThrottler;
 use Martingalian\Core\Support\Throttlers\TaapiThrottler;
 
 /**
@@ -32,6 +34,8 @@ final class ApiThrottlerProxy
             'binance' => BinanceThrottler::class,
             'bybit' => BybitThrottler::class,
             'kraken' => KrakenThrottler::class,
+            'kucoin' => KucoinThrottler::class,
+            'bitget' => BitgetThrottler::class,
             default => null, // No throttler = no rate limiting
         };
     }

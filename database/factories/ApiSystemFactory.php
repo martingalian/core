@@ -26,7 +26,6 @@ final class ApiSystemFactory extends Factory
             'name' => fake()->company(),
             'canonical' => fake()->unique()->slug(),
             'recvwindow_margin' => 1000,
-            'taapi_canonical' => null,
             'websocket_class' => null,
         ];
     }

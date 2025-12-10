@@ -84,10 +84,38 @@ final class UpsertExchangeSymbolsFromExchangeJob extends BaseApiableJob
                 $quantityPrecision = 0;
             }
 
-            // Try to find matching symbol_id by token
+            // Check if exchange symbol already exists
+            $existingSymbol = ExchangeSymbol::where('token', $token)
+                ->where('api_system_id', $this->apiSystem->id)
+                ->where('quote', $quote)
+                ->first();
+
+            // Try to find matching symbol_id by token (for new records or unlinked ones)
             $symbolId = $symbolsByToken->get($token);
 
-            if ($symbolId) {
+            // Build update data - always update metadata
+            $updateData = [
+                'price_precision' => $pricePrecision,
+                'quantity_precision' => $quantityPrecision,
+                'tick_size' => $symbolData['tickSize'] ?? null,
+                'min_notional' => $symbolData['minNotional'] ?? null,
+                'min_price' => $symbolData['minPrice'] ?? null,
+                'max_price' => $symbolData['maxPrice'] ?? null,
+                'delivery_ts_ms' => $symbolData['deliveryDate'] ?? null,
+                'symbol_information' => $symbolData,
+            ];
+
+            // Only set symbol_id if:
+            // 1. This is a new record (existingSymbol is null), OR
+            // 2. Existing record has no symbol_id and we found one
+            // Never overwrite an existing symbol_id (it may have been set via CMC API)
+            if (! $existingSymbol || ($existingSymbol->symbol_id === null && $symbolId !== null)) {
+                $updateData['symbol_id'] = $symbolId;
+                if ($symbolId) {
+                    $linkedCount++;
+                }
+            } elseif ($existingSymbol->symbol_id !== null) {
+                // Already linked, count it
                 $linkedCount++;
             }
 
@@ -97,17 +125,7 @@ final class UpsertExchangeSymbolsFromExchangeJob extends BaseApiableJob
                     'api_system_id' => $this->apiSystem->id,
                     'quote' => $quote,
                 ],
-                [
-                    'symbol_id' => $symbolId,
-                    'price_precision' => $pricePrecision,
-                    'quantity_precision' => $quantityPrecision,
-                    'tick_size' => $symbolData['tickSize'] ?? null,
-                    'min_notional' => $symbolData['minNotional'] ?? null,
-                    'min_price' => $symbolData['minPrice'] ?? null,
-                    'max_price' => $symbolData['maxPrice'] ?? null,
-                    'delivery_ts_ms' => $symbolData['deliveryDate'] ?? null,
-                    'symbol_information' => $symbolData,
-                ]
+                $updateData
             );
 
             $upsertedCount++;

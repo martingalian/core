@@ -40,6 +40,11 @@ final class ApiProperties
         return data_get($this->properties, $key);
     }
 
+    public function has(string $key): bool
+    {
+        return data_get($this->properties, $key) !== null;
+    }
+
     public function mergeIntoNew(array $override): self
     {
         $merged = array_replace_recursive($this->properties, $override);

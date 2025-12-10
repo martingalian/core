@@ -31,6 +31,12 @@ trait MapsExchangeInformationQuery
         // Bybit V5 API structure: {retCode, retMsg, result: {list: [...], nextPageCursor: ...}}
         $symbols = $data['result']['list'] ?? [];
 
+        // Known crypto tickers to detect trading pairs like ETHBTC
+        $majorCryptos = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'ADA', 'DOGE', 'AVAX', 'DOT', 'MATIC', 'SHIB', 'LTC', 'TRX', 'LINK'];
+
+        // Stablecoins to exclude - these don't need price tracking as they're pegged to fiat
+        $stablecoins = ['USDC', 'USDT', 'USDE', 'DAI', 'TUSD', 'BUSD', 'FRAX', 'USDP', 'GUSD', 'PAX', 'LUSD', 'SUSD', 'FDUSD', 'PYUSD', 'RLUSD', 'CUSD', 'USDD', 'USDJ', 'USTC', 'EURC', 'EURT'];
+
         return collect($symbols)
             // Remove symbols with underscores in the name (same logic as Binance)
             ->filter(function ($symbolData) {
@@ -43,6 +49,30 @@ trait MapsExchangeInformationQuery
             // Only include actively trading symbols (Bybit uses "Trading" status)
             ->filter(function ($symbolData) {
                 return ($symbolData['status'] ?? null) === 'Trading';
+            })
+            // Exclude trading pairs (e.g., ETHBTC) - tokens that contain another crypto ticker
+            ->filter(function ($symbolData) use ($majorCryptos) {
+                $baseCoin = $symbolData['baseCoin'] ?? '';
+
+                // Check if baseCoin contains any major crypto ticker (indicating it's a trading pair)
+                foreach ($majorCryptos as $crypto) {
+                    // Skip if the baseCoin IS the crypto itself
+                    if ($baseCoin === $crypto) {
+                        continue;
+                    }
+                    // If baseCoin contains another crypto ticker, it's likely a trading pair
+                    if (mb_strpos($baseCoin, $crypto) !== false && mb_strlen($baseCoin) > mb_strlen($crypto)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
+            // Exclude stablecoins - they don't need price tracking
+            ->filter(function ($symbolData) use ($stablecoins) {
+                $baseCoin = mb_strtoupper($symbolData['baseCoin'] ?? '');
+
+                return ! in_array($baseCoin, $stablecoins, true);
             })
             ->map(function ($symbolData) {
                 // Extract price filter

@@ -1,7 +1,7 @@
 # Exception Handling System
 
 ## Overview
-Comprehensive exception handling system for API interactions, job execution, and error recovery. Provides unified error handling across multiple exchanges (Binance, Bybit, Kraken Futures) and data providers (TAAPI, CoinMarketCap, AlternativeMe) with intelligent retry logic, throttling, and notification routing.
+Comprehensive exception handling system for API interactions, job execution, and error recovery. Provides unified error handling across multiple exchanges (Binance, Bybit, Kraken Futures, KuCoin Futures, BitGet Futures) and data providers (TAAPI, CoinMarketCap, AlternativeMe) with intelligent retry logic, throttling, and notification routing.
 
 ## Architecture
 
@@ -97,6 +97,12 @@ $handler = BaseExceptionHandler::make('bybit');
 
 $handler = BaseExceptionHandler::make('kraken');
 // Returns KrakenExceptionHandler instance
+
+$handler = BaseExceptionHandler::make('kucoin');
+// Returns KucoinExceptionHandler instance
+
+$handler = BaseExceptionHandler::make('bitget');
+// Returns BitgetExceptionHandler instance
 
 // With account for per-account ORDER limits (Binance)
 $handler = BaseExceptionHandler::make('binance')->withAccount($account);
@@ -218,6 +224,75 @@ if ($handler->isRateLimited($exception)) {
 - 401 errors create `ForbiddenHostname` record with type `account_blocked`
 - Prevents further API calls until credentials are verified
 - Sends critical notification to admin
+
+### KucoinExceptionHandler
+**Location**: `Martingalian\Core\Support\ApiExceptionHandlers\KucoinExceptionHandler`
+**Specialty**: KuCoin Futures API error handling
+
+**Key Features**:
+- HTTP status code and KuCoin-specific error code classification
+- Handles KuCoin vendor codes (string format: '400100', '429000', etc.)
+- Distinguishes between rate limits (429, 429000) and auth errors (401, 400100)
+- Retryable server errors with exponential backoff
+
+**Error Code Arrays**:
+```php
+$serverForbiddenHttpCodes = [403];        // IP blocked / permission denied
+$serverRateLimitedHttpCodes = [429];      // Rate limit exceeded
+$accountBlockedHttpCodes = [401];         // Auth failed / API key invalid
+$retryableHttpCodes = [408, 500, 502, 503, 504]; // Temporary errors
+```
+
+**KuCoin-Specific Vendor Codes**:
+- `400100`: Invalid API-Key (account blocked)
+- `411100`: User is frozen (account blocked)
+- `429000`: Rate limit exceeded
+- `300000`: Internal error (retryable)
+
+**Account Blocked Handling**:
+- 401 errors and vendor codes 400100, 411100 create `ForbiddenHostname` record
+- Type: `account_blocked`
+- Prevents further API calls until credentials are verified
+
+### BitgetExceptionHandler
+**Location**: `Martingalian\Core\Support\ApiExceptionHandlers\BitgetExceptionHandler`
+**Specialty**: BitGet Futures V2 API error handling
+
+**Key Features**:
+- HTTP status code and BitGet-specific error code classification
+- Handles BitGet vendor codes (string format: '40014', '45001', etc.)
+- Distinguishes between rate limits (429) and auth errors (401, 40014, 40017, 40018)
+- Retryable server errors and maintenance codes with backoff
+
+**Error Code Arrays**:
+```php
+$serverForbiddenHttpCodes = [401, 403];   // Auth failed / IP blocked
+$serverRateLimitedHttpCodes = [429];      // Rate limit exceeded
+$accountBlockedHttpCodes = [401];         // Auth failed
+$retryableHttpCodes = [408, 500, 502, 503, 504]; // Temporary errors
+```
+
+**BitGet-Specific Vendor Codes**:
+- `00000`: Success
+- `40014`: Invalid API key (account blocked)
+- `40017`: Parameter verification failed or not a trader (account blocked)
+- `40018`: Invalid passphrase (account blocked)
+- `40808`: Parameter verification exception (fail, not retryable)
+- `45001`: System maintenance (retryable)
+- `40725`: System release error (retryable)
+- `40015`: System release error (retryable)
+
+**Account Blocked Handling**:
+- 401 errors and vendor codes 40014, 40017, 40018 create `ForbiddenHostname` record
+- Type: `account_blocked`
+- Prevents further API calls until credentials are verified
+
+**Rate Limit Logic**:
+```php
+// BitGet uses per-minute rate limits (6000 req/min/IP)
+// If we hit 429, wait for a window reset + jitter
+return Carbon::now()->addSeconds(5 + random_int(1, 3));
+```
 
 ### TaapiExceptionHandler
 **Location**: `Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler`

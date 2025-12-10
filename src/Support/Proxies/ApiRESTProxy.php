@@ -7,9 +7,11 @@ namespace Martingalian\Core\Support\Proxies;
 use Exception;
 use Martingalian\Core\Support\Apis\REST\AlternativeMeApi;
 use Martingalian\Core\Support\Apis\REST\BinanceApi;
+use Martingalian\Core\Support\Apis\REST\BitgetApi;
 use Martingalian\Core\Support\Apis\REST\BybitApi;
 use Martingalian\Core\Support\Apis\REST\CoinmarketCapApi;
 use Martingalian\Core\Support\Apis\REST\KrakenApi;
+use Martingalian\Core\Support\Apis\REST\KucoinApi;
 use Martingalian\Core\Support\Apis\REST\TaapiApi;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 
@@ -29,6 +31,12 @@ final class ApiRESTProxy
                 break;
             case 'kraken':
                 $this->api = new KrakenApi($credentials);
+                break;
+            case 'kucoin':
+                $this->api = new KucoinApi($credentials);
+                break;
+            case 'bitget':
+                $this->api = new BitgetApi($credentials);
                 break;
             case 'taapi':
                 $this->api = new TaapiApi($credentials);

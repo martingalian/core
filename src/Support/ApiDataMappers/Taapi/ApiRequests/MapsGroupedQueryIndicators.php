@@ -28,7 +28,7 @@ trait MapsGroupedQueryIndicators
 
         $properties->set('options.symbol', $symbol);
         $properties->set('options.interval', $timeframe);
-        $properties->set('options.exchange', $exchangeSymbol->apiSystem->taapi_canonical);
+        $properties->set('options.exchange', 'binancefutures');
         $properties->set('options.indicators', $this->getIndicatorsListForApi($exchangeSymbol, $indicators, $timeframe));
 
         return $properties;

@@ -10,11 +10,11 @@ trait HasScopes
 {
     /**
      * Symbols that can be used to open positions.
-     * Checks: manually enabled, auto-enabled, can receive indicators, has direction, respects cooldowns.
+     * Checks: manually enabled, auto-enabled, has TAAPI data, has direction, respects cooldowns.
      */
     public function scopeTradeable(Builder $query): Builder
     {
-        return $query->where('exchange_symbols.receives_indicator_data', true)
+        return $query->where('exchange_symbols.api_statuses->has_taapi_data', true)
             ->where('exchange_symbols.auto_disabled', false)
             ->where(function ($q) {
                 $q->whereNull('exchange_symbols.is_manually_enabled')
@@ -50,6 +50,6 @@ trait HasScopes
      */
     public function scopeNeedsIndicatorAttempt(Builder $query): Builder
     {
-        return $query->where('exchange_symbols.receives_indicator_data', true);
+        return $query->where('exchange_symbols.api_statuses->has_taapi_data', true);
     }
 }

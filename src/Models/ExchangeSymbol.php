@@ -22,11 +22,11 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property string $token
  * @property string $quote
  * @property int|null $symbol_id
+ * @property array{cmc_api_called?: bool, taapi_verified?: bool, has_taapi_data?: bool} $api_statuses
  * @property int $api_system_id
  * @property bool|null $is_manually_enabled
  * @property bool $auto_disabled
  * @property string|null $auto_disabled_reason
- * @property bool $receives_indicator_data
  * @property string|null $direction
  * @property float $percentage_gap_long
  * @property float $percentage_gap_short
@@ -46,6 +46,8 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property array<string, float>|null $btc_elasticity_long
  * @property array<string, float>|null $btc_elasticity_short
  * @property \Illuminate\Support\Carbon|null $mark_price_synced_at
+ * @property string $websocket_group
+ * @property bool|null $overlaps_with_binance
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property-read Symbol|null $symbol
@@ -66,9 +68,9 @@ final class ExchangeSymbol extends BaseModel
     protected $casts = [
         'is_manually_enabled' => 'boolean',
         'auto_disabled' => 'boolean',
-        'has_taapi_data' => 'boolean',
-        'receives_indicator_data' => 'boolean',
+        'overlaps_with_binance' => 'boolean',
 
+        'api_statuses' => 'array',
         'symbol_information' => 'array',
         'leverage_brackets' => 'array',
         'indicators' => 'array',

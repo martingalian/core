@@ -6,8 +6,10 @@ namespace Martingalian\Core\Support\Proxies;
 
 use Exception;
 use Martingalian\Core\Support\TradingMappers\BinanceTradingMapper;
+use Martingalian\Core\Support\TradingMappers\BitgetTradingMapper;
 use Martingalian\Core\Support\TradingMappers\BybitTradingMapper;
 use Martingalian\Core\Support\TradingMappers\KrakenTradingMapper;
+use Martingalian\Core\Support\TradingMappers\KucoinTradingMapper;
 
 /**
  * TradingMapperProxy
@@ -32,6 +34,12 @@ final class TradingMapperProxy
                 break;
             case 'kraken':
                 $this->mapper = new KrakenTradingMapper;
+                break;
+            case 'kucoin':
+                $this->mapper = new KucoinTradingMapper;
+                break;
+            case 'bitget':
+                $this->mapper = new BitgetTradingMapper;
                 break;
             default:
                 throw new Exception('Unsupported Trading Mapper: '.$apiCanonical);

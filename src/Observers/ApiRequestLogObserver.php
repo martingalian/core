@@ -146,7 +146,8 @@ final class ApiRequestLogObserver
                 ->first();
 
             // Skip if already stopped receiving indicator data (checked inside transaction after lock acquired)
-            if (! $lockedSymbol || ! $lockedSymbol->receives_indicator_data) {
+            $taapiVerified = $lockedSymbol->api_statuses['taapi_verified'] ?? false;
+            if (! $lockedSymbol || ! $taapiVerified) {
                 return;
             }
 
@@ -156,10 +157,13 @@ final class ApiRequestLogObserver
             }
 
             // Deactivate the ExchangeSymbol and stop receiving indicator data
+            $apiStatuses = $lockedSymbol->api_statuses ?? [];
+            $apiStatuses['taapi_verified'] = false;
+            $apiStatuses['has_taapi_data'] = false;
             $lockedSymbol->update([
                 'auto_disabled' => true,
                 'auto_disabled_reason' => 'no_indicator_data',
-                'receives_indicator_data' => false,
+                'api_statuses' => $apiStatuses,
             ]);
 
             // Send notification INSIDE transaction (prevents duplicate notifications from concurrent requests)

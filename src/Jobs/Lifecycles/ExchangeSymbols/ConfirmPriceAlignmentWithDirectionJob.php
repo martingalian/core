@@ -20,7 +20,7 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
 
     public function __construct(int $exchangeSymbolId)
     {
-        $this->exchangeSymbol = ExchangeSymbol::with(['symbol', 'quote', 'apiSystem'])->findOrFail($exchangeSymbolId);
+        $this->exchangeSymbol = ExchangeSymbol::with(['symbol', 'apiSystem'])->findOrFail($exchangeSymbolId);
     }
 
     public function relatable()

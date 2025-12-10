@@ -10,9 +10,11 @@ use Illuminate\Support\Carbon;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Support\ApiExceptionHandlers\AlternativeMeExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\BinanceExceptionHandler;
+use Martingalian\Core\Support\ApiExceptionHandlers\BitgetExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\BybitExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\CoinmarketCapExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\KrakenExceptionHandler;
+use Martingalian\Core\Support\ApiExceptionHandlers\KucoinExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -32,16 +34,6 @@ abstract class BaseExceptionHandler
 
     public ?Account $account = null;
 
-    /**
-     * Health check to confirm handler is operational.
-     * Default implementation returns true.
-     * Override only if custom health checks are needed.
-     */
-    public function ping(): bool
-    {
-        return true;
-    }
-
     // Returns the API system canonical name (e.g., 'taapi', 'coinmarketcap', 'binance')
     abstract public function getApiSystem(): string;
 
@@ -56,6 +48,31 @@ abstract class BaseExceptionHandler
 
     // Calculate when to retry after rate limit. Provided via ApiExceptionHelpers trait or overridden by child classes.
     abstract public function rateLimitUntil(RequestException $exception): Carbon;
+
+    final public static function make(string $apiCanonical)
+    {
+        return match ($apiCanonical) {
+            'binance' => new BinanceExceptionHandler,
+            'bybit' => new BybitExceptionHandler,
+            'kraken' => new KrakenExceptionHandler,
+            'kucoin' => new KucoinExceptionHandler,
+            'bitget' => new BitgetExceptionHandler,
+            'taapi' => new TaapiExceptionHandler,
+            'alternativeme' => new AlternativeMeExceptionHandler,
+            'coinmarketcap' => new CoinmarketCapExceptionHandler,
+            default => throw new Exception("Unsupported Exception API Handler: {$apiCanonical}")
+        };
+    }
+
+    /**
+     * Health check to confirm handler is operational.
+     * Default implementation returns true.
+     * Override only if custom health checks are needed.
+     */
+    public function ping(): bool
+    {
+        return true;
+    }
 
     /**
      * Record response headers for IP-based rate limiting coordination.
@@ -101,19 +118,6 @@ abstract class BaseExceptionHandler
     public function isSafeToMakeRequest(): bool
     {
         return true;
-    }
-
-    final public static function make(string $apiCanonical)
-    {
-        return match ($apiCanonical) {
-            'binance' => new BinanceExceptionHandler,
-            'bybit' => new BybitExceptionHandler,
-            'kraken' => new KrakenExceptionHandler,
-            'taapi' => new TaapiExceptionHandler,
-            'alternativeme' => new AlternativeMeExceptionHandler,
-            'coinmarketcap' => new CoinmarketCapExceptionHandler,
-            default => throw new Exception("Unsupported Exception API Handler: {$apiCanonical}")
-        };
     }
 
     // Eager loads an account for later use.

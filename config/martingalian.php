@@ -260,6 +260,51 @@ return [
             'requests_per_window' => (int) env('KRAKEN_THROTTLER_REQUESTS_PER_WINDOW', 425), // 85% of 500
             'window_seconds' => (int) env('KRAKEN_THROTTLER_WINDOW_SECONDS', 10),
         ],
+
+        'kucoin' => [
+            // Minimum delay between requests in milliseconds
+            'min_delay_ms' => (int) env('KUCOIN_THROTTLER_MIN_DELAY_MS', 100),
+
+            // Safety threshold: stop making requests when reaching this percentage of limit (0.0-1.0)
+            // 0.85 = stop at 85% to leave 15% buffer before hitting the limit
+            'safety_threshold' => (float) env('KUCOIN_THROTTLER_SAFETY_THRESHOLD', 0.85),
+
+            // Rate limit configuration
+            // KUCOIN FUTURES API OFFICIAL LIMITS:
+            // - Public endpoints: 30 requests per 3 seconds per IP
+            // - Private endpoints: 75 requests per 3 seconds per IP
+            // - We use the more conservative public limit
+            //
+            // PROFILE GUIDE:
+            // Conservative (80% capacity): 24 req/3s, 125ms delay
+            // Balanced (85% capacity): 25 req/3s, 100ms delay
+            // Aggressive (95% capacity): 28 req/3s, 50ms delay
+            'requests_per_window' => (int) env('KUCOIN_THROTTLER_REQUESTS_PER_WINDOW', 25), // 85% of 30
+            'window_seconds' => (int) env('KUCOIN_THROTTLER_WINDOW_SECONDS', 3),
+        ],
+
+        'bitget' => [
+            // Minimum delay between requests in milliseconds
+            'min_delay_ms' => (int) env('BITGET_THROTTLER_MIN_DELAY_MS', 50),
+
+            // Safety threshold: stop making requests when reaching this percentage of limit (0.0-1.0)
+            // 0.85 = stop at 85% to leave 15% buffer before hitting the limit
+            'safety_threshold' => (float) env('BITGET_THROTTLER_SAFETY_THRESHOLD', 0.85),
+
+            // Rate limit configuration
+            // BITGET FUTURES API OFFICIAL LIMITS:
+            // - Overall: 6000 requests per minute per IP
+            // - Public endpoints: 20 requests per second per IP
+            // - Private endpoints: 10 requests per second for orders
+            // - We use a conservative per-minute limit
+            //
+            // PROFILE GUIDE:
+            // Conservative (75% capacity): 75 req/min, 100ms delay
+            // Balanced (85% capacity): 90 req/min, 50ms delay
+            // Aggressive (95% capacity): 100 req/min, 25ms delay
+            'requests_per_window' => (int) env('BITGET_THROTTLER_REQUESTS_PER_WINDOW', 90), // Conservative for our workload
+            'window_seconds' => (int) env('BITGET_THROTTLER_WINDOW_SECONDS', 60),
+        ],
     ],
 
     /*
@@ -285,6 +330,16 @@ return [
             'kraken' => [
                 'rest' => 'https://futures.kraken.com',
                 'stream' => 'wss://futures.kraken.com/ws/v1',
+            ],
+
+            'kucoin' => [
+                'rest' => 'https://api-futures.kucoin.com',
+                // WebSocket URL is dynamic - obtained from /api/v1/bullet-public endpoint
+            ],
+
+            'bitget' => [
+                'rest' => 'https://api.bitget.com',
+                'stream' => 'wss://ws.bitget.com/v2/ws/public',
             ],
 
             'alternativeme' => [
@@ -357,6 +412,20 @@ return [
             'kraken' => [
                 'api_key' => env('KRAKEN_API_KEY'),
                 'private_key' => env('KRAKEN_PRIVATE_KEY'),
+            ],
+
+            // Live KuCoin Futures keys (service-level; NOT user account keys used to place orders).
+            'kucoin' => [
+                'api_key' => env('KUCOIN_API_KEY'),
+                'api_secret' => env('KUCOIN_API_SECRET'),
+                'passphrase' => env('KUCOIN_PASSPHRASE'),
+            ],
+
+            // Live BitGet Futures keys (service-level; NOT user account keys used to place orders).
+            'bitget' => [
+                'api_key' => env('BITGET_API_KEY'),
+                'api_secret' => env('BITGET_API_SECRET'),
+                'passphrase' => env('BITGET_PASSPHRASE'),
             ],
 
             // TAAPI indicator provider.

@@ -43,6 +43,12 @@ trait MapsExchangeInformationQuery
 
         $instruments = $data['instruments'] ?? [];
 
+        // Fiat currencies to exclude (Kraken offers forex perpetuals alongside crypto)
+        $fiatCurrencies = ['EUR', 'GBP', 'AUD', 'CHF', 'JPY', 'CAD', 'NZD', 'SGD', 'HKD', 'NOK', 'SEK', 'DKK', 'CNY', 'CNH', 'KRW', 'INR', 'MXN', 'BRL', 'ZAR', 'TRY', 'PLN', 'CZK', 'HUF', 'ILS', 'THB', 'MYR', 'IDR', 'PHP', 'TWD', 'RUB'];
+
+        // Stablecoins to exclude - these don't need price tracking as they're pegged to fiat
+        $stablecoins = ['USDC', 'USDT', 'USDE', 'DAI', 'TUSD', 'BUSD', 'FRAX', 'USDP', 'GUSD', 'PAX', 'LUSD', 'SUSD', 'FDUSD', 'PYUSD', 'RLUSD', 'CUSD', 'USDD', 'USDJ', 'USTC', 'EURC', 'EURT'];
+
         $filtered = collect($instruments)
             // Only include tradeable instruments
             ->filter(function ($instrument) {
@@ -56,6 +62,21 @@ trait MapsExchangeInformationQuery
                 // Only include symbols starting with PF_ (perpetual flex) or PI_ (perpetual inverse)
                 // This excludes FF_ (fixed-maturity futures) which have expiry dates
                 return str_starts_with($symbol, 'PF_') || str_starts_with($symbol, 'PI_');
+            })
+            // Exclude fiat currency pairs (forex perpetuals)
+            ->filter(function ($instrument) use ($fiatCurrencies) {
+                $symbol = $instrument['symbol'] ?? '';
+                $baseQuote = $this->identifyBaseAndQuote($symbol);
+
+                // Exclude if base asset is a fiat currency
+                return ! in_array($baseQuote['base'], $fiatCurrencies, true);
+            })
+            // Exclude stablecoins - they don't need price tracking
+            ->filter(function ($instrument) use ($stablecoins) {
+                $symbol = $instrument['symbol'] ?? '';
+                $baseQuote = $this->identifyBaseAndQuote($symbol);
+
+                return ! in_array($baseQuote['base'], $stablecoins, true);
             });
 
         // Prioritize PF_ (flexible_futures) over PI_ (inverse) when both exist for same token/quote
@@ -83,7 +104,7 @@ trait MapsExchangeInformationQuery
 
                 // Extract base and quote from symbol
                 // PF_XBTUSD -> base: XBT, quote: USD
-                $symbolPart = ltrim($symbol, 'PF_PI_');
+                $symbolPart = mb_ltrim($symbol, 'PF_PI_');
                 $baseQuote = $this->identifyBaseAndQuote($symbol);
 
                 // Calculate precision from tickSize
@@ -132,7 +153,7 @@ trait MapsExchangeInformationQuery
         }
 
         // Remove trailing zeros and count decimal places
-        $trimmed = rtrim(mb_substr($decimalPart, 1), '0');
+        $trimmed = mb_rtrim(mb_substr($decimalPart, 1), '0');
 
         return mb_strlen($trimmed) > 0 ? mb_strlen($trimmed) : 0;
     }
