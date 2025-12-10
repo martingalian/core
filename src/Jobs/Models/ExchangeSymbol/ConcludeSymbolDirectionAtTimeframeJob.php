@@ -7,6 +7,7 @@ namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols\ConfirmPriceAlignmentWithDirectionJob;
+use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols\CopyDirectionToOtherExchangesJob;
 use Martingalian\Core\Jobs\Models\Indicator\QuerySymbolIndicatorsJob;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\IndicatorHistory;
@@ -454,6 +455,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         // Find the highest index in this block to append after
         $maxIndex = Step::where('block_uuid', $blockUuid)->max('index');
 
+        // INDEX 3: ConfirmPriceAlignment (only created when direction is concluded)
         Step::create([
             'class' => ConfirmPriceAlignmentWithDirectionJob::class,
             'queue' => 'default',
@@ -465,18 +467,33 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
             ],
         ]);
 
-        if ($shouldCleanup) {
-            Step::create([
-                'class' => CleanupIndicatorHistoriesJob::class,
-                'queue' => 'default',
-                'block_uuid' => $blockUuid,
-                'group' => $group,
-                'index' => $maxIndex + 2,
-                'arguments' => [
-                    'exchangeSymbolId' => $symbolId,
-                ],
-            ]);
-        }
+        // INDEX 4: Cleanup - COMMENTED FOR TESTING
+        // if ($shouldCleanup) {
+        //     Step::create([
+        //         'class' => CleanupIndicatorHistoriesJob::class,
+        //         'queue' => 'default',
+        //         'block_uuid' => $blockUuid,
+        //         'group' => $group,
+        //         'index' => $maxIndex + 2,
+        //         'arguments' => [
+        //             'exchangeSymbolId' => $symbolId,
+        //         ],
+        //     ]);
+        // }
+
+        // INDEX 5: Copy to other exchanges - COMMENTED FOR TESTING
+        // Copy direction to other exchanges (after cleanup or after price alignment if no cleanup)
+        // $copyIndex = $shouldCleanup ? $maxIndex + 3 : $maxIndex + 2;
+        // Step::create([
+        //     'class' => CopyDirectionToOtherExchangesJob::class,
+        //     'queue' => 'default',
+        //     'block_uuid' => $blockUuid,
+        //     'group' => $group,
+        //     'index' => $copyIndex,
+        //     'arguments' => [
+        //         'sourceExchangeSymbolId' => $symbolId,
+        //     ],
+        // ]);
     }
 
     /**

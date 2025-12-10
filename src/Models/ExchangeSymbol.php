@@ -74,6 +74,7 @@ final class ExchangeSymbol extends BaseModel
         'symbol_information' => 'array',
         'leverage_brackets' => 'array',
         'indicators' => 'array',
+        'indicators_values' => 'array',
         'limit_quantity_multipliers' => 'array',
 
         'btc_correlation_pearson' => 'array',

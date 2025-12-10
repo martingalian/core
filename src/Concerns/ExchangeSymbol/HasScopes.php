@@ -47,9 +47,14 @@ trait HasScopes
 
     /**
      * Symbols that should attempt to fetch indicators.
+     * Only Binance symbols can query TAAPI - other exchanges receive copied results.
      */
     public function scopeNeedsIndicatorAttempt(Builder $query): Builder
     {
-        return $query->where('exchange_symbols.api_statuses->has_taapi_data', true);
+        return $query
+            ->where('exchange_symbols.api_statuses->has_taapi_data', true)
+            ->whereHas('apiSystem', function ($q) {
+                $q->where('canonical', 'binance');
+            });
     }
 }
