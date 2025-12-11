@@ -104,12 +104,14 @@ final class BitgetApiClient extends BaseApiClient
 
     /**
      * Get default headers for all requests.
+     * BitGet requires a locale header for proper API authentication.
      */
     public function getHeaders(): array
     {
         return [
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
+            'locale' => 'en-US',
         ];
     }
 }

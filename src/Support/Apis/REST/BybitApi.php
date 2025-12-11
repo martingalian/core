@@ -107,8 +107,15 @@ final class BybitApi
     }
 
     // https://bybit-exchange.github.io/docs/v5/account/wallet-balance
-    public function getAccountBalance(ApiProperties $properties)
+    public function getAccountBalance(?ApiProperties $properties = null)
     {
+        $properties = $properties ?? new ApiProperties;
+
+        // Bybit requires accountType parameter - default to UNIFIED
+        if (! $properties->get('options.accountType')) {
+            $properties->set('options.accountType', 'UNIFIED');
+        }
+
         $apiRequest = ApiRequest::make(
             'GET',
             '/v5/account/wallet-balance',

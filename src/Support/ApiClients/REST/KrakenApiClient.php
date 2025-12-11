@@ -57,18 +57,25 @@ final class KrakenApiClient extends BaseApiClient
      * Kraken Futures uses HMAC-SHA512 signature with:
      * - postData (URL-encoded query string)
      * - nonce (incrementing timestamp)
-     * - endpointPath (e.g., /derivatives/api/v3/accounts)
+     * - endpointPath (e.g., /api/v3/accounts - WITHOUT /derivatives prefix)
+     *
+     * @see https://docs.kraken.com/api/docs/guides/futures-rest/
      */
     public function signRequest(ApiRequest $apiRequest)
     {
-        $nonce = (string) round(microtime(true) * 1000);
+        // Generate nonce in microsecond precision format (timestamp + microseconds)
+        // Format: 1234567890123456 (16 digits)
+        $microtime = explode(' ', microtime());
+        $nonce = $microtime[1] . str_pad(substr($microtime[0], 2, 6), 6, '0');
 
         // Build POST data string from options
         $options = $apiRequest->properties->getOr('options', []);
         $postData = empty($options) ? '' : http_build_query($options);
 
-        // Get the endpoint path
-        $endpointPath = $apiRequest->path;
+        // Get the endpoint path for signature - must strip /derivatives prefix
+        // The request URL is /derivatives/api/v3/accounts but signature uses /api/v3/accounts
+        // This matches the working mvaessen/kraken-future-api library behavior
+        $endpointPath = str_replace('/derivatives', '', $apiRequest->path);
 
         // Kraken signature algorithm:
         // 1. Concatenate: postData + nonce + endpointPath

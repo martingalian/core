@@ -144,10 +144,12 @@ final class BitgetExceptionHandler extends BaseExceptionHandler
             $json = json_decode($body, true);
 
             if (is_array($json) && isset($json['code'])) {
+                // 40009: Sign signature error (invalid secret)
                 // 40014: Invalid API key
                 // 40017: Parameter verification failed or not a trader
                 // 40018: Invalid passphrase
-                if (in_array($json['code'], ['40014', '40017', '40018'], true)) {
+                // 40037: API key does not exist
+                if (in_array($json['code'], ['40009', '40014', '40017', '40018', '40037'], true)) {
                     return true;
                 }
             }

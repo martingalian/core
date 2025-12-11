@@ -155,7 +155,12 @@ abstract class BaseApiClient
 
             $options['json'] = $bodyPayload;
         } else {
-            $options['query'] = $apiRequest->properties->getOr('options', []);
+            // Only set query if there are actual options to send.
+            // Setting query => [] causes Guzzle to strip query params from the path.
+            $queryOptions = $apiRequest->properties->getOr('options', []);
+            if (! empty($queryOptions)) {
+                $options['query'] = $queryOptions;
+            }
         }
 
         return $options;
