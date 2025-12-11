@@ -15,25 +15,29 @@ final class CopyDirectionToOtherExchangesJob extends BaseQueueableJob
         public int $sourceExchangeSymbolId,
     ) {}
 
-    public function compute(): void
+    /**
+     * @return array<string, mixed>
+     */
+    public function compute()
     {
         // 1. Load source Binance symbol
         $sourceSymbol = ExchangeSymbol::find($this->sourceExchangeSymbolId);
         if (! $sourceSymbol) {
-            $this->response = ['error' => 'Source symbol not found'];
-
-            return;
+            return ['error' => 'Source symbol not found'];
         }
 
         // 2. Get Binance API system ID
         $binanceSystem = ApiSystem::where('canonical', 'binance')->first();
         if (! $binanceSystem || $sourceSymbol->api_system_id !== $binanceSystem->id) {
-            $this->response = ['error' => 'Source symbol is not from Binance'];
-
-            return;
+            return ['skipped' => 'Source symbol is not from Binance'];
         }
 
-        // 3. Find all other exchanges
+        // 3. Skip if no direction to copy
+        if (! $sourceSymbol->direction) {
+            return ['skipped' => 'No direction set on source symbol'];
+        }
+
+        // 4. Find all other exchanges
         $otherExchanges = ApiSystem::where('canonical', '!=', 'binance')
             ->where('is_exchange', true)
             ->get();
@@ -41,32 +45,34 @@ final class CopyDirectionToOtherExchangesJob extends BaseQueueableJob
         $copiedCount = 0;
         $targetSymbols = [];
 
-        // 4. For each exchange, find matching token
+        // 5. For each exchange, find matching token AND quote
         foreach ($otherExchanges as $exchange) {
-            // Try direct token match first
+            // Try direct token + quote match first
             $targetSymbol = ExchangeSymbol::query()
                 ->where('api_system_id', $exchange->id)
                 ->where('token', $sourceSymbol->token)
+                ->where('quote', $sourceSymbol->quote)
                 ->where('overlaps_with_binance', true)
                 ->first();
 
-            // If no direct match, try TokenMapper
+            // If no direct match, try TokenMapper (still matching quote)
             if (! $targetSymbol) {
                 $mappedToken = TokenMapper::query()
                     ->where('binance_token', $sourceSymbol->token)
-                    ->where('api_system_id', $exchange->id)
+                    ->where('other_api_system_id', $exchange->id)
                     ->first();
 
                 if ($mappedToken) {
                     $targetSymbol = ExchangeSymbol::query()
                         ->where('api_system_id', $exchange->id)
-                        ->where('token', $mappedToken->exchange_token)
+                        ->where('token', $mappedToken->other_token)
+                        ->where('quote', $sourceSymbol->quote)
                         ->where('overlaps_with_binance', true)
                         ->first();
                 }
             }
 
-            // 5. Copy direction data if target found
+            // 6. Copy direction data if target found
             if ($targetSymbol) {
                 $targetSymbol->updateSaving([
                     'direction' => $sourceSymbol->direction,
@@ -81,14 +87,16 @@ final class CopyDirectionToOtherExchangesJob extends BaseQueueableJob
                 $targetSymbols[] = [
                     'exchange' => $exchange->canonical,
                     'token' => $targetSymbol->token,
+                    'quote' => $targetSymbol->quote,
                     'id' => $targetSymbol->id,
                 ];
             }
         }
 
-        $this->response = [
+        return [
             'source_symbol_id' => $this->sourceExchangeSymbolId,
             'source_token' => $sourceSymbol->token,
+            'source_quote' => $sourceSymbol->quote,
             'direction' => $sourceSymbol->direction,
             'copied_to_count' => $copiedCount,
             'target_symbols' => $targetSymbols,

@@ -30,6 +30,11 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
 
     public function compute()
     {
+        // Skip if no direction was concluded - nothing to confirm
+        if (! $this->exchangeSymbol->direction) {
+            return ['response' => "Skipped - no direction set for {$this->exchangeSymbol->parsed_trading_pair}"];
+        }
+
         // Get the candle-comparison indicator
         $indicator = Indicator::firstWhere('canonical', 'candle-comparison');
 

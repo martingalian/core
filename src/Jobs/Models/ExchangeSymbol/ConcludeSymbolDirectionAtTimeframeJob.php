@@ -197,9 +197,6 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         // No direction change (first-time or same direction) - update symbol
         $this->updateSymbol($exchangeSymbol, $newDirection, $indicatorData);
 
-        // Create confirmation and cleanup steps now that we've concluded
-        $this->createConfirmationAndCleanupSteps($exchangeSymbol->id, $this->shouldCleanup);
-
         $response = [
             'result' => 'concluded',
             'direction' => $newDirection,
@@ -348,9 +345,6 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         // Path valid - update symbol with new direction
         $this->updateSymbol($exchangeSymbol, $newDirection, $indicatorData);
 
-        // Create confirmation and cleanup steps now that we've concluded
-        $this->createConfirmationAndCleanupSteps($exchangeSymbol->id, $this->shouldCleanup);
-
         $response = [
             'result' => 'concluded',
             'direction' => $newDirection,
@@ -399,16 +393,14 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
 
     /**
      * Spawn child workflow for next timeframe.
-     * Only creates Query and Conclude steps upfront.
-     * ConfirmPriceAlignment and Cleanup steps will be created if child workflow concludes.
+     * Creates all steps upfront - each job handles its own skip logic.
      */
     private function spawnNextTimeframeWorkflow(int $symbolId, string $nextTimeframe, array $conclusions, bool $shouldCleanup): void
     {
         $childBlockUuid = Str::uuid()->toString();
         $group = $this->step->group;
-        $now = Carbon::now();
 
-        // Only create Query and Conclude steps for child workflow
+        // INDEX 1: Query indicator data
         Step::create([
             'class' => QuerySymbolIndicatorsJob::class,
             'queue' => 'default',
@@ -422,6 +414,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
             ],
         ]);
 
+        // INDEX 2: Conclude direction
         Step::create([
             'class' => self::class,
             'queue' => 'default',
@@ -436,64 +429,47 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
             ],
         ]);
 
-        // Steps 3 and 4 (ConfirmPriceAlignment and Cleanup) will be created dynamically
-        // by the child workflow's ConcludeSymbolDirectionAtTimeframeJob if it concludes
-
-        // Link child workflow to current step
-        $this->step->update(['child_block_uuid' => $childBlockUuid]);
-    }
-
-    /**
-     * Create confirmation and cleanup steps after successful conclusion.
-     * These should only be created in the workflow that actually concludes.
-     */
-    private function createConfirmationAndCleanupSteps(int $symbolId, bool $shouldCleanup): void
-    {
-        $blockUuid = $this->step->block_uuid;
-        $group = $this->step->group;
-
-        // Find the highest index in this block to append after
-        $maxIndex = Step::where('block_uuid', $blockUuid)->max('index');
-
-        // INDEX 3: ConfirmPriceAlignment (only created when direction is concluded)
+        // INDEX 3: Confirm price alignment
         Step::create([
             'class' => ConfirmPriceAlignmentWithDirectionJob::class,
             'queue' => 'default',
-            'block_uuid' => $blockUuid,
+            'block_uuid' => $childBlockUuid,
             'group' => $group,
-            'index' => $maxIndex + 1,
+            'index' => 3,
             'arguments' => [
                 'exchangeSymbolId' => $symbolId,
             ],
         ]);
 
-        // INDEX 4: Cleanup - COMMENTED FOR TESTING
+        // INDEX 4: Copy direction to other exchanges (parallel with cleanup)
+        Step::create([
+            'class' => CopyDirectionToOtherExchangesJob::class,
+            'queue' => 'default',
+            'block_uuid' => $childBlockUuid,
+            'group' => $group,
+            'index' => 4,
+            'arguments' => [
+                'sourceExchangeSymbolId' => $symbolId,
+            ],
+        ]);
+
+        // INDEX 4: Cleanup indicator histories (parallel with copy)
+        // COMMENTED FOR DATA VERIFICATION
         // if ($shouldCleanup) {
         //     Step::create([
         //         'class' => CleanupIndicatorHistoriesJob::class,
         //         'queue' => 'default',
-        //         'block_uuid' => $blockUuid,
+        //         'block_uuid' => $childBlockUuid,
         //         'group' => $group,
-        //         'index' => $maxIndex + 2,
+        //         'index' => 4,
         //         'arguments' => [
         //             'exchangeSymbolId' => $symbolId,
         //         ],
         //     ]);
         // }
 
-        // INDEX 5: Copy to other exchanges - COMMENTED FOR TESTING
-        // Copy direction to other exchanges (after cleanup or after price alignment if no cleanup)
-        // $copyIndex = $shouldCleanup ? $maxIndex + 3 : $maxIndex + 2;
-        // Step::create([
-        //     'class' => CopyDirectionToOtherExchangesJob::class,
-        //     'queue' => 'default',
-        //     'block_uuid' => $blockUuid,
-        //     'group' => $group,
-        //     'index' => $copyIndex,
-        //     'arguments' => [
-        //         'sourceExchangeSymbolId' => $symbolId,
-        //     ],
-        // ]);
+        // Link child workflow to current step
+        $this->step->update(['child_block_uuid' => $childBlockUuid]);
     }
 
     /**
