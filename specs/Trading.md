@@ -112,9 +112,13 @@ Trade configuration is distributed across three tables:
    - `accounts.is_active` = true
    - Available position slots (current open < `total_positions_long` or `total_positions_short`)
 
-3. **Market conditions:**
-   - Direction signal exists on ExchangeSymbol (LONG or SHORT)
-   - Symbol is eligible for trading
+3. **Exchange Symbol Eligibility** (checked via `ExchangeSymbol::isTradeable()`):
+   - `api_statuses->has_taapi_data = true` - Has indicator data
+   - `auto_disabled = false` - Not auto-disabled by system
+   - `is_manually_enabled` is `null` or `true` - Not manually blocked
+   - `direction` is not `null` - Has concluded direction (LONG/SHORT)
+   - `tradeable_at` is `null` or in the past - Not in cooldown
+   - `mark_price > 0` - Has valid current price
 
 ### Position Types
 

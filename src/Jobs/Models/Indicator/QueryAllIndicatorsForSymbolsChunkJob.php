@@ -72,7 +72,7 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
         $indicators = Indicator::query()
             ->where('is_active', true)
             ->where('is_computed', false)
-            ->where('type', 'refresh-data')
+            ->where('type', 'conclude-indicators')
             ->get();
         info_if('[QueryAllIndicatorsForSymbolsChunkJob] Loaded '.$indicators->count().' indicators');
 

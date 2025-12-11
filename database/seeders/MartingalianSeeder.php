@@ -68,6 +68,7 @@ final class MartingalianSeeder extends Seeder
         Indicator::updateOrCreate(
             ['canonical' => 'emas-same-direction'],
             [
+                'type' => 'conclude-indicators',
                 'is_active' => true,
                 'class' => "Martingalian\Core\Indicators\RefreshData\EMAsSameDirection",
                 'is_computed' => true,
@@ -77,7 +78,7 @@ final class MartingalianSeeder extends Seeder
         Indicator::updateOrCreate(
             ['canonical' => 'candle-comparison'],
             [
-                'type' => 'refresh-data',
+                'type' => 'conclude-indicators',
                 'is_active' => true,
                 'is_computed' => false,
                 'class' => "Martingalian\Core\Indicators\Ongoing\CandleComparisonIndicator",
@@ -90,7 +91,9 @@ final class MartingalianSeeder extends Seeder
         Indicator::updateOrCreate(
             ['canonical' => 'macd'],
             [
-                'is_active' => false,
+                'type' => 'conclude-indicators',
+                'is_active' => true,
+                'is_computed' => false,
                 'class' => "Martingalian\Core\Indicators\RefreshData\MACDIndicator",
                 'parameters' => [
                     'backtrack' => 1,
@@ -102,13 +105,40 @@ final class MartingalianSeeder extends Seeder
             ]
         );
 
+        // OBV removed from active use - volume-based indicators are not cross-exchange proof
+        // Class file retained at RefreshData/OBVIndicator.php for future use
+
+        // Supertrend - ATR-based trend indicator, cross-exchange proof (OHLC only)
         Indicator::updateOrCreate(
-            ['canonical' => 'obv'],
+            ['canonical' => 'supertrend'],
             [
-                'is_active' => false, // For now, this indicator is causing issues.
-                'class' => "Martingalian\Core\Indicators\RefreshData\OBVIndicator",
+                'type' => 'conclude-indicators',
+                'is_active' => true,
+                'is_computed' => false,
+                'class' => "Martingalian\Core\Indicators\RefreshData\SupertrendIndicator",
                 'parameters' => [
+                    'period' => 7,
+                    'multiplier' => 3,
+                    'results' => 1,
+                ],
+            ]
+        );
+
+        // Stochastic RSI - Combines Stochastic oscillator with RSI, cross-exchange proof (close prices only)
+        Indicator::updateOrCreate(
+            ['canonical' => 'stochrsi'],
+            [
+                'type' => 'conclude-indicators',
+                'is_active' => true,
+                'is_computed' => false,
+                'class' => "Martingalian\Core\Indicators\RefreshData\StochRSIIndicator",
+                'parameters' => [
+                    'kPeriod' => 5,
+                    'dPeriod' => 3,
+                    'rsiPeriod' => 14,
+                    'stochasticPeriod' => 14,
                     'results' => 2,
+                    'backtrack' => 1,
                 ],
             ]
         );
@@ -116,6 +146,9 @@ final class MartingalianSeeder extends Seeder
         Indicator::updateOrCreate(
             ['canonical' => 'adx'],
             [
+                'type' => 'conclude-indicators',
+                'is_active' => true,
+                'is_computed' => false,
                 'class' => "Martingalian\Core\Indicators\RefreshData\ADXIndicator",
                 'parameters' => [
                     'results' => 1,
@@ -135,6 +168,9 @@ final class MartingalianSeeder extends Seeder
         Indicator::updateOrCreate(
             ['canonical' => 'ema-40'],
             [
+                'type' => 'conclude-indicators',
+                'is_active' => true,
+                'is_computed' => false,
                 'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
                 'parameters' => [
                     'backtrack' => 1,
@@ -147,6 +183,9 @@ final class MartingalianSeeder extends Seeder
         Indicator::updateOrCreate(
             ['canonical' => 'ema-80'],
             [
+                'type' => 'conclude-indicators',
+                'is_active' => true,
+                'is_computed' => false,
                 'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
                 'parameters' => [
                     'backtrack' => 1,
@@ -159,6 +198,9 @@ final class MartingalianSeeder extends Seeder
         Indicator::updateOrCreate(
             ['canonical' => 'ema-120'],
             [
+                'type' => 'conclude-indicators',
+                'is_active' => true,
+                'is_computed' => false,
                 'class' => "Martingalian\Core\Indicators\RefreshData\EMAIndicator",
                 'parameters' => [
                     'backtrack' => 1,

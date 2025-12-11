@@ -68,7 +68,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
             ->join('indicators', 'indicator_histories.indicator_id', '=', 'indicators.id')
             ->where('indicator_histories.exchange_symbol_id', $exchangeSymbol->id)
             ->where('indicator_histories.timeframe', $this->timeframe)
-            ->where('indicators.type', 'refresh-data')
+            ->where('indicators.type', 'conclude-indicators')
             ->where('indicators.is_active', 1)
             ->selectRaw('indicator_histories.indicator_id, MAX(indicator_histories.timestamp) as max_timestamp')
             ->groupBy('indicator_histories.indicator_id')
@@ -88,7 +88,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         // Check if we have data for all expected indicators
         $expectedIndicatorCount = \Martingalian\Core\Models\Indicator::query()
             ->where('is_active', true)
-            ->where('type', 'refresh-data')
+            ->where('type', 'conclude-indicators')
             ->count();
 
         if ($latestPerIndicator->count() < $expectedIndicatorCount) {
@@ -105,7 +105,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
                 ->where('indicator_histories.timeframe', $this->timeframe)
                 ->where('indicator_histories.indicator_id', $item->indicator_id)
                 ->where('indicator_histories.timestamp', $item->max_timestamp)
-                ->where('indicators.type', 'refresh-data')
+                ->where('indicators.type', 'conclude-indicators')
                 ->where('indicators.is_active', 1)
                 ->with('indicator')
                 ->select('indicator_histories.*')

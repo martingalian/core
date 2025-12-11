@@ -257,13 +257,23 @@ $symbol = Symbol::where('canonical', 'btc')->first();  // Field doesn't exist!
 **Concerns**:
 - `HasAccessors` - Computed properties (`parsed_trading_pair`)
 - `HasScopes` - Query scopes:
-  - `tradeable()` - Symbols eligible to open positions (manually enabled, auto-enabled, receives indicators, has direction, respects cooldowns)
+  - `tradeable()` - Symbols eligible to open positions (see Tradeable Criteria below)
   - `needsPriceUpdates()` - Symbols for WebSocket price streaming (has/trying to get indicator data, not manually disabled)
-  - `needsIndicatorAttempt()` - Symbols that should fetch indicators (`receives_indicator_data = true`)
-- `HasStatuses` - Status checks (`isManuallyEnabled()`, `isAutoDisabled()`, etc.)
+  - `needsIndicatorAttempt()` - Binance symbols with `has_taapi_data = true` (other exchanges receive copied results)
+- `HasStatuses` - Status checks:
+  - `isTradeable()` - Instance-level check mirroring `scopeTradeable` logic
 - `HasTradingComputations` - Position sizing, risk calculations
 - `InteractsWithApis` - Exchange API interactions
 - `SendsNotifications` - Notification dispatching
+
+**Tradeable Criteria** (both `scopeTradeable()` and `isTradeable()` method):
+An exchange symbol is valid for trading when ALL of these conditions are met:
+1. `api_statuses->has_taapi_data = true` - Has indicator data from TAAPI
+2. `auto_disabled = false` - Not auto-disabled by system
+3. `is_manually_enabled` is `null` or `true` - Not manually blocked (false blocks)
+4. `direction` is not `null` - Has a concluded direction (LONG/SHORT)
+5. `tradeable_at` is `null` or in the past - Not in cooldown period
+6. `mark_price > 0` - Has a valid current price (checked in `isTradeable()` only)
 
 **Direct Token/Quote Access**:
 ExchangeSymbol stores `token` and `quote` directly as strings:

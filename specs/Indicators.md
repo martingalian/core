@@ -9,17 +9,19 @@ Comprehensive technical analysis system using 12+ indicators to generate trading
 
 #### By Category
 
-**RefreshData Indicators** - Live indicators refreshed periodically:
-- **RSI** (Relative Strength Index) - Momentum oscillator (0-100)
-- **MACD** (Moving Average Convergence Divergence) - Trend following
-- **EMA** (Exponential Moving Average) - Trend direction
-- **MFI** (Money Flow Index) - Volume-weighted RSI
-- **ADX** (Average Directional Index) - Trend strength
-- **OBV** (On-Balance Volume) - Volume momentum
-- **EMAsConvergence** - Multiple EMA alignment analysis
-- **EMAsSameDirection** - EMA trend consistency
-- **AmplitudeThresholdIndicator** - Price volatility detection
-- **CandleComparisonIndicator** - Price action confirmation
+**Conclude-Indicators** (`type: conclude-indicators`) - Live indicators refreshed periodically for direction conclusion:
+- **MACD** (Moving Average Convergence Divergence) - Trend following (cross-exchange proof: close prices only)
+- **EMA** (Exponential Moving Average) - Trend direction (cross-exchange proof: close prices only)
+- **ADX** (Average Directional Index) - Trend strength (cross-exchange proof: OHLC only)
+- **EMAsSameDirection** - EMA trend consistency (computed from EMA values)
+- **CandleComparisonIndicator** - Price action confirmation (cross-exchange proof: close prices only)
+- **Supertrend** - ATR-based trend indicator (cross-exchange proof: OHLC only)
+- **StochRSI** (Stochastic RSI) - Momentum oscillator combining Stochastic with RSI (cross-exchange proof: close prices only)
+
+**Cross-Exchange Proof**: All active conclude-indicators use only price data (OHLC or close prices), not volume. This ensures consistent signals across exchanges (Binance, KuCoin, Bybit, etc.) since volume calculations vary by exchange.
+
+**Removed Indicators**:
+- **OBV** (On-Balance Volume) - Removed from active use (class file retained). Volume-based indicators give inconsistent results across exchanges due to different volume calculation methods.
 
 **History Indicators** - Historical data storage:
 - **CandleIndicator** - OHLCV candle storage and retrieval
@@ -33,9 +35,11 @@ Indicators implement specific interfaces to define their role in direction concl
 
 **DirectionIndicator** - Determines market direction (LONG/SHORT):
 - **EMAsSameDirection** - Computed indicator analyzing all EMA trends
-- **CandleComparisonIndicator** - Price action validation
-- **OBV** - Volume-based direction
+- **CandleComparisonIndicator** - Price action validation (uses close prices only, not volume)
 - **EMA-40, EMA-80, EMA-120** - Individual EMA trend directions
+- **MACD** - Trend following via MACD line vs signal line crossovers
+- **Supertrend** - ATR-based trend direction from TAAPI's valueAdvice
+- **StochRSI** - FastK/FastD crossover detection with overbought/oversold filtering
 
 **ValidationIndicator** - Validates market conditions (true/false):
 - **ADX** - Confirms sufficient trend strength for trading
@@ -48,7 +52,7 @@ Indicators implement specific interfaces to define their role in direction concl
 
 **API-Queried Indicators** (`is_computed = false`):
 - Query TAAPI.io directly for indicator values
-- Examples: ADX, OBV, EMA-40, EMA-80, EMA-120, CandleComparisonIndicator
+- Examples: ADX, EMA-40, EMA-80, EMA-120, CandleComparisonIndicator
 - Stored first in QuerySymbolIndicatorsJob
 
 **Computed Indicators** (`is_computed = true`):
@@ -198,10 +202,13 @@ abstract class BaseIndicator
 - 50-75: Very strong trend
 - 75-100: Extremely strong trend
 
-#### OBV (On-Balance Volume)
+#### OBV (On-Balance Volume) - DEPRECATED
 **File**: `RefreshData/OBVIndicator.php`
+**Status**: **REMOVED FROM DATABASE** (class file retained for future use)
 **Purpose**: Cumulative volume indicator, confirms price trends
 **Calculation**: Running total of volume (add on up days, subtract on down days)
+
+**Why Removed**: Volume-based indicators give inconsistent results across different exchanges (Binance, KuCoin, Bitget, etc.) because each exchange calculates and reports volume differently. Since direction conclusions from Binance are copied to other exchanges, using volume would create inaccurate signals for non-Binance symbols.
 
 **Usage**: Divergence between OBV and price signals potential reversal
 
@@ -226,6 +233,45 @@ abstract class BaseIndicator
 
 **Logic**: Alerts when price moves beyond threshold within period
 
+#### Supertrend
+**File**: `RefreshData/SupertrendIndicator.php`
+**Type**: DirectionIndicator
+**Purpose**: ATR-based trend following indicator that determines trend direction
+**Parameters**:
+- Period (default: 7)
+- Multiplier (default: 3)
+
+**TAAPI Response**: `{"value": 37459.26, "valueAdvice": "long"}`
+- `value`: The supertrend line value
+- `valueAdvice`: "long" or "short" indicating trend direction
+
+**Logic**:
+- LONG: valueAdvice === "long"
+- SHORT: valueAdvice === "short"
+
+**Cross-Exchange Proof**: Uses only OHLC price data (via ATR calculation), no volume.
+
+#### StochRSI (Stochastic RSI)
+**File**: `RefreshData/StochRSIIndicator.php`
+**Type**: DirectionIndicator
+**Purpose**: Combines Stochastic oscillator with RSI for more sensitive momentum detection
+**Parameters**:
+- kPeriod (default: 5) - %K smoothing period
+- dPeriod (default: 3) - %D smoothing period
+- rsiPeriod (default: 14) - RSI calculation period
+- stochasticPeriod (default: 14) - Stochastic calculation period
+- results: 2 (for crossover detection)
+- backtrack: 1
+
+**TAAPI Response (with results=2)**: `{"valueFastK": [older, newer], "valueFastD": [older, newer]}`
+
+**Logic**:
+- LONG: FastK crosses above FastD (bullish crossover) AND FastK < 80 (not overbought)
+- SHORT: FastK crosses below FastD (bearish crossover) AND FastK > 20 (not oversold)
+- null: No clear crossover or extreme conditions
+
+**Cross-Exchange Proof**: Uses only close prices for RSI calculation, no volume.
+
 #### CandleComparisonIndicator
 **File**: `RefreshData/CandleComparisonIndicator.php`
 **Type**: DirectionIndicator
@@ -234,9 +280,15 @@ abstract class BaseIndicator
 
 **Implementation**:
 - Queries TAAPI `candle` endpoint with `results=2` parameter
-- Receives columnar format: `{"close": [older, newer], "open": [older, newer], ...}`
-- Compares `close[0]` (older) vs `close[1]` (newer)
+- Receives columnar format: `{"close": [older, newer], "open": [older, newer], "volume": [older, newer], ...}`
+- Compares `close[0]` (older) vs `close[1]` (newer) - **uses only close prices**
 - Returns LONG if price increased, SHORT if price decreased
+
+**Volume Data Handling**:
+- TAAPI returns volume data in the response, which is stored in `indicator_histories` for data coherence
+- Volume data is **NOT used** for direction conclusions
+- Only close prices are compared to determine direction
+- This ensures consistent behavior across exchanges (volume calculations vary by exchange)
 
 **Role in Direction Conclusion**:
 Acts as final validation that price action aligns with other directional indicators. If all other indicators say LONG but price is falling (SHORT), the symbol becomes INCONCLUSIVE, preventing trades against actual price movement.
@@ -288,7 +340,7 @@ Acts as final validation that price action aligns with other directional indicat
 
 **Flow**:
 1. Load ExchangeSymbols from provided IDs with relationships
-2. Load active non-computed indicators (type: refresh-data)
+2. Load active non-computed indicators (type: conclude-indicators)
 3. Build bulk request constructs (one per symbol, all indicators)
 4. Send single POST request to TAAPI `/bulk` endpoint
 5. Parse response and match indicators by endpoint + period
@@ -336,11 +388,11 @@ After fetching API indicators, processes computed indicators (e.g., `EMAsSameDir
 
 ### CleanupIndicatorHistoriesJob
 **Location**: `Jobs/Models/ExchangeSymbol/CleanupIndicatorHistoriesJob.php`
-**Purpose**: Remove old RefreshData indicator histories
+**Purpose**: Remove old conclude-indicators indicator histories
 
 **Logic**: Keeps only recent data (varies by indicator), deletes rest
 
-**Why**: RefreshData indicators are point-in-time, don't need full history
+**Why**: Conclude-indicators are point-in-time, don't need full history
 
 ## Integration with TAAPI.io
 
@@ -381,13 +433,15 @@ TAAPI_BASE_URL=https://api.taapi.io
 2. Analyze indicator values:
    - RSI trend
    - MACD crossovers
-   - EMA alignment
-   - Volume confirmation (OBV, MFI)
+   - EMA alignment (EMA-40, EMA-80, EMA-120 via EMAsSameDirection)
    - Trend strength (ADX)
+   - Price action confirmation (CandleComparisonIndicator)
 3. Apply weighting to each indicator
 4. Calculate confidence score
 5. Determine direction: LONG, SHORT, or NEUTRAL
 6. Store conclusion with timestamp
+
+**Note**: Volume-based indicators (OBV, MFI) are not used for direction conclusions due to inconsistent volume reporting across exchanges.
 
 **Output**: Direction recommendation with confidence level
 

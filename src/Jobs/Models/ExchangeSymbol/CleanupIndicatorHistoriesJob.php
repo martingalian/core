@@ -12,7 +12,7 @@ use Martingalian\Core\Models\IndicatorHistory;
 /**
  * CleanupIndicatorHistoriesJob
  *
- * Deletes all refresh-data indicator histories for an exchange symbol.
+ * Deletes all conclude-indicators indicator histories for an exchange symbol.
  * This runs after the e2e indicator conclusion analysis is complete,
  * ensuring fresh data on the next analysis cycle.
  *
@@ -37,11 +37,11 @@ final class CleanupIndicatorHistoriesJob extends BaseQueueableJob
     {
         $exchangeSymbol = ExchangeSymbol::findOrFail($this->exchangeSymbolId);
 
-        // Delete all indicator_histories entries for refresh-data indicators
-        $refreshDataIndicatorIds = Indicator::where('type', 'refresh-data')->pluck('id');
+        // Delete all indicator_histories entries for conclude-indicators indicators
+        $refreshDataIndicatorIds = Indicator::where('type', 'conclude-indicators')->pluck('id');
 
         if ($refreshDataIndicatorIds->isEmpty()) {
-            return ['response' => 'No refresh-data indicators found to clean up'];
+            return ['response' => 'No conclude-indicators indicators found to clean up'];
         }
 
         $deletedCount = IndicatorHistory::query()

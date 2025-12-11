@@ -75,7 +75,7 @@ final class QuerySymbolIndicatorsBulkJob extends BaseApiableJob
         $this->indicators = Indicator::query()
             ->where('is_active', true)
             ->where('is_computed', false)
-            ->where('type', 'refresh-data')
+            ->where('type', 'conclude-indicators')
             ->get();
     }
 
@@ -339,7 +339,7 @@ final class QuerySymbolIndicatorsBulkJob extends BaseApiableJob
         $computedIndicators = Indicator::query()
             ->where('is_active', true)
             ->where('is_computed', true)
-            ->where('type', 'refresh-data')
+            ->where('type', 'conclude-indicators')
             ->get();
 
         foreach ($this->exchangeSymbols as $exchangeSymbol) {

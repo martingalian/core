@@ -60,11 +60,11 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
         // Load the exchange symbol
         $exchangeSymbol = ExchangeSymbol::findOrFail($this->exchangeSymbolId);
 
-        // Load active refresh-data indicators
+        // Load active conclude-indicators indicators
         $indicators = Indicator::query()
             ->where('is_active', true)
             ->where('is_computed', false)
-            ->where('type', 'refresh-data')
+            ->where('type', 'conclude-indicators')
             ->get();
 
         if ($indicators->isEmpty()) {
@@ -256,7 +256,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
         $computedIndicators = Indicator::query()
             ->where('is_active', true)
             ->where('is_computed', true)
-            ->where('type', 'refresh-data')
+            ->where('type', 'conclude-indicators')
             ->get();
 
         foreach ($computedIndicators as $computedIndicator) {
