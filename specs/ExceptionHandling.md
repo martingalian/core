@@ -274,16 +274,18 @@ $retryableHttpCodes = [408, 500, 502, 503, 504]; // Temporary errors
 
 **BitGet-Specific Vendor Codes**:
 - `00000`: Success
+- `40009`: Sign signature error - invalid API secret (account blocked)
 - `40014`: Invalid API key (account blocked)
 - `40017`: Parameter verification failed or not a trader (account blocked)
 - `40018`: Invalid passphrase (account blocked)
+- `40037`: API key does not exist - key may be deleted or wrong (account blocked)
 - `40808`: Parameter verification exception (fail, not retryable)
 - `45001`: System maintenance (retryable)
 - `40725`: System release error (retryable)
 - `40015`: System release error (retryable)
 
 **Account Blocked Handling**:
-- 401 errors and vendor codes 40014, 40017, 40018 create `ForbiddenHostname` record
+- 401 errors and vendor codes 40009, 40014, 40017, 40018, 40037 create `ForbiddenHostname` record
 - Type: `account_blocked`
 - Prevents further API calls until credentials are verified
 

@@ -15,6 +15,7 @@ External API integration layer supporting cryptocurrency exchanges (Binance, Byb
    - Automatic request logging to `api_request_logs` table
    - Duration tracking with negative value guard (`max(0, ...)`)
    - Timing: `started_at` captured BEFORE creating log record to prevent race conditions
+   - **Important**: Only sets `query` option when there are actual parameters (empty `query => []` causes Guzzle to strip query params from URL path)
 
 2. **BaseWebsocketClient** (`packages/martingalian/core/src/Abstracts/BaseWebsocketClient.php`)
    - Abstract base class for WebSocket clients
@@ -84,6 +85,7 @@ Features:
 - Account information
 - Market data
 - API key authentication
+- Methods like `getAccountBalance()` accept optional `ApiProperties` parameter with default `accountType=UNIFIED`
 
 Rate Limits:
 - 10 messages per second for WebSocket subscriptions
@@ -125,20 +127,30 @@ Rate Limits:
 Authentication:
 ```php
 // Kraken Futures signing algorithm:
-// 1. Build POST data string
+// 1. Generate nonce in microsecond precision (16 digits)
+$microtime = explode(' ', microtime());
+$nonce = $microtime[1] . str_pad(substr($microtime[0], 2, 6), 6, '0');
+
+// 2. Build POST data string
 $postData = http_build_query($options);
 
-// 2. Create signature payload: postData + nonce + endpoint
-$sha256Hash = hash('sha256', $postData . $nonce . $endpoint, true);
+// 3. Get endpoint path for signature - MUST strip /derivatives prefix!
+// The request URL is /derivatives/api/v3/accounts but signature uses /api/v3/accounts
+$endpointPath = str_replace('/derivatives', '', $apiRequest->path);
 
-// 3. Sign with HMAC-SHA512 using base64-decoded private key
+// 4. Create signature payload: postData + nonce + endpointPath
+$sha256Hash = hash('sha256', $postData . $nonce . $endpointPath, true);
+
+// 5. Sign with HMAC-SHA512 using base64-decoded private key
 $signature = hash_hmac('sha512', $sha256Hash, base64_decode($privateKey), true);
 
-// 4. Base64 encode the signature
+// 6. Base64 encode the signature
 $authent = base64_encode($signature);
 
 // Headers: APIKey, Authent, Nonce
 ```
+
+**CRITICAL**: The endpoint path used for signature computation must NOT include the `/derivatives` prefix, even though the actual HTTP request URL does include it. This matches the behavior of working Kraken Futures libraries like `mvaessen/kraken-future-api`.
 
 Common Errors:
 - `401`: Authentication failed (invalid API key or signature)
@@ -230,6 +242,7 @@ Features:
 - Market data
 - HMAC-SHA256 signature authentication with 3 credentials
 - Passphrase is sent as PLAIN TEXT (unlike KuCoin)
+- Includes `locale: en-US` header for proper API responses
 
 Rate Limits:
 - 6000 requests per minute per IP
@@ -768,6 +781,48 @@ $client = new BybitApiClient(['ws_connector' => $mockConnector]);
 - **Symptoms**: -1021 errors (Binance)
 - **Solution**: Sync server time via NTP
 - **Notification**: High severity
+
+## Debug Commands
+
+### debug:test-api-connectivity
+
+**Location**: `app/Console/Commands/Debug/TestApiConnectivityCommand.php` (Ingestion project)
+
+**Purpose**: Test API connectivity for accounts or admin credentials using signed endpoints
+
+**Usage**:
+```bash
+# Test specific account credentials
+php artisan debug:test-api-connectivity --account=3
+
+# Test admin credentials for an exchange
+php artisan debug:test-api-connectivity --admin --canonical=binance
+php artisan debug:test-api-connectivity --admin --canonical=bybit
+php artisan debug:test-api-connectivity --admin --canonical=kraken
+php artisan debug:test-api-connectivity --admin --canonical=kucoin
+php artisan debug:test-api-connectivity --admin --canonical=bitget
+```
+
+**Features**:
+- Tests signed endpoint (account balance) to verify credentials work
+- Displays masked credentials with character count
+- Exchange-specific success/error message formatting
+- Helpful hints for common BitGet error codes (40009, 40014, 40018, 40037)
+
+**Output Example**:
+```
+Testing connectivity for Account #3: Main Kraken Account
+Exchange: kraken
+
+Credentials:
+  kraken_api_key: ROH7************************************************SXOE (56 chars)
+  kraken_private_key: KNi+***********************kC9L (88 chars)
+
+Testing signed API endpoint (account balance)...
+
+✓ Account #3 connectivity test PASSED
+  Status: 200
+```
 
 ## Future Enhancements
 
