@@ -45,6 +45,13 @@ final class ApiProperties
         return data_get($this->properties, $key) !== null;
     }
 
+    public function delete(string $key): self
+    {
+        data_forget($this->properties, $key);
+
+        return $this;
+    }
+
     public function mergeIntoNew(array $override): self
     {
         $merged = array_replace_recursive($this->properties, $override);
