@@ -32,6 +32,11 @@ use Spatie\ModelStates\StateConfig;
 
 abstract class StepStatus extends State
 {
+    /**
+     * Get the string value of this state.
+     */
+    abstract public function value(): string;
+
     final public static function config(): StateConfig
     {
         return parent::config()

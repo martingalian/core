@@ -22,8 +22,16 @@ final class StepObserver
         }
 
         // Queue validation: fallback to 'default' if queue is not valid or empty
-        // Valid queues: 'default', 'priority', and hostname-based queue (lowercase)
+        // Valid queues: 'default', 'priority', hostname-based queue (lowercase), and server queue names
         $validQueues = ['default', 'priority', mb_strtolower(gethostname())];
+
+        // Also allow server queue names from the database (for cross-server job routing)
+        $serverQueues = DB::table('servers')
+            ->whereNotNull('own_queue_name')
+            ->pluck('own_queue_name')
+            ->toArray();
+        $validQueues = array_merge($validQueues, $serverQueues);
+
         if (empty($step->queue) || ! in_array($step->queue, $validQueues, true)) {
             $step->queue = 'default';
         }
@@ -132,8 +140,16 @@ final class StepObserver
         }
 
         // Queue validation: fallback to 'default' if queue is not valid or empty
-        // Valid queues: 'default', 'priority', and hostname-based queue (lowercase)
+        // Valid queues: 'default', 'priority', hostname-based queue (lowercase), and server queue names
         $validQueues = ['default', 'priority', mb_strtolower(gethostname())];
+
+        // Also allow server queue names from the database (for cross-server job routing)
+        $serverQueues = DB::table('servers')
+            ->whereNotNull('own_queue_name')
+            ->pluck('own_queue_name')
+            ->toArray();
+        $validQueues = array_merge($validQueues, $serverQueues);
+
         if (empty($step->queue) || ! in_array($step->queue, $validQueues, true)) {
             $step->queue = 'default';
         }
