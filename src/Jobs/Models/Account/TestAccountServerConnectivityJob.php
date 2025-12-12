@@ -21,6 +21,9 @@ use Throwable;
  */
 final class TestAccountServerConnectivityJob extends BaseApiableJob
 {
+    // Connectivity tests should fail immediately - no retries
+    public int $retries = 1;
+
     public Account $account;
 
     public ApiSystem $apiSystem;
