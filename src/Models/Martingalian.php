@@ -68,43 +68,20 @@ final class Martingalian extends BaseModel
     ];
 
     /**
-     * Get the current server's public IP address.
-     * Fetches from a public API and caches for 1 hour.
-     * Falls back to gethostbyname if API fails.
+     * Get the current server's public IP address from the servers table.
+     * Falls back to gethostbyname if server not found.
      */
     public static function ip(): string
     {
-        return Cache::remember('martingalian:public_ip', 3600, function () {
-            try {
-                // Try multiple services in case one is down
-                $services = [
-                    'https://api.ipify.org',
-                    'https://icanhazip.com',
-                    'https://ifconfig.me/ip',
-                ];
+        $hostname = gethostname();
 
-                foreach ($services as $service) {
-                    try {
-                        $response = Http::timeout(3)->get($service);
-                        if ($response->successful()) {
-                            $ip = mb_trim($response->body());
-                            // Validate it's a valid IP
-                            if (filter_var($ip, FILTER_VALIDATE_IP)) {
-                                return $ip;
-                            }
-                        }
-                    } catch (Throwable $e) {
-                        // Try next service
-                        continue;
-                    }
-                }
+        $server = Server::where('hostname', $hostname)->first();
 
-                // Fallback to gethostbyname if all services fail
-                return gethostbyname(gethostname());
-            } catch (Throwable $e) {
-                // Ultimate fallback
-                return gethostbyname(gethostname());
-            }
-        });
+        if ($server && $server->ip_address) {
+            return $server->ip_address;
+        }
+
+        // Fallback for unknown servers
+        return gethostbyname($hostname);
     }
 }
