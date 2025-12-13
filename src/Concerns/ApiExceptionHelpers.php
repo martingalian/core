@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns;
 
+use Carbon\CarbonInterface;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -111,6 +112,7 @@ trait ApiExceptionHelpers
      * Case 1: IP not whitelisted by user.
      * User forgot to add server IP to their API key whitelist.
      * Creates account-specific record, notifies the USER (not admin).
+     * Auto-expires after 24 hours to allow retry in case user fixed it.
      */
     public function forbidIpNotWhitelisted(Throwable $exception): void
     {
@@ -119,7 +121,7 @@ trait ApiExceptionHelpers
         $this->createForbiddenRecord(
             type: ForbiddenHostname::TYPE_IP_NOT_WHITELISTED,
             accountId: $this->account->id, // Account-specific
-            forbiddenUntil: null, // Until user fixes it
+            forbiddenUntil: now()->addHours(24), // Auto-retry after 24 hours
             errorCode: (string) ($errorData['status_code'] ?? ''),
             errorMessage: $errorData['message'] ?? null
         );
@@ -170,6 +172,7 @@ trait ApiExceptionHelpers
      * Case 4: Account blocked.
      * Specific account's API key is revoked, disabled, or has permission issues.
      * Creates account-specific record, notifies the USER.
+     * Auto-expires after 24 hours to allow retry in case user fixed it.
      */
     public function forbidAccountBlocked(Throwable $exception): void
     {
@@ -178,7 +181,7 @@ trait ApiExceptionHelpers
         $this->createForbiddenRecord(
             type: ForbiddenHostname::TYPE_ACCOUNT_BLOCKED,
             accountId: $this->account->id, // Account-specific
-            forbiddenUntil: null, // Until user fixes it
+            forbiddenUntil: now()->addHours(24), // Auto-retry after 24 hours
             errorCode: (string) ($errorData['status_code'] ?? ''),
             errorMessage: $errorData['message'] ?? null
         );
@@ -193,7 +196,7 @@ trait ApiExceptionHelpers
         $this->createForbiddenRecord(
             type: ForbiddenHostname::TYPE_IP_NOT_WHITELISTED,
             accountId: $this->account->id,
-            forbiddenUntil: null,
+            forbiddenUntil: now()->addHours(24), // Auto-retry after 24 hours
             errorCode: null,
             errorMessage: null
         );
@@ -318,7 +321,7 @@ trait ApiExceptionHelpers
     protected function createForbiddenRecord(
         string $type,
         ?int $accountId,
-        ?Carbon $forbiddenUntil,
+        ?CarbonInterface $forbiddenUntil,
         ?string $errorCode,
         ?string $errorMessage
     ): void {

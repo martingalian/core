@@ -266,14 +266,15 @@ abstract class BaseApiableJob extends BaseQueueableJob
                 $this->assignExceptionHandler();
             }
 
-            $hostname = \Martingalian\Core\Models\Martingalian::ip();
-            $isForbidden = ForbiddenHostname::query()
+            $ipAddress = \Martingalian\Core\Models\Martingalian::ip();
+            $forbiddenHostname = ForbiddenHostname::query()
                 ->where('account_id', $this->exceptionHandler->account->id)
-                ->where('ip_address', $hostname)
-                ->exists();
+                ->where('ip_address', $ipAddress)
+                ->first();
 
-            if ($isForbidden) {
-                $diagnostics[] = "Hostname {$hostname} is FORBIDDEN for account {$this->exceptionHandler->account->id}";
+            if ($forbiddenHostname) {
+                $apiSystemName = $this->exceptionHandler->account->apiSystem->name ?? 'exchange';
+                $diagnostics[] = "Server IP {$ipAddress} is not whitelisted on {$apiSystemName}. Please add this IP to your API key whitelist.";
             }
         } catch (Throwable $e) {
             // Silently skip diagnostics if anything fails
