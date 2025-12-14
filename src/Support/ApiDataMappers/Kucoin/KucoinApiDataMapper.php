@@ -114,4 +114,27 @@ final class KucoinApiDataMapper extends BaseDataMapper
 
         throw new InvalidArgumentException("Invalid KuCoin symbol format: {$symbol}");
     }
+
+    /**
+     * Returns a canonical order type from KuCoin order data.
+     *
+     * @param  array<string, mixed>  $order
+     */
+    public function canonicalOrderType(array $order): string
+    {
+        $type = strtolower($order['type'] ?? '');
+        $stop = $order['stop'] ?? '';
+        $stopPrice = (float) ($order['stopPrice'] ?? 0);
+
+        // Check if it's a stop order
+        if ($stop !== '' || $stopPrice > 0) {
+            return 'STOP_MARKET';
+        }
+
+        return match ($type) {
+            'market' => 'MARKET',
+            'limit' => 'LIMIT',
+            default => 'UNKNOWN',
+        };
+    }
 }

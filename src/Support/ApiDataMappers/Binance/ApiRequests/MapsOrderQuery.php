@@ -53,6 +53,7 @@ trait MapsOrderQuery
             'computed_price' => $this->computeOrderQueryPrice($result),
             'quantity' => $quantity,
             'type' => $result['type'],
+            '_orderType' => $this->canonicalOrderType($result),
             'side' => $result['side'],
 
             '_raw' => $raw,

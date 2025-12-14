@@ -72,6 +72,7 @@ trait MapsPlanOrdersQuery
         return array_map(function (array $order): array {
             // Add computed_price using triggerPrice for plan orders
             $order['computed_price'] = $this->computePlanOrderPrice($order);
+            $order['_orderType'] = $this->canonicalOrderType($order);
 
             // Mark as plan order for frontend distinction
             $order['order_source'] = 'plan';

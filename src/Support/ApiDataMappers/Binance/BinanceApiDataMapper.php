@@ -111,4 +111,23 @@ final class BinanceApiDataMapper extends BaseDataMapper
 
         throw new InvalidArgumentException("Invalid token format: {$token}");
     }
+
+    /**
+     * Returns a canonical order type from Binance order data.
+     *
+     * @param  array<string, mixed>  $order
+     */
+    public function canonicalOrderType(array $order): string
+    {
+        $type = $order['type'] ?? '';
+
+        return match ($type) {
+            'MARKET' => 'MARKET',
+            'LIMIT' => 'LIMIT',
+            'STOP', 'STOP_MARKET', 'STOP_LIMIT' => 'STOP_MARKET',
+            'TAKE_PROFIT', 'TAKE_PROFIT_MARKET', 'TAKE_PROFIT_LIMIT' => 'TAKE_PROFIT',
+            'TRAILING_STOP_MARKET' => 'STOP_MARKET',
+            default => 'UNKNOWN',
+        };
+    }
 }

@@ -104,4 +104,39 @@ final class BitgetApiDataMapper extends BaseDataMapper
 
         throw new InvalidArgumentException("Invalid BitGet symbol format: {$symbol}");
     }
+
+    /**
+     * Returns a canonical order type from BitGet order data.
+     * Plan orders use planType field, regular orders use orderType.
+     *
+     * @param  array<string, mixed>  $order
+     */
+    public function canonicalOrderType(array $order): string
+    {
+        // Plan orders (from MapsPlanOrdersQuery)
+        $planType = $order['planType'] ?? '';
+        if ($planType !== '') {
+            return match ($planType) {
+                'pos_loss', 'loss_plan' => 'STOP_MARKET',
+                'pos_profit', 'profit_plan' => 'TAKE_PROFIT',
+                'normal_plan' => 'STOP_MARKET',
+                'track_plan' => 'STOP_MARKET',
+                default => 'UNKNOWN',
+            };
+        }
+
+        // Regular orders
+        $orderType = strtolower($order['orderType'] ?? '');
+        $triggerPrice = (float) ($order['triggerPrice'] ?? 0);
+
+        if ($triggerPrice > 0) {
+            return 'STOP_MARKET';
+        }
+
+        return match ($orderType) {
+            'market' => 'MARKET',
+            'limit' => 'LIMIT',
+            default => 'UNKNOWN',
+        };
+    }
 }

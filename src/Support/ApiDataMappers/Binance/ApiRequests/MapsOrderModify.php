@@ -37,6 +37,7 @@ trait MapsOrderModify
             'original_quantity' => $result['origQty'],
             'executed_quantity' => $result['executedQty'],
             'type' => $result['type'],
+            '_orderType' => $this->canonicalOrderType($result),
             'side' => $result['side'],
             'original_type' => $result['origType'],
         ];

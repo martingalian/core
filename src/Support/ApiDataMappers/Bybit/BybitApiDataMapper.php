@@ -110,4 +110,30 @@ final class BybitApiDataMapper extends BaseDataMapper
 
         throw new InvalidArgumentException("Invalid token format: {$token}");
     }
+
+    /**
+     * Returns a canonical order type from Bybit order data.
+     * Bybit uses separate fields: orderType and stopOrderType.
+     *
+     * @param  array<string, mixed>  $order
+     */
+    public function canonicalOrderType(array $order): string
+    {
+        $orderType = $order['orderType'] ?? '';
+        $stopOrderType = $order['stopOrderType'] ?? '';
+
+        if ($stopOrderType === 'StopLoss') {
+            return 'STOP_MARKET';
+        }
+
+        if ($stopOrderType === 'TakeProfit') {
+            return 'TAKE_PROFIT';
+        }
+
+        return match ($orderType) {
+            'Market' => 'MARKET',
+            'Limit' => 'LIMIT',
+            default => 'UNKNOWN',
+        };
+    }
 }

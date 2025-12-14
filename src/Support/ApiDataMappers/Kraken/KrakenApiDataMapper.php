@@ -120,4 +120,21 @@ final class KrakenApiDataMapper extends BaseDataMapper
 
         throw new InvalidArgumentException("Invalid token format: {$token}");
     }
+
+    /**
+     * Returns a canonical order type from Kraken order data.
+     *
+     * @param  array<string, mixed>  $order
+     */
+    public function canonicalOrderType(array $order): string
+    {
+        $type = $order['type'] ?? '';
+
+        return match ($type) {
+            'mkt' => 'MARKET',
+            'lmt' => 'LIMIT',
+            'stp' => 'STOP_MARKET',
+            default => 'UNKNOWN',
+        };
+    }
 }
