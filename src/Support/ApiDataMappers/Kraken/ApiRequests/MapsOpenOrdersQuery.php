@@ -44,7 +44,38 @@ trait MapsOpenOrdersQuery
     public function resolveQueryOpenOrdersResponse(Response $response): array
     {
         $data = json_decode((string) $response->getBody(), true);
+        $orders = $data['openOrders'] ?? [];
 
-        return $data['openOrders'] ?? [];
+        return array_map(function (array $order): array {
+            $order['computed_price'] = $this->computeOrderPrice($order);
+
+            return $order;
+        }, $orders);
+    }
+
+    /**
+     * Compute the effective display price based on order type.
+     *
+     * - lmt (limit): uses limitPrice
+     * - mkt (market): uses 0
+     * - stp (stop): uses stopPrice if available, else limitPrice
+     */
+    private function computeOrderPrice(array $order): string
+    {
+        $type = $order['type'] ?? '';
+        $limitPrice = (string) ($order['limitPrice'] ?? '0');
+        $stopPrice = $order['stopPrice'] ?? null;
+
+        // For stop orders, use stopPrice if available
+        if ($type === 'stp' && $stopPrice !== null && (float) $stopPrice > 0) {
+            return (string) $stopPrice;
+        }
+
+        return match ($type) {
+            'lmt' => $limitPrice,
+            'mkt' => '0',
+            'stp' => $limitPrice,
+            default => (float) $limitPrice > 0 ? $limitPrice : '0',
+        };
     }
 }

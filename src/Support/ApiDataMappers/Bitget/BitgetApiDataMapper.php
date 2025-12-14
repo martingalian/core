@@ -10,6 +10,7 @@ use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsAccountBalan
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsAccountQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsExchangeInformationQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsOpenOrdersQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsPlanOrdersQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsServerTimeQuery;
 
@@ -19,6 +20,7 @@ final class BitgetApiDataMapper extends BaseDataMapper
     use MapsAccountQuery;
     use MapsExchangeInformationQuery;
     use MapsOpenOrdersQuery;
+    use MapsPlanOrdersQuery;
     use MapsPositionsQuery;
     use MapsServerTimeQuery;
 

@@ -66,6 +66,22 @@ trait InteractsWithApis
         );
     }
 
+    /**
+     * Query plan orders (stop-loss, take-profit, trigger orders).
+     * Only supported by BitGet currently.
+     */
+    public function apiQueryPlanOrders(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->prepareQueryPlanOrdersProperties($this);
+        $this->apiProperties->set('account', $this);
+        $this->apiResponse = $this->withApi()->getPlanOrders($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolveQueryPlanOrdersResponse($this->apiResponse)
+        );
+    }
+
     // V4 ready.
     public function apiQueryPositions(): ApiResponse
     {

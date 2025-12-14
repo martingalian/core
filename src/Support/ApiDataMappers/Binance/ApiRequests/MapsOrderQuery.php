@@ -50,6 +50,7 @@ trait MapsOrderQuery
             'status' => $result['status'],
 
             'price' => $price,
+            'computed_price' => $this->computeOrderQueryPrice($result),
             'quantity' => $quantity,
             'type' => $result['type'],
             'side' => $result['side'],
@@ -58,5 +59,30 @@ trait MapsOrderQuery
         ];
 
         return $data;
+    }
+
+    /**
+     * Compute the effective display price based on order type.
+     *
+     * - LIMIT: uses price
+     * - MARKET: uses avgPrice (if filled) or 0
+     * - STOP_MARKET, STOP_LIMIT, TAKE_PROFIT, TAKE_PROFIT_LIMIT, TAKE_PROFIT_MARKET: uses stopPrice
+     * - TRAILING_STOP_MARKET: uses activatePrice or stopPrice
+     */
+    private function computeOrderQueryPrice(array $order): string
+    {
+        $type = $order['type'] ?? '';
+        $price = $order['price'] ?? '0';
+        $stopPrice = $order['stopPrice'] ?? '0';
+        $avgPrice = $order['avgPrice'] ?? '0';
+        $activatePrice = $order['activatePrice'] ?? '0';
+
+        return match ($type) {
+            'LIMIT' => $price,
+            'MARKET' => (float) $avgPrice > 0 ? $avgPrice : '0',
+            'STOP_MARKET', 'STOP_LIMIT', 'STOP', 'TAKE_PROFIT', 'TAKE_PROFIT_LIMIT', 'TAKE_PROFIT_MARKET' => $stopPrice,
+            'TRAILING_STOP_MARKET' => (float) $activatePrice > 0 ? $activatePrice : $stopPrice,
+            default => (float) $price > 0 ? $price : $stopPrice,
+        };
     }
 }

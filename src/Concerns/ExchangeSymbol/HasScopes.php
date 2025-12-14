@@ -10,12 +10,13 @@ trait HasScopes
 {
     /**
      * Symbols that can be used to open positions.
-     * Checks: manually enabled, auto-enabled, has TAAPI data, has direction, respects cooldowns.
+     * Checks: linked to CMC symbol, manually enabled, auto-enabled, has TAAPI data, has direction, respects cooldowns.
      */
     public function scopeTradeable(Builder $query): Builder
     {
         return $query->where('exchange_symbols.api_statuses->has_taapi_data', true)
             ->where('exchange_symbols.auto_disabled', false)
+            ->whereNotNull('exchange_symbols.symbol_id')
             ->where(function ($q) {
                 $q->whereNull('exchange_symbols.is_manually_enabled')
                     ->orWhere('exchange_symbols.is_manually_enabled', true);

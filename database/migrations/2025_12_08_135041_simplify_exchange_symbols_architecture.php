@@ -20,20 +20,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Step 1: Add token and quote columns to exchange_symbols
+        // Step 1: Add token, quote, and asset columns to exchange_symbols
         Schema::table('exchange_symbols', function (Blueprint $table) {
             $table->string('token', 50)->after('id')->nullable();
             $table->string('quote', 20)->after('token')->nullable();
+            $table->string('asset', 50)->after('quote')->nullable(); // Raw exchange pair (e.g., PF_XBTUSD, BTCUSDT)
         });
 
         // Step 2: Migrate data - populate token and quote from relationships
         // Note: This assumes the old symbol_id and quote_id relationships still exist
-        DB::statement("
+        DB::statement('
             UPDATE exchange_symbols es
             INNER JOIN symbols s ON es.symbol_id = s.id
             INNER JOIN quotes q ON es.quote_id = q.id
             SET es.token = s.token, es.quote = q.canonical
-        ");
+        ');
 
         // Step 3: Make token and quote NOT NULL after data migration
         Schema::table('exchange_symbols', function (Blueprint $table) {
@@ -68,12 +69,12 @@ return new class extends Migration
         });
 
         // Step 8: Migrate account quote data
-        DB::statement("
+        DB::statement('
             UPDATE accounts a
             LEFT JOIN quotes pq ON a.portfolio_quote_id = pq.id
             LEFT JOIN quotes tq ON a.trading_quote_id = tq.id
             SET a.portfolio_quote = pq.canonical, a.trading_quote = tq.canonical
-        ");
+        ');
 
         // Step 9: Drop old quote FK columns from accounts
         Schema::table('accounts', function (Blueprint $table) {
@@ -125,7 +126,7 @@ return new class extends Migration
 
         Schema::table('exchange_symbols', function (Blueprint $table) {
             $table->unsignedBigInteger('quote_id')->after('symbol_id');
-            $table->dropColumn(['token', 'quote']);
+            $table->dropColumn(['token', 'quote', 'asset']);
             $table->unsignedBigInteger('symbol_id')->nullable(false)->change();
         });
 

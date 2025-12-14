@@ -58,7 +58,12 @@ abstract class BaseQueueableJob extends BaseJob
 
         try {
             log_step($stepId, 'Calling prepareJobExecution()...');
-            $this->prepareJobExecution();
+            if (! $this->prepareJobExecution()) {
+                log_step($stepId, '✓ handle() completed (duplicate execution guard)');
+                log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
+
+                return;
+            }
             log_step($stepId, 'prepareJobExecution() completed');
 
             log_step($stepId, 'Checking if in confirmation mode...');
@@ -164,11 +169,15 @@ abstract class BaseQueueableJob extends BaseJob
         $this->finalizeDuration();
         log_step($stepId, 'Duration finalized');
 
-        // Transition to Failed state
+        // Transition to Failed state (only if not already in a terminal state)
         log_step($stepId, 'Transitioning to Failed state...');
         log_step($stepId, 'Current state: '.$this->step->state);
-        $this->step->state->transitionTo(Failed::class);
-        log_step($stepId, 'Transitioned to Failed state');
+        if (! $this->step->state instanceof Failed) {
+            $this->step->state->transitionTo(Failed::class);
+            log_step($stepId, 'Transitioned to Failed state');
+        } else {
+            log_step($stepId, 'Step already in Failed state - skipping transition');
+        }
         log_step($stepId, '✓ failed() method completed');
         log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
     }
@@ -200,10 +209,21 @@ abstract class BaseQueueableJob extends BaseJob
         return $this->step->retries >= ($this->retries / 2);
     }
 
-    protected function prepareJobExecution(): void
+    protected function prepareJobExecution(): bool
     {
         // Refresh step from database to get latest state (it should be Dispatched)
         $this->step->refresh();
+
+        // Guard against duplicate execution - if step is already Running,
+        // this is a retry from Horizon after a timeout/crash.
+        // Log warning and exit gracefully - the step may have been stuck or is being
+        // processed by another worker. Let it fail naturally after exhausting retries.
+        if ($this->step->state instanceof Running) {
+            log_step($this->step->id, '⚠️ Step already in Running state - this is a duplicate execution from Horizon retry');
+            log_step($this->step->id, '⚠️ Exiting gracefully to avoid duplicate work');
+
+            return false;
+        }
 
         $this->step->state->transitionTo(Running::class);
         $this->startDuration();
@@ -213,6 +233,7 @@ abstract class BaseQueueableJob extends BaseJob
         $this->databaseExceptionHandler = BaseDatabaseExceptionHandler::make('mysql');
 
         // Note: checkMaxRetries() moved to shouldExitEarly() to occur AFTER throttle check
+        return true;
     }
 
     protected function isInConfirmationMode(): bool

@@ -66,8 +66,38 @@ trait MapsOpenOrdersQuery
     public function resolveQueryOpenOrdersResponse(Response $response): array
     {
         $data = json_decode((string) $response->getBody(), true);
+        $orders = $data['data']['entrustedList'] ?? [];
 
-        // BitGet wraps orders in data.entrustedList structure
-        return $data['data']['entrustedList'] ?? [];
+        return array_map(function (array $order): array {
+            $order['computed_price'] = $this->computeOrderPrice($order);
+
+            return $order;
+        }, $orders);
+    }
+
+    /**
+     * Compute the effective display price based on order type.
+     *
+     * - limit: uses price
+     * - market: uses priceAvg (if filled) or 0
+     * - trigger orders (with triggerPrice): uses triggerPrice
+     */
+    private function computeOrderPrice(array $order): string
+    {
+        $orderType = $order['orderType'] ?? '';
+        $price = (string) ($order['price'] ?? '0');
+        $priceAvg = $order['priceAvg'] ?? '0';
+        $triggerPrice = $order['triggerPrice'] ?? null;
+
+        // If there's a trigger price set, this is a conditional order
+        if ($triggerPrice !== null && (float) $triggerPrice > 0) {
+            return (string) $triggerPrice;
+        }
+
+        return match ($orderType) {
+            'limit' => $price,
+            'market' => (float) $priceAvg > 0 ? (string) $priceAvg : '0',
+            default => (float) $price > 0 ? $price : '0',
+        };
     }
 }

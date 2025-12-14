@@ -21,6 +21,7 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property int $id
  * @property string $token
  * @property string $quote
+ * @property string|null $asset
  * @property int|null $symbol_id
  * @property array{cmc_api_called?: bool, taapi_verified?: bool, has_taapi_data?: bool} $api_statuses
  * @property int $api_system_id
@@ -91,11 +92,6 @@ final class ExchangeSymbol extends BaseModel
         'delivery_ts_ms' => 'integer',
     ];
 
-    protected static function newFactory(): ExchangeSymbolFactory
-    {
-        return ExchangeSymbolFactory::new();
-    }
-
     public function priceHistories(): HasMany
     {
         return $this->hasMany(PriceHistory::class);
@@ -129,5 +125,10 @@ final class ExchangeSymbol extends BaseModel
     public function apiSystem(): BelongsTo
     {
         return $this->belongsTo(ApiSystem::class);
+    }
+
+    protected static function newFactory(): ExchangeSymbolFactory
+    {
+        return ExchangeSymbolFactory::new();
     }
 }

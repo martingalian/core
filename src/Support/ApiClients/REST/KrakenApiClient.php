@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Support\ApiClients\REST;
 
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
 use Martingalian\Core\Abstracts\BaseApiClient;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Support\ValueObjects\ApiCredentials;
 use Martingalian\Core\Support\ValueObjects\ApiRequest;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * KrakenApiClient
@@ -48,7 +52,11 @@ final class KrakenApiClient extends BaseApiClient
      */
     public function publicRequest(ApiRequest $apiRequest)
     {
-        return $this->processRequest($apiRequest);
+        /** @var ResponseInterface $response */
+        $response = $this->processRequest($apiRequest);
+        $this->throwIfMaskedError($response);
+
+        return $response;
     }
 
     /**
@@ -66,7 +74,7 @@ final class KrakenApiClient extends BaseApiClient
         // Generate nonce in microsecond precision format (timestamp + microseconds)
         // Format: 1234567890123456 (16 digits)
         $microtime = explode(' ', microtime());
-        $nonce = $microtime[1] . str_pad(substr($microtime[0], 2, 6), 6, '0');
+        $nonce = $microtime[1].mb_str_pad(mb_substr($microtime[0], 2, 6), 6, '0');
 
         // Build POST data string from options
         $options = $apiRequest->properties->getOr('options', []);
@@ -79,7 +87,7 @@ final class KrakenApiClient extends BaseApiClient
 
         // Kraken signature algorithm:
         // 1. Concatenate: postData + nonce + endpointPath
-        $message = $postData . $nonce . $endpointPath;
+        $message = $postData.$nonce.$endpointPath;
 
         // 2. SHA-256 hash the message
         $sha256Hash = hash('sha256', $message, true);
@@ -96,7 +104,11 @@ final class KrakenApiClient extends BaseApiClient
         $apiRequest->properties->set('headers.Authent', $authent);
         $apiRequest->properties->set('headers.Nonce', $nonce);
 
-        return $this->processRequest($apiRequest);
+        /** @var ResponseInterface $response */
+        $response = $this->processRequest($apiRequest);
+        $this->throwIfMaskedError($response);
+
+        return $response;
     }
 
     /**
@@ -108,5 +120,48 @@ final class KrakenApiClient extends BaseApiClient
             'Content-Type' => 'application/x-www-form-urlencoded',
             'Accept' => 'application/json',
         ];
+    }
+
+    /**
+     * Kraken Futures API returns HTTP 200 for all responses, including errors.
+     * Detect masked errors and throw RequestException so our handler infrastructure works.
+     *
+     * @see https://docs.kraken.com/api/docs/guides/futures-rest/
+     */
+    private function throwIfMaskedError(ResponseInterface $response): void
+    {
+        $body = (string) $response->getBody();
+
+        /** @var array{result?: string, error?: string}|null $data */
+        $data = json_decode($body, true);
+
+        if (! is_array($data) || ! isset($data['result']) || $data['result'] !== 'error') {
+            return;
+        }
+
+        $error = (string) ($data['error'] ?? 'unknownError');
+
+        // Map Kraken error strings to semantic HTTP codes
+        $httpCode = match ($error) {
+            'authenticationError', 'accountInactive' => 401,
+            'apiLimitExceeded' => 429,
+            'marketUnavailable', 'Unavailable' => 503,
+            'Server Error' => 500,
+            'notFound' => 404,
+            default => 400,
+        };
+
+        // Update ApiRequestLog so observer triggers notifications
+        $this->updateRequestLogData([
+            'http_response_code' => $httpCode,
+            'error_message' => $error,
+        ]);
+
+        // Throw RequestException with synthetic response - KrakenExceptionHandler will classify it
+        throw new RequestException(
+            "Kraken API error: {$error}",
+            new Request('GET', ''),
+            new Response($httpCode, [], $body)
+        );
     }
 }

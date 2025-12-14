@@ -149,4 +149,27 @@ final class BitgetApi
     {
         return $this->getAccountBalance($properties);
     }
+
+    /**
+     * Get pending plan orders (stop-loss, take-profit, trigger orders).
+     *
+     * @see https://www.bitget.com/api-doc/contract/plan/Get-Plan-Order-List
+     */
+    public function getPlanOrders(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        // Default to USDT-FUTURES for perpetuals
+        if (! $properties->has('options.productType')) {
+            $properties->set('options.productType', 'USDT-FUTURES');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v2/mix/order/orders-plan-pending',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
 }

@@ -36,4 +36,41 @@ trait HasAccessors
     {
         return "{$this->parsed_trading_pair}@{$this->apiSystem->name}";
     }
+
+    /**
+     * Accessor for the `displayed_trading_pair` attribute.
+     * Returns a clean, human-readable trading pair: TOKEN/QUOTE (e.g., XBT/USD).
+     * Unlike parsed_trading_pair, this doesn't include exchange-specific prefixes.
+     */
+    public function getDisplayedTradingPairAttribute(): ?string
+    {
+        if (! $this->token || ! $this->quote) {
+            return null;
+        }
+
+        return "{$this->token}/{$this->quote}";
+    }
+
+    /**
+     * Look up the displayed trading pair by raw asset name and api_system_id.
+     * Used to convert exchange-specific formats (e.g., PF_XBTUSD) to clean display (e.g., XBT/USD).
+     *
+     * @param  string  $asset  The raw exchange asset name (e.g., PF_XBTUSD, BTCUSDT)
+     * @param  int  $apiSystemId  The API system ID to scope the lookup
+     * @return string|null The displayed trading pair (e.g., XBT/USD) or null if not found
+     */
+    public static function getDisplayedTradingPairByAsset(string $asset, int $apiSystemId): ?string
+    {
+        /** @var static|null $exchangeSymbol */
+        $exchangeSymbol = static::query()
+            ->where('asset', $asset)
+            ->where('api_system_id', $apiSystemId)
+            ->first(['token', 'quote']);
+
+        if (! $exchangeSymbol) {
+            return null;
+        }
+
+        return $exchangeSymbol->displayed_trading_pair;
+    }
 }

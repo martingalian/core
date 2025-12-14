@@ -65,6 +65,7 @@ final class UpsertExchangeSymbolsFromExchangeJob extends BaseApiableJob
         foreach ($apiResponse->result as $symbolData) {
             $token = $symbolData['baseAsset'] ?? null;
             $quote = $symbolData['quoteAsset'] ?? null;
+            $asset = $symbolData['pair'] ?? null; // Raw exchange pair (e.g., PF_XBTUSD, BTCUSDT)
 
             if (! $token || ! $quote) {
                 $skippedCount++;
@@ -95,6 +96,7 @@ final class UpsertExchangeSymbolsFromExchangeJob extends BaseApiableJob
 
             // Build update data - always update metadata
             $updateData = [
+                'asset' => $asset,
                 'price_precision' => $pricePrecision,
                 'quantity_precision' => $quantityPrecision,
                 'tick_size' => $symbolData['tickSize'] ?? null,

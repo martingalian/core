@@ -60,10 +60,10 @@ trait MapsAccountBalanceQuery
         $balances = $flexAccount['balances'] ?? [];
         $quoteBalance = (string) ($balances[$tradingQuote] ?? '0');
 
-        // Kraken provides collateralValue (total value in USD) and availableFunds
+        // Kraken provides collateralValue (total value in USD) and availableMargin
         $collateralValue = (string) ($flexAccount['collateralValue'] ?? '0');
-        $availableFunds = (string) ($flexAccount['availableFunds'] ?? '0');
-        $unrealizedPnl = (string) ($flexAccount['unrealizedPnl'] ?? '0');
+        $availableMargin = (string) ($flexAccount['availableMargin'] ?? '0');
+        $unrealizedPnl = (string) ($flexAccount['totalUnrealized'] ?? '0');
 
         // Use collateral value as wallet balance for multi-collateral accounts
         // or direct quote balance for single-currency setups
@@ -71,7 +71,7 @@ trait MapsAccountBalanceQuery
 
         return [
             'wallet-balance' => $walletBalance,
-            'available-balance' => $availableFunds,
+            'available-balance' => $availableMargin,
             'cross-wallet-balance' => $collateralValue,
             'cross-unrealized-pnl' => $unrealizedPnl,
         ];

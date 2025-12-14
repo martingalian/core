@@ -29,7 +29,38 @@ trait MapsOpenOrdersQuery
     public function resolveQueryOpenOrdersResponse(Response $response): array
     {
         $data = json_decode((string) $response->getBody(), true);
+        $orders = $data['result']['list'] ?? [];
 
-        return $data['result']['list'] ?? [];
+        return array_map(function (array $order): array {
+            $order['computed_price'] = $this->computeOrderPrice($order);
+
+            return $order;
+        }, $orders);
+    }
+
+    /**
+     * Compute the effective display price based on order type.
+     *
+     * - Limit: uses price
+     * - Market: uses avgPrice (if filled) or 0
+     * - Conditional orders (with triggerPrice): uses triggerPrice
+     */
+    private function computeOrderPrice(array $order): string
+    {
+        $orderType = $order['orderType'] ?? '';
+        $price = $order['price'] ?? '0';
+        $triggerPrice = $order['triggerPrice'] ?? '0';
+        $avgPrice = $order['avgPrice'] ?? '0';
+
+        // If there's a trigger price set, this is a conditional order
+        if ((float) $triggerPrice > 0) {
+            return $triggerPrice;
+        }
+
+        return match ($orderType) {
+            'Limit' => $price,
+            'Market' => (float) $avgPrice > 0 ? $avgPrice : '0',
+            default => (float) $price > 0 ? $price : '0',
+        };
     }
 }
