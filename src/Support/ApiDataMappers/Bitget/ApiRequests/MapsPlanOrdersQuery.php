@@ -24,6 +24,9 @@ trait MapsPlanOrdersQuery
         // BitGet V2 requires productType for futures
         $properties->set('options.productType', 'USDT-FUTURES');
 
+        // planType=profit_loss returns all TPSL orders (stop-loss, take-profit)
+        $properties->set('options.planType', 'profit_loss');
+
         return $properties;
     }
 
@@ -81,21 +84,26 @@ trait MapsPlanOrdersQuery
      * Compute the effective display price for plan orders.
      *
      * For plan orders, the trigger price is the primary display price.
-     * executePrice is the limit price (0 for market orders).
+     * TPSL orders may use stopLossTriggerPrice or stopSurplusTriggerPrice fields.
      */
     private function computePlanOrderPrice(array $order): string
     {
-        $triggerPrice = $order['triggerPrice'] ?? '0';
-        $executePrice = $order['executePrice'] ?? '0';
-
-        // Trigger price is the main price for plan orders
-        if ((float) $triggerPrice > 0) {
-            return (string) $triggerPrice;
+        // Check stopLossTriggerPrice first (for TPSL orders)
+        $stopLossPrice = $order['stopLossTriggerPrice'] ?? '';
+        if ($stopLossPrice !== '' && (float) $stopLossPrice > 0) {
+            return (string) $stopLossPrice;
         }
 
-        // Fallback to execute price if trigger price is not set
-        if ((float) $executePrice > 0) {
-            return (string) $executePrice;
+        // Check stopSurplusTriggerPrice (take-profit)
+        $takeProfitPrice = $order['stopSurplusTriggerPrice'] ?? '';
+        if ($takeProfitPrice !== '' && (float) $takeProfitPrice > 0) {
+            return (string) $takeProfitPrice;
+        }
+
+        // Fallback to triggerPrice (for normal_plan orders)
+        $triggerPrice = $order['triggerPrice'] ?? '0';
+        if ((float) $triggerPrice > 0) {
+            return (string) $triggerPrice;
         }
 
         return '0';
