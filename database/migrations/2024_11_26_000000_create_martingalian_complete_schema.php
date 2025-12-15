@@ -169,8 +169,11 @@ return new class extends Migration
             $table->unsignedBigInteger('quote_id');
             $table->unsignedInteger('api_system_id');
             $table->boolean('is_manually_enabled')->default(0)->comment('Manual admin override: 0=default behavior, 1=force enabled');
-            $table->boolean('auto_disabled')->default(false)->comment('System automatic disable flag');
-            $table->string('auto_disabled_reason')->nullable()->comment('Why system disabled it: no_indicator_data, insufficient_liquidity, excessive_spread, etc');
+            $table->boolean('has_stale_price')->default(false)->comment('True when mark_price_synced_at is stale (older than threshold)');
+            $table->boolean('has_no_indicator_data')->default(false)->comment('True when TAAPI returns no data (3+ failures)');
+            $table->boolean('has_price_trend_misalignment')->default(false)->comment('True when price movement contradicts concluded direction');
+            $table->boolean('has_early_direction_change')->default(false)->comment('True when direction changes before minimum allowed timeframe index');
+            $table->boolean('has_invalid_indicator_direction')->default(false)->comment('True when all timeframes exhausted without concluding a direction');
             $table->json('api_statuses')->nullable()->comment('JSON object tracking API call statuses: cmc_api_called, taapi_verified');
             $table->string('direction')->nullable()->comment('The exchange symbol open position direction (LONG, SHORT)');
             $table->decimal('percentage_gap_long', 5, 2)->default(8.50);
@@ -206,8 +209,11 @@ return new class extends Migration
 
             $table->unique(['symbol_id', 'api_system_id', 'quote_id'], 'exchange_symbols_symbol_id_api_system_id_quote_id_unique');
             $table->index('websocket_group', 'idx_exchange_symbols_websocket_group');
-            $table->index('auto_disabled', 'idx_exchange_symbols_auto_disabled');
-            $table->index(['api_system_id', 'auto_disabled'], 'idx_exchange_symbols_api_auto_disabled');
+            $table->index('has_stale_price', 'idx_exchange_symbols_has_stale_price');
+            $table->index('has_no_indicator_data', 'idx_exchange_symbols_has_no_indicator_data');
+            $table->index('has_price_trend_misalignment', 'idx_exchange_symbols_has_price_trend_misalignment');
+            $table->index('has_early_direction_change', 'idx_exchange_symbols_has_early_direction_change');
+            $table->index('has_invalid_indicator_direction', 'idx_exchange_symbols_has_invalid_indicator_direction');
             $table->index('direction', 'idx_exchange_symbols_direction');
         });
 

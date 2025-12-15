@@ -26,8 +26,11 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property array{cmc_api_called?: bool, taapi_verified?: bool, has_taapi_data?: bool} $api_statuses
  * @property int $api_system_id
  * @property bool|null $is_manually_enabled
- * @property bool $auto_disabled
- * @property string|null $auto_disabled_reason
+ * @property bool $has_stale_price
+ * @property bool $has_no_indicator_data
+ * @property bool $has_price_trend_misalignment
+ * @property bool $has_early_direction_change
+ * @property bool $has_invalid_indicator_direction
  * @property string|null $direction
  * @property float $percentage_gap_long
  * @property float $percentage_gap_short
@@ -68,7 +71,11 @@ final class ExchangeSymbol extends BaseModel
 
     protected $casts = [
         'is_manually_enabled' => 'boolean',
-        'auto_disabled' => 'boolean',
+        'has_stale_price' => 'boolean',
+        'has_no_indicator_data' => 'boolean',
+        'has_price_trend_misalignment' => 'boolean',
+        'has_early_direction_change' => 'boolean',
+        'has_invalid_indicator_direction' => 'boolean',
         'overlaps_with_binance' => 'boolean',
 
         'api_statuses' => 'array',

@@ -2,28 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Support;
+namespace Martingalian\Core\Martingalian\Concerns;
 
-use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Martingalian as MartingalianModel;
 
-/**
- * Martingalian — Trading algorithm support class.
- */
-final class Martingalian
+trait HasTradingGuards
 {
-    public function __construct(
-        public Account $account,
-    ) {}
-
-    /**
-     * Create a new instance with the given account.
-     */
-    public static function withAccount(Account $account): self
-    {
-        return new self($account);
-    }
-
     /**
      * Global guard for opening positions.
      * Checks the allow_opening_positions flag from the martingalian singleton.

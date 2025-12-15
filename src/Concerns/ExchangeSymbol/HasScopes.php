@@ -10,21 +10,26 @@ trait HasScopes
 {
     /**
      * Symbols that can be used to open positions.
-     * Checks: linked to CMC symbol, manually enabled, auto-enabled, has TAAPI data, has direction, respects cooldowns.
+     * Checks: linked to CMC symbol, manually enabled, has TAAPI data, has direction, respects cooldowns, fresh price, no behavioral flags.
      */
     public function scopeTradeable(Builder $query): Builder
     {
         return $query->where('exchange_symbols.api_statuses->has_taapi_data', true)
-            ->where('exchange_symbols.auto_disabled', false)
+            ->where('exchange_symbols.has_stale_price', false)
+            ->where('exchange_symbols.has_no_indicator_data', false)
+            ->where('exchange_symbols.has_price_trend_misalignment', false)
+            ->where('exchange_symbols.has_early_direction_change', false)
+            ->where('exchange_symbols.has_invalid_indicator_direction', false)
             ->whereNotNull('exchange_symbols.symbol_id')
             ->where(function ($q) {
                 $q->whereNull('exchange_symbols.is_manually_enabled')
                     ->orWhere('exchange_symbols.is_manually_enabled', true);
             })
             ->whereNotNull('exchange_symbols.direction')
-            ->where(fn ($q) => $q
-                ->whereNull('exchange_symbols.tradeable_at')
-                ->orWhere('exchange_symbols.tradeable_at', '<=', now()));
+            ->where(function ($q) {
+                $q->whereNull('exchange_symbols.tradeable_at')
+                    ->orWhere('exchange_symbols.tradeable_at', '<=', now());
+            });
     }
 
     /**
@@ -34,10 +39,7 @@ trait HasScopes
     {
         return $query->where(function ($q) {
             // Has indicator data OR we're still trying to get it
-            $q->where(function ($q2) {
-                $q2->where('exchange_symbols.auto_disabled_reason', '!=', 'no_indicator_data')
-                    ->orWhereNull('exchange_symbols.auto_disabled_reason');
-            })
+            $q->where('exchange_symbols.has_no_indicator_data', false)
             // And not explicitly disabled by admin (NULL or true, but not false)
             ->where(function ($q2) {
                 $q2->whereNull('exchange_symbols.is_manually_enabled')

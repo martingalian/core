@@ -17,8 +17,28 @@ trait HasStatuses
             return false;
         }
 
-        // Must not be auto-disabled
-        if ($this->auto_disabled) {
+        // Must not have stale price
+        if ($this->has_stale_price) {
+            return false;
+        }
+
+        // Must not have indicator data issues
+        if ($this->has_no_indicator_data) {
+            return false;
+        }
+
+        // Must not have price trend misalignment
+        if ($this->has_price_trend_misalignment) {
+            return false;
+        }
+
+        // Must not have early direction change (path inconsistency)
+        if ($this->has_early_direction_change) {
+            return false;
+        }
+
+        // Must not have invalid indicator direction (all timeframes exhausted)
+        if ($this->has_invalid_indicator_direction) {
             return false;
         }
 

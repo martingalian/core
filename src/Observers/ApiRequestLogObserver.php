@@ -161,8 +161,7 @@ final class ApiRequestLogObserver
             $apiStatuses['taapi_verified'] = false;
             $apiStatuses['has_taapi_data'] = false;
             $lockedSymbol->update([
-                'auto_disabled' => true,
-                'auto_disabled_reason' => 'no_indicator_data',
+                'has_no_indicator_data' => true,
                 'api_statuses' => $apiStatuses,
             ]);
 

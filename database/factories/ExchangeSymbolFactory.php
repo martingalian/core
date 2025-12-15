@@ -27,8 +27,11 @@ final class ExchangeSymbolFactory extends Factory
             'symbol_id' => null,
             'api_system_id' => ApiSystem::factory(),
             'is_manually_enabled' => true,
-            'auto_disabled' => false,
-            'auto_disabled_reason' => null,
+            'has_stale_price' => false,
+            'has_no_indicator_data' => false,
+            'has_price_trend_misalignment' => false,
+            'has_early_direction_change' => false,
+            'has_invalid_indicator_direction' => false,
             'api_statuses' => [],
             'direction' => null,
             'percentage_gap_long' => 8.50,
@@ -63,8 +66,6 @@ final class ExchangeSymbolFactory extends Factory
         return $this->state(function (array $attributes) {
             return [
                 'is_manually_enabled' => true,
-                'auto_disabled' => false,
-                'auto_disabled_reason' => null,
             ];
         });
     }
@@ -96,8 +97,7 @@ final class ExchangeSymbolFactory extends Factory
             $apiStatuses['has_taapi_data'] = false;
 
             return [
-                'auto_disabled' => true,
-                'auto_disabled_reason' => 'no_indicator_data',
+                'has_no_indicator_data' => true,
                 'api_statuses' => $apiStatuses,
             ];
         });

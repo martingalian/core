@@ -56,8 +56,7 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
                 'indicators_values' => null,
                 'indicators_timeframe' => null,
                 'indicators_synced_at' => null,
-                'auto_disabled' => true,
-                'auto_disabled_reason' => 'no_indicator_data',
+                'has_no_indicator_data' => true,
             ]);
 
             return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair} REMOVED due to missing indicator history"];
@@ -65,21 +64,6 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
 
         // Extract data from stored JSON
         $data = $history->data;
-
-        // Validate we have the required candle data (open and close arrays with at least 2 entries)
-        // Index 0 = previous candle, Index 1 = current candle
-        if (! isset($data['open'], $data['close']) || count($data['open']) < 2 || count($data['close']) < 2) {
-            $this->exchangeSymbol->updateSaving([
-                'direction' => null,
-                'indicators_values' => null,
-                'indicators_timeframe' => null,
-                'indicators_synced_at' => null,
-                'auto_disabled' => true,
-                'auto_disabled_reason' => 'invalid_indicator_data',
-            ]);
-
-            return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair} REMOVED due to invalid indicator data format"];
-        }
 
         // Compare current candle's open vs close to determine if price movement aligns with direction
         // This is more reliable than comparing previous close vs current close because:
@@ -100,17 +84,16 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
                 'indicators_values' => null,
                 'indicators_timeframe' => null,
                 'indicators_synced_at' => null,
-                'auto_disabled' => true,
-                'auto_disabled_reason' => 'price_misalignment',
+                'has_price_trend_misalignment' => true,
             ]);
 
             return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair}-{$direction} REMOVED due to price misalignment (Open: {$currentOpen}, Close: {$currentClose}, timeframe: {$timeframe})"];
         }
 
-        // Last step: activate exchange symbol for trading.
+        // Last step: activate exchange symbol for trading (clear all validation flags).
         $this->exchangeSymbol->updateSaving([
-            'auto_disabled' => false,
-            'auto_disabled_reason' => null,
+            'has_no_indicator_data' => false,
+            'has_price_trend_misalignment' => false,
         ]);
 
         // Send notification based on direction change status from previous step

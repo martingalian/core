@@ -8,7 +8,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Support\Martingalian;
+use Martingalian\Core\Martingalian\Martingalian;
 
 /*
  * AssignBestTokensToPositionSlotsJob

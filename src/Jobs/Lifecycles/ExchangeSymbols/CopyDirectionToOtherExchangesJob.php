@@ -79,8 +79,10 @@ final class CopyDirectionToOtherExchangesJob extends BaseQueueableJob
                     'indicators_values' => $sourceSymbol->indicators_values,
                     'indicators_timeframe' => $sourceSymbol->indicators_timeframe,
                     'indicators_synced_at' => $sourceSymbol->indicators_synced_at,
-                    'auto_disabled' => false,
-                    'auto_disabled_reason' => null,
+                    'has_no_indicator_data' => false,
+                    'has_price_trend_misalignment' => false,
+                    'has_early_direction_change' => false,
+                    'has_invalid_indicator_direction' => false,
                 ]);
 
                 $copiedCount++;
