@@ -205,35 +205,39 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'stale_price_detected' => (function () use ($context, $exchange, $exchangeTitle) {
-                // Extract stale price details
-                $oldestSymbol = is_string($context['oldest_symbol'] ?? null) ? $context['oldest_symbol'] : 'N/A';
-                $oldestPrice = is_string($context['oldest_price'] ?? null) ? $context['oldest_price'] : 'N/A';
-                $oldestMinutes = is_numeric($context['oldest_minutes'] ?? null) ? (int) $context['oldest_minutes'] : 0;
+            'stale_websocket_heartbeat' => (function () use ($context, $exchange, $exchangeTitle, $hostname) {
+                // Extract heartbeat details
+                $group = is_string($context['group'] ?? null) ? $context['group'] : null;
+                $lastBeatAt = is_string($context['last_beat_at'] ?? null) ? $context['last_beat_at'] : 'N/A';
+                $secondsAgo = is_int($context['seconds_ago'] ?? null) ? $context['seconds_ago'] : 0;
 
                 $exchangeLower = mb_strtolower($exchange);
+                $groupText = $group ? " ({$group})" : '';
+                $supervisorName = $group ? "update-{$exchangeLower}-prices-{$group}" : "update-{$exchangeLower}-prices";
 
                 return [
-                    'severity' => NotificationSeverity::High,
-                    'title' => "{$exchangeTitle} Stale Prices Detected",
-                    'emailMessage' => "⚠️ {$exchangeTitle} Stale Prices Detected\n\n".
-                        "{$exchangeTitle} price updates not received within expected timeframe. WebSocket connection may be stalled or {$exchangeTitle} API experiencing issues.\n\n".
-                        "📊 STALE PRICE EXAMPLE:\n\n".
-                        "• Symbol: {$oldestSymbol}\n".
-                        "• Last Price: {$oldestPrice}\n".
-                        "• Last Updated: {$oldestMinutes} minutes ago\n\n".
+                    'severity' => NotificationSeverity::Critical,
+                    'title' => "{$exchangeTitle} WebSocket Down{$groupText}",
+                    'emailMessage' => "🚨 {$exchangeTitle} WebSocket Heartbeat Stale{$groupText}\n\n".
+                        "The {$exchangeTitle} price stream WebSocket has stopped sending data.\n\n".
+                        "📊 HEARTBEAT DETAILS:\n\n".
+                        "• Exchange: {$exchangeTitle}\n".
+                        ($group ? "• Group: {$group}\n" : '').
+                        "• Last Heartbeat: {$lastBeatAt}\n".
+                        "• Seconds Ago: {$secondsAgo}s\n".
+                        "• Server: {$hostname}\n\n".
                         "🔍 RESOLUTION STEPS:\n\n".
-                        "1. Check stale prices (symbols with auto_disabled=0 and stale mark_price_synced_at):\n".
-                        "[CMD]SELECT CONCAT(es.token, '/', es.quote) AS pair, es.mark_price, es.mark_price_synced_at, TIMESTAMPDIFF(SECOND, es.mark_price_synced_at, NOW()) AS seconds_stale FROM exchange_symbols es WHERE es.api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}') AND es.auto_disabled = 0 AND es.mark_price IS NOT NULL ORDER BY es.mark_price_synced_at ASC LIMIT 10;[/CMD]\n\n".
-                        "2. Check supervisor status:\n".
-                        "[CMD]supervisorctl status update-{$exchangeLower}-prices[/CMD]\n\n".
-                        "3. Check logs for errors:\n".
-                        "[CMD]supervisorctl tail -f update-{$exchangeLower}-prices[/CMD]\n\n".
-                        "4. Restart if needed:\n".
-                        "[CMD]supervisorctl restart update-{$exchangeLower}-prices[/CMD]",
-                    'pushoverMessage' => "⚠️ {$exchangeTitle} stale prices detected\n".
-                        "Example: {$oldestSymbol} ({$oldestMinutes}m ago)\n".
-                        'Check supervisor: update-'.$exchangeLower.'-prices',
+                        "1. Check supervisor status:\n".
+                        "[CMD]supervisorctl status {$supervisorName}[/CMD]\n\n".
+                        "2. Check logs for errors:\n".
+                        "[CMD]supervisorctl tail -f {$supervisorName}[/CMD]\n\n".
+                        "3. Restart if needed:\n".
+                        "[CMD]supervisorctl restart {$supervisorName}[/CMD]\n\n".
+                        "4. Check heartbeat table:\n".
+                        "[CMD]SELECT * FROM heartbeats WHERE canonical = 'price_stream' AND api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}')".($group ? " AND `group` = '{$group}'" : '').';[/CMD]',
+                    'pushoverMessage' => "🚨 {$exchangeTitle} WebSocket DOWN{$groupText}\n".
+                        "Last beat: {$secondsAgo}s ago\n".
+                        "Check: {$supervisorName}",
                     'actionUrl' => null,
                     'actionLabel' => null,
                 ];

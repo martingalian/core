@@ -942,14 +942,14 @@ final class MartingalianSeeder extends Seeder
     {
         $notifications = [
             [
-                'canonical' => 'stale_price_detected',
-                'title' => 'Stale Price Detected',
-                'description' => 'Sent when exchange symbol prices have not been updated within expected timeframe',
-                'usage_reference' => 'CheckStaleDataCommand::reportStalePrices()',
-                'default_severity' => 'high',
+                'canonical' => 'stale_websocket_heartbeat',
+                'title' => 'WebSocket Heartbeat Stale',
+                'description' => 'Sent when a WebSocket price stream heartbeat has not been updated within expected timeframe',
+                'usage_reference' => 'CheckStaleDataCommand::checkStaleHeartbeats()',
+                'default_severity' => 'critical',
                 'verified' => 1,
-                'cache_duration' => 600,
-                'cache_key' => ['api_system'],
+                'cache_duration' => 60,
+                'cache_key' => ['api_system', 'group'],
             ],
             [
                 'canonical' => 'update_prices_restart',

@@ -162,19 +162,19 @@ final class NotificationFactory extends Factory
     }
 
     /**
-     * Indicate that the notification is for stale price detected.
+     * Indicate that the notification is for stale WebSocket heartbeat.
      */
-    public function stalePriceDetected(): static
+    public function staleWebsocketHeartbeat(): static
     {
         return $this->state(function (array $attributes) {
             return [
-                'canonical' => 'stale_price_detected',
-                'title' => 'Stale Price Detected',
-                'description' => 'Sent when exchange symbol prices have not been updated within expected timeframe',
-                'default_severity' => NotificationSeverity::High,
+                'canonical' => 'stale_websocket_heartbeat',
+                'title' => 'WebSocket Heartbeat Stale',
+                'description' => 'Sent when a WebSocket price stream heartbeat has not been updated within expected timeframe',
+                'default_severity' => NotificationSeverity::Critical,
                 'verified' => true,
-                'cache_duration' => 600,
-                'cache_key' => ['api_system'],
+                'cache_duration' => 60,
+                'cache_key' => ['api_system', 'group'],
             ];
         });
     }

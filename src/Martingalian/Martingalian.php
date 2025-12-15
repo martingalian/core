@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Martingalian;
 
-use Martingalian\Core\Martingalian\Concerns\DetectsStalePrices;
 use Martingalian\Core\Martingalian\Concerns\HasTradingGuards;
 use Martingalian\Core\Models\Account;
 
@@ -13,7 +12,6 @@ use Martingalian\Core\Models\Account;
  */
 final class Martingalian
 {
-    use DetectsStalePrices;
     use HasTradingGuards;
 
     public function __construct(
