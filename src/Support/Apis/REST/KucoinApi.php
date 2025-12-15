@@ -189,4 +189,182 @@ final class KucoinApi
 
         return $this->client->signRequest($apiRequest);
     }
+
+    /**
+     * Place a new order.
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/orders/place-order
+     */
+    public function placeOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v1/orders',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get order details by orderId.
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/orders/get-order-details-by-orderid-clientoid
+     */
+    public function getOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+        $orderId = $properties->get('options.orderId');
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            "/api/v1/orders/{$orderId}",
+            $properties
+        );
+
+        // Remove orderId from options since it's in the URL
+        $properties->forget('options.orderId');
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Cancel an order by orderId.
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/orders/cancel-order-by-orderid
+     */
+    public function cancelOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+        $orderId = $properties->get('options.orderId');
+
+        $apiRequest = ApiRequest::make(
+            'DELETE',
+            "/api/v1/orders/{$orderId}",
+            $properties
+        );
+
+        // Remove orderId from options since it's in the URL
+        $properties->forget('options.orderId');
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Cancel all open orders for a symbol.
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/orders/cancel-multiple-futures-limit-orders
+     */
+    public function cancelAllOrders(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'DELETE',
+            '/api/v1/orders',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get filled orders (trades/fills).
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/fills/get-filled-list
+     */
+    public function getFills(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v1/fills',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get current mark price for a symbol.
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/market-data/get-current-mark-price
+     */
+    public function getMarkPrice(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+        $symbol = $properties->get('options.symbol');
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            "/api/v1/mark-price/{$symbol}/current",
+            $properties
+        );
+
+        // Remove symbol from options since it's in the URL
+        $properties->forget('options.symbol');
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
+    /**
+     * Get risk limit level for a symbol.
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/risk-limit/get-futures-risk-limit-level
+     */
+    public function getRiskLimitLevel(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+        $symbol = $properties->get('options.symbol');
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            "/api/v1/contracts/risk-limit/{$symbol}",
+            $properties
+        );
+
+        // Remove symbol from options since it's in the URL
+        $properties->forget('options.symbol');
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
+    /**
+     * Change cross margin leverage for a symbol.
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/positions/modify-cross-margin-leverage
+     */
+    public function changeCrossLeverage(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/changeCrossUserLeverage',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Change margin mode for a symbol.
+     *
+     * @see https://www.kucoin.com/docs-new/rest/futures-trading/positions/switch-margin-mode
+     */
+    public function changeMarginMode(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/position/changeMarginMode',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
 }

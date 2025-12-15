@@ -8,21 +8,49 @@ use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseDataMapper;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsAccountBalanceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsAccountQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsAccountQueryTrades;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsCancelOrders;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsExchangeInformationQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsLeverageBracketsQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsMarkPriceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsOpenOrdersQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsOrderCancel;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsOrderQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsPlaceOrder;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsServerTimeQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsStopOrdersQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsSymbolMarginType;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsTokenLeverageRatios;
 
+/**
+ * KuCoin Futures API Data Mapper.
+ *
+ * Note: KuCoin Futures does NOT support order modification (MapsOrderModify).
+ * Unlike Binance, Kraken, and BitGet which have dedicated edit/modify endpoints,
+ * KuCoin requires canceling the existing order and placing a new one.
+ * The Spot API has a modify endpoint, but it internally cancels and recreates.
+ *
+ * @see https://www.kucoin.com/docs/rest/futures-trading/orders/place-order
+ */
 final class KucoinApiDataMapper extends BaseDataMapper
 {
     use MapsAccountBalanceQuery;
     use MapsAccountQuery;
+    use MapsAccountQueryTrades;
+    use MapsCancelOrders;
     use MapsExchangeInformationQuery;
+    use MapsLeverageBracketsQuery;
+    use MapsMarkPriceQuery;
     use MapsOpenOrdersQuery;
+    use MapsOrderCancel;
+    use MapsOrderQuery;
+    use MapsPlaceOrder;
     use MapsPositionsQuery;
     use MapsServerTimeQuery;
     use MapsStopOrdersQuery;
+    use MapsSymbolMarginType;
+    use MapsTokenLeverageRatios;
 
     public function long()
     {
@@ -76,7 +104,7 @@ final class KucoinApiDataMapper extends BaseDataMapper
         }
 
         // KuCoin perpetual format: XBTUSDTM, ETHUSDTM
-        return $token . $quote . 'M';
+        return $token.$quote.'M';
     }
 
     /**

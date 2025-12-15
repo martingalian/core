@@ -8,23 +8,41 @@ use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseDataMapper;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsAccountBalanceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsAccountQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsAccountQueryTrades;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsCancelOrders;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsExchangeInformationQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsLeverageBracketsQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsMarkPriceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsOpenOrdersQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsOrderCancel;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsOrderModify;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsOrderQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsPlaceOrder;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsServerTimeQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsStopOrdersQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsSymbolMarginType;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsTokenLeverageRatios;
 
 final class BybitApiDataMapper extends BaseDataMapper
 {
     use MapsAccountBalanceQuery;
     use MapsAccountQuery;
+    use MapsAccountQueryTrades;
+    use MapsCancelOrders;
     use MapsExchangeInformationQuery;
     use MapsLeverageBracketsQuery;
+    use MapsMarkPriceQuery;
     use MapsOpenOrdersQuery;
+    use MapsOrderCancel;
+    use MapsOrderModify;
+    use MapsOrderQuery;
+    use MapsPlaceOrder;
     use MapsPositionsQuery;
     use MapsServerTimeQuery;
     use MapsStopOrdersQuery;
+    use MapsSymbolMarginType;
+    use MapsTokenLeverageRatios;
 
     public function long()
     {

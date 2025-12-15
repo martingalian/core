@@ -151,4 +151,181 @@ final class BybitApi
         // Reuse getCurrentOpenOrders - properties should already include orderFilter=StopOrder
         return $this->getCurrentOpenOrders($properties);
     }
+
+    /**
+     * Place a new order.
+     *
+     * @see https://bybit-exchange.github.io/docs/v5/order/create-order
+     */
+    public function placeOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/v5/order/create',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get order details.
+     *
+     * @see https://bybit-exchange.github.io/docs/v5/order/open-order
+     */
+    public function getOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        // Bybit requires category parameter - default to linear
+        if (! $properties->get('options.category')) {
+            $properties->set('options.category', 'linear');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/v5/order/realtime',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Cancel a single order.
+     *
+     * @see https://bybit-exchange.github.io/docs/v5/order/cancel-order
+     */
+    public function cancelOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/v5/order/cancel',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Cancel all orders for a symbol.
+     *
+     * @see https://bybit-exchange.github.io/docs/v5/order/cancel-all
+     */
+    public function cancelAllOrders(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/v5/order/cancel-all',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Amend/modify an existing order.
+     *
+     * @see https://bybit-exchange.github.io/docs/v5/order/amend-order
+     */
+    public function amendOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/v5/order/amend',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get trade/execution history.
+     *
+     * @see https://bybit-exchange.github.io/docs/v5/order/execution
+     */
+    public function getExecutionList(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        // Bybit requires category parameter - default to linear
+        if (! $properties->get('options.category')) {
+            $properties->set('options.category', 'linear');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/v5/execution/list',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get ticker information including mark price.
+     *
+     * @see https://bybit-exchange.github.io/docs/v5/market/tickers
+     */
+    public function getTickers(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        // Bybit requires category parameter - default to linear
+        if (! $properties->get('options.category')) {
+            $properties->set('options.category', 'linear');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/v5/market/tickers',
+            $properties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
+    /**
+     * Set leverage for a symbol.
+     *
+     * @see https://bybit-exchange.github.io/docs/v5/position/leverage
+     */
+    public function setLeverage(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/v5/position/set-leverage',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Switch between cross and isolated margin mode.
+     *
+     * @see https://bybit-exchange.github.io/docs/v5/position/cross-isolate
+     */
+    public function switchMarginMode(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/v5/position/switch-isolated',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
 }
