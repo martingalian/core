@@ -81,6 +81,19 @@ final class BinanceApi
         return $this->client->signRequest($apiRequest);
     }
 
+    // https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/Algo-Order
+    // Returns conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET, etc.) since Dec 2025 API migration.
+    public function getAlgoOpenOrders(ApiProperties $properties)
+    {
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/fapi/v1/openAlgoOrders',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
     // https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/All-Orders
     public function getAllOrders(ApiProperties $properties)
     {

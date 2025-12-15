@@ -143,4 +143,12 @@ final class BybitApi
 
         return $this->client->signRequest($apiRequest);
     }
+
+    // https://bybit-exchange.github.io/docs/v5/order/open-order
+    // Stop orders use the same endpoint with orderFilter=StopOrder parameter.
+    public function getStopOrders(?ApiProperties $properties = null)
+    {
+        // Reuse getCurrentOpenOrders - properties should already include orderFilter=StopOrder
+        return $this->getCurrentOpenOrders($properties);
+    }
 }

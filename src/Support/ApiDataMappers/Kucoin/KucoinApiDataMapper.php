@@ -12,6 +12,7 @@ use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsExchangeInfo
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsOpenOrdersQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsServerTimeQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsStopOrdersQuery;
 
 final class KucoinApiDataMapper extends BaseDataMapper
 {
@@ -21,6 +22,7 @@ final class KucoinApiDataMapper extends BaseDataMapper
     use MapsOpenOrdersQuery;
     use MapsPositionsQuery;
     use MapsServerTimeQuery;
+    use MapsStopOrdersQuery;
 
     public function long()
     {

@@ -29,7 +29,7 @@ trait MapsOrderCancel
             'symbol' => $this->identifyBaseAndQuote($result['symbol']),
             'status' => $result['status'],
             'price' => $result['price'],
-            'computed_price' => $this->computeOrderCancelPrice($result),
+            '_price' => $this->computeOrderCancelPrice($result),
             'average_price' => $result['avgPrice'],
             'original_quantity' => $result['origQty'],
             'executed_quantity' => $result['executedQty'],

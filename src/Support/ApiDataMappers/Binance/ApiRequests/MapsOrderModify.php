@@ -32,7 +32,7 @@ trait MapsOrderModify
             'symbol' => $this->identifyBaseAndQuote($result['symbol']),
             'status' => $result['status'],
             'price' => $result['price'],
-            'computed_price' => $this->computeOrderModifyPrice($result),
+            '_price' => $this->computeOrderModifyPrice($result),
             'average_price' => $result['avgPrice'],
             'original_quantity' => $result['origQty'],
             'executed_quantity' => $result['executedQty'],

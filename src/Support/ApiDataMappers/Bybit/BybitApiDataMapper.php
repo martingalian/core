@@ -13,6 +13,7 @@ use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsLeverageBrack
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsOpenOrdersQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsServerTimeQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsStopOrdersQuery;
 
 final class BybitApiDataMapper extends BaseDataMapper
 {
@@ -23,6 +24,7 @@ final class BybitApiDataMapper extends BaseDataMapper
     use MapsOpenOrdersQuery;
     use MapsPositionsQuery;
     use MapsServerTimeQuery;
+    use MapsStopOrdersQuery;
 
     public function long()
     {

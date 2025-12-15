@@ -131,6 +131,24 @@ final class KucoinApi
     }
 
     /**
+     * Get untriggered stop orders (conditional orders).
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/orders/get-untriggered-stop-order-list
+     */
+    public function getStopOrders(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v1/stopOrders',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
      * Get account information (alias for getAccountBalance).
      *
      * @see https://www.kucoin.com/docs/rest/futures-trading/account/get-account-overview

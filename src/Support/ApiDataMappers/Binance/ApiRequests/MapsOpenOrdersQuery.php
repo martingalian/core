@@ -23,7 +23,7 @@ trait MapsOpenOrdersQuery
         $orders = json_decode((string) $response->getBody(), true);
 
         return array_map(function (array $order): array {
-            $order['computed_price'] = $this->computeOrderPrice($order);
+            $order['_price'] = $this->computeOrderPrice($order);
             $order['_orderType'] = $this->canonicalOrderType($order);
 
             return $order;

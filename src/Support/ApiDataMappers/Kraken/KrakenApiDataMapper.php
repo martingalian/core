@@ -8,19 +8,39 @@ use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseDataMapper;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsAccountBalanceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsAccountQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsAccountQueryTrades;
+use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsCancelOrders;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsExchangeInformationQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsLeverageBracketsQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsMarkPriceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsOpenOrdersQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsOrderCancel;
+use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsOrderModify;
+use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsOrderQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsPlaceOrder;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsServerTimeQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsSymbolMarginType;
+use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsTokenLeverageRatios;
 
 final class KrakenApiDataMapper extends BaseDataMapper
 {
     use MapsAccountBalanceQuery;
     use MapsAccountQuery;
+    use MapsAccountQueryTrades;
+    use MapsCancelOrders;
     use MapsExchangeInformationQuery;
+    use MapsLeverageBracketsQuery;
+    use MapsMarkPriceQuery;
     use MapsOpenOrdersQuery;
+    use MapsOrderCancel;
+    use MapsOrderModify;
+    use MapsOrderQuery;
+    use MapsPlaceOrder;
     use MapsPositionsQuery;
     use MapsServerTimeQuery;
+    use MapsSymbolMarginType;
+    use MapsTokenLeverageRatios;
 
     public function long()
     {
@@ -128,12 +148,14 @@ final class KrakenApiDataMapper extends BaseDataMapper
      */
     public function canonicalOrderType(array $order): string
     {
-        $type = $order['type'] ?? '';
+        $type = $order['type'] ?? $order['orderType'] ?? '';
 
         return match ($type) {
             'mkt' => 'MARKET',
-            'lmt' => 'LIMIT',
+            'lmt', 'post', 'ioc' => 'LIMIT',
             'stp' => 'STOP_MARKET',
+            'take_profit' => 'TAKE_PROFIT',
+            'trailing_stop' => 'TRAILING_STOP_MARKET',
             default => 'UNKNOWN',
         };
     }

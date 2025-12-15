@@ -9,6 +9,7 @@ use Martingalian\Core\Abstracts\BaseDataMapper;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsAccountBalanceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsAccountQuery;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsAccountQueryTrades;
+use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsAlgoOrdersQuery;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsCancelOrders;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsExchangeInformationQuery;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsLeverageBracketsQuery;
@@ -28,6 +29,7 @@ final class BinanceApiDataMapper extends BaseDataMapper
     use MapsAccountBalanceQuery;
     use MapsAccountQuery;
     use MapsAccountQueryTrades;
+    use MapsAlgoOrdersQuery;
     use MapsCancelOrders;
     use MapsExchangeInformationQuery;
     use MapsLeverageBracketsQuery;

@@ -8,21 +8,41 @@ use InvalidArgumentException;
 use Martingalian\Core\Abstracts\BaseDataMapper;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsAccountBalanceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsAccountQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsAccountQueryTrades;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsCancelOrders;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsExchangeInformationQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsLeverageBracketsQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsMarkPriceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsOpenOrdersQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsOrderCancel;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsOrderModify;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsOrderQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsPlaceOrder;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsPlanOrdersQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsServerTimeQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsSymbolMarginType;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsTokenLeverageRatios;
 
 final class BitgetApiDataMapper extends BaseDataMapper
 {
     use MapsAccountBalanceQuery;
     use MapsAccountQuery;
+    use MapsAccountQueryTrades;
+    use MapsCancelOrders;
     use MapsExchangeInformationQuery;
+    use MapsLeverageBracketsQuery;
+    use MapsMarkPriceQuery;
     use MapsOpenOrdersQuery;
+    use MapsOrderCancel;
+    use MapsOrderModify;
+    use MapsOrderQuery;
+    use MapsPlaceOrder;
     use MapsPlanOrdersQuery;
     use MapsPositionsQuery;
     use MapsServerTimeQuery;
+    use MapsSymbolMarginType;
+    use MapsTokenLeverageRatios;
 
     public function long()
     {

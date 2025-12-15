@@ -172,4 +172,176 @@ final class BitgetApi
 
         return $this->client->signRequest($apiRequest);
     }
+
+    /**
+     * Place a new order.
+     *
+     * @see https://www.bitget.com/api-doc/contract/trade/Place-Order
+     */
+    public function placeOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/order/place-order',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get order detail.
+     *
+     * @see https://www.bitget.com/api-doc/contract/trade/Get-Order-Details
+     */
+    public function getOrderDetail(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v2/mix/order/detail',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Cancel a single order.
+     *
+     * @see https://www.bitget.com/api-doc/contract/trade/Cancel-Order
+     */
+    public function cancelOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/order/cancel-order',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Modify an existing order.
+     *
+     * @see https://www.bitget.com/api-doc/contract/trade/Modify-Order
+     */
+    public function modifyOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/order/modify-order',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Cancel all orders for a symbol or product type.
+     *
+     * @see https://www.bitget.com/api-doc/contract/trade/Cancel-All-Orders
+     */
+    public function cancelAllOrders(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/order/cancel-all-orders',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get order fill details (trades).
+     *
+     * @see https://www.bitget.com/api-doc/contract/trade/Get-Order-Fills
+     */
+    public function getOrderFills(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        // Default to USDT-FUTURES for perpetuals
+        if (! $properties->has('options.productType')) {
+            $properties->set('options.productType', 'USDT-FUTURES');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v2/mix/order/fills',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get symbol price (mark price, index price, last price).
+     *
+     * @see https://www.bitget.com/api-doc/contract/market/Get-Symbol-Price
+     */
+    public function getSymbolPrice(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        // Default to USDT-FUTURES for perpetuals
+        if (! $properties->has('options.productType')) {
+            $properties->set('options.productType', 'USDT-FUTURES');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v2/mix/market/symbol-price',
+            $properties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
+    /**
+     * Set leverage for a position.
+     *
+     * @see https://www.bitget.com/api-doc/contract/account/Change-Leverage
+     */
+    public function setLeverage(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/account/set-leverage',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Set margin mode (crossed or isolated).
+     *
+     * @see https://www.bitget.com/api-doc/contract/account/Change-Margin-Mode
+     */
+    public function setMarginMode(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/account/set-margin-mode',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
 }

@@ -82,6 +82,38 @@ trait InteractsWithApis
         );
     }
 
+    /**
+     * Query algo orders (stop-market, take-profit, trailing-stop).
+     * Only supported by Binance since Dec 2025 API migration.
+     */
+    public function apiQueryAlgoOrders(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->prepareQueryAlgoOrdersProperties($this);
+        $this->apiProperties->set('account', $this);
+        $this->apiResponse = $this->withApi()->getAlgoOpenOrders($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolveQueryAlgoOrdersResponse($this->apiResponse)
+        );
+    }
+
+    /**
+     * Query stop orders (conditional orders).
+     * Supported by Bybit (orderFilter=StopOrder) and KuCoin (separate endpoint).
+     */
+    public function apiQueryStopOrders(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->prepareQueryStopOrdersProperties($this);
+        $this->apiProperties->set('account', $this);
+        $this->apiResponse = $this->withApi()->getStopOrders($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolveQueryStopOrdersResponse($this->apiResponse)
+        );
+    }
+
     // V4 ready.
     public function apiQueryPositions(): ApiResponse
     {

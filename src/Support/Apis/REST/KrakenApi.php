@@ -140,4 +140,148 @@ final class KrakenApi
 
         return $this->client->signRequest($apiRequest);
     }
+
+    /**
+     * Place a new order.
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/send-order/
+     */
+    public function placeOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/derivatives/api/v3/sendorder',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Cancel a single order.
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/cancel-order/
+     */
+    public function cancelOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/derivatives/api/v3/cancelorder',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Edit an existing order.
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/edit-order/
+     */
+    public function editOrder(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/derivatives/api/v3/editorder',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Cancel all open orders for a symbol.
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/cancel-all-orders/
+     */
+    public function cancelAllOrders(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/derivatives/api/v3/cancelallorders',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get trade fills.
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/get-fills/
+     */
+    public function getFills(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/derivatives/api/v3/fills',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get tickers (includes mark price).
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/get-tickers/
+     */
+    public function getTickers(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/derivatives/api/v3/tickers',
+            $properties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
+    /**
+     * Get leverage preferences.
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/get-leverage-setting/
+     */
+    public function getLeveragePreferences(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/derivatives/api/v3/leveragepreferences',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Set leverage preferences (also sets margin mode).
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/set-leverage-setting/
+     */
+    public function setLeveragePreferences(?ApiProperties $properties = null)
+    {
+        $properties = $properties ?? new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'PUT',
+            '/derivatives/api/v3/leveragepreferences',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
 }

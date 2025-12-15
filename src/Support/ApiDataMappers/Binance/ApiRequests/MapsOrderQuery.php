@@ -50,7 +50,7 @@ trait MapsOrderQuery
             'status' => $result['status'],
 
             'price' => $price,
-            'computed_price' => $this->computeOrderQueryPrice($result),
+            '_price' => $this->computeOrderQueryPrice($result),
             'quantity' => $quantity,
             'type' => $result['type'],
             '_orderType' => $this->canonicalOrderType($result),
