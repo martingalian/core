@@ -598,6 +598,7 @@ return new class extends Migration
             $table->unique('group', 'steps_dispatcher_group_unique');
             $table->index('current_tick_id', 'idx_current_tick_id');
             $table->index('last_tick_completed', 'steps_dispatcher_last_tick_completed_idx');
+            $table->index('can_dispatch', 'idx_steps_dispatcher_can_dispatch');
         });
 
         // steps_dispatcher_ticks table
