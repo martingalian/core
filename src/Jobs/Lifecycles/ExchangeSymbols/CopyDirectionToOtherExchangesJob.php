@@ -45,17 +45,16 @@ final class CopyDirectionToOtherExchangesJob extends BaseQueueableJob
         $copiedCount = 0;
         $targetSymbols = [];
 
-        // 5. For each exchange, find matching token AND quote
+        // 5. For each exchange, find matching token (overlaps_with_binance already validates the match)
         foreach ($otherExchanges as $exchange) {
-            // Try direct token + quote match first
+            // Try direct token match first
             $targetSymbol = ExchangeSymbol::query()
                 ->where('api_system_id', $exchange->id)
                 ->where('token', $sourceSymbol->token)
-                ->where('quote', $sourceSymbol->quote)
                 ->where('overlaps_with_binance', true)
                 ->first();
 
-            // If no direct match, try TokenMapper (still matching quote)
+            // If no direct match, try TokenMapper for exchanges with different token names
             if (! $targetSymbol) {
                 $mappedToken = TokenMapper::query()
                     ->where('binance_token', $sourceSymbol->token)
@@ -66,7 +65,6 @@ final class CopyDirectionToOtherExchangesJob extends BaseQueueableJob
                     $targetSymbol = ExchangeSymbol::query()
                         ->where('api_system_id', $exchange->id)
                         ->where('token', $mappedToken->other_token)
-                        ->where('quote', $sourceSymbol->quote)
                         ->where('overlaps_with_binance', true)
                         ->first();
                 }
