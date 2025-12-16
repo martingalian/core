@@ -992,6 +992,16 @@ final class MartingalianSeeder extends Seeder
                 'cache_key' => ['api_system'],
             ],
             [
+                'canonical' => 'websocket_restart_success',
+                'title' => 'WebSocket Reconnected Successfully',
+                'description' => 'Sent when a price stream WebSocket successfully reconnects after being restarted due to new exchange symbols',
+                'usage_reference' => 'Binance/UpdatePricesCommand, Bybit/UpdatePricesCommand, Bitget/UpdatePricesCommand, Kraken/UpdatePricesCommand, Kucoin/UpdatePricesCommand',
+                'default_severity' => 'info',
+                'verified' => 1,
+                'cache_duration' => 0,
+                'cache_key' => ['api_system', 'group'],
+            ],
+            [
                 'canonical' => 'server_rate_limit_exceeded',
                 'title' => 'Server Rate Limit Exceeded',
                 'description' => 'Sent when server hits API rate limit',

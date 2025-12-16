@@ -366,6 +366,26 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
+            'websocket_restart_success' => (function () use ($context, $exchangeTitle, $hostname) {
+                $group = is_string($context['group'] ?? null) ? $context['group'] : null;
+                $groupText = $group ? " ({$group})" : '';
+
+                return [
+                    'severity' => NotificationSeverity::Info,
+                    'title' => "{$exchangeTitle} WebSocket Reconnected{$groupText}",
+                    'emailMessage' => "✅ {$exchangeTitle} WebSocket Reconnected Successfully{$groupText}\n\n".
+                        "The {$exchangeTitle} price stream WebSocket has successfully reconnected after restart.\n\n".
+                        "📊 DETAILS:\n\n".
+                        "• Exchange: {$exchangeTitle}\n".
+                        ($group ? "• Group: {$group}\n" : '').
+                        "• Server: {$hostname}\n\n".
+                        'Price updates have resumed normally.',
+                    'pushoverMessage' => "✅ {$exchangeTitle} WebSocket reconnected{$groupText}",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
             'websocket_error' => [
                 'severity' => NotificationSeverity::High,
                 'title' => "{$exchangeTitle} WebSocket Error",

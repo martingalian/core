@@ -57,6 +57,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | WebSocket Price Streams
+    |--------------------------------------------------------------------------
+    |
+    | price_update_throttle_seconds: Minimum interval between database writes
+    |                                for price updates from WebSocket streams.
+    |                                Higher values reduce database load but
+    |                                may result in slightly stale prices.
+    |                                Default: 5 seconds (was 1 second)
+    */
+    'websocket' => [
+        'price_update_throttle_seconds' => (int) env('PRICE_UPDATE_THROTTLE_SECONDS', 5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Indicator Batch Processing
     |--------------------------------------------------------------------------
     |

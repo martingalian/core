@@ -45,6 +45,9 @@ final class StepsDispatcher extends BaseModel
      * Updates last_selected_at for the selected group.
      * Falls back to 'alpha' if no groups exist in the table.
      *
+     * Uses SKIP LOCKED to avoid waiting on rows locked by other workers,
+     * eliminating lock contention that previously caused 8+ second delays.
+     *
      * @return string The selected group name
      */
     public static function getNextGroup(): string
@@ -53,16 +56,17 @@ final class StepsDispatcher extends BaseModel
         // when multiple steps are created concurrently
         return DB::transaction(function () {
             // Select group with oldest last_selected_at (null = never selected = highest priority)
-            // lockForUpdate() ensures only one process at a time can select this row
+            // SKIP LOCKED allows workers to skip rows locked by others instead of waiting
             $dispatcher = self::query()
                 ->whereNotNull('group')
                 ->orderByRaw('last_selected_at IS NULL DESC') // NULLs first
                 ->orderBy('last_selected_at', 'asc')
-                ->lockForUpdate()
+                ->lock('for update skip locked')
                 ->first();
 
             if (! $dispatcher) {
-                // Fallback to 'alpha' if no groups exist (e.g., in tests without seeding)
+                // All rows are locked by other workers, or no groups exist
+                // Fallback to 'alpha' (will be handled by startDispatch's can_dispatch check)
                 return 'alpha';
             }
 
