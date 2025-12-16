@@ -111,7 +111,7 @@ final class CoreServiceProvider extends ServiceProvider
     protected function registerSlowQueryListener(): void
     {
         DB::listen(function (QueryExecuted $query) {
-            $threshold = (int) config('martingalian.slow_query_threshold_ms', 2500);
+            $threshold = (int) config('martingalian.slow_query_threshold_ms', 5000);
             if ($query->time <= $threshold) {
                 return;
             }
