@@ -245,8 +245,11 @@ final class ModelLogObserver
             return 'null';
         }
 
+        // Convert booleans to 0/1 to match raw database values
+        // This ensures consistency since old values come from getRawOriginal() (raw)
+        // but new values may come from getAttributes() which can be casted
         if (is_bool($value)) {
-            return $value ? 'true' : 'false';
+            return $value ? '1' : '0';
         }
 
         if (is_array($value) || is_object($value)) {
