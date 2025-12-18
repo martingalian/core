@@ -952,6 +952,16 @@ final class MartingalianSeeder extends Seeder
                 'cache_key' => ['api_system', 'group'],
             ],
             [
+                'canonical' => 'websocket_restart_failed',
+                'title' => 'WebSocket Restart Failed',
+                'description' => 'Sent when auto-restart of a stale WebSocket worker exceeds max attempts (3) and requires manual intervention',
+                'usage_reference' => 'CheckStaleDataCommand::restartStaleWebSocket()',
+                'default_severity' => 'critical',
+                'verified' => 1,
+                'cache_duration' => 300,
+                'cache_key' => ['api_system', 'group'],
+            ],
+            [
                 'canonical' => 'update_prices_restart',
                 'title' => 'Price Stream Restart',
                 'description' => 'Sent when price monitoring restarts due to symbol changes (exchange-agnostic, uses relatable ApiSystem)',

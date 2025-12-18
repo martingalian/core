@@ -243,6 +243,41 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
+            'websocket_restart_failed' => (function () use ($context, $exchangeTitle, $hostname) {
+                // Extract restart failure details
+                $supervisorWorker = is_string($context['supervisor_worker'] ?? null) ? $context['supervisor_worker'] : 'unknown';
+                $restartAttempts = is_int($context['restart_attempts'] ?? null) ? $context['restart_attempts'] : 0;
+                $group = is_string($context['group'] ?? null) ? $context['group'] : null;
+                $groupText = $group ? " ({$group})" : '';
+
+                return [
+                    'severity' => NotificationSeverity::Critical,
+                    'title' => "{$exchangeTitle} WebSocket Restart Failed{$groupText}",
+                    'emailMessage' => "🚨 CRITICAL: {$exchangeTitle} WebSocket Auto-Restart Failed{$groupText}\n\n".
+                        "The system attempted to restart the WebSocket worker {$restartAttempts} times but it keeps failing.\n\n".
+                        "📊 DETAILS:\n\n".
+                        "• Exchange: {$exchangeTitle}\n".
+                        ($group ? "• Group: {$group}\n" : '').
+                        "• Supervisor Worker: {$supervisorWorker}\n".
+                        "• Restart Attempts: {$restartAttempts}\n".
+                        "• Server: {$hostname}\n\n".
+                        "⚠️ MANUAL INTERVENTION REQUIRED:\n\n".
+                        "1. Check supervisor status:\n".
+                        "[CMD]sudo supervisorctl status {$supervisorWorker}:*[/CMD]\n\n".
+                        "2. Check worker logs:\n".
+                        "[CMD]sudo supervisorctl tail -f {$supervisorWorker}:*[/CMD]\n\n".
+                        "3. Try manual restart:\n".
+                        "[CMD]sudo supervisorctl restart {$supervisorWorker}:*[/CMD]\n\n".
+                        "4. Reset restart counter by clearing heartbeat metadata:\n".
+                        "[CMD]UPDATE heartbeats SET metadata = NULL WHERE canonical = 'price_stream' AND api_system_id = (SELECT id FROM api_systems WHERE name = '{$exchangeTitle}');[/CMD]",
+                    'pushoverMessage' => "🚨 {$exchangeTitle} Restart FAILED{$groupText}\n".
+                        "Attempts: {$restartAttempts}\n".
+                        "Manual action required!",
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
+
             'stale_priority_steps_detected' => (function () use ($context, $hostname) {
                 // Extract stale step details - CRITICAL: steps stuck even after promotion
                 $count = is_int($context['count'] ?? null) ? $context['count'] : 0;

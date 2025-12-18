@@ -61,6 +61,20 @@ final class Heartbeat extends BaseModel
     }
 
     /**
+     * Get the supervisor worker program name from config for an exchange/group.
+     *
+     * Used by CheckStaleDataCommand to restart stale WebSocket workers.
+     */
+    public static function getSupervisorWorker(string $exchangeCanonical, ?string $group = null): ?string
+    {
+        if ($group !== null) {
+            return config("martingalian.websocket_workers.{$exchangeCanonical}.{$group}");
+        }
+
+        return config("martingalian.websocket_workers.{$exchangeCanonical}");
+    }
+
+    /**
      * Record a heartbeat for a given process.
      *
      * Uses upsert pattern: creates row if not exists, updates if exists.
@@ -90,8 +104,15 @@ final class Heartbeat extends BaseModel
                     'beat_count' => $existing->beat_count + 1,
                 ];
 
+                // Merge new metadata with existing, but clear restart tracking
+                // since a successful beat means the worker is healthy again
+                $existingMetadata = $existing->metadata ?? [];
+                unset($existingMetadata['restart_attempts'], $existingMetadata['last_restart_at']);
+
                 if ($metadata !== null) {
-                    $updateData['metadata'] = $metadata;
+                    $updateData['metadata'] = array_merge($existingMetadata, $metadata);
+                } elseif (! empty($existingMetadata)) {
+                    $updateData['metadata'] = $existingMetadata;
                 }
 
                 $existing->update($updateData);
