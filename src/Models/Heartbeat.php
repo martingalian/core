@@ -7,8 +7,10 @@ namespace Martingalian\Core\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Abstracts\BaseModel;
+use Throwable;
 
 /**
  * @property int $id
@@ -111,7 +113,7 @@ final class Heartbeat extends BaseModel
         ?array $metadata = null,
         ?string $lastPayload = null
     ): void {
-        DB::transaction(function () use ($canonical, $apiSystemId, $accountId, $group, $metadata, $lastPayload): void {
+        self::executeWithDeadlockRetry(function () use ($canonical, $apiSystemId, $accountId, $group, $metadata, $lastPayload): void {
             $existing = self::query()
                 ->where('canonical', $canonical)
                 ->where('api_system_id', $apiSystemId)
@@ -176,7 +178,7 @@ final class Heartbeat extends BaseModel
         int $reconnectAttempts = 0,
         ?array $metadata = null
     ): void {
-        DB::transaction(function () use ($canonical, $apiSystemId, $group, $status, $closeCode, $closeReason, $reconnectAttempts, $metadata): void {
+        self::executeWithDeadlockRetry(function () use ($canonical, $apiSystemId, $group, $status, $closeCode, $closeReason, $reconnectAttempts, $metadata): void {
             $heartbeat = self::query()
                 ->where('canonical', $canonical)
                 ->where('api_system_id', $apiSystemId)
@@ -365,5 +367,42 @@ final class Heartbeat extends BaseModel
             1015 => 'TLS handshake failure',
             default => "Unknown code ({$code})",
         };
+    }
+
+    /**
+     * Execute a callback with automatic retry on database deadlock.
+     *
+     * MySQL deadlocks (error 1213) can occur when multiple processes
+     * attempt to lock the same rows simultaneously. This helper retries
+     * the transaction with exponential backoff to resolve contention.
+     *
+     * @param  callable  $callback  The transaction callback to execute
+     * @param  int  $maxAttempts  Maximum retry attempts (default 3)
+     *
+     * @throws Throwable Re-throws exception after max attempts or for non-deadlock errors
+     */
+    public static function executeWithDeadlockRetry(callable $callback, int $maxAttempts = 3): void
+    {
+        $attempts = 0;
+
+        while (true) {
+            try {
+                DB::transaction($callback);
+
+                return;
+            } catch (QueryException $e) {
+                $attempts++;
+
+                // Check if it's a deadlock error (MySQL error 1213)
+                $isDeadlock = str_contains($e->getMessage(), '1213 Deadlock found');
+
+                if (! $isDeadlock || $attempts >= $maxAttempts) {
+                    throw $e;
+                }
+
+                // Random backoff: 10-50ms * attempt number
+                usleep(random_int(10000, 50000) * $attempts);
+            }
+        }
     }
 }
