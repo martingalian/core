@@ -421,14 +421,45 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'websocket_error' => [
-                'severity' => NotificationSeverity::High,
-                'title' => "{$exchangeTitle} WebSocket Error",
-                'emailMessage' => "⚠️ {$exchangeTitle} WebSocket Error\n\nThe {$exchangeTitle} WebSocket connection encountered an error.\n\nException: ".($context['exception'] ?? 'Unknown error')."\n\nThe system will automatically attempt to reconnect and resume operations.",
-                'pushoverMessage' => "{$exchangeTitle} WebSocket error - ".($context['exception'] ?? 'Unknown'),
-                'actionUrl' => null,
-                'actionLabel' => null,
-            ],
+            'websocket_status_change' => (function () use ($context, $exchangeTitle, $hostname) {
+                $status = is_string($context['status'] ?? null) ? $context['status'] : 'unknown';
+                $message = is_string($context['message'] ?? null) ? $context['message'] : null;
+                $group = is_string($context['group'] ?? null) ? $context['group'] : null;
+                $groupText = $group ? " ({$group})" : '';
+
+                // Determine severity and emoji based on status
+                $severityMap = [
+                    'connected' => NotificationSeverity::Info,
+                    'reconnecting' => NotificationSeverity::Medium,
+                    'disconnected' => NotificationSeverity::Critical,
+                    'stale' => NotificationSeverity::Critical,
+                    'error' => NotificationSeverity::High,
+                ];
+                $severity = $severityMap[$status] ?? NotificationSeverity::High;
+
+                $emojiMap = [
+                    'connected' => '✅',
+                    'reconnecting' => '🔄',
+                    'disconnected' => '🚨',
+                    'stale' => '🚨',
+                    'error' => '⚠️',
+                ];
+                $emoji = $emojiMap[$status] ?? '⚠️';
+
+                $statusTitle = ucfirst($status);
+
+                return [
+                    'severity' => $severity,
+                    'title' => "{$exchangeTitle} WebSocket {$statusTitle}{$groupText}",
+                    'emailMessage' => "{$emoji} {$exchangeTitle} WebSocket {$statusTitle}{$groupText}\n\n".
+                        ($message ?? "The {$exchangeTitle} WebSocket connection status changed to: {$status}").
+                        "\n\nServer: {$hostname}",
+                    'pushoverMessage' => "{$emoji} {$exchangeTitle} WebSocket {$status}{$groupText}".
+                        ($message ? "\n{$message}" : ''),
+                    'actionUrl' => null,
+                    'actionLabel' => null,
+                ];
+            })(),
 
             'websocket_invalid_json' => [
                 'severity' => NotificationSeverity::High,

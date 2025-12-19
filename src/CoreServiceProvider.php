@@ -22,6 +22,7 @@ use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\ForbiddenHostname;
+use Martingalian\Core\Models\Heartbeat;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\NotificationLog;
@@ -40,6 +41,7 @@ use Martingalian\Core\Observers\ApiSystemObserver;
 use Martingalian\Core\Observers\ModelLogObserver;
 use Martingalian\Core\Observers\ExchangeSymbolObserver;
 use Martingalian\Core\Observers\ForbiddenHostnameObserver;
+use Martingalian\Core\Observers\HeartbeatObserver;
 use Martingalian\Core\Observers\IndicatorObserver;
 use Martingalian\Core\Observers\NotificationLogObserver;
 use Martingalian\Core\Observers\OrderObserver;
@@ -93,6 +95,7 @@ final class CoreServiceProvider extends ServiceProvider
         Order::observe(OrderObserver::class);
         Position::observe(PositionObserver::class);
         ForbiddenHostname::observe(ForbiddenHostnameObserver::class);
+        Heartbeat::observe(HeartbeatObserver::class);
         Symbol::observe(SymbolObserver::class);
         User::observe(UserObserver::class);
 

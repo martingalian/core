@@ -198,19 +198,19 @@ final class NotificationFactory extends Factory
     }
 
     /**
-     * Indicate that the notification is for websocket error.
+     * Indicate that the notification is for websocket status change.
      */
-    public function websocketError(): static
+    public function websocketStatusChange(): static
     {
         return $this->state(function (array $attributes) {
             return [
-                'canonical' => 'websocket_error',
-                'title' => 'WebSocket Error',
-                'description' => 'Sent when WebSocket connection encounters errors',
-                'default_severity' => NotificationSeverity::Critical,
+                'canonical' => 'websocket_status_change',
+                'title' => 'WebSocket Status Change',
+                'description' => 'Sent when WebSocket connection status changes',
+                'default_severity' => NotificationSeverity::High,
                 'verified' => true,
                 'cache_duration' => 60,
-                'cache_key' => ['api_system'],
+                'cache_key' => ['api_system', 'group', 'status'],
             ];
         });
     }

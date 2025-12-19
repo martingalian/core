@@ -20,7 +20,21 @@ use React\EventLoop\LoopInterface;
  * - Manages connection lifecycle and reconnections
  * - Supports auto-ping/pong for keepalive
  * - Implements exponential backoff reconnect logic (max 5 attempts)
- * - User-defined callbacks: message, ping, pong, close, error
+ * - Detects stale/zombie connections (open but no data)
+ * - User-defined callbacks: message, ping, pong, close, error, status
+ *
+ * Callbacks:
+ * - message(WebSocket $conn, string $payload): Called on each message
+ * - ping(WebSocket $conn, mixed $msg): Called on ping frame
+ * - pong(WebSocket $conn, string $payload): Called on pong response
+ * - close(WebSocket $conn, ?int $code, ?string $reason): Called on close
+ * - error(?WebSocket $conn, Throwable $e): Called on error
+ * - status(string $status, int $reconnectAttempts, ?int $closeCode, ?string $closeReason):
+ *   Called on connection state changes. Status values:
+ *   - 'connected': Connection established successfully
+ *   - 'reconnecting': Connection closed, attempting reconnect
+ *   - 'disconnected': Max reconnect attempts reached
+ *   - 'stale': Zombie connection detected (open but no messages)
  *
  * Recovery strategy:
  * - Internal: Exponential backoff reconnect (1s → 2s → 4s → 8s → 16s)
@@ -98,6 +112,12 @@ abstract class BaseWebsocketClient
                 }
 
                 $this->reconnectAttempt = 0;
+
+                // Notify status change: connected
+                if (isset($callback['status']) && is_callable($callback['status'])) {
+                    $callback['status']('connected', 0, null, null);
+                }
+
                 $this->setupConnectionHandlers($conn, $callback, $url);
             },
             function ($e) use ($url, $callback) {
@@ -131,11 +151,17 @@ abstract class BaseWebsocketClient
 
         // Initialize last message timestamp and check for stale connections every 15 seconds
         $this->lastMessageAt = microtime(true);
-        $this->loop->addPeriodicTimer(15, function () use ($conn) {
+        $this->loop->addPeriodicTimer(15, function () use ($conn, $callback) {
             if ($this->lastMessageAt > 0 && $this->wsConnection !== null) {
                 $silentSeconds = (int) (microtime(true) - $this->lastMessageAt);
                 if ($silentSeconds > $this->staleThresholdSeconds) {
                     error_log("[{$this->exchangeName}] No messages received for {$silentSeconds}s (threshold: {$this->staleThresholdSeconds}s). Forcing reconnect.");
+
+                    // Notify status change: stale (zombie connection)
+                    if (isset($callback['status']) && is_callable($callback['status'])) {
+                        $callback['status']('stale', 0, null, "No messages for {$silentSeconds}s");
+                    }
+
                     $conn->close();
                 }
             }
@@ -176,8 +202,14 @@ abstract class BaseWebsocketClient
             $closeInfo .= ($reason !== null && $reason !== '') ? " - {$reason}" : '';
             error_log("[{$this->exchangeName}] WebSocket closed{$closeInfo}");
 
+            // Pass close code and reason to callback for tracking
             if (isset($callback['close']) && is_callable($callback['close'])) {
-                $callback['close']($conn);
+                $callback['close']($conn, $code, $reason);
+            }
+
+            // Notify status change: reconnecting
+            if (isset($callback['status']) && is_callable($callback['status'])) {
+                $callback['status']('reconnecting', $this->reconnectAttempt + 1, $code, $reason);
             }
 
             $this->reconnect($url, $callback);
@@ -199,6 +231,11 @@ abstract class BaseWebsocketClient
 
         if ($this->reconnectAttempt > $this->maxReconnectAttempts) {
             error_log("[{$this->exchangeName}] Max reconnect attempts ({$this->maxReconnectAttempts}) reached. Stopping loop for supervisor restart.");
+
+            // Notify status change: disconnected (max attempts exhausted)
+            if (isset($callback['status']) && is_callable($callback['status'])) {
+                $callback['status']('disconnected', $this->reconnectAttempt, null, 'Max reconnect attempts reached');
+            }
 
             if (isset($callback['error']) && is_callable($callback['error'])) {
                 $callback['error'](null, new Exception('Max reconnect attempts reached. Supervisor will restart process.'));
