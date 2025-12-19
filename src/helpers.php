@@ -233,3 +233,25 @@ function throttle_log(int|string|null $stepId, string $message): void
 
     file_put_contents($logFile, $logMessage, FILE_APPEND | LOCK_EX);
 }
+
+/**
+ * Log a message to a specific file in storage/logs.
+ * Useful for debugging specific subsystems like WebSocket connections.
+ *
+ * @param  string  $filename  The filename to write to (e.g., 'binance-websocket.log')
+ * @param  string  $message  The message to log
+ */
+function log_on(string $filename, string $message): void
+{
+    $logsPath = storage_path('logs');
+
+    if (! is_dir($logsPath)) {
+        mkdir($logsPath, 0755, true);
+    }
+
+    $timestamp = now()->format('Y-m-d H:i:s.u');
+    $logFile = "{$logsPath}/{$filename}";
+    $logMessage = "[{$timestamp}] {$message}" . PHP_EOL;
+
+    file_put_contents($logFile, $logMessage, FILE_APPEND | LOCK_EX);
+}
