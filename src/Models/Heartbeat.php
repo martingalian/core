@@ -19,6 +19,7 @@ use Martingalian\Core\Abstracts\BaseModel;
  * @property Carbon $last_beat_at
  * @property int $beat_count
  * @property array<string, mixed>|null $metadata
+ * @property string|null $last_payload
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read ApiSystem|null $apiSystem
@@ -86,9 +87,10 @@ final class Heartbeat extends BaseModel
         ?int $apiSystemId = null,
         ?int $accountId = null,
         ?string $group = null,
-        ?array $metadata = null
+        ?array $metadata = null,
+        ?string $lastPayload = null
     ): void {
-        DB::transaction(function () use ($canonical, $apiSystemId, $accountId, $group, $metadata): void {
+        DB::transaction(function () use ($canonical, $apiSystemId, $accountId, $group, $metadata, $lastPayload): void {
             $existing = self::query()
                 ->where('canonical', $canonical)
                 ->where('api_system_id', $apiSystemId)
@@ -102,6 +104,7 @@ final class Heartbeat extends BaseModel
                 $updateData = [
                     'last_beat_at' => now(),
                     'beat_count' => $existing->beat_count + 1,
+                    'last_payload' => $lastPayload,
                 ];
 
                 // Merge new metadata with existing, but clear restart tracking
@@ -125,6 +128,7 @@ final class Heartbeat extends BaseModel
                     'last_beat_at' => now(),
                     'beat_count' => 1,
                     'metadata' => $metadata,
+                    'last_payload' => $lastPayload,
                 ]);
             }
         });
