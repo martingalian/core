@@ -49,8 +49,8 @@ final class HeartbeatObserver
      */
     public function updated(Heartbeat $heartbeat): void
     {
-        // Only process if connection_status was changed
-        if (! $heartbeat->isDirty('connection_status')) {
+        // Only process if connection_status was changed during the last save
+        if (! $heartbeat->wasChanged('connection_status')) {
             return;
         }
 
@@ -116,58 +116,19 @@ final class HeartbeatObserver
      */
     public function buildMessage(Heartbeat $heartbeat, ?string $oldStatus, string $newStatus): string
     {
-        return match ($newStatus) {
-            Heartbeat::STATUS_CONNECTED => $this->buildConnectedMessage($heartbeat),
-            Heartbeat::STATUS_DISCONNECTED => $this->buildDisconnectedMessage($heartbeat),
-            Heartbeat::STATUS_STALE => $this->buildStaleMessage($heartbeat),
-            default => "Connection status changed from {$oldStatus} to {$newStatus}",
-        };
-    }
+        $from = $oldStatus ?? 'none';
+        $message = "Status: {$from} → {$newStatus}";
 
-    /**
-     * Build message for connected status.
-     */
-    public function buildConnectedMessage(Heartbeat $heartbeat): string
-    {
-        return 'WebSocket connection established successfully.';
-    }
+        // Add close code info for disconnected/stale states
+        if (in_array($newStatus, [Heartbeat::STATUS_DISCONNECTED, Heartbeat::STATUS_STALE])) {
+            if ($heartbeat->last_close_code !== null) {
+                $closeDescription = Heartbeat::describeCloseCode($heartbeat->last_close_code);
+                $message .= "\nClose code: {$heartbeat->last_close_code} ({$closeDescription})";
+            }
 
-    /**
-     * Build message for disconnected status.
-     */
-    public function buildDisconnectedMessage(Heartbeat $heartbeat): string
-    {
-        $message = 'WebSocket disconnected after max internal reconnect attempts.';
-
-        if ($heartbeat->last_close_code !== null) {
-            $closeDescription = Heartbeat::describeCloseCode($heartbeat->last_close_code);
-            $message .= "\nClose code: {$heartbeat->last_close_code} ({$closeDescription})";
-        }
-
-        if ($heartbeat->last_close_reason !== null) {
-            $message .= "\nClose reason: {$heartbeat->last_close_reason}";
-        }
-
-        $message .= "\nInternal reconnect attempts: {$heartbeat->internal_reconnect_attempts}";
-
-        return $message;
-    }
-
-    /**
-     * Build message for stale status.
-     */
-    public function buildStaleMessage(Heartbeat $heartbeat): string
-    {
-        $message = 'Zombie connection detected - WebSocket open but not receiving data.';
-
-        if ($heartbeat->last_beat_at) {
-            $secondsAgo = now()->diffInSeconds($heartbeat->last_beat_at);
-            $message .= "\nLast heartbeat: {$secondsAgo}s ago";
-        }
-
-        if ($heartbeat->last_price_data_at) {
-            $priceSecondsAgo = now()->diffInSeconds($heartbeat->last_price_data_at);
-            $message .= "\nLast price data: {$priceSecondsAgo}s ago";
+            if ($heartbeat->last_close_reason !== null) {
+                $message .= "\nClose reason: {$heartbeat->last_close_reason}";
+            }
         }
 
         return $message;
