@@ -262,7 +262,16 @@ final class Heartbeat extends BaseModel
      *
      * Returns array with 'should_restart' boolean and 'reason' explanation.
      *
-     * @return array{should_restart: bool, reason: string, wait_suggested: bool}
+     * @return array{
+     *     should_restart: bool,
+     *     reason: string,
+     *     wait_suggested: bool,
+     *     connection_status: string|null,
+     *     last_beat_seconds_ago: int|null,
+     *     last_price_data_seconds_ago: int|null,
+     *     last_close_code?: int|null,
+     *     last_close_reason?: string|null
+     * }
      */
     public function analyzeRestartDecision(int $priceDataThresholdSeconds = 60): array
     {
