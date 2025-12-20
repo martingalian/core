@@ -28,6 +28,7 @@ use Throwable;
  * @property int|null $last_close_code
  * @property string|null $last_close_reason
  * @property int $internal_reconnect_attempts
+ * @property float|null $memory_usage_mb
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read ApiSystem|null $apiSystem
@@ -111,9 +112,10 @@ final class Heartbeat extends BaseModel
         ?int $accountId = null,
         ?string $group = null,
         ?array $metadata = null,
-        ?string $lastPayload = null
+        ?string $lastPayload = null,
+        ?float $memoryUsageMb = null
     ): void {
-        self::executeWithDeadlockRetry(function () use ($canonical, $apiSystemId, $accountId, $group, $metadata, $lastPayload): void {
+        self::executeWithDeadlockRetry(function () use ($canonical, $apiSystemId, $accountId, $group, $metadata, $lastPayload, $memoryUsageMb): void {
             $existing = self::query()
                 ->where('canonical', $canonical)
                 ->where('api_system_id', $apiSystemId)
@@ -128,6 +130,7 @@ final class Heartbeat extends BaseModel
                     'last_beat_at' => now(),
                     'beat_count' => $existing->beat_count + 1,
                     'last_payload' => $lastPayload,
+                    'memory_usage_mb' => $memoryUsageMb,
                 ];
 
                 // Merge new metadata with existing, but clear restart tracking
@@ -152,6 +155,7 @@ final class Heartbeat extends BaseModel
                     'beat_count' => 1,
                     'metadata' => $metadata,
                     'last_payload' => $lastPayload,
+                    'memory_usage_mb' => $memoryUsageMb,
                 ]);
             }
         });
