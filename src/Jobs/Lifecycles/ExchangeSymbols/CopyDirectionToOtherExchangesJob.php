@@ -72,11 +72,17 @@ final class CopyDirectionToOtherExchangesJob extends BaseQueueableJob
 
             // 6. Copy direction data if target found
             if ($targetSymbol) {
+                // Clone has_taapi_data status from source symbol
+                $sourceHasTaapiData = $sourceSymbol->api_statuses['has_taapi_data'] ?? false;
+                $targetApiStatuses = $targetSymbol->api_statuses ?? [];
+                $targetApiStatuses['has_taapi_data'] = $sourceHasTaapiData;
+
                 $targetSymbol->updateSaving([
                     'direction' => $sourceSymbol->direction,
                     'indicators_values' => $sourceSymbol->indicators_values,
                     'indicators_timeframe' => $sourceSymbol->indicators_timeframe,
                     'indicators_synced_at' => $sourceSymbol->indicators_synced_at,
+                    'api_statuses' => $targetApiStatuses,
                     'has_no_indicator_data' => false,
                     'has_price_trend_misalignment' => false,
                     'has_early_direction_change' => false,

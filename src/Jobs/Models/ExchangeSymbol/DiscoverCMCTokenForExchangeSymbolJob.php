@@ -278,6 +278,7 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
     {
         $mapper = new ApiDataMapperProxy('coinmarketcap');
         $properties = $mapper->prepareSearchSymbolByTokenProperties($token);
+        $properties->set('relatable', $this->exchangeSymbol);
 
         // Use the admin CMC account to make the API call
         $cmcAccount = Account::admin('coinmarketcap');

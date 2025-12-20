@@ -8,7 +8,9 @@ use GuzzleHttp\Exception\RequestException;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\ExchangeSymbol;
+use Martingalian\Core\Models\TokenMapper;
 use Martingalian\Core\Support\ApiDataMappers\Taapi\TaapiApiDataMapper;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Psr\Http\Message\ResponseInterface;
@@ -136,6 +138,7 @@ final class TouchTaapiDataForExchangeSymbolJob extends BaseApiableJob
         $properties->set('options.exchange', $taapiExchange);
         $properties->set('options.symbol', $formattedSymbol);
         $properties->set('options.interval', '1h');
+        $properties->set('relatable', $this->exchangeSymbol);
 
         $response = $taapiAccount->withApi()->getIndicatorValues($properties);
 
@@ -167,6 +170,7 @@ final class TouchTaapiDataForExchangeSymbolJob extends BaseApiableJob
 
     /**
      * Mark the symbol as verified with TAAPI (sets both flags).
+     * Also propagates has_taapi_data to overlapping non-Binance symbols.
      */
     private function markAsVerified(bool $hasData): void
     {
@@ -174,6 +178,52 @@ final class TouchTaapiDataForExchangeSymbolJob extends BaseApiableJob
         $apiStatuses['taapi_verified'] = true;
         $apiStatuses['has_taapi_data'] = $hasData;
         $this->exchangeSymbol->updateSaving(['api_statuses' => $apiStatuses]);
+
+        // Propagate has_taapi_data to overlapping non-Binance symbols
+        $this->propagateToOverlappingSymbols($hasData);
+    }
+
+    /**
+     * Propagate has_taapi_data status to non-Binance symbols that overlap with this Binance symbol.
+     * Uses TokenMapper for exchanges that use different token names (e.g., NEIRO on Binance = 1000NEIRO on KuCoin).
+     */
+    private function propagateToOverlappingSymbols(bool $hasData): void
+    {
+        $otherExchanges = ApiSystem::where('canonical', '!=', 'binance')
+            ->where('is_exchange', true)
+            ->get();
+
+        foreach ($otherExchanges as $exchange) {
+            // Try direct token match first (get ALL matching symbols, not just first)
+            $targetSymbols = ExchangeSymbol::query()
+                ->where('api_system_id', $exchange->id)
+                ->where('token', $this->exchangeSymbol->token)
+                ->where('overlaps_with_binance', true)
+                ->get();
+
+            // If no direct match, try TokenMapper for exchanges with different token names
+            if ($targetSymbols->isEmpty()) {
+                $mappedToken = TokenMapper::query()
+                    ->where('binance_token', $this->exchangeSymbol->token)
+                    ->where('other_api_system_id', $exchange->id)
+                    ->first();
+
+                if ($mappedToken) {
+                    $targetSymbols = ExchangeSymbol::query()
+                        ->where('api_system_id', $exchange->id)
+                        ->where('token', $mappedToken->other_token)
+                        ->where('overlaps_with_binance', true)
+                        ->get();
+                }
+            }
+
+            // Update has_taapi_data on ALL matching target symbols
+            foreach ($targetSymbols as $targetSymbol) {
+                $targetApiStatuses = $targetSymbol->api_statuses ?? [];
+                $targetApiStatuses['has_taapi_data'] = $hasData;
+                $targetSymbol->updateSaving(['api_statuses' => $targetApiStatuses]);
+            }
+        }
     }
 
     /**
