@@ -15,6 +15,13 @@ final class ExchangeSymbolObserver
      */
     private const KUCOIN_MAX_PER_GROUP = 100;
 
+    /**
+     * Max symbols per websocket group for BitGet.
+     * BitGet recommends <50 channels per connection for stability.
+     * Using 45 for extra safety margin.
+     */
+    private const BITGET_MAX_PER_GROUP = 45;
+
     public function creating(ExchangeSymbol $model): void
     {
         // Default api_statuses on creation
@@ -37,20 +44,22 @@ final class ExchangeSymbolObserver
 
         $model->api_statuses = $apiStatuses;
 
-        // Assign websocket_group for KuCoin (other exchanges use default 'group-1')
+        // Assign websocket_group for exchanges with subscription limits (KuCoin, BitGet)
         $this->assignWebsocketGroup($model);
     }
 
     /**
      * Assign websocket_group for exchanges with subscription limits.
-     * KuCoin has a 300 subscription limit per WebSocket session, so we cap at 250 per group.
+     * Some exchanges have per-connection subscription limits that require
+     * splitting symbols across multiple WebSocket connections.
      */
     public function assignWebsocketGroup(ExchangeSymbol $model): void
     {
-        // Only assign for KuCoin - other exchanges use the default 'group-1'
-        $kucoinSystem = ApiSystem::firstWhere('canonical', 'kucoin');
+        // Get the max symbols per group for this exchange (null if no limit)
+        $maxPerGroup = $this->getMaxSymbolsPerGroup($model->api_system_id);
 
-        if ($kucoinSystem === null || $model->api_system_id !== $kucoinSystem->id) {
+        if ($maxPerGroup === null) {
+            // Exchange doesn't need group splitting - uses default 'group-1'
             return;
         }
 
@@ -58,17 +67,39 @@ final class ExchangeSymbolObserver
         $groupNumber = 1;
         while (true) {
             $groupName = "group-{$groupNumber}";
-            $count = ExchangeSymbol::where('api_system_id', $kucoinSystem->id)
+            $count = ExchangeSymbol::where('api_system_id', $model->api_system_id)
                 ->where('websocket_group', $groupName)
                 ->count();
 
-            if ($count < self::KUCOIN_MAX_PER_GROUP) {
+            if ($count < $maxPerGroup) {
                 $model->websocket_group = $groupName;
 
                 return;
             }
             $groupNumber++;
         }
+    }
+
+    /**
+     * Get the maximum symbols per WebSocket group for an exchange.
+     * Returns null if the exchange doesn't require group splitting.
+     */
+    private function getMaxSymbolsPerGroup(int $apiSystemId): ?int
+    {
+        // Mapping of exchange canonicals to their max symbols per group
+        $exchangeLimits = [
+            'kucoin' => self::KUCOIN_MAX_PER_GROUP,
+            'bitget' => self::BITGET_MAX_PER_GROUP,
+        ];
+
+        // Find the canonical name for this api_system_id
+        $apiSystem = ApiSystem::find($apiSystemId);
+
+        if ($apiSystem === null) {
+            return null;
+        }
+
+        return $exchangeLimits[$apiSystem->canonical] ?? null;
     }
 
     public function updating(ExchangeSymbol $model): void
