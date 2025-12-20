@@ -1021,6 +1021,66 @@ $account = Account::factory()->canTrade()->create();
 - Complex queries
 - Observer side effects
 
+### Heartbeat
+**Location**: `Martingalian\Core\Models\Heartbeat`
+**Purpose**: WebSocket connection health monitoring for price streams
+
+**Schema**:
+- `id` - Identifier
+- `canonical` - Heartbeat type (e.g., 'price_stream')
+- `api_system_id` - FK to api_systems (nullable)
+- `account_id` - FK to accounts (nullable)
+- `group` - WebSocket group (e.g., 'group-1' for KuCoin sharding)
+- `last_beat_at` - Timestamp of last message received
+- `beat_count` - Total messages received
+- `metadata` (JSON) - Additional context (supervisor_worker, etc.)
+- `last_payload` - Last WebSocket message received
+- `connection_status` - Current status: unknown, connected, reconnecting, disconnected, stale, inactive
+- `last_price_data_at` - Last price data received (distinct from ping/pong)
+- `connected_at` - When connection was established
+- `last_close_code` - WebSocket close code
+- `last_close_reason` - WebSocket close reason
+- `internal_reconnect_attempts` - Current reconnect attempt count
+- `created_at`, `updated_at`
+
+**Unique Constraint**: `(canonical, api_system_id, account_id, group)`
+
+**Relationships**:
+- `belongsTo(ApiSystem)` - Exchange system
+- `belongsTo(Account)` - Optional account context
+
+**Static Methods**:
+- `beat()` - Record heartbeat (upsert pattern with deadlock retry)
+- `updateConnectionStatus()` - Update connection state
+- `recordPriceData()` - Track actual price data reception
+- `getSupervisorWorker()` - Get supervisor program name from config
+- `describeCloseCode()` - Human-readable close code description
+- `executeWithDeadlockRetry()` - Database transaction with deadlock retry
+
+**Instance Methods**:
+- `analyzeRestartDecision()` - Determine if worker should be restarted
+
+**Connection Status Values**:
+| Status | Description |
+|--------|-------------|
+| `unknown` | Initial state |
+| `connected` | WebSocket connected and receiving messages |
+| `reconnecting` | Internal reconnect in progress |
+| `disconnected` | Max reconnect attempts exhausted |
+| `stale` | Zombie connection (open but no messages) |
+| `inactive` | Worker not running (no symbols configured) |
+
+**Observer**: `HeartbeatObserver`
+- Sends `websocket_status_change` notification on status transitions
+- Skips `reconnecting` and `unknown` statuses (no notification spam)
+
+**Dashboard**: `/dashboard/heartbeats`
+- Real-time WebSocket health monitoring
+- Color-coded status indicators
+- Worker restart capability
+
+---
+
 ## Future Enhancements
 - Model caching layer (Redis)
 - Audit trail for all model changes

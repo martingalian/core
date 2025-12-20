@@ -1,6 +1,6 @@
 # Notification System - Current Implementation
 
-**Last Updated**: 2025-12-03
+**Last Updated**: 2025-12-20
 **Status**: Production
 
 ---
@@ -17,8 +17,10 @@ The Martingalian notification system is a unified notification framework built o
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                              NOTIFICATION TRIGGERS                               │
 ├─────────────────────────────────────────────────────────────────────────────────┤
-│  ApiRequestLogObserver          ForbiddenHostnameObserver        Cronjob Commands│
-│  (API errors)                   (IP/account blocks)              (stale data, etc)│
+│  ApiRequestLogObserver    ForbiddenHostnameObserver    HeartbeatObserver        │
+│  (API errors)             (IP/account blocks)          (WebSocket status)       │
+│                                                                                  │
+│  Cronjob Commands (CheckStaleDataCommand, etc.)                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                          │
                                          ▼
@@ -454,7 +456,57 @@ $user = $notifyAdmin
 
 ---
 
-### 3. NotificationHandlers
+### 3. HeartbeatObserver
+**Location**: `packages/martingalian/core/src/Observers/HeartbeatObserver.php`
+
+**Triggers on**: `created` and `updated` events for `Heartbeat`
+
+**Purpose**: Centralized WebSocket connection status notifications. All WebSocket status change notifications are sent from this observer, NOT from UpdatePricesCommand files.
+
+**Notification Logic**:
+- Sends `websocket_status_change` when `connection_status` changes
+- **Notifies for**: `connected`, `disconnected`, `stale`, `inactive`
+- **Skips**: `reconnecting` (internal retry in progress), `unknown` (no spam)
+
+**Cache Key**: `api_system`, `group`, `status` (prevents duplicate notifications per status per exchange)
+
+```php
+// Only notify when connection_status actually changed
+if (!$heartbeat->wasChanged('connection_status')) {
+    return;
+}
+
+// Skip reconnecting and unknown - don't spam during internal retries
+if (in_array($newStatus, [STATUS_RECONNECTING, STATUS_UNKNOWN])) {
+    return;
+}
+
+NotificationService::send(
+    user: Martingalian::admin(),
+    canonical: 'websocket_status_change',
+    referenceData: [
+        'apiSystem' => $apiSystem,
+        'status' => $newStatus,
+        'message' => $message,
+        'group' => $heartbeat->group,
+    ],
+    relatable: $apiSystem,
+    cacheKeys: [
+        'api_system' => $apiSystem->canonical,
+        'group' => $heartbeat->group ?? 'null',
+        'status' => $newStatus,
+    ]
+);
+```
+
+**Message Content**:
+- Status transition: `Status: connected → disconnected`
+- Close code info for disconnected/stale: `Close code: 1006 (Abnormal closure)`
+- Close reason if available
+
+---
+
+### 4. NotificationHandlers
 **Location**: `packages/martingalian/core/src/Support/NotificationHandlers/`
 
 **Base Class**: `BaseNotificationHandler` (abstract)
@@ -502,21 +554,21 @@ Tracks IP addresses blocked from making API calls.
 
 ## Notification Canonicals Registry
 
-### Currently in Database (11)
+### Currently in Database
 
-| Canonical | Title | Severity | Cache Key Template |
-|-----------|-------|----------|-------------------|
-| `exchange_symbol_no_taapi_data` | Exchange Symbol Auto-Deactivated | Info | `['exchange_symbol', 'exchange']` |
-| `server_ip_forbidden` | Server IP Forbidden by Exchange | Critical | `['api_system', 'server']` |
-| `server_rate_limit_exceeded` | Server Rate Limit Exceeded | Info | `['api_system', 'account', 'server']` |
-| `slow_query_detected` | Slow Database Query Detected | High | - |
-| `stale_dispatched_steps_detected` | Stale Dispatched Steps Detected | Critical | - |
-| `stale_price_detected` | Stale Price Detected | High | - |
-| `token_delisting` | Token Delisting Detected | High | - |
-| `update_prices_restart` | Price Stream Restart | Info | - |
-| `websocket_error` | WebSocket Error | High | - |
-| `websocket_invalid_json` | WebSocket: Invalid JSON Response | High | `['api_system']` |
-| `websocket_prices_update_error` | WebSocket Prices: Database Update Error | Critical | - |
+| Canonical | Title | Severity | Cache Key Template | Trigger |
+|-----------|-------|----------|-------------------|---------|
+| `exchange_symbol_no_taapi_data` | Exchange Symbol Auto-Deactivated | Info | `['exchange_symbol', 'exchange']` | ApiRequestLogObserver |
+| `server_ip_forbidden` | Server IP Forbidden by Exchange | Critical | `['api_system', 'server']` | NotificationHandlers |
+| `server_rate_limit_exceeded` | Server Rate Limit Exceeded | Info | `['api_system', 'account', 'server']` | NotificationHandlers |
+| `slow_query_detected` | Slow Database Query Detected | High | - | Query logging |
+| `stale_dispatched_steps_detected` | Stale Dispatched Steps Detected | Critical | - | CheckStaleDataCommand |
+| `stale_price_detected` | Stale Price Detected | High | - | CheckStaleDataCommand |
+| `token_delisting` | Token Delisting Detected | High | - | ExchangeSymbol observer |
+| `websocket_status_change` | WebSocket Status Change | High | `['api_system', 'group', 'status']` | HeartbeatObserver |
+| `websocket_prices_update_error` | WebSocket Prices: Database Update Error | Critical | `['api_system']` | UpdatePricesCommand catch block |
+
+**Note**: WebSocket notifications are centralized in `HeartbeatObserver`. The `websocket_status_change` canonical replaced the previous `update_prices_restart`, `websocket_invalid_json`, and `websocket_restart_success` canonicals which were removed from UpdatePricesCommand files.
 
 ### ForbiddenHostname Canonicals (4)
 **Seeder**: `ForbiddenHostnameNotificationsSeeder`
@@ -639,12 +691,14 @@ php artisan test:notification --clean
 ### Triggers
 - `packages/martingalian/core/src/Observers/ApiRequestLogObserver.php`
 - `packages/martingalian/core/src/Observers/ForbiddenHostnameObserver.php`
+- `packages/martingalian/core/src/Observers/HeartbeatObserver.php`
 - `packages/martingalian/core/src/Support/NotificationHandlers/BaseNotificationHandler.php`
 - `packages/martingalian/core/src/Support/NotificationHandlers/BinanceNotificationHandler.php`
 - `packages/martingalian/core/src/Support/NotificationHandlers/BybitNotificationHandler.php`
 
 ### Models
 - `packages/martingalian/core/src/Models/ForbiddenHostname.php`
+- `packages/martingalian/core/src/Models/Heartbeat.php`
 - `packages/martingalian/core/src/Models/Martingalian.php`
 - `packages/martingalian/core/src/Models/User.php`
 
@@ -724,6 +778,17 @@ All notification-related processes must be managed by supervisor to ensure confi
 ---
 
 ## Changelog
+
+### 2025-12-20
+- Added HeartbeatObserver for centralized WebSocket status change notifications
+- New `websocket_status_change` canonical replaces multiple legacy WebSocket notifications
+- Removed manual notifications from UpdatePricesCommand files:
+  - `update_prices_restart` - removed
+  - `websocket_invalid_json` - removed
+  - `websocket_restart_success` - removed
+- Kept `websocket_prices_update_error` in catch blocks only
+- Added Heartbeat model documentation to DataModels.md
+- Updated architecture diagram to include HeartbeatObserver
 
 ### 2025-12-03
 - Removed orphaned `throttleLogs()` relationships from User and Account models
