@@ -98,8 +98,11 @@ final class BitgetApiClient extends BaseWebsocketClient
             $conn->send($subscriptionMessage);
         }
 
-        // Send periodic ping to keep connection alive (every 30 seconds)
-        // BitGet expects a simple "ping" string
+        // Send immediate ping to establish keepalive, then periodic pings every 30 seconds.
+        // BitGet disconnects after 120 seconds without a ping - sending immediately
+        // ensures we don't hit the timeout boundary on the first cycle.
+        $conn->send('ping');
+
         $this->loop->addPeriodicTimer($this->pingInterval, function () use ($conn) {
             $conn->send('ping');
         });

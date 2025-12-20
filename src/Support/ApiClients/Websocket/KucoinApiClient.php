@@ -97,8 +97,15 @@ final class KucoinApiClient extends BaseWebsocketClient
             $conn->send($subscriptionMessage);
         }
 
+        // Send immediate ping to establish keepalive, then periodic pings.
+        // KuCoin has a 10-second ping timeout - sending immediately ensures
+        // we don't hit the timeout boundary on the first cycle.
+        $conn->send(json_encode([
+            'id' => $this->generateMessageId(),
+            'type' => 'ping',
+        ]));
+
         // Send periodic ping based on pingInterval from token response
-        // KuCoin requires ping to keep connection alive
         $pingIntervalSeconds = max(1, (int) ($this->pingInterval / 1000));
         $this->loop->addPeriodicTimer($pingIntervalSeconds, function () use ($conn) {
             $conn->send(json_encode([

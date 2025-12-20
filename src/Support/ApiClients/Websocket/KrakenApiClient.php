@@ -80,7 +80,10 @@ final class KrakenApiClient extends BaseWebsocketClient
             $conn->send($subscriptionMessage);
         }
 
-        // Send periodic ping every 30 seconds as per Kraken requirements
+        // Send immediate ping to establish keepalive, then periodic pings every 30 seconds.
+        // Kraken requires ping at least every 60 seconds - we use 30 for margin.
+        $conn->send(json_encode(['event' => 'ping']));
+
         $this->loop->addPeriodicTimer(30, function () use ($conn) {
             $conn->send(json_encode(['event' => 'ping']));
         });
