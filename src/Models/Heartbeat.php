@@ -266,81 +266,92 @@ final class Heartbeat extends BaseModel
      */
     public function analyzeRestartDecision(int $priceDataThresholdSeconds = 60): array
     {
+        // Calculate ages upfront for all return paths
+        $lastBeatAge = $this->last_beat_at ? (int) now()->diffInSeconds($this->last_beat_at) : null;
+        $lastPriceAge = $this->last_price_data_at ? (int) now()->diffInSeconds($this->last_price_data_at) : null;
+
+        // Base diagnostic info included in all returns
+        $baseInfo = [
+            'connection_status' => $this->connection_status,
+            'last_beat_seconds_ago' => $lastBeatAge,
+            'last_price_data_seconds_ago' => $lastPriceAge,
+        ];
+
         // If disconnected (max reconnects exhausted), restart is needed
         if ($this->connection_status === self::STATUS_DISCONNECTED) {
-            return [
+            return array_merge($baseInfo, [
                 'should_restart' => true,
                 'reason' => 'Connection disconnected after max internal reconnect attempts',
                 'wait_suggested' => false,
-            ];
+            ]);
         }
 
         // If reconnecting, let the internal mechanism try first
         if ($this->connection_status === self::STATUS_RECONNECTING) {
             $attempts = $this->internal_reconnect_attempts;
 
-            return [
+            return array_merge($baseInfo, [
                 'should_restart' => false,
                 'reason' => "Internal reconnect in progress (attempt {$attempts}/5)",
                 'wait_suggested' => true,
-            ];
+            ]);
         }
 
         // If connected but no price data, check if connection is receiving anything
         if ($this->connection_status === self::STATUS_CONNECTED) {
-            $lastBeatAge = $this->last_beat_at ? now()->diffInSeconds($this->last_beat_at) : PHP_INT_MAX;
-            $lastPriceAge = $this->last_price_data_at ? now()->diffInSeconds($this->last_price_data_at) : PHP_INT_MAX;
+            $lastBeatAgeForCheck = $lastBeatAge ?? PHP_INT_MAX;
+            $lastPriceAgeForCheck = $lastPriceAge ?? PHP_INT_MAX;
 
             // Connection healthy (receiving messages) but no price data
-            if ($lastBeatAge < $priceDataThresholdSeconds && $lastPriceAge > $priceDataThresholdSeconds) {
+            if ($lastBeatAgeForCheck < $priceDataThresholdSeconds && $lastPriceAgeForCheck > $priceDataThresholdSeconds) {
                 // Check if close code suggests we should wait
                 if (in_array($this->last_close_code, [1012, 1013])) {
-                    return [
+                    return array_merge($baseInfo, [
                         'should_restart' => false,
                         'reason' => 'Exchange indicated service restart/try again later (code '.$this->last_close_code.')',
                         'wait_suggested' => true,
-                    ];
+                    ]);
                 }
 
-                return [
+                return array_merge($baseInfo, [
                     'should_restart' => false,
                     'reason' => 'Connection healthy but API paused - receiving heartbeats but no price data',
                     'wait_suggested' => true,
-                ];
+                ]);
             }
 
             // Connection not receiving any messages (true stale)
-            if ($lastBeatAge > $priceDataThresholdSeconds) {
-                return [
+            if ($lastBeatAgeForCheck > $priceDataThresholdSeconds) {
+                return array_merge($baseInfo, [
                     'should_restart' => true,
-                    'reason' => "Connection stale - no messages received for {$lastBeatAge}s",
+                    'reason' => "Connection stale - no messages received for {$lastBeatAgeForCheck}s",
                     'wait_suggested' => false,
-                ];
+                ]);
             }
 
             // Healthy
-            return [
+            return array_merge($baseInfo, [
                 'should_restart' => false,
                 'reason' => 'Connection healthy and receiving price data',
                 'wait_suggested' => false,
-            ];
+            ]);
         }
 
         // Stale status (zombie connection detected internally)
         if ($this->connection_status === self::STATUS_STALE) {
-            return [
+            return array_merge($baseInfo, [
                 'should_restart' => true,
                 'reason' => 'Zombie connection detected - open but not receiving data',
                 'wait_suggested' => false,
-            ];
+            ]);
         }
 
         // Unknown status - be conservative, restart
-        return [
+        return array_merge($baseInfo, [
             'should_restart' => true,
             'reason' => 'Unknown connection status',
             'wait_suggested' => false,
-        ];
+        ]);
     }
 
     /**
