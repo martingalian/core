@@ -243,6 +243,8 @@ function throttle_log(int|string|null $stepId, string $message): void
  */
 function log_on(string $filename, string $message): void
 {
+    return; // Disabled to prevent log spam
+
     $logsPath = storage_path('logs');
 
     if (! is_dir($logsPath)) {
