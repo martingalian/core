@@ -31,7 +31,7 @@ final class DiscoverCMCTokensForOrphanedSymbolsJob extends BaseQueueableJob
         // 1. Don't have a symbol_id yet (orphaned)
         // 2. Haven't had CMC API called yet (avoid redundant API calls)
         $orphanedSymbols = ExchangeSymbol::whereNull('symbol_id')
-            ->where(function ($query) {
+            ->where(static function ($query) {
                 $query->whereNull('api_statuses->cmc_api_called')
                     ->orWhere('api_statuses->cmc_api_called', false);
             })

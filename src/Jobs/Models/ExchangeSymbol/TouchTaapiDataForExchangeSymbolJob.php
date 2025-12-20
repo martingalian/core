@@ -85,10 +85,10 @@ final class TouchTaapiDataForExchangeSymbolJob extends BaseApiableJob
 
         $isNoDataError = false;
         foreach ($noDataPatterns as $pattern) {
-            if (str_contains($body, $pattern)) {
-                $isNoDataError = true;
+            if (!(str_contains($body, $pattern))) { continue; }
+
+$isNoDataError = true;
                 break;
-            }
         }
 
         if (! $isNoDataError) {
@@ -229,7 +229,7 @@ final class TouchTaapiDataForExchangeSymbolJob extends BaseApiableJob
     /**
      * Mark the symbol as verified but having no TAAPI data.
      */
-    private function markAsNoData(string $token, string $exchangeName, string $symbol, string $reason): array
+    private function markAsNoData(#[\SensitiveParameter] string $token, string $exchangeName, string $symbol, string $reason): array
     {
         // Mark as verified (we checked) but no data available
         $this->markAsVerified(hasData: false);

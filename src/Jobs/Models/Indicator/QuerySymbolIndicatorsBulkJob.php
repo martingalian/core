@@ -265,7 +265,7 @@ final class QuerySymbolIndicatorsBulkJob extends BaseApiableJob
                 }
 
                 // Try to match indicator
-                $indicator = $this->indicators->first(function ($ind) use ($indicatorEndpoint, $periodParam, $exchangeSymbol) {
+                $indicator = $this->indicators->first(static function ($ind) use ($indicatorEndpoint, $periodParam, $exchangeSymbol) {
                     $indClass = $ind->class;
                     if (! class_exists($indClass)) {
                         return false;

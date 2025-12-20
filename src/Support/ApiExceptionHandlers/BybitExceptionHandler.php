@@ -6,7 +6,7 @@ namespace Martingalian\Core\Support\ApiExceptionHandlers;
 
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
+
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
 use Martingalian\Core\Support\Throttlers\BybitThrottler;

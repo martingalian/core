@@ -185,9 +185,9 @@ final class NotificationService
         // Validate all required keys are present
         $missingKeys = [];
         foreach ($template as $requiredKey) {
-            if (! array_key_exists($requiredKey, $data)) {
-                $missingKeys[] = $requiredKey;
-            }
+            if (array_key_exists($requiredKey, $data)) { continue; }
+
+$missingKeys[] = $requiredKey;
         }
 
         if (! empty($missingKeys)) {

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Notifications;
 
-use Illuminate\Bus\Queueable;
+
 use Illuminate\Mail\Mailable;
 use Illuminate\Notifications\Notification;
 use Martingalian\Core\Mail\AlertMail;

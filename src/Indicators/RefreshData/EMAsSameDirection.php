@@ -25,7 +25,7 @@ final class EMAsSameDirection extends BaseIndicator implements DirectionIndicato
     {
         // Collect only the EMA indicators from the data
         $emas = collect($this->data)
-            ->filter(fn ($indicator, $key) => str_starts_with($key, 'ema-'));
+            ->filter(static fn ($indicator, $key) => str_starts_with($key, 'ema-'));
 
         if ($emas->isEmpty()) {
             // No valid EMAs to analyze

@@ -13,7 +13,7 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\TradeConfiguration;
-use Martingalian\Core\Support\Martingalian;
+
 use Str;
 
 /**
@@ -119,11 +119,11 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         // Build indicatorData for later use
         $indicatorData = [];
         foreach ($histories as $history) {
-            if ($history->indicator) {
-                $indicatorData[$history->indicator->canonical] = [
+            if (!($history->indicator)) { continue; }
+
+$indicatorData[$history->indicator->canonical] = [
                     'result' => $history->data,
                 ];
-            }
         }
 
         // Check if we're concluding on the same data we already have
@@ -481,9 +481,9 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
     {
         $path = [];
         foreach ($allTimeframes as $tf) {
-            if (isset($conclusions[$tf])) {
-                $path[] = "{$tf}={$conclusions[$tf]}";
-            }
+            if (!(isset($conclusions[$tf]))) { continue; }
+
+$path[] = "{$tf}={$conclusions[$tf]}";
         }
 
         return implode(' -> ', $path);

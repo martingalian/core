@@ -143,16 +143,16 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
         if ($e instanceof RequestException && $e->hasResponse()) {
             $body = (string) $e->getResponse()->getBody();
             foreach ($ignoredMessages as $msg) {
-                if (str_contains($body, $msg)) {
-                    return true;
-                }
+                if (!(str_contains($body, $msg))) { continue; }
+
+return true;
             }
         }
 
         foreach ($ignoredMessages as $msg) {
-            if (str_contains($e->getMessage(), $msg)) {
-                return true;
-            }
+            if (!(str_contains($e->getMessage(), $msg))) { continue; }
+
+return true;
         }
 
         return false;
@@ -278,7 +278,7 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
 
             while ($attempt < $maxAttempts) {
                 try {
-                    DB::transaction(function () use ($buffer) {
+                    DB::transaction(static function () use ($buffer) {
                         Candle::query()->upsert(
                             $buffer,
                             // Unique key: avoid duplicates per (symbol, timeframe, timestamp)

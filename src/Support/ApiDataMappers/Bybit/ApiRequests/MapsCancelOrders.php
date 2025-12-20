@@ -46,7 +46,7 @@ trait MapsCancelOrders
         $result = $data['result'] ?? [];
         $list = $result['list'] ?? [];
 
-        $cancelledOrderIds = array_map(function (array $order): string {
+        $cancelledOrderIds = array_map(static function (array $order): string {
             return $order['orderId'] ?? '';
         }, $list);
 

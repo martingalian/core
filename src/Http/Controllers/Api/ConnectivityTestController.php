@@ -146,7 +146,7 @@ final class ConnectivityTestController extends Controller
         $isComplete = $pendingSteps === 0;
 
         // Format steps for response
-        $stepsData = $steps->map(function (Step $step) {
+        $stepsData = $steps->map(static function (Step $step) {
             return [
                 'id' => $step->id,
                 'title' => $step->title,

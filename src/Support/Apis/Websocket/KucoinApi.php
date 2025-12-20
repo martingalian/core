@@ -93,7 +93,7 @@ final class KucoinApi
     /**
      * Fetch public WebSocket token from KuCoin REST API.
      */
-    protected function fetchWebSocketToken(): void
+    private function fetchWebSocketToken(): void
     {
         $restApi = new KucoinRestApi($this->credentials);
         $response = $restApi->getPublicWebSocketToken();
@@ -114,7 +114,7 @@ final class KucoinApi
     /**
      * Fetch private WebSocket token from KuCoin REST API.
      */
-    protected function fetchPrivateWebSocketToken(): void
+    private function fetchPrivateWebSocketToken(): void
     {
         $restApi = new KucoinRestApi($this->credentials);
         $response = $restApi->getPrivateWebSocketToken();
@@ -135,7 +135,7 @@ final class KucoinApi
     /**
      * Initialize the WebSocket client with token data.
      */
-    protected function initializeClient(): void
+    private function initializeClient(): void
     {
         if ($this->tokenData === null) {
             throw new \RuntimeException('Token data not available');

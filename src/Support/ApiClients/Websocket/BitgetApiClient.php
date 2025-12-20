@@ -83,7 +83,7 @@ final class BitgetApiClient extends BaseWebsocketClient
         if (! empty($this->subscriptionArgs)) {
             // BitGet allows multiple subscriptions in a single message
             // Format: {"op": "subscribe", "args": [{"instType": "USDT-FUTURES", "channel": "ticker", "instId": "SYMBOL"}]}
-            $args = array_map(function ($symbol) {
+            $args = array_map(static function ($symbol) {
                 return [
                     'instType' => 'USDT-FUTURES',
                     'channel' => 'ticker',
@@ -103,7 +103,7 @@ final class BitgetApiClient extends BaseWebsocketClient
         // ensures we don't hit the timeout boundary on the first cycle.
         $conn->send('ping');
 
-        $this->loop->addPeriodicTimer($this->pingInterval, function () use ($conn) {
+        $this->loop->addPeriodicTimer($this->pingInterval, static function () use ($conn) {
             $conn->send('ping');
         });
     }

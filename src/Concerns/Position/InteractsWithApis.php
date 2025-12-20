@@ -85,7 +85,7 @@ trait InteractsWithApis
         $positions = $apiResponse->result;
         $want = mb_strtoupper(mb_trim($this->parsed_trading_pair));
 
-        $matching = collect($positions)->filter(function ($p) use ($want) {
+        $matching = collect($positions)->filter(static function ($p) use ($want) {
             if (! isset($p['symbol'], $p['positionSide'], $p['positionAmt'])) {
                 return false;
             }

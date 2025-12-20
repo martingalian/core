@@ -97,7 +97,7 @@ final class Account extends BaseModel
     {
         $apiSystem = ApiSystem::where('canonical', $apiSystemCanonical)->firstOrFail();
 
-        return tap(new self, function (self $account) use ($credentials, $apiSystem) {
+        return tap(new self, static function (self $account) use ($credentials, $apiSystem) {
             // Fills encrypted columns via the mutator
             $account->all_credentials = $credentials;
 

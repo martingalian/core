@@ -158,7 +158,7 @@ trait HasGetters
         }
 
         // Use profit order price as entry; if missing, return "0"
-        $entryPrice = (string) ($this->profitOrder()?->price ?? '');
+        $entryPrice = (string) ($this->profitOrder()->price ?? '');
         if ($entryPrice === '') {
             return '0';
         }
@@ -323,7 +323,7 @@ trait HasGetters
             ->orderByDesc('id')
             ->first();
 
-        $lastId = $lastFilled?->id ?? 0;
+        $lastId = $lastFilled->id ?? 0;
 
         $next = $this->orders()
             ->where('position_side', $this->direction)

@@ -286,7 +286,7 @@ final class PendingToDispatched extends Transition
         }
 
         return $previousSteps->every(
-            fn ($step) => in_array(get_class($step->state), Step::concludedStepStates(), true)
+            static fn ($step) => in_array(get_class($step->state), Step::concludedStepStates(), true)
         );
     }
 
@@ -316,7 +316,7 @@ final class PendingToDispatched extends Transition
         }
 
         return $previousSteps->every(
-            fn ($step) => in_array(get_class($step->state), Step::concludedStepStates(), true)
+            static fn ($step) => in_array(get_class($step->state), Step::concludedStepStates(), true)
         );
     }
 

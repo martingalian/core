@@ -54,7 +54,7 @@ final class StepsDispatcher extends BaseModel
     {
         // Use transaction with row-level locking to prevent race conditions
         // when multiple steps are created concurrently
-        return DB::transaction(function () {
+        return DB::transaction(static function () {
             // Select group with oldest last_selected_at (null = never selected = highest priority)
             // SKIP LOCKED allows workers to skip rows locked by others instead of waiting
             $dispatcher = self::query()
@@ -89,7 +89,7 @@ final class StepsDispatcher extends BaseModel
         // Create-or-fetch with uniqueness protection (handles concurrent creators)
         try {
             $dispatcher = self::query()
-                ->when($group !== null, fn ($q) => $q->where('group', $group), fn ($q) => $q->whereNull('group'))
+                ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
                 ->orderBy('id')
                 ->first();
 
@@ -102,7 +102,7 @@ final class StepsDispatcher extends BaseModel
         } catch (QueryException $e) {
             // If a race caused a duplicate-key error, just fetch the existing row
             $dispatcher = self::query()
-                ->when($group !== null, fn ($q) => $q->where('group', $group), fn ($q) => $q->whereNull('group'))
+                ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
                 ->orderBy('id')
                 ->first();
         }
@@ -121,7 +121,7 @@ final class StepsDispatcher extends BaseModel
 
         // Wrap lock acquisition and tick creation in transaction
         // to prevent orphaned locks if process crashes between lock and tick creation
-        return DB::transaction(function () use ($dispatcher, $group) {
+        return DB::transaction(static function () use ($dispatcher, $group) {
             // Atomic lock acquire on THIS row -> can_dispatch FALSE
             $acquired = DB::table('steps_dispatcher')
                 ->where('id', $dispatcher->id)
@@ -165,7 +165,7 @@ final class StepsDispatcher extends BaseModel
     public static function endDispatch(int $progress = 0, ?string $group = null): void
     {
         $dispatcher = self::query()
-            ->when($group !== null, fn ($q) => $q->where('group', $group), fn ($q) => $q->whereNull('group'))
+            ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
             ->orderBy('id')
             ->first();
 

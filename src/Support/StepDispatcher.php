@@ -156,7 +156,7 @@ final class StepDispatcher
 
             $pendingQuery = Step::pending()
                 ->when($group !== null, static fn ($q) => $q->where('group', $group), static fn ($q) => $q->whereNull('group'))
-                ->where(function ($q) {
+                ->where(static function ($q) {
                     $q->whereNull('dispatch_after')
                         ->orWhere('dispatch_after', '<=', now());
                 });
@@ -189,7 +189,7 @@ final class StepDispatcher
                 // Query 2: Get all steps in these blocks (for previousIndexIsConcluded)
                 $stepsByBlockAndIndex = Step::whereIn('block_uuid', $blockUuids)
                     ->get()
-                    ->groupBy(fn (Step $s): string => $s->block_uuid.'_'.$s->index);
+                    ->groupBy(static fn (Step $s): string => $s->block_uuid.'_'.$s->index);
 
                 // Query 3: Get blocks with pending resolve-exceptions
                 $pendingResolveExceptions = Step::whereIn('block_uuid', $blockUuids)
@@ -230,7 +230,7 @@ final class StepDispatcher
 
             // Dispatch all steps that are ready
             log_step('dispatcher', 'Dispatching '.$dispatchedSteps->count().' steps to their jobs...');
-            $dispatchedSteps->each(function ($step) {
+            $dispatchedSteps->each(static function ($step) {
                 log_step($step->id, 'DISPATCHER: Calling dispatchSingleStep() to dispatch job to queue');
                 (new self)->dispatchSingleStep($step);
                 log_step($step->id, 'DISPATCHER: dispatchSingleStep() completed - job queued');
@@ -398,12 +398,12 @@ final class StepDispatcher
                 continue;
             }
 
-            $allChildStates = $childSteps->map(fn ($s) => "ID:{$s->id}=".class_basename($s->state))->join(', ');
+            $allChildStates = $childSteps->map(static fn ($s) => "ID:{$s->id}=".class_basename($s->state))->join(', ');
             log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | All child states: [{$allChildStates}]");
 
             // Only check for Failed children (not Stopped - that's handled by transitionParentsToStopped)
             $failedChildSteps = $childSteps->filter(
-                fn ($step) => get_class($step->state) === Failed::class
+                static fn ($step) => get_class($step->state) === Failed::class
             );
 
             if ($failedChildSteps->isNotEmpty()) {
@@ -413,7 +413,7 @@ final class StepDispatcher
                 // Check if there are any non-terminal resolve-exception steps in the child block.
                 // If so, wait for them to complete before failing the parent.
                 $nonTerminalResolveExceptions = $childSteps->filter(
-                    function ($step) {
+                    static function ($step) {
                         return $step->type === 'resolve-exception'
                             && ! in_array(get_class($step->state), Step::terminalStepStates(), true);
                     }
@@ -421,7 +421,7 @@ final class StepDispatcher
 
                 if ($nonTerminalResolveExceptions->isNotEmpty()) {
                     $resolveIds = $nonTerminalResolveExceptions->pluck('id')->join(', ');
-                    $resolveStates = $nonTerminalResolveExceptions->map(fn ($s) => 'ID:'.$s->id.'='.class_basename($s->state))->join(', ');
+                    $resolveStates = $nonTerminalResolveExceptions->map(static fn ($s) => 'ID:'.$s->id.'='.class_basename($s->state))->join(', ');
                     log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: WAIT - Child block has non-terminal resolve-exception steps: [{$resolveStates}]");
                     log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | Waiting for resolve-exceptions [{$resolveIds}] to complete before failing parent");
 
@@ -478,12 +478,12 @@ final class StepDispatcher
                 continue;
             }
 
-            $allChildStates = $childSteps->map(fn ($s) => "ID:{$s->id}=".class_basename($s->state))->join(', ');
+            $allChildStates = $childSteps->map(static fn ($s) => "ID:{$s->id}=".class_basename($s->state))->join(', ');
             log_step($parentStep->id, "[StepDispatcher.transitionParentsToStopped] Parent Step #{$parentStep->id} | All child states: [{$allChildStates}]");
 
             // Check for Stopped children
             $stoppedChildSteps = $childSteps->filter(
-                fn ($step) => get_class($step->state) === Stopped::class
+                static fn ($step) => get_class($step->state) === Stopped::class
             );
 
             if ($stoppedChildSteps->isNotEmpty()) {
@@ -900,7 +900,7 @@ final class StepDispatcher
         // Pre-compute concluded indices per block
         $concludedIndicesByBlock = self::computeConcludedIndices($stepsByBlockAndIndex);
 
-        return $pendingSteps->filter(function (Step $step) use (
+        return $pendingSteps->filter(static function (Step $step) use (
             $parentsByChildBlock,
             $concludedIndicesByBlock,
             $pendingResolveExceptions
@@ -981,7 +981,7 @@ final class StepDispatcher
             // Check default type steps
             $defaultSteps = $steps->where('type', 'default');
             if ($defaultSteps->isNotEmpty() && $defaultSteps->every(
-                function ($s) {
+                static function ($s) {
                     return in_array(get_class($s->state), Step::concludedStepStates(), true);
                 }
             )) {
@@ -991,7 +991,7 @@ final class StepDispatcher
             // Check resolve-exception type steps
             $resolveSteps = $steps->where('type', 'resolve-exception');
             if ($resolveSteps->isNotEmpty() && $resolveSteps->every(
-                function ($s) {
+                static function ($s) {
                     return in_array(get_class($s->state), Step::concludedStepStates(), true);
                 }
             )) {

@@ -72,22 +72,22 @@ trait MapsExchangeInformationQuery
 
         $filtered = collect($contracts)
             // Only include normal/tradeable contracts
-            ->filter(function ($contract) {
+            ->filter(static function ($contract) {
                 return ($contract['symbolStatus'] ?? '') === 'normal';
             })
             // Only include perpetual contracts
-            ->filter(function ($contract) {
+            ->filter(static function ($contract) {
                 return ($contract['symbolType'] ?? '') === 'perpetual';
             })
             // Exclude stablecoins - they don't need price tracking
-            ->filter(function ($contract) use ($stablecoins) {
+            ->filter(static function ($contract) use ($stablecoins) {
                 $baseCoin = mb_strtoupper($contract['baseCoin'] ?? '');
 
                 return ! in_array($baseCoin, $stablecoins, true);
             });
 
         return $filtered
-            ->map(function ($contract) {
+            ->map(static function ($contract) {
                 $symbol = $contract['symbol'] ?? '';
 
                 // BitGet provides pricePlace and volumePlace directly

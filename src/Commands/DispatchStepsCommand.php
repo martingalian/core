@@ -41,7 +41,7 @@ final class DispatchStepsCommand extends BaseCommand
                 $groups = preg_split('/[,\s;|:]+/', $opt, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
                 // Normalize "null"/"NULL" to actual null (to target the global group if desired)
-                $groups = array_map(function ($g) {
+                $groups = array_map(static function ($g) {
                     $g = mb_trim($g);
 
                     return ($g === '' || strcasecmp($g, 'null') === 0) ? null : $g;
@@ -94,7 +94,7 @@ final class DispatchStepsCommand extends BaseCommand
         // Ensure directory exists; if not, try to create it quietly.
         $dir = dirname($path);
         if (! is_dir($dir)) {
-            @mkdir($dir, 0755, true);
+            @mkdir($dir, 0o755, true);
         }
 
         // Truncate or create the file.

@@ -64,7 +64,7 @@ trait MapsAccountQueryTrades
         $result = $data['result'] ?? [];
         $trades = $result['list'] ?? [];
 
-        return array_map(function (array $trade): array {
+        return array_map(static function (array $trade): array {
             return [
                 'tradeId' => $trade['execId'] ?? null,
                 'orderId' => $trade['orderId'] ?? null,

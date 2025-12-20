@@ -135,7 +135,7 @@ final class User extends Authenticatable
      *
      * @param  string  $token
      */
-    public function sendPasswordResetNotification($token): void
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
     {
         $this->notify(new \App\Notifications\ResetPassword($token));
     }
@@ -209,7 +209,7 @@ final class User extends Authenticatable
             return [];
         }
 
-        return array_map(function ($channel) {
+        return array_map(static function ($channel) {
             return match ($channel) {
                 'pushover' => PushoverChannel::class,
                 'mail' => 'mail',

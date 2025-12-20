@@ -51,7 +51,7 @@ trait MapsAccountBalanceQuery
         $coins = $accountData['coin'] ?? [];
 
         $quoteBalance = collect($coins)
-            ->first(function ($item) use ($tradingQuote) {
+            ->first(static function ($item) use ($tradingQuote) {
                 return $item['coin'] === $tradingQuote;
             });
 

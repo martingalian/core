@@ -9,7 +9,7 @@ use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsSearchSymbolByToken
 {
-    public function prepareSearchSymbolByTokenProperties(string $token): ApiProperties
+    public function prepareSearchSymbolByTokenProperties(#[\SensitiveParameter] string $token): ApiProperties
     {
         $properties = new ApiProperties;
         $properties->set('options.symbol', mb_strtoupper($token));

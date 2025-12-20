@@ -57,7 +57,7 @@ final class AlertMail extends Mailable
         // Set email priority based on severity level
         // Critical and High severity get high priority headers
         if ($this->severity && in_array($this->severity, [NotificationSeverity::Critical, NotificationSeverity::High])) {
-            $envelope->using(function (\Symfony\Component\Mime\Email $message) {
+            $envelope->using(static function (\Symfony\Component\Mime\Email $message) {
                 $message->priority(\Symfony\Component\Mime\Email::PRIORITY_HIGH);
                 $message->getHeaders()
                     ->addTextHeader('X-Priority', '1')

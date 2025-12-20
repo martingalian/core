@@ -68,9 +68,9 @@ function summarize_model_attributes(Model $model, array $only = []): string
     $parts = [];
 
     foreach ($attributes as $key => $value) {
-        if (is_scalar($value) || $value === null) {
-            $parts[] = "{$key}=".var_export($value, true);
-        }
+        if (!(is_scalar($value) || $value === null)) { continue; }
+
+$parts[] = "{$key}=".var_export($value, true);
     }
 
     return implode(', ', $parts);
@@ -194,7 +194,7 @@ function log_step(int|string $stepId, string $message): void
     $logsPath = storage_path("logs/steps/{$stepId}");
 
     if (! is_dir($logsPath)) {
-        mkdir($logsPath, 0755, true);
+        mkdir($logsPath, 0o755, true);
     }
 
     $timestamp = now()->format('Y-m-d H:i:s.u');
@@ -224,7 +224,7 @@ function throttle_log(int|string|null $stepId, string $message): void
     $logsPath = storage_path("logs/steps/{$stepId}");
 
     if (! is_dir($logsPath)) {
-        mkdir($logsPath, 0755, true);
+        mkdir($logsPath, 0o755, true);
     }
 
     $timestamp = now()->format('Y-m-d H:i:s.u');
@@ -248,7 +248,7 @@ function log_on(string $filename, string $message): void
     $logsPath = storage_path('logs');
 
     if (! is_dir($logsPath)) {
-        mkdir($logsPath, 0755, true);
+        mkdir($logsPath, 0o755, true);
     }
 
     $timestamp = now()->format('Y-m-d H:i:s.u');

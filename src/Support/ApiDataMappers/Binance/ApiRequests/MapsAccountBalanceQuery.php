@@ -35,7 +35,7 @@ trait MapsAccountBalanceQuery
         $tradingQuote = $account->tradingQuote->canonical ?? 'USDT';
 
         $quoteBalance = collect($assets)
-            ->first(function ($item) use ($tradingQuote) {
+            ->first(static function ($item) use ($tradingQuote) {
                 return $item['asset'] === $tradingQuote;
             });
 

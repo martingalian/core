@@ -47,7 +47,7 @@ trait MapsCancelOrders
         $cancelledOrders = $cancelStatus['cancelledOrders'] ?? [];
 
         return [
-            'successList' => array_map(function (array $order): array {
+            'successList' => array_map(static function (array $order): array {
                 return [
                     'orderId' => $order['order_id'] ?? null,
                 ];

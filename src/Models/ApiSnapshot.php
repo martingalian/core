@@ -22,12 +22,10 @@ final class ApiSnapshot extends BaseModel
     public static function storeFor(Model $model, string $canonical, array $payload): self
     {
         /** @var self $snapshot */
-        $snapshot = $model->apiSnapshots()->updateOrCreate(
+        return $model->apiSnapshots()->updateOrCreate(
             ['canonical' => $canonical],
             ['api_response' => $payload]
         );
-
-        return $snapshot;
     }
 
     /**

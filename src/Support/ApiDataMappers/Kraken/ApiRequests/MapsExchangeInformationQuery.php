@@ -51,12 +51,12 @@ trait MapsExchangeInformationQuery
 
         $filtered = collect($instruments)
             // Only include tradeable instruments
-            ->filter(function ($instrument) {
+            ->filter(static function ($instrument) {
                 return ($instrument['tradeable'] ?? false) === true;
             })
             // Only include perpetual futures (PF_ prefix for multi-collateral, PI_ for inverse)
             // Excludes fixed-maturity futures like FF_XBTUSD_251226
-            ->filter(function ($instrument) {
+            ->filter(static function ($instrument) {
                 $symbol = $instrument['symbol'] ?? '';
 
                 // Only include symbols starting with PF_ (perpetual flex) or PI_ (perpetual inverse)
@@ -87,9 +87,9 @@ trait MapsExchangeInformationQuery
 
                 return $baseQuote['base'].'-'.$baseQuote['quote'];
             })
-            ->map(function ($group) {
+            ->map(static function ($group) {
                 // If group has a PF_ contract, use it; otherwise use the first available
-                $pfContract = $group->first(function ($instrument) {
+                $pfContract = $group->first(static function ($instrument) {
                     return str_starts_with($instrument['symbol'], 'PF_');
                 });
 

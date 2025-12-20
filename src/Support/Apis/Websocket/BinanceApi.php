@@ -39,7 +39,7 @@ final class BinanceApi
         $this->client->subscribeToUserStream($listenKey, $callbacks);
 
         // Keep alive every 25 minutes
-        $this->client->getLoop()->addPeriodicTimer(1500, function () use ($rest, $listenKey) {
+        $this->client->getLoop()->addPeriodicTimer(1500, static function () use ($rest, $listenKey) {
             $rest->keepAliveListenKey($listenKey);
         });
     }

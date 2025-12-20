@@ -137,7 +137,7 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
     /**
      * Try all database lookup strategies to find a matching symbol.
      */
-    private function tryDatabaseLookups(string $token, array &$debug): ?Symbol
+    private function tryDatabaseLookups(#[\SensitiveParameter] string $token, array &$debug): ?Symbol
     {
         $candidates = $this->generateTokenCandidates($token);
         $debug['db_attempts'] = [];
@@ -161,7 +161,7 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
      * Generate all possible token candidates from the original token.
      * Order matters - most specific first.
      */
-    private function generateTokenCandidates(string $token): array
+    private function generateTokenCandidates(#[\SensitiveParameter] string $token): array
     {
         $candidates = [];
         $upperToken = mb_strtoupper($token);
@@ -210,12 +210,12 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
         // 9. Strip common suffixes (BTCPERP → BTC, BTCUSD → BTC)
         $suffixes = ['PERP', 'USD', 'USDT', 'USDC', 'BUSD', 'PERPETUAL'];
         foreach ($suffixes as $suffix) {
-            if (str_ends_with($upperToken, $suffix)) {
-                $stripped = substr($upperToken, 0, -strlen($suffix));
+            if (!(str_ends_with($upperToken, $suffix))) { continue; }
+
+$stripped = substr($upperToken, 0, -strlen($suffix));
                 if ($stripped !== '') {
                     $candidates[] = $stripped;
                 }
-            }
         }
 
         // 10. Strip W prefix for wrapped tokens (WBTC → BTC)
@@ -248,7 +248,7 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
      * Query CMC API to find a matching symbol.
      * Only called if all DB lookups fail.
      */
-    private function tryCmcApiLookup(string $token, array &$debug): ?Symbol
+    private function tryCmcApiLookup(#[\SensitiveParameter] string $token, array &$debug): ?Symbol
     {
         $candidates = $this->generateTokenCandidates($token);
         $debug['cmc_attempts'] = [];
@@ -274,7 +274,7 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
      * Query CMC API for a specific token.
      * Returns array with 'symbol' and 'api_data' for debugging.
      */
-    private function queryCmcForToken(string $token): array
+    private function queryCmcForToken(#[\SensitiveParameter] string $token): array
     {
         $mapper = new ApiDataMapperProxy('coinmarketcap');
         $properties = $mapper->prepareSearchSymbolByTokenProperties($token);

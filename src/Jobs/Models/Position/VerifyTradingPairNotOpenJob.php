@@ -65,7 +65,7 @@ final class VerifyTradingPairNotOpenJob extends BaseQueueableJob
         $openOrders = ApiSnapshot::getFrom($account, 'account-open-orders') ?? [];
 
         // Use parsed_trading_pair for consistent symbol matching (e.g., 'BTCUSDT')
-        $matchingOrders = collect($openOrders)->filter(function (array $order) use ($tradingPair): bool {
+        $matchingOrders = collect($openOrders)->filter(static function (array $order) use ($tradingPair): bool {
             return ($order['symbol'] ?? '') === $tradingPair;
         });
 

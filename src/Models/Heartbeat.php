@@ -115,7 +115,7 @@ final class Heartbeat extends BaseModel
         ?string $lastPayload = null,
         ?float $memoryUsageMb = null
     ): void {
-        self::executeWithDeadlockRetry(function () use ($canonical, $apiSystemId, $accountId, $group, $metadata, $lastPayload, $memoryUsageMb): void {
+        self::executeWithDeadlockRetry(static function () use ($canonical, $apiSystemId, $accountId, $group, $metadata, $lastPayload, $memoryUsageMb): void {
             $existing = self::query()
                 ->where('canonical', $canonical)
                 ->where('api_system_id', $apiSystemId)
@@ -182,7 +182,7 @@ final class Heartbeat extends BaseModel
         int $reconnectAttempts = 0,
         ?array $metadata = null
     ): void {
-        self::executeWithDeadlockRetry(function () use ($canonical, $apiSystemId, $group, $status, $closeCode, $closeReason, $reconnectAttempts, $metadata): void {
+        self::executeWithDeadlockRetry(static function () use ($canonical, $apiSystemId, $group, $status, $closeCode, $closeReason, $reconnectAttempts, $metadata): void {
             $heartbeat = self::query()
                 ->where('canonical', $canonical)
                 ->where('api_system_id', $apiSystemId)

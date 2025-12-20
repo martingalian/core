@@ -58,7 +58,7 @@ final class KrakenApi
      */
     public function getExchangeInformation(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -76,7 +76,7 @@ final class KrakenApi
      */
     public function getPositions(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -94,7 +94,7 @@ final class KrakenApi
      */
     public function getAccountBalance(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -112,7 +112,7 @@ final class KrakenApi
      */
     public function getCurrentOpenOrders(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -130,7 +130,7 @@ final class KrakenApi
      */
     public function account(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -148,7 +148,7 @@ final class KrakenApi
      */
     public function placeOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -166,7 +166,7 @@ final class KrakenApi
      */
     public function cancelOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -184,7 +184,7 @@ final class KrakenApi
      */
     public function editOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -202,7 +202,7 @@ final class KrakenApi
      */
     public function cancelAllOrders(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -220,7 +220,7 @@ final class KrakenApi
      */
     public function getFills(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -238,7 +238,7 @@ final class KrakenApi
      */
     public function getTickers(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -256,7 +256,7 @@ final class KrakenApi
      */
     public function getLeveragePreferences(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -274,7 +274,7 @@ final class KrakenApi
      */
     public function setLeveragePreferences(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'PUT',

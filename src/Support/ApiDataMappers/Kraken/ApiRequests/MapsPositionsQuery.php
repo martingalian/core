@@ -52,7 +52,7 @@ trait MapsPositionsQuery
 
                 return $position;
             })
-            ->keyBy(function ($position) {
+            ->keyBy(static function ($position) {
                 // Key by symbol:direction to support hedge mode (LONG + SHORT on same symbol)
                 // Kraken uses 'side' with long/short values
                 $side = mb_strtoupper($position['side'] ?? 'BOTH');
@@ -63,10 +63,8 @@ trait MapsPositionsQuery
             ->toArray();
 
         // Remove positions with zero size
-        $positions = array_filter($positions, function ($position) {
+        return array_filter($positions, static function ($position) {
             return (float) ($position['size'] ?? 0) !== 0.0;
         });
-
-        return $positions;
     }
 }

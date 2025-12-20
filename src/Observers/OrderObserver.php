@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Str;
-use Martingalian\Core\Exceptions\NonNotifiableException;
+
 use Martingalian\Core\Models\Order;
 
 final class OrderObserver

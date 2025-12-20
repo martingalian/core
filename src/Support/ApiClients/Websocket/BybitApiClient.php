@@ -78,7 +78,7 @@ final class BybitApiClient extends BaseWebsocketClient
         // ensures we don't hit the timeout boundary on the first cycle.
         $conn->send(json_encode(['op' => 'ping']));
 
-        $this->loop->addPeriodicTimer(20, function () use ($conn) {
+        $this->loop->addPeriodicTimer(20, static function () use ($conn) {
             $conn->send(json_encode(['op' => 'ping']));
         });
     }

@@ -12,8 +12,8 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
-use Martingalian\Core\Models\Martingalian;
-use Martingalian\Core\Support\NotificationService;
+
+
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Throwable;
 
@@ -233,7 +233,7 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
                 $symbolToken = explode('/', $symbol)[0] ?? null;
                 $quoteToken = explode('/', $symbol)[1] ?? null;
 
-                $exchangeSymbol = $exchangeSymbols->first(function ($es) use ($symbolToken, $quoteToken, $exchange) {
+                $exchangeSymbol = $exchangeSymbols->first(static function ($es) use ($symbolToken, $quoteToken, $exchange) {
                     return $es->symbol->token === $symbolToken &&
                            $es->quote->canonical === $quoteToken &&
                            mb_strtolower($es->apiSystem->taapi_canonical) === $exchange;
@@ -256,7 +256,7 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
                 }
 
                 // Try to match indicator
-                $indicator = $indicators->first(function ($ind) use ($indicatorEndpoint, $periodParam, $exchangeSymbols) {
+                $indicator = $indicators->first(static function ($ind) use ($indicatorEndpoint, $periodParam, $exchangeSymbols) {
                     // Check if indicator's endpoint matches
                     $indClass = $ind->class;
                     if (! class_exists($indClass)) {

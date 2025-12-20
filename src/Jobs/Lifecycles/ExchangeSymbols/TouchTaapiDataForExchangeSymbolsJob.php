@@ -33,11 +33,11 @@ final class TouchTaapiDataForExchangeSymbolsJob extends BaseQueueableJob
         // 1. Don't have api_statuses->taapi_verified set to true yet
         // 2. Belong to Binance (TAAPI only supports Binance data)
         $symbolsToVerify = ExchangeSymbol::query()
-            ->where(function ($query) {
+            ->where(static function ($query) {
                 $query->whereNull('api_statuses->taapi_verified')
                     ->orWhere('api_statuses->taapi_verified', false);
             })
-            ->whereHas('apiSystem', function ($query) {
+            ->whereHas('apiSystem', static function ($query) {
                 $query->where('canonical', 'binance');
             })
             ->get();

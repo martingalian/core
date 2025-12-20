@@ -113,7 +113,7 @@ trait HasTokenDiscovery
         // Check open positions
         $openPositionsOnExchange = ApiSnapshot::getFrom($this, 'account-positions') ?? [];
         $positionPairs = collect(array_keys($openPositionsOnExchange))
-            ->map(function (string $key): string {
+            ->map(static function (string $key): string {
                 // Extract trading pair from 'BTCUSDT:LONG' -> 'BTCUSDT'
                 return explode(':', $key)[0];
             });
@@ -130,7 +130,7 @@ trait HasTokenDiscovery
 
         if ($openTradingPairs->isNotEmpty()) {
             $this->availableExchangeSymbols = $this->availableExchangeSymbols
-                ->filter(function (ExchangeSymbol $symbol) use ($openTradingPairs): bool {
+                ->filter(static function (ExchangeSymbol $symbol) use ($openTradingPairs): bool {
                     return ! $openTradingPairs->contains($symbol->parsed_trading_pair);
                 });
         }
@@ -145,7 +145,7 @@ trait HasTokenDiscovery
         $correlationType = config('martingalian.token_discovery.correlation_type', 'rolling');
         $correlationField = 'btc_correlation_'.$correlationType;
 
-        $this->availableExchangeSymbols = $this->availableExchangeSymbols->filter(function ($symbol) use ($correlationField) {
+        $this->availableExchangeSymbols = $this->availableExchangeSymbols->filter(static function ($symbol) use ($correlationField) {
             return filled($symbol->min_notional)
                 && filled($symbol->tick_size)
                 && filled($symbol->price_precision)
@@ -344,7 +344,7 @@ trait HasTokenDiscovery
                 $symbol = $this->availableExchangeSymbols
                     ->where('direction', $direction)
                     ->whereNotIn('id', $batchExclusions)
-                    ->first(function ($availableSymbol) use ($trackedPosition) {
+                    ->first(static function ($availableSymbol) use ($trackedPosition) {
                         return $availableSymbol->id === $trackedPosition->exchange_symbol_id;
                     });
 
@@ -420,7 +420,7 @@ trait HasTokenDiscovery
         /*
          * Score Each Candidate on BTC's Timeframe Only
          */
-        $scoredSymbols = $candidates->map(function ($symbol) use (
+        $scoredSymbols = $candidates->map(static function ($symbol) use (
             $positionDirection,
             $timeframe,
             $correlationField,

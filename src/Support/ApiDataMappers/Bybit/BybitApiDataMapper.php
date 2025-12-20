@@ -86,7 +86,7 @@ final class BybitApiDataMapper extends BaseDataMapper
      * E.g.: BNBPERP for USDC-settled contracts
      * Token and quote are stored directly on exchange_symbols.
      */
-    public function baseWithQuote(string $token, string $quote): string
+    public function baseWithQuote(#[\SensitiveParameter] string $token, string $quote): string
     {
         // Bybit uses PERP suffix for USDC-settled perpetual contracts
         if ($quote === 'USDC') {
@@ -104,7 +104,7 @@ final class BybitApiDataMapper extends BaseDataMapper
      * input: BNBPERP
      * returns: ['base' => 'BNB', 'quote' => 'USDC']
      */
-    public function identifyBaseAndQuote(string $token): array
+    public function identifyBaseAndQuote(#[\SensitiveParameter] string $token): array
     {
         // Handle PERP suffix (Bybit uses PERP for USDC-settled perpetual contracts)
         if (str_ends_with($token, 'PERP')) {
@@ -120,12 +120,12 @@ final class BybitApiDataMapper extends BaseDataMapper
         ];
 
         foreach ($availableQuoteCurrencies as $quoteCurrency) {
-            if (str_ends_with($token, $quoteCurrency)) {
-                return [
+            if (!(str_ends_with($token, $quoteCurrency))) { continue; }
+
+return [
                     'base' => str_replace($quoteCurrency, '', $token),
                     'quote' => $quoteCurrency,
                 ];
-            }
         }
 
         throw new InvalidArgumentException("Invalid token format: {$token}");

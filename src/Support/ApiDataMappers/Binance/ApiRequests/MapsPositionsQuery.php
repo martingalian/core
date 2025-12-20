@@ -30,7 +30,7 @@ trait MapsPositionsQuery
 
                 return $position;
             })
-            ->keyBy(function ($position) {
+            ->keyBy(static function ($position) {
                 // Key by symbol:direction to support hedge mode (LONG + SHORT on same symbol)
                 $direction = $position['positionSide'] ?? 'BOTH';
 
@@ -39,10 +39,8 @@ trait MapsPositionsQuery
             ->toArray();
 
         // Remove false positive positions (positionAmt = 0.0)
-        $positions = array_filter($positions, function ($position) {
+        return array_filter($positions, static function ($position) {
             return (float) $position['positionAmt'] !== 0.0;
         });
-
-        return $positions;
     }
 }

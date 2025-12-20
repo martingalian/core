@@ -62,7 +62,7 @@ trait MapsAccountBalanceQuery
 
         // Find USDT account data
         $accountData = collect($accountsData)
-            ->first(function ($acc) {
+            ->first(static function ($acc) {
                 return ($acc['marginCoin'] ?? '') === 'USDT';
             });
 

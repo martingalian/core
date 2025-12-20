@@ -57,7 +57,7 @@ final class BitgetApi
      */
     public function getExchangeInformation(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Default to USDT-FUTURES for perpetuals
         if (! $properties->has('options.productType')) {
@@ -80,7 +80,7 @@ final class BitgetApi
      */
     public function getPositions(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Default to USDT-FUTURES for perpetuals
         if (! $properties->has('options.productType')) {
@@ -103,7 +103,7 @@ final class BitgetApi
      */
     public function getAccountBalance(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Default to USDT-FUTURES for perpetuals
         if (! $properties->has('options.productType')) {
@@ -126,7 +126,7 @@ final class BitgetApi
      */
     public function getCurrentOpenOrders(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Default to USDT-FUTURES for perpetuals
         if (! $properties->has('options.productType')) {
@@ -157,7 +157,7 @@ final class BitgetApi
      */
     public function getPlanOrders(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Default to USDT-FUTURES for perpetuals
         if (! $properties->has('options.productType')) {
@@ -180,7 +180,7 @@ final class BitgetApi
      */
     public function placeOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -198,7 +198,7 @@ final class BitgetApi
      */
     public function getOrderDetail(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -216,7 +216,7 @@ final class BitgetApi
      */
     public function cancelOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -234,7 +234,7 @@ final class BitgetApi
      */
     public function modifyOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -252,7 +252,7 @@ final class BitgetApi
      */
     public function cancelAllOrders(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -270,7 +270,7 @@ final class BitgetApi
      */
     public function getOrderFills(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Default to USDT-FUTURES for perpetuals
         if (! $properties->has('options.productType')) {
@@ -293,7 +293,7 @@ final class BitgetApi
      */
     public function getSymbolPrice(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Default to USDT-FUTURES for perpetuals
         if (! $properties->has('options.productType')) {
@@ -316,7 +316,7 @@ final class BitgetApi
      */
     public function setLeverage(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -334,7 +334,7 @@ final class BitgetApi
      */
     public function setMarginMode(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',

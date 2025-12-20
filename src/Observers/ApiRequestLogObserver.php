@@ -188,9 +188,9 @@ final class ApiRequestLogObserver
         ];
 
         foreach ($noDataPatterns as $pattern) {
-            if (str_contains($response, $pattern)) {
-                return true;
-            }
+            if (!(str_contains($response, $pattern))) { continue; }
+
+return true;
         }
 
         return false;

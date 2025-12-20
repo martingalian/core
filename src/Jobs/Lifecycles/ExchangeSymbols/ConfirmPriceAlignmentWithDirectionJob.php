@@ -6,12 +6,12 @@ namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
 
 use Exception;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
-use Martingalian\Core\Exceptions\ExceptionParser;
+
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\Step;
-use Martingalian\Core\Support\Martingalian;
+
 use Throwable;
 
 final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob

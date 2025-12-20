@@ -7,7 +7,7 @@ namespace Martingalian\Core\Concerns\BaseApiableJob;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Facades\Artisan;
-use Martingalian\Core\States\Pending;
+
 use Throwable;
 
 /*

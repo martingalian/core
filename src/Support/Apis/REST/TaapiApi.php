@@ -19,10 +19,10 @@ final class TaapiApi
     use HasPropertiesValidation;
 
     // API client instance.
-    protected $client;
+    private $client;
 
     // Decrypted API secret key.
-    protected $secret;
+    private $secret;
 
     // Constructor to initialize the API client with credentials.
     public function __construct(ApiCredentials $credentials)

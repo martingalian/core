@@ -57,7 +57,7 @@ final class KucoinApi
      */
     public function getExchangeInformation(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -75,7 +75,7 @@ final class KucoinApi
      */
     public function getPositions(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -93,7 +93,7 @@ final class KucoinApi
      */
     public function getAccountBalance(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // KuCoin requires currency parameter (default USDT)
         if (! $properties->has('options.currency')) {
@@ -116,7 +116,7 @@ final class KucoinApi
      */
     public function getCurrentOpenOrders(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Filter for active orders only
         $properties->set('options.status', 'active');
@@ -137,7 +137,7 @@ final class KucoinApi
      */
     public function getStopOrders(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -197,7 +197,7 @@ final class KucoinApi
      */
     public function placeOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -215,7 +215,7 @@ final class KucoinApi
      */
     public function getOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
         $orderId = $properties->get('options.orderId');
 
         $apiRequest = ApiRequest::make(
@@ -237,7 +237,7 @@ final class KucoinApi
      */
     public function cancelOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
         $orderId = $properties->get('options.orderId');
 
         $apiRequest = ApiRequest::make(
@@ -259,7 +259,7 @@ final class KucoinApi
      */
     public function cancelAllOrders(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'DELETE',
@@ -277,7 +277,7 @@ final class KucoinApi
      */
     public function getFills(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
@@ -295,7 +295,7 @@ final class KucoinApi
      */
     public function getMarkPrice(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
         $symbol = $properties->get('options.symbol');
 
         $apiRequest = ApiRequest::make(
@@ -317,7 +317,7 @@ final class KucoinApi
      */
     public function getRiskLimitLevel(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
         $symbol = $properties->get('options.symbol');
 
         $apiRequest = ApiRequest::make(
@@ -339,7 +339,7 @@ final class KucoinApi
      */
     public function changeCrossLeverage(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -357,7 +357,7 @@ final class KucoinApi
      */
     public function changeMarginMode(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',

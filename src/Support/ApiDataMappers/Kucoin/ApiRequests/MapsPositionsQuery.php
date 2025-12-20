@@ -72,8 +72,8 @@ trait MapsPositionsQuery
 
         $positionsList = $body['data'] ?? [];
 
-        $positions = collect($positionsList)
-            ->filter(function ($position) {
+        return collect($positionsList)
+            ->filter(static function ($position) {
                 // Only include open positions with non-zero quantity
                 return ($position['isOpen'] ?? false) === true
                     && (float) ($position['currentQty'] ?? 0) !== 0.0;
@@ -92,7 +92,7 @@ trait MapsPositionsQuery
 
                 return $position;
             })
-            ->keyBy(function ($position) {
+            ->keyBy(static function ($position) {
                 // Key by symbol:direction to support hedge mode (LONG + SHORT on same symbol)
                 $side = mb_strtoupper($position['side'] ?? 'BOTH');
                 $direction = $side === 'LONG' ? 'LONG' : ($side === 'SHORT' ? 'SHORT' : 'BOTH');
@@ -100,7 +100,5 @@ trait MapsPositionsQuery
                 return $position['symbol'] . ':' . $direction;
             })
             ->toArray();
-
-        return $positions;
     }
 }

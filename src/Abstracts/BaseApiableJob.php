@@ -42,7 +42,7 @@ abstract class BaseApiableJob extends BaseQueueableJob
         // Active bans are those where:
         // - forbidden_until is NULL (permanent/user-fixable) OR
         // - forbidden_until is in the future (temporary ban still active)
-        $activeBanCondition = function ($query) {
+        $activeBanCondition = static function ($query) {
             $query->whereNull('forbidden_until')
                 ->orWhere('forbidden_until', '>', now());
         };
@@ -60,7 +60,7 @@ abstract class BaseApiableJob extends BaseQueueableJob
             $isForbidden = ForbiddenHostname::query()
                 ->where('api_system_id', $apiSystem->id)
                 ->where('ip_address', $ipAddress)
-                ->where(function ($query) use ($accountId) {
+                ->where(static function ($query) use ($accountId) {
                     $query->where('account_id', $accountId)
                         ->orWhereNull('account_id');
                 })
@@ -76,9 +76,7 @@ abstract class BaseApiableJob extends BaseQueueableJob
         }
 
         try {
-            $result = $this->computeApiable();
-
-            return $result;
+            return $this->computeApiable();
         } catch (Throwable $e) {
             // Let the API-specific exception handler deal with the error.
             $this->handleApiException($e);

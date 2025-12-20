@@ -82,7 +82,7 @@ trait DispatchesJobs
             log_step($step->id, 'Current state after refresh: '.$step->state);
 
             $terminalStates = Step::terminalStepStates();
-            $isTerminal = collect($terminalStates)->contains(function ($state) use ($step) {
+            $isTerminal = collect($terminalStates)->contains(static function ($state) use ($step) {
                 return $step->state->equals($state);
             });
 
@@ -107,7 +107,7 @@ trait DispatchesJobs
     protected static function instantiateJobWithArguments(string $class, ?array $arguments)
     {
         try {
-            $arguments = $arguments ?? [];
+            $arguments ??= [];
             $reflectionClass = new ReflectionClass($class);
             $constructor = $reflectionClass->getConstructor();
 

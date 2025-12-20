@@ -38,7 +38,7 @@ use Martingalian\Core\Observers\AccountObserver;
 use Martingalian\Core\Observers\ApiRequestLogObserver;
 use Martingalian\Core\Observers\ApiSnapshotObserver;
 use Martingalian\Core\Observers\ApiSystemObserver;
-use Martingalian\Core\Observers\ModelLogObserver;
+
 use Martingalian\Core\Observers\ExchangeSymbolObserver;
 use Martingalian\Core\Observers\ForbiddenHostnameObserver;
 use Martingalian\Core\Observers\HeartbeatObserver;
@@ -69,7 +69,7 @@ final class CoreServiceProvider extends ServiceProvider
         $this->app->router->group([
             'prefix' => 'api',
             'middleware' => ['web'],
-        ], function ($router) {
+        ], static function ($router) {
             require __DIR__.'/../routes/api.php';
         });
 
@@ -113,7 +113,7 @@ final class CoreServiceProvider extends ServiceProvider
 
     protected function registerSlowQueryListener(): void
     {
-        DB::listen(function (QueryExecuted $query) {
+        DB::listen(static function (QueryExecuted $query) {
             $threshold = (int) config('martingalian.slow_query_threshold_ms', 5000);
             if ($query->time <= $threshold) {
                 return;
@@ -130,9 +130,9 @@ final class CoreServiceProvider extends ServiceProvider
 
             $bindings = $query->bindings;
             foreach ($bindings as $k => $v) {
-                if ($v instanceof DateTimeInterface) {
-                    $bindings[$k] = $v->format('Y-m-d H:i:s');
-                }
+                if (!($v instanceof DateTimeInterface)) { continue; }
+
+$bindings[$k] = $v->format('Y-m-d H:i:s');
             }
 
             $sqlFull = $query->sql;

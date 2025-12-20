@@ -19,10 +19,10 @@ trait HasGetters
      */
     public static function admin(): User
     {
-        return once(function () {
+        return once(static function () {
             $martingalian = self::findOrFail(1);
 
-            return tap(new User, function (User $user) use ($martingalian) {
+            return tap(new User, static function (User $user) use ($martingalian) {
                 $user->exists = false;
                 $user->is_virtual = true;
                 $user->setAttribute('name', 'System Administrator');

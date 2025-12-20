@@ -27,31 +27,31 @@ trait MapsExchangeInformationQuery
 
         return collect($data['symbols'] ?? [])
             // Remove symbols with underscores in the name.
-            ->filter(function ($symbolData) {
+            ->filter(static function ($symbolData) {
                 return mb_strpos($symbolData['symbol'], '_') === false;
             })
             // Only include perpetual contracts (exclude quarterly and dated futures)
-            ->filter(function ($symbolData) {
+            ->filter(static function ($symbolData) {
                 return ($symbolData['contractType'] ?? null) === 'PERPETUAL';
             })
             // Only include actively trading symbols (exclude PENDING_TRADING, BREAK, SETTLING, etc.)
-            ->filter(function ($symbolData) {
+            ->filter(static function ($symbolData) {
                 return ($symbolData['status'] ?? null) === 'TRADING';
             })
             // Only include ASCII tokens (exclude Chinese/special character tokens)
-            ->filter(function ($symbolData) {
+            ->filter(static function ($symbolData) {
                 $baseAsset = $symbolData['baseAsset'] ?? '';
 
                 // Only allow alphanumeric ASCII characters in token names
                 return preg_match('/^[A-Za-z0-9]+$/', $baseAsset) === 1;
             })
             // Exclude stablecoins - they don't need price tracking
-            ->filter(function ($symbolData) use ($stablecoins) {
+            ->filter(static function ($symbolData) use ($stablecoins) {
                 $baseAsset = mb_strtoupper($symbolData['baseAsset'] ?? '');
 
                 return ! in_array($baseAsset, $stablecoins, true);
             })
-            ->map(function ($symbolData) {
+            ->map(static function ($symbolData) {
                 $filters = collect($symbolData['filters'] ?? []);
 
                 $priceFilter = $filters->firstWhere('filterType', 'PRICE_FILTER');

@@ -84,7 +84,7 @@ final class BinanceApiDataMapper extends BaseDataMapper
      * Returns the well formed base symbol with the quote on it.
      * E.g.: AVAXUSDT. Token and quote are stored directly on exchange_symbols.
      */
-    public function baseWithQuote(string $token, string $quote): string
+    public function baseWithQuote(#[\SensitiveParameter] string $token, string $quote): string
     {
         return $token.$quote;
     }
@@ -95,7 +95,7 @@ final class BinanceApiDataMapper extends BaseDataMapper
      * input: MANAUSDT
      * returns: ['MANA', 'USDT']
      */
-    public function identifyBaseAndQuote(string $token): array
+    public function identifyBaseAndQuote(#[\SensitiveParameter] string $token): array
     {
         $availableQuoteCurrencies = [
             'USDT', 'BUSD', 'USDC', 'BTC', 'ETH', 'BNB',
@@ -103,12 +103,12 @@ final class BinanceApiDataMapper extends BaseDataMapper
         ];
 
         foreach ($availableQuoteCurrencies as $quoteCurrency) {
-            if (str_ends_with($token, $quoteCurrency)) {
-                return [
+            if (!(str_ends_with($token, $quoteCurrency))) { continue; }
+
+return [
                     'base' => str_replace($quoteCurrency, '', $token),
                     'quote' => $quoteCurrency,
                 ];
-            }
         }
 
         throw new InvalidArgumentException("Invalid token format: {$token}");

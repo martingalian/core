@@ -61,9 +61,9 @@ abstract class BaseDatabaseExceptionHandler
         // Check message patterns
         if (property_exists($this, 'retryableMessages')) {
             foreach ($this->retryableMessages as $pattern) {
-                if (str_contains($e->getMessage(), $pattern)) {
-                    return true;
-                }
+                if (!(str_contains($e->getMessage(), $pattern))) { continue; }
+
+return true;
             }
         }
 
@@ -95,9 +95,9 @@ abstract class BaseDatabaseExceptionHandler
         // Check permanent message patterns
         if (property_exists($this, 'permanentMessages')) {
             foreach ($this->permanentMessages as $pattern) {
-                if (str_contains($e->getMessage(), $pattern)) {
-                    return true;
-                }
+                if (!(str_contains($e->getMessage(), $pattern))) { continue; }
+
+return true;
             }
         }
 
@@ -128,9 +128,9 @@ abstract class BaseDatabaseExceptionHandler
         // Check ignorable message patterns
         if (property_exists($this, 'ignorableMessages')) {
             foreach ($this->ignorableMessages as $pattern) {
-                if (str_contains($e->getMessage(), $pattern)) {
-                    return true;
-                }
+                if (!(str_contains($e->getMessage(), $pattern))) { continue; }
+
+return true;
             }
         }
 

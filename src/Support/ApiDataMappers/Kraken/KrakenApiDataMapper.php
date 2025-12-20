@@ -87,7 +87,7 @@ final class KrakenApiDataMapper extends BaseDataMapper
      *
      * Token and quote are stored directly on exchange_symbols.
      */
-    public function baseWithQuote(string $token, string $quote): string
+    public function baseWithQuote(#[\SensitiveParameter] string $token, string $quote): string
     {
         // Kraken uses XBT instead of BTC
         if ($token === 'BTC') {
@@ -112,7 +112,7 @@ final class KrakenApiDataMapper extends BaseDataMapper
      * input: PI_ETHUSD
      * returns: ['base' => 'ETH', 'quote' => 'USD']
      */
-    public function identifyBaseAndQuote(string $token): array
+    public function identifyBaseAndQuote(#[\SensitiveParameter] string $token): array
     {
         // Remove prefix (PF_, PI_, FI_, etc.)
         $symbolPart = preg_replace('/^[A-Z]{2}_/', '', $token);
@@ -128,14 +128,14 @@ final class KrakenApiDataMapper extends BaseDataMapper
         ];
 
         foreach ($availableQuoteCurrencies as $quoteCurrency) {
-            if (str_ends_with($symbolPart, $quoteCurrency)) {
-                $base = str_replace($quoteCurrency, '', $symbolPart);
+            if (!(str_ends_with($symbolPart, $quoteCurrency))) { continue; }
+
+$base = str_replace($quoteCurrency, '', $symbolPart);
 
                 return [
                     'base' => $base,
                     'quote' => $quoteCurrency,
                 ];
-            }
         }
 
         throw new InvalidArgumentException("Invalid token format: {$token}");

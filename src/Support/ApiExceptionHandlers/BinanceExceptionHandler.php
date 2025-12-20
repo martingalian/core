@@ -271,13 +271,13 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
         $orderCount = $this->parseIntervalHeaders($headers, 'x-mbx-order-count-');
 
         // Choose the shortest available interval among both families
-        $pick = function (array $arr): ?array {
+        $pick = static function (array $arr): ?array {
             if ($arr === []) {
                 return null;
             }
             // Order of magnitude: s < m < h < d; then smaller intervalNum first
             $rank = ['s' => 1, 'm' => 2, 'h' => 3, 'd' => 4];
-            uasort($arr, function ($a, $b) use ($rank) {
+            uasort($arr, static function ($a, $b) use ($rank) {
                 $la = $rank[$a['intervalLetter']] ?? 99;
                 $lb = $rank[$b['intervalLetter']] ?? 99;
                 if ($la === $lb) {

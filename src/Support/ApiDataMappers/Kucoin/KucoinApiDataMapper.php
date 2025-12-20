@@ -96,7 +96,7 @@ final class KucoinApiDataMapper extends BaseDataMapper
      *
      * Token and quote are stored directly on exchange_symbols.
      */
-    public function baseWithQuote(string $token, string $quote): string
+    public function baseWithQuote(#[\SensitiveParameter] string $token, string $quote): string
     {
         // KuCoin uses XBT instead of BTC
         if ($token === 'BTC') {
@@ -132,14 +132,14 @@ final class KucoinApiDataMapper extends BaseDataMapper
         ];
 
         foreach ($availableQuoteCurrencies as $quoteCurrency) {
-            if (str_ends_with($symbolPart, $quoteCurrency)) {
-                $base = str_replace($quoteCurrency, '', $symbolPart);
+            if (!(str_ends_with($symbolPart, $quoteCurrency))) { continue; }
+
+$base = str_replace($quoteCurrency, '', $symbolPart);
 
                 return [
                     'base' => $base,
                     'quote' => $quoteCurrency,
                 ];
-            }
         }
 
         throw new InvalidArgumentException("Invalid KuCoin symbol format: {$symbol}");

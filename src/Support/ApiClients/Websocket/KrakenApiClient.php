@@ -84,7 +84,7 @@ final class KrakenApiClient extends BaseWebsocketClient
         // Kraken requires ping at least every 60 seconds - we use 30 for margin.
         $conn->send(json_encode(['event' => 'ping']));
 
-        $this->loop->addPeriodicTimer(30, function () use ($conn) {
+        $this->loop->addPeriodicTimer(30, static function () use ($conn) {
             $conn->send(json_encode(['event' => 'ping']));
         });
     }

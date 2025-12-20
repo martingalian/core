@@ -12,7 +12,7 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
-use Martingalian\Core\Support\Martingalian;
+
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Throwable;
 
@@ -90,9 +90,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
         $response = json_decode((string) $guzzleResponse->getBody(), true);
 
         // Parse and store results
-        $result = $this->parseAndStoreResults($response, $exchangeSymbol, $indicators);
-
-        return $result;
+        return $this->parseAndStoreResults($response, $exchangeSymbol, $indicators);
     }
 
     public function resolveException(Throwable $e)
@@ -182,7 +180,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
                 }
 
                 // Try to match indicator
-                $indicator = $indicators->first(function ($ind) use ($indicatorEndpoint, $periodParam, $exchangeSymbol) {
+                $indicator = $indicators->first(static function ($ind) use ($indicatorEndpoint, $periodParam, $exchangeSymbol) {
                     $indClass = $ind->class;
                     if (! class_exists($indClass)) {
                         return false;

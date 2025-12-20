@@ -86,9 +86,9 @@ trait MapsOrderModify
     private function extractOrderFromEvents(array $orderEvents): array
     {
         foreach ($orderEvents as $event) {
-            if (isset($event['order'])) {
-                return $event['order'];
-            }
+            if (!(isset($event['order']))) { continue; }
+
+return $event['order'];
         }
 
         return [];

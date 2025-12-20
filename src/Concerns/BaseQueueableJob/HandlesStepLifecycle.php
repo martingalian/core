@@ -6,7 +6,7 @@ namespace Martingalian\Core\Concerns\BaseQueueableJob;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
-use Log;
+
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Pending;

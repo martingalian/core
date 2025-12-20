@@ -96,19 +96,19 @@ trait MapsExchangeInformationQuery
 
         $filtered = collect($contracts)
             // Only include Open/active contracts
-            ->filter(function ($contract) {
+            ->filter(static function ($contract) {
                 return ($contract['status'] ?? '') === 'Open';
             })
             // Only include perpetual contracts (no expireDate)
-            ->filter(function ($contract) {
+            ->filter(static function ($contract) {
                 return ($contract['expireDate'] ?? null) === null;
             })
             // Only include USDT-margined contracts (not inverse)
-            ->filter(function ($contract) {
+            ->filter(static function ($contract) {
                 return ($contract['isInverse'] ?? true) === false;
             })
             // Exclude stablecoins - they don't need price tracking
-            ->filter(function ($contract) use ($stablecoins) {
+            ->filter(static function ($contract) use ($stablecoins) {
                 $baseCurrency = mb_strtoupper($contract['baseCurrency'] ?? '');
 
                 return ! in_array($baseCurrency, $stablecoins, true);

@@ -383,7 +383,7 @@ final class Math
 
         if ($shift >= 0) {
             // Move decimal right.
-            $digits = $digits.str_repeat('0', $shift);
+            $digits .=str_repeat('0', $shift);
             $out = $digits;
         } else {
             // Move decimal left.

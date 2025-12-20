@@ -12,9 +12,7 @@ trait MapsServerTimeQuery
 {
     public function prepareServerTimeProperties(): ApiProperties
     {
-        $properties = new ApiProperties;
-
-        return $properties;
+        return new ApiProperties;
     }
 
     public function resolveServerTimeResponse(Response $response): array

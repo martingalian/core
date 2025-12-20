@@ -46,7 +46,7 @@ trait MapsLeverageBracketsQuery
         // Transform to a more usable format keyed by symbol
         return collect($preferences)
             ->keyBy('symbol')
-            ->map(function (array $pref): array {
+            ->map(static function (array $pref): array {
                 return [
                     'symbol' => $pref['symbol'] ?? null,
                     'maxLeverage' => $pref['maxLeverage'] ?? null,

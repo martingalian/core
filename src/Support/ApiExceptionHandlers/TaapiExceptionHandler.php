@@ -159,9 +159,9 @@ final class TaapiExceptionHandler extends BaseExceptionHandler
 
             // Check for patterns that should NOT be ignored
             foreach ($this->nonIgnorableErrorPatterns as $pattern) {
-                if (str_contains($body, mb_strtolower($pattern))) {
-                    return false;
-                }
+                if (!(str_contains($body, mb_strtolower($pattern)))) { continue; }
+
+return false;
             }
         }
 

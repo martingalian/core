@@ -21,12 +21,12 @@ trait HasScopes
             ->where('exchange_symbols.has_early_direction_change', false)
             ->where('exchange_symbols.has_invalid_indicator_direction', false)
             ->whereNotNull('exchange_symbols.symbol_id')
-            ->where(function ($q) {
+            ->where(static function ($q) {
                 $q->whereNull('exchange_symbols.is_manually_enabled')
                     ->orWhere('exchange_symbols.is_manually_enabled', true);
             })
             ->whereNotNull('exchange_symbols.direction')
-            ->where(function ($q) {
+            ->where(static function ($q) {
                 $q->whereNull('exchange_symbols.tradeable_at')
                     ->orWhere('exchange_symbols.tradeable_at', '<=', now());
             });
@@ -37,11 +37,11 @@ trait HasScopes
      */
     public function scopeNeedsPriceUpdates(Builder $query): Builder
     {
-        return $query->where(function ($q) {
+        return $query->where(static function ($q) {
             // Has indicator data OR we're still trying to get it
             $q->where('exchange_symbols.has_no_indicator_data', false)
             // And not explicitly disabled by admin (NULL or true, but not false)
-            ->where(function ($q2) {
+            ->where(static function ($q2) {
                 $q2->whereNull('exchange_symbols.is_manually_enabled')
                     ->orWhere('exchange_symbols.is_manually_enabled', true);
             });
@@ -56,7 +56,7 @@ trait HasScopes
     {
         return $query
             ->where('exchange_symbols.api_statuses->has_taapi_data', true)
-            ->whereHas('apiSystem', function ($q) {
+            ->whereHas('apiSystem', static function ($q) {
                 $q->where('canonical', 'binance');
             });
     }

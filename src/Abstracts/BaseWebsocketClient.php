@@ -138,7 +138,7 @@ abstract class BaseWebsocketClient
         $this->onConnectionEstablished($conn, $callback);
 
         // Respond to server PING with PONG
-        $conn->on('ping', function () use ($conn) {
+        $conn->on('ping', static function () use ($conn) {
             $conn->send(new Frame('', true, Frame::OP_PONG));
         });
 
@@ -189,7 +189,7 @@ abstract class BaseWebsocketClient
 
         // Optional ping handler override
         if (isset($callback['ping']) && is_callable($callback['ping'])) {
-            $conn->on('ping', function ($msg) use ($conn, $callback) {
+            $conn->on('ping', static function ($msg) use ($conn, $callback) {
                 $callback['ping']($conn, $msg);
             });
         }

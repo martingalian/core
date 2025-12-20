@@ -74,7 +74,7 @@ final class ValueNormalizer
     /**
      * Check if a value is JSON-like (array or valid JSON string).
      */
-    protected static function isJsonLike(mixed $value): bool
+    private static function isJsonLike(mixed $value): bool
     {
         if (is_array($value)) {
             return true;
@@ -95,7 +95,7 @@ final class ValueNormalizer
     /**
      * Normalize JSON value to sorted array for comparison.
      */
-    protected static function normalizeJson(mixed $value): array
+    private static function normalizeJson(mixed $value): array
     {
         $array = is_array($value) ? $value : json_decode($value, true);
 
@@ -105,14 +105,14 @@ final class ValueNormalizer
     /**
      * Recursively sort array by keys for deterministic comparison.
      */
-    protected static function sortArrayRecursively(array $array): array
+    private static function sortArrayRecursively(array $array): array
     {
         ksort($array);
 
         foreach ($array as $key => $value) {
-            if (is_array($value)) {
-                $array[$key] = self::sortArrayRecursively($value);
-            }
+            if (!(is_array($value))) { continue; }
+
+$array[$key] = self::sortArrayRecursively($value);
         }
 
         return $array;
@@ -122,7 +122,7 @@ final class ValueNormalizer
      * Check if a value should be treated as boolean-like.
      * Includes actual booleans, 0, 1, "0", "1", and empty string.
      */
-    protected static function isBooleanLike(mixed $value): bool
+    private static function isBooleanLike(mixed $value): bool
     {
         if (is_bool($value)) {
             return true;
@@ -145,7 +145,7 @@ final class ValueNormalizer
      * Convert a value to its boolean representation using PHP's truthiness rules.
      * This matches how Eloquent casts boolean attributes.
      */
-    protected static function toBooleanValue(mixed $value): bool
+    private static function toBooleanValue(mixed $value): bool
     {
         // Direct boolean
         if (is_bool($value)) {

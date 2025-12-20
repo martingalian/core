@@ -46,13 +46,13 @@ final class Position extends BaseModel
     public function logMutators(): array
     {
         return [
-            'exchange_symbol_id' => function ($model, $old, $new, $type) {
+            'exchange_symbol_id' => static function ($model, $old, $new, $type) {
                 $model->refresh();
 
                 return $model->parsed_trading_pair;
             },
 
-            'account_id' => function ($model, $old, $new, $type) {
+            'account_id' => static function ($model, $old, $new, $type) {
                 $model->refresh();
 
                 return $model->account->user->name;

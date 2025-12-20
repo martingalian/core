@@ -130,12 +130,12 @@ final class MarkBinanceOverlapForExchangeSymbolsJob extends BaseQueueableJob
             } else {
                 // Try TokenMapper reverse lookup
                 foreach ($mappedTokens as $binanceToken => $exchanges) {
-                    if (isset($exchanges[$symbol->api_system_id]) && $exchanges[$symbol->api_system_id] === $symbol->token) {
-                        if (isset($binanceTaapiData[$binanceToken])) {
+                    if (!(isset($exchanges[$symbol->api_system_id]) && $exchanges[$symbol->api_system_id] === $symbol->token)) { continue; }
+
+if (isset($binanceTaapiData[$binanceToken])) {
                             $hasTaapiData = $binanceTaapiData[$binanceToken];
                         }
                         break;
-                    }
                 }
             }
 

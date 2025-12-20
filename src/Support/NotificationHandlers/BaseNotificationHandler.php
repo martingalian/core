@@ -66,9 +66,9 @@ abstract class BaseNotificationHandler
 
         // Check nested array structure (e.g., [200 => [10003, 10004]])
         foreach ($mappings as $code => $subCodes) {
-            if ($code === $httpCode && is_array($subCodes) && in_array($vendorCode, $subCodes, true)) {
-                return true;
-            }
+            if (!($code === $httpCode && is_array($subCodes) && in_array($vendorCode, $subCodes, true))) { continue; }
+
+return true;
         }
 
         return false;

@@ -529,10 +529,10 @@ final class NotificationWebhookController extends Controller
         // Parse signature header format: ts=<timestamp>;s=<signature>;s-algorithm=HmacSHA256
         $parts = [];
         foreach (explode(';', $signatureHeader) as $part) {
-            if (str_contains($part, '=')) {
-                [$key, $value] = explode('=', $part, 2);
+            if (!(str_contains($part, '='))) { continue; }
+
+[$key, $value] = explode('=', $part, 2);
                 $parts[mb_trim($key)] = mb_trim($value);
-            }
         }
 
         $timestamp = $parts['ts'] ?? null;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\ApiSystem;
 
-use Illuminate\Support\Str;
+
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Models\ExchangeSymbol\CalculateBtcCorrelationJob;
 use Martingalian\Core\Jobs\Models\ExchangeSymbol\CalculateBtcElasticityJob;

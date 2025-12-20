@@ -25,7 +25,7 @@ final class ModelLogObserver
      * Cache for storing RAW attributes before save.
      * Keyed by spl_object_id() to avoid database column conflicts.
      */
-    protected static array $attributesCache = [];
+    private static array $attributesCache = [];
 
     /**
      * Handle the "created" event - logs all initial attribute values.
@@ -182,7 +182,7 @@ final class ModelLogObserver
      * Convert a value for storage in the LONGTEXT previous_value/new_value columns.
      * Arrays and objects are JSON encoded, all other types are stored as-is.
      */
-    protected function convertValueForStorage(mixed $value): mixed
+    private function convertValueForStorage(mixed $value): mixed
     {
         // Arrays and objects need to be JSON encoded for storage in LONGTEXT columns
         if (is_array($value) || is_object($value)) {
@@ -193,7 +193,7 @@ final class ModelLogObserver
         return $value;
     }
 
-    protected function shouldSkipLogging(BaseModel $model, string $attribute, mixed $oldValue, mixed $newValue): bool
+    private function shouldSkipLogging(BaseModel $model, string $attribute, mixed $oldValue, mixed $newValue): bool
     {
         // Level 0: Check global blacklist (applies to ALL models)
         if (in_array($attribute, self::GLOBAL_BLACKLIST)) {
@@ -223,7 +223,7 @@ final class ModelLogObserver
         return false; // Don't skip = LOG IT
     }
 
-    protected function buildChangeMessage(string $attribute, mixed $oldValue, mixed $newValue): string
+    private function buildChangeMessage(string $attribute, mixed $oldValue, mixed $newValue): string
     {
         $old = $this->formatValue($oldValue);
         $new = $this->formatValue($newValue);
@@ -239,7 +239,7 @@ final class ModelLogObserver
         return "Attribute \"{$attribute}\" changed from {$old} to {$new}";
     }
 
-    protected function formatValue(mixed $value): string
+    private function formatValue(mixed $value): string
     {
         if ($value === null) {
             return 'null';

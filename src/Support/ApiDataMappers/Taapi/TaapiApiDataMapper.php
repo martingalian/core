@@ -12,7 +12,7 @@ final class TaapiApiDataMapper
     use MapsGroupedQueryIndicators;
     use MapsQueryIndicator;
 
-    public function baseWithQuote(string $token, string $quote): string
+    public function baseWithQuote(#[\SensitiveParameter] string $token, string $quote): string
     {
         return $token.'/'.$quote;
     }

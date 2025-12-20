@@ -6,7 +6,7 @@ namespace Martingalian\Core\Observers;
 
 use Martingalian\Core\Models\NotificationLog;
 use Martingalian\Core\Models\User;
-use Martingalian\Core\Notifications\AlertNotification;
+
 use NotificationChannels\Pushover\PushoverChannel;
 
 final class NotificationLogObserver

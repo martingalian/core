@@ -57,7 +57,7 @@ trait MapsAccountQueryTrades
         $data = json_decode((string) $response->getBody(), true);
         $fills = $data['fills'] ?? [];
 
-        return array_map(function (array $fill): array {
+        return array_map(static function (array $fill): array {
             return [
                 'id' => $fill['fill_id'] ?? null,
                 'symbol' => $fill['symbol'] ?? null,

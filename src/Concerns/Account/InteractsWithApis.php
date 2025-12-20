@@ -29,7 +29,7 @@ trait InteractsWithApis
     public function withApi()
     {
         // Mask values (keep last 6 chars) instead of logging raw secrets
-        $masked = collect($this->all_credentials)->map(function ($v) {
+        $masked = collect($this->all_credentials)->map(static function ($v) {
             return is_string($v) && $v !== ''
                 ? str_repeat('*', max(0, mb_strlen($v) - 6)).mb_substr($v, -6)
                 : $v;

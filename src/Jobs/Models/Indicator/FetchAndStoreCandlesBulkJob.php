@@ -445,7 +445,7 @@ final class FetchAndStoreCandlesBulkJob extends BaseApiableJob
 
             while ($attempt < $maxAttempts) {
                 try {
-                    DB::transaction(function () use ($buffer) {
+                    DB::transaction(static function () use ($buffer) {
                         Candle::query()->upsert(
                             $buffer,
                             ['exchange_symbol_id', 'timeframe', 'timestamp'],

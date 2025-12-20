@@ -96,9 +96,9 @@ trait InteractsWithApis
     {
         // Priority 1: First INDUSTRY tag
         foreach ($tags as $index => $tag) {
-            if (($tagGroups[$index] ?? null) === 'INDUSTRY') {
-                return $tag;
-            }
+            if (($tagGroups[$index] ?? null) !== 'INDUSTRY') { continue; }
+
+return $tag;
         }
 
         // Collect all valid CATEGORY tags (excluding portfolios, ecosystems, listings)
@@ -106,27 +106,27 @@ trait InteractsWithApis
         $categoryTags = [];
 
         foreach ($tags as $index => $tag) {
-            if (($tagGroups[$index] ?? null) === 'CATEGORY') {
-                $isExcluded = false;
+            if (($tagGroups[$index] ?? null) !== 'CATEGORY') { continue; }
+
+$isExcluded = false;
 
                 foreach ($excludePatterns as $pattern) {
-                    if (str_contains($tag, $pattern)) {
-                        $isExcluded = true;
+                    if (!(str_contains($tag, $pattern))) { continue; }
+
+$isExcluded = true;
                         break;
-                    }
                 }
 
                 if (! $isExcluded) {
                     $categoryTags[] = $tag;
                 }
-            }
         }
 
         // Priority 2: Return first broad category found
         foreach (self::BROAD_CATEGORIES as $broadCategory) {
-            if (in_array($broadCategory, $categoryTags, true)) {
-                return $broadCategory;
-            }
+            if (!(in_array($broadCategory, $categoryTags, true))) { continue; }
+
+return $broadCategory;
         }
 
         // Priority 3: Return first non-excluded CATEGORY tag

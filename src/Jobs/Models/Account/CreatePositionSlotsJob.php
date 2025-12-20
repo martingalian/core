@@ -131,7 +131,7 @@ final class CreatePositionSlotsJob extends BaseQueueableJob
      */
     private function countPositionsByDirection(array $positions, string $direction): int
     {
-        return collect($positions)->filter(function ($position) use ($direction) {
+        return collect($positions)->filter(static function ($position) use ($direction) {
             // Binance uses 'positionSide' with LONG/SHORT
             if (isset($position['positionSide'])) {
                 return mb_strtoupper($position['positionSide']) === $direction;

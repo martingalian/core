@@ -42,7 +42,7 @@ final class BybitApi
     // https://bybit-exchange.github.io/docs/v5/market/risk-limit
     public function getLeverageBrackets(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Bybit requires category parameter - default to linear (USDT perpetual)
         if (! $properties->get('options.category')) {
@@ -85,7 +85,7 @@ final class BybitApi
     // https://bybit-exchange.github.io/docs/v5/position/position-info
     public function getPositions(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Bybit requires category parameter - default to linear (USDT perpetual)
         if (! $properties->get('options.category')) {
@@ -109,7 +109,7 @@ final class BybitApi
     // https://bybit-exchange.github.io/docs/v5/account/wallet-balance
     public function getAccountBalance(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Bybit requires accountType parameter - default to UNIFIED
         if (! $properties->get('options.accountType')) {
@@ -128,7 +128,7 @@ final class BybitApi
     // https://bybit-exchange.github.io/docs/v5/order/open-order
     public function getCurrentOpenOrders(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Bybit requires category parameter - default to linear (USDT perpetual)
         if (! $properties->get('options.category')) {
@@ -159,7 +159,7 @@ final class BybitApi
      */
     public function placeOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -177,7 +177,7 @@ final class BybitApi
      */
     public function getOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Bybit requires category parameter - default to linear
         if (! $properties->get('options.category')) {
@@ -200,7 +200,7 @@ final class BybitApi
      */
     public function cancelOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -218,7 +218,7 @@ final class BybitApi
      */
     public function cancelAllOrders(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -236,7 +236,7 @@ final class BybitApi
      */
     public function amendOrder(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -254,7 +254,7 @@ final class BybitApi
      */
     public function getExecutionList(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Bybit requires category parameter - default to linear
         if (! $properties->get('options.category')) {
@@ -277,7 +277,7 @@ final class BybitApi
      */
     public function getTickers(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         // Bybit requires category parameter - default to linear
         if (! $properties->get('options.category')) {
@@ -300,7 +300,7 @@ final class BybitApi
      */
     public function setLeverage(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',
@@ -318,7 +318,7 @@ final class BybitApi
      */
     public function switchMarginMode(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'POST',

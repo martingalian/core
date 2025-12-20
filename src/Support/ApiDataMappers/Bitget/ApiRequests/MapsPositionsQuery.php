@@ -62,12 +62,12 @@ trait MapsPositionsQuery
 
         $positionsList = $body['data'] ?? [];
 
-        $positions = collect($positionsList)
-            ->filter(function ($position) {
+        return collect($positionsList)
+            ->filter(static function ($position) {
                 // Only include positions with non-zero total size
                 return (float) ($position['total'] ?? 0) !== 0.0;
             })
-            ->map(function ($position) {
+            ->map(static function ($position) {
                 // Normalize the symbol format (BitGet uses simple format already)
                 $symbol = $position['symbol'] ?? '';
 
@@ -78,7 +78,7 @@ trait MapsPositionsQuery
 
                 return $position;
             })
-            ->keyBy(function ($position) {
+            ->keyBy(static function ($position) {
                 // Key by symbol:direction to support hedge mode (LONG + SHORT on same symbol)
                 $side = mb_strtoupper($position['side'] ?? 'BOTH');
                 $direction = $side === 'LONG' ? 'LONG' : ($side === 'SHORT' ? 'SHORT' : 'BOTH');
@@ -86,7 +86,5 @@ trait MapsPositionsQuery
                 return $position['symbol'] . ':' . $direction;
             })
             ->toArray();
-
-        return $positions;
     }
 }

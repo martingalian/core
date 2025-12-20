@@ -39,7 +39,7 @@ trait MapsOrderQuery
             $result['status'] = 'CANCELLED';
         }
 
-        $data = [
+        return [
             // Exchange order id.
             'order_id' => $result['orderId'],
 
@@ -58,8 +58,6 @@ trait MapsOrderQuery
 
             '_raw' => $raw,
         ];
-
-        return $data;
     }
 
     /**

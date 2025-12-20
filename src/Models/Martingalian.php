@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
+
+
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Concerns\Martingalian\HasAccessors;
 use Martingalian\Core\Concerns\Martingalian\HasGetters;
-use Throwable;
+
 
 /**
  * @property int $id

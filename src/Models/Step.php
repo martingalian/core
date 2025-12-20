@@ -234,7 +234,7 @@ final class Step extends BaseModel
         info_if('Previous Steps Ids: '.$previousStepsIds);
 
         // Log each previous step's state
-        $previousSteps->each(function ($step) {
+        $previousSteps->each(static function ($step) {
             $step->refresh();
             info_if("[previousIndexIsConcluded] Previous Step ID {$step->id} has state ".get_class($step->state));
         });

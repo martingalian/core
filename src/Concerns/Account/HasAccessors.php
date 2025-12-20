@@ -78,9 +78,9 @@ trait HasAccessors
         ];
 
         foreach ($keys as $key) {
-            if (Arr::has($value, $key)) {
-                $this->setAttribute($key, Arr::get($value, $key));
-            }
+            if (!(Arr::has($value, $key))) { continue; }
+
+$this->setAttribute($key, Arr::get($value, $key));
         }
     }
 

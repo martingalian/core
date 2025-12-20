@@ -39,19 +39,19 @@ trait MapsExchangeInformationQuery
 
         return collect($symbols)
             // Remove symbols with underscores in the name (same logic as Binance)
-            ->filter(function ($symbolData) {
+            ->filter(static function ($symbolData) {
                 return mb_strpos($symbolData['symbol'], '_') === false;
             })
             // Only include perpetual contracts (exclude dated futures like BTCUSDT-31OCT25)
-            ->filter(function ($symbolData) {
+            ->filter(static function ($symbolData) {
                 return ($symbolData['contractType'] ?? null) === 'LinearPerpetual';
             })
             // Only include actively trading symbols (Bybit uses "Trading" status)
-            ->filter(function ($symbolData) {
+            ->filter(static function ($symbolData) {
                 return ($symbolData['status'] ?? null) === 'Trading';
             })
             // Exclude trading pairs (e.g., ETHBTC) - tokens that contain another crypto ticker
-            ->filter(function ($symbolData) use ($majorCryptos) {
+            ->filter(static function ($symbolData) use ($majorCryptos) {
                 $baseCoin = $symbolData['baseCoin'] ?? '';
 
                 // Check if baseCoin contains any major crypto ticker (indicating it's a trading pair)
@@ -69,12 +69,12 @@ trait MapsExchangeInformationQuery
                 return true;
             })
             // Exclude stablecoins - they don't need price tracking
-            ->filter(function ($symbolData) use ($stablecoins) {
+            ->filter(static function ($symbolData) use ($stablecoins) {
                 $baseCoin = mb_strtoupper($symbolData['baseCoin'] ?? '');
 
                 return ! in_array($baseCoin, $stablecoins, true);
             })
-            ->map(function ($symbolData) {
+            ->map(static function ($symbolData) {
                 // Extract price filter
                 $priceFilter = $symbolData['priceFilter'] ?? [];
                 $lotSizeFilter = $symbolData['lotSizeFilter'] ?? [];

@@ -58,7 +58,7 @@ final class NotificationMessageBuilder
         $ip = is_string($ipRaw) ? $ipRaw : \Martingalian\Core\Models\Martingalian::ip();
 
         // Extract hostname from 'server' key (new) or 'hostname' key (legacy) or apiRequestLog
-        $hostnameRaw = $context['server'] ?? ($context['hostname'] ?? ($apiRequestLog?->hostname ?? gethostname()));
+        $hostnameRaw = $context['server'] ?? ($context['hostname'] ?? ($apiRequestLog->hostname ?? gethostname()));
         $hostname = is_string($hostnameRaw) ? $hostnameRaw : (string) gethostname();
 
         // Build account info string from account model or legacy 'account_info' key
@@ -71,7 +71,7 @@ final class NotificationMessageBuilder
             $accountInfo = is_string($accountInfoRaw) ? $accountInfoRaw : null;
         }
 
-        $accountNameRaw = $context['account_name'] ?? ($accountModel?->name ?? 'your account');
+        $accountNameRaw = $context['account_name'] ?? ($accountModel->name ?? 'your account');
         $accountName = is_string($accountNameRaw) ? $accountNameRaw : 'your account';
 
         $walletBalanceRaw = $context['wallet_balance'] ?? 'N/A';
@@ -84,7 +84,7 @@ final class NotificationMessageBuilder
         $exception = is_string($exceptionRaw) ? $exceptionRaw : null;
 
         // Extract HTTP code from apiRequestLog model or legacy 'http_code' key
-        $httpCodeRaw = $apiRequestLog?->http_response_code ?? ($context['http_code'] ?? null);
+        $httpCodeRaw = $apiRequestLog->http_response_code ?? ($context['http_code'] ?? null);
         $httpCode = is_int($httpCodeRaw) ? $httpCodeRaw : (is_string($httpCodeRaw) ? (int) $httpCodeRaw : null);
 
         // Extract vendor code from apiRequestLog response or legacy 'vendor_code' key
@@ -117,7 +117,7 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            'server_ip_rate_limited' => (function () use ($context, $exchangeTitle, $ip, $hostname) {
+            'server_ip_rate_limited' => (static function () use ($context, $exchangeTitle, $ip, $hostname) {
                 // Extract rate limit details
                 $forbiddenUntilRaw = $context['forbidden_until'] ?? null;
                 $errorCode = is_string($context['error_code'] ?? null) ? $context['error_code'] : 'N/A';
@@ -167,7 +167,7 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'server_ip_banned' => (function () use ($context, $exchangeTitle, $ip, $hostname) {
+            'server_ip_banned' => (static function () use ($context, $exchangeTitle, $ip, $hostname) {
                 // Extract ban details
                 $errorCode = is_string($context['error_code'] ?? null) ? $context['error_code'] : 'N/A';
                 $errorMessage = is_string($context['error_message'] ?? null) ? $context['error_message'] : 'N/A';
@@ -205,7 +205,7 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'stale_websocket_heartbeat' => (function () use ($context, $exchange, $exchangeTitle, $hostname) {
+            'stale_websocket_heartbeat' => (static function () use ($context, $exchange, $exchangeTitle, $hostname) {
                 // Extract heartbeat details
                 $group = is_string($context['group'] ?? null) ? $context['group'] : null;
                 $lastBeatAt = is_string($context['last_beat_at'] ?? null) ? $context['last_beat_at'] : 'N/A';
@@ -243,7 +243,7 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'websocket_restart_failed' => (function () use ($context, $exchangeTitle, $hostname) {
+            'websocket_restart_failed' => (static function () use ($context, $exchangeTitle, $hostname) {
                 // Extract restart failure details
                 $supervisorWorker = is_string($context['supervisor_worker'] ?? null) ? $context['supervisor_worker'] : 'unknown';
                 $restartAttempts = is_int($context['restart_attempts'] ?? null) ? $context['restart_attempts'] : 0;
@@ -278,7 +278,7 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'stale_priority_steps_detected' => (function () use ($context, $hostname) {
+            'stale_priority_steps_detected' => (static function () use ($context, $hostname) {
                 // Extract stale step details - CRITICAL: steps stuck even after promotion
                 $count = is_int($context['count'] ?? null) ? $context['count'] : 0;
                 $oldestStepId = is_int($context['oldest_step_id'] ?? null) ? $context['oldest_step_id'] : 0;
@@ -316,7 +316,7 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'stale_dispatched_steps_detected' => (function () use ($context, $hostname) {
+            'stale_dispatched_steps_detected' => (static function () use ($context, $hostname) {
                 // Extract stale step details
                 $count = is_int($context['count'] ?? null) ? $context['count'] : 0;
                 $oldestStepId = is_int($context['oldest_step_id'] ?? null) ? $context['oldest_step_id'] : 0;
@@ -354,7 +354,7 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'exchange_symbol_no_taapi_data' => (function () use ($context) {
+            'exchange_symbol_no_taapi_data' => (static function () use ($context) {
                 // Support both new format ('exchangeSymbol') and legacy format ('exchange_symbol')
                 $exchangeSymbol = $context['exchangeSymbol'] ?? ($context['exchange_symbol'] ?? null);
 
@@ -363,7 +363,7 @@ final class NotificationMessageBuilder
                 if ($exchangeSymbol) {
                     $symbolToken = $exchangeSymbol->token ?? 'UNKNOWN';
                     $quoteCanonical = $exchangeSymbol->quote ?? 'UNKNOWN';
-                    $exchangeName = $exchangeSymbol->apiSystem?->name ?? 'UNKNOWN';
+                    $exchangeName = $exchangeSymbol->apiSystem->name ?? 'UNKNOWN';
                     $displayString = "{$symbolToken}/{$quoteCanonical}@{$exchangeName}";
                 }
 
@@ -401,7 +401,7 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            'websocket_restart_success' => (function () use ($context, $exchangeTitle, $hostname) {
+            'websocket_restart_success' => (static function () use ($context, $exchangeTitle, $hostname) {
                 $group = is_string($context['group'] ?? null) ? $context['group'] : null;
                 $groupText = $group ? " ({$group})" : '';
 
@@ -421,7 +421,7 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'websocket_status_change' => (function () use ($context, $exchangeTitle, $hostname) {
+            'websocket_status_change' => (static function () use ($context, $exchangeTitle, $hostname) {
                 $status = is_string($context['status'] ?? null) ? $context['status'] : 'unknown';
                 $message = is_string($context['message'] ?? null) ? $context['message'] : null;
                 $group = is_string($context['group'] ?? null) ? $context['group'] : null;
@@ -479,7 +479,7 @@ final class NotificationMessageBuilder
                 'actionLabel' => null,
             ],
 
-            'token_delisting' => (function () use ($context, $exchangeTitle) {
+            'token_delisting' => (static function () use ($context, $exchangeTitle) {
                 // Extract delisting details
                 $pairText = is_string($context['pair_text'] ?? null) ? $context['pair_text'] : 'N/A';
                 $deliveryDate = is_string($context['delivery_date'] ?? null) ? $context['delivery_date'] : 'N/A';
@@ -511,7 +511,7 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'slow_query_detected' => (function () use ($context) {
+            'slow_query_detected' => (static function () use ($context) {
                 $sqlFull = is_string($context['sql_full'] ?? null) ? $context['sql_full'] : 'N/A';
                 $timeMs = is_int($context['time_ms'] ?? null) ? $context['time_ms'] : 0;
                 $connection = is_string($context['connection'] ?? null) ? $context['connection'] : 'unknown';
@@ -537,7 +537,7 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'server_ip_not_whitelisted' => (function () use ($context, $exchangeTitle, $ip, $accountName) {
+            'server_ip_not_whitelisted' => (static function () use ($context, $exchangeTitle, $ip, $accountName) {
                 return [
                     'severity' => NotificationSeverity::High,
                     'title' => 'Please Whitelist Our Server IP',
@@ -560,7 +560,7 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'server_account_blocked' => (function () use ($context, $exchangeTitle, $ip, $hostname, $accountName) {
+            'server_account_blocked' => (static function () use ($context, $exchangeTitle, $ip, $hostname, $accountName) {
                 // Extract details
                 $errorCode = is_string($context['error_code'] ?? null) ? $context['error_code'] : 'N/A';
                 $errorMessage = is_string($context['error_message'] ?? null) ? $context['error_message'] : 'N/A';

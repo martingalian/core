@@ -34,7 +34,7 @@ trait HasStepLogging
             $logFile = "{$logsPath}/step.log";
 
             if (! is_dir($logsPath)) {
-                mkdir($logsPath, 0755, true);
+                mkdir($logsPath, 0o755, true);
             }
         }
 

@@ -18,7 +18,7 @@ final class BinanceApi
     use HasPropertiesValidation;
 
     // The REST api client.
-    protected $client;
+    private $client;
 
     // Initializes CoinMarketCap API client with credentials.
     public function __construct(ApiCredentials $credentials)
@@ -170,7 +170,7 @@ final class BinanceApi
     // https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/Position-Information-V3
     public function getPositions(?ApiProperties $properties = null)
     {
-        $properties = $properties ?? new ApiProperties;
+        $properties ??= new ApiProperties;
 
         $apiRequest = ApiRequest::make(
             'GET',
