@@ -34,12 +34,15 @@ final class HeartbeatFactory extends Factory
 
     /**
      * Indicate that the heartbeat is for a price stream.
+     * Each exchange has its own canonical: binance_price_stream, bybit_price_stream, etc.
+     *
+     * @param  string  $exchange  The exchange name (binance, bybit, bitget, kraken, kucoin)
      */
-    public function priceStream(): static
+    public function priceStream(string $exchange = 'binance'): static
     {
-        return $this->state(function (array $attributes) {
+        return $this->state(function (array $attributes) use ($exchange) {
             return [
-                'canonical' => 'price_stream',
+                'canonical' => "{$exchange}_price_stream",
             ];
         });
     }

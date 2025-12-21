@@ -234,7 +234,7 @@ final class NotificationMessageBuilder
                         "3. Restart if needed:\n".
                         "[CMD]supervisorctl restart {$supervisorName}[/CMD]\n\n".
                         "4. Check heartbeat table:\n".
-                        "[CMD]SELECT * FROM heartbeats WHERE canonical = 'price_stream' AND api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}')".($group ? " AND `group` = '{$group}'" : '').';[/CMD]',
+                        "[CMD]SELECT * FROM heartbeats WHERE canonical = '{$exchangeLower}_price_stream' AND api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}')".($group ? " AND `group` = '{$group}'" : '').';[/CMD]',
                     'pushoverMessage' => "🚨 {$exchangeTitle} WebSocket DOWN{$groupText}\n".
                         "Last beat: {$secondsAgo}s ago\n".
                         "Check: {$supervisorName}",
@@ -243,12 +243,13 @@ final class NotificationMessageBuilder
                 ];
             })(),
 
-            'websocket_restart_failed' => (static function () use ($context, $exchangeTitle, $hostname) {
+            'websocket_restart_failed' => (static function () use ($context, $exchange, $exchangeTitle, $hostname) {
                 // Extract restart failure details
                 $supervisorWorker = is_string($context['supervisor_worker'] ?? null) ? $context['supervisor_worker'] : 'unknown';
                 $restartAttempts = is_int($context['restart_attempts'] ?? null) ? $context['restart_attempts'] : 0;
                 $group = is_string($context['group'] ?? null) ? $context['group'] : null;
                 $groupText = $group ? " ({$group})" : '';
+                $exchangeLower = mb_strtolower($exchange);
 
                 return [
                     'severity' => NotificationSeverity::Critical,
@@ -269,7 +270,7 @@ final class NotificationMessageBuilder
                         "3. Try manual restart:\n".
                         "[CMD]sudo supervisorctl restart {$supervisorWorker}:*[/CMD]\n\n".
                         "4. Reset restart counter by clearing heartbeat metadata:\n".
-                        "[CMD]UPDATE heartbeats SET metadata = NULL WHERE canonical = 'price_stream' AND api_system_id = (SELECT id FROM api_systems WHERE name = '{$exchangeTitle}');[/CMD]",
+                        "[CMD]UPDATE heartbeats SET metadata = NULL WHERE canonical = '{$exchangeLower}_price_stream' AND api_system_id = (SELECT id FROM api_systems WHERE canonical = '{$exchangeLower}');[/CMD]",
                     'pushoverMessage' => "🚨 {$exchangeTitle} Restart FAILED{$groupText}\n".
                         "Attempts: {$restartAttempts}\n".
                         "Manual action required!",
