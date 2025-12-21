@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\ApiClients\Websocket;
 
 use Martingalian\Core\Abstracts\BaseWebsocketClient;
+use React\EventLoop\TimerInterface;
 
 /**
  * KrakenApiClient (WebSocket)
@@ -26,6 +27,12 @@ final class KrakenApiClient extends BaseWebsocketClient
     protected array $subscriptionArgs = [];
 
     protected bool $subscriptionSent = false;
+
+    /**
+     * Reference to the ping timer so we can cancel it on reconnection.
+     * This prevents timer accumulation (zombie timers pinging closed connections).
+     */
+    protected ?TimerInterface $pingTimer = null;
 
     public function __construct(array $config)
     {
@@ -70,6 +77,13 @@ final class KrakenApiClient extends BaseWebsocketClient
 
     protected function onConnectionEstablished(\Ratchet\Client\WebSocket $conn, array $callback): void
     {
+        // CRITICAL: Cancel any existing ping timer before creating a new one.
+        // This prevents timer accumulation (zombie timers pinging closed connections).
+        if ($this->pingTimer !== null) {
+            $this->loop->cancelTimer($this->pingTimer);
+            $this->pingTimer = null;
+        }
+
         // IMMEDIATELY send subscription after connection (before event handlers are set up)
         if (! empty($this->subscriptionArgs)) {
             $subscriptionMessage = json_encode([
@@ -84,8 +98,12 @@ final class KrakenApiClient extends BaseWebsocketClient
         // Kraken requires ping at least every 60 seconds - we use 30 for margin.
         $conn->send(json_encode(['event' => 'ping']));
 
-        $this->loop->addPeriodicTimer(30, static function () use ($conn) {
-            $conn->send(json_encode(['event' => 'ping']));
+        // Create periodic ping timer and store reference for cleanup on reconnection
+        $this->pingTimer = $this->loop->addPeriodicTimer(30, function () use ($conn) {
+            // Safety check: only send ping if this is still the active connection
+            if ($this->wsConnection === $conn) {
+                $conn->send(json_encode(['event' => 'ping']));
+            }
         });
     }
 }

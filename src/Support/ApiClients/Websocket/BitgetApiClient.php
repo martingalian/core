@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\ApiClients\Websocket;
 
 use Martingalian\Core\Abstracts\BaseWebsocketClient;
+use React\EventLoop\TimerInterface;
 
 /**
  * BitgetApiClient (WebSocket)
@@ -33,6 +34,12 @@ final class BitgetApiClient extends BaseWebsocketClient
     protected bool $subscriptionSent = false;
 
     protected int $pingInterval = 30;
+
+    /**
+     * Reference to the ping timer so we can cancel it on reconnection.
+     * This prevents timer accumulation (zombie timers pinging closed connections).
+     */
+    protected ?TimerInterface $pingTimer = null;
 
     public function __construct(array $config)
     {
@@ -79,6 +86,13 @@ final class BitgetApiClient extends BaseWebsocketClient
 
     protected function onConnectionEstablished(\Ratchet\Client\WebSocket $conn, array $callback): void
     {
+        // CRITICAL: Cancel any existing ping timer before creating a new one.
+        // This prevents timer accumulation (zombie timers pinging closed connections).
+        if ($this->pingTimer !== null) {
+            $this->loop->cancelTimer($this->pingTimer);
+            $this->pingTimer = null;
+        }
+
         // IMMEDIATELY send subscriptions after connection
         if (! empty($this->subscriptionArgs)) {
             // BitGet allows multiple subscriptions in a single message
@@ -103,8 +117,12 @@ final class BitgetApiClient extends BaseWebsocketClient
         // ensures we don't hit the timeout boundary on the first cycle.
         $conn->send('ping');
 
-        $this->loop->addPeriodicTimer($this->pingInterval, static function () use ($conn) {
-            $conn->send('ping');
+        // Create periodic ping timer and store reference for cleanup on reconnection
+        $this->pingTimer = $this->loop->addPeriodicTimer($this->pingInterval, function () use ($conn) {
+            // Safety check: only send ping if this is still the active connection
+            if ($this->wsConnection === $conn) {
+                $conn->send('ping');
+            }
         });
     }
 }

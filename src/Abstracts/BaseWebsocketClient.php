@@ -10,6 +10,7 @@ use Ratchet\Client\WebSocket;
 use Ratchet\RFC6455\Messaging\Frame;
 use React\EventLoop\Factory as LoopFactory;
 use React\EventLoop\LoopInterface;
+use React\EventLoop\TimerInterface;
 
 /**
  * BaseWebsocketClient
@@ -21,6 +22,7 @@ use React\EventLoop\LoopInterface;
  * - Supports auto-ping/pong for keepalive
  * - Implements exponential backoff reconnect logic (max 5 attempts)
  * - Detects stale/zombie connections (open but no data)
+ * - Proper timer management to prevent accumulation on reconnect
  * - User-defined callbacks: message, ping, pong, close, error, status
  *
  * Callbacks:
@@ -68,6 +70,14 @@ abstract class BaseWebsocketClient
      * Default 60s is conservative. Child classes can override for exchanges with different intervals.
      */
     protected int $staleThresholdSeconds = 60;
+
+    /**
+     * Connection-specific timers that must be cancelled on reconnection.
+     * This prevents timer accumulation (zombie timers running for closed connections).
+     *
+     * @var array<TimerInterface>
+     */
+    protected array $connectionTimers = [];
 
     public function __construct(array $args = [])
     {
@@ -134,6 +144,10 @@ abstract class BaseWebsocketClient
 
     protected function setupConnectionHandlers(WebSocket $conn, array $callback, string $url): void
     {
+        // CRITICAL: Cancel all connection-specific timers before setting up new ones.
+        // This prevents timer accumulation (zombie timers from previous connections).
+        $this->cancelConnectionTimers();
+
         // Allow child classes to perform custom setup immediately after connection
         $this->onConnectionEstablished($conn, $callback);
 
@@ -143,15 +157,23 @@ abstract class BaseWebsocketClient
         });
 
         // Periodic keepalive PONG every 15 minutes
-        $this->loop->addPeriodicTimer(900, function () use ($conn) {
-            if ($this->wsConnection !== null) {
+        // Store timer reference for cleanup on reconnection
+        $keepaliveTimer = $this->loop->addPeriodicTimer(900, function () use ($conn) {
+            if ($this->wsConnection !== null && $this->wsConnection === $conn) {
                 $conn->send(new Frame('', true, Frame::OP_PONG));
             }
         });
+        $this->connectionTimers[] = $keepaliveTimer;
 
         // Initialize last message timestamp and check for stale connections every 15 seconds
+        // Store timer reference for cleanup on reconnection
         $this->lastMessageAt = microtime(true);
-        $this->loop->addPeriodicTimer(15, function () use ($conn, $callback) {
+        $staleCheckTimer = $this->loop->addPeriodicTimer(15, function () use ($conn, $callback) {
+            // Safety check: only run stale detection for the active connection
+            if ($this->wsConnection !== $conn) {
+                return;
+            }
+
             if ($this->lastMessageAt > 0 && $this->wsConnection !== null) {
                 $silentSeconds = (int) (microtime(true) - $this->lastMessageAt);
                 if ($silentSeconds > $this->staleThresholdSeconds) {
@@ -166,6 +188,7 @@ abstract class BaseWebsocketClient
                 }
             }
         });
+        $this->connectionTimers[] = $staleCheckTimer;
 
         // Handle incoming messages
         $conn->on('message', function ($msg) use ($conn, $callback) {
@@ -223,6 +246,25 @@ abstract class BaseWebsocketClient
     protected function onConnectionEstablished(WebSocket $conn, array $callback): void
     {
         // Default: no-op. Child classes can override.
+    }
+
+    /**
+     * Cancel all connection-specific timers.
+     * Called before reconnection to prevent timer accumulation.
+     */
+    protected function cancelConnectionTimers(): void
+    {
+        $timerCount = count($this->connectionTimers);
+
+        if ($timerCount > 0) {
+            error_log("[{$this->exchangeName}] Cancelling {$timerCount} connection timer(s) to prevent accumulation");
+
+            foreach ($this->connectionTimers as $timer) {
+                $this->loop->cancelTimer($timer);
+            }
+
+            $this->connectionTimers = [];
+        }
     }
 
     protected function reconnect(string $url, array $callback): void

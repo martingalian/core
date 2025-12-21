@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\ApiClients\Websocket;
 
 use Martingalian\Core\Abstracts\BaseWebsocketClient;
+use React\EventLoop\TimerInterface;
 
 /**
  * KucoinApiClient (WebSocket)
@@ -36,6 +37,12 @@ final class KucoinApiClient extends BaseWebsocketClient
     protected ?string $connectId = null;
 
     protected int $pingInterval = 30000;
+
+    /**
+     * Reference to the ping timer so we can cancel it on reconnection.
+     * This prevents timer accumulation (zombie timers pinging closed connections).
+     */
+    protected ?TimerInterface $pingTimer = null;
 
     public function __construct(array $config)
     {
@@ -82,6 +89,13 @@ final class KucoinApiClient extends BaseWebsocketClient
 
     protected function onConnectionEstablished(\Ratchet\Client\WebSocket $conn, array $callback): void
     {
+        // CRITICAL: Cancel any existing ping timer before creating a new one.
+        // This prevents timer accumulation (zombie timers pinging closed connections).
+        if ($this->pingTimer !== null) {
+            $this->loop->cancelTimer($this->pingTimer);
+            $this->pingTimer = null;
+        }
+
         // IMMEDIATELY send subscriptions after connection (before event handlers are set up)
         if (! empty($this->subscriptionArgs)) {
             // KuCoin /contract/instrument topic for mark price updates
@@ -106,12 +120,16 @@ final class KucoinApiClient extends BaseWebsocketClient
         ]));
 
         // Send periodic ping based on pingInterval from token response
+        // Store timer reference for cleanup on reconnection
         $pingIntervalSeconds = max(1, (int) ($this->pingInterval / 1000));
-        $this->loop->addPeriodicTimer($pingIntervalSeconds, function () use ($conn) {
-            $conn->send(json_encode([
-                'id' => $this->generateMessageId(),
-                'type' => 'ping',
-            ]));
+        $this->pingTimer = $this->loop->addPeriodicTimer($pingIntervalSeconds, function () use ($conn) {
+            // Safety check: only send ping if this is still the active connection
+            if ($this->wsConnection === $conn) {
+                $conn->send(json_encode([
+                    'id' => $this->generateMessageId(),
+                    'type' => 'ping',
+                ]));
+            }
         });
     }
 
