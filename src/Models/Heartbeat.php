@@ -80,8 +80,8 @@ final class Heartbeat extends BaseModel
     /**
      * Record a heartbeat for a given process.
      *
-     * Uses atomic INSERT ... ON DUPLICATE KEY UPDATE to avoid deadlocks
-     * when multiple workers update heartbeats simultaneously.
+     * Uses UPDATE-first pattern to avoid deadlocks and handle NULL values
+     * in unique constraints (MySQL doesn't match NULLs in unique keys).
      *
      * @param  array<string, mixed>|null  $metadata
      */
@@ -97,30 +97,51 @@ final class Heartbeat extends BaseModel
         $now = now()->toDateTimeString();
         $metadataJson = $metadata !== null ? json_encode($metadata) : null;
 
-        // Atomic upsert: single statement, no locks, no deadlocks
-        DB::statement(
-            'INSERT INTO heartbeats (canonical, api_system_id, account_id, `group`, last_beat_at, beat_count, metadata, last_payload, memory_usage_mb, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-                last_beat_at = VALUES(last_beat_at),
+        // Try UPDATE first (handles NULL values correctly with <=> operator)
+        $updated = DB::update(
+            'UPDATE heartbeats SET
+                last_beat_at = ?,
                 beat_count = beat_count + 1,
-                metadata = VALUES(metadata),
-                last_payload = VALUES(last_payload),
-                memory_usage_mb = VALUES(memory_usage_mb),
-                updated_at = VALUES(updated_at)',
+                metadata = ?,
+                last_payload = ?,
+                memory_usage_mb = ?,
+                updated_at = ?
+             WHERE canonical = ?
+               AND api_system_id <=> ?
+               AND account_id <=> ?
+               AND `group` <=> ?',
             [
-                $canonical,
-                $apiSystemId,
-                $accountId,
-                $group,
                 $now,
                 $metadataJson,
                 $lastPayload,
                 $memoryUsageMb,
                 $now,
-                $now,
+                $canonical,
+                $apiSystemId,
+                $accountId,
+                $group,
             ]
         );
+
+        // Only INSERT if no row was updated (first heartbeat)
+        if ($updated === 0) {
+            DB::insert(
+                'INSERT INTO heartbeats (canonical, api_system_id, account_id, `group`, last_beat_at, beat_count, metadata, last_payload, memory_usage_mb, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)',
+                [
+                    $canonical,
+                    $apiSystemId,
+                    $accountId,
+                    $group,
+                    $now,
+                    $metadataJson,
+                    $lastPayload,
+                    $memoryUsageMb,
+                    $now,
+                    $now,
+                ]
+            );
+        }
     }
 
     /**
@@ -132,8 +153,8 @@ final class Heartbeat extends BaseModel
      * - Disconnected: Max reconnect attempts reached
      * - Stale: Connection open but no messages received (zombie)
      *
-     * Uses atomic INSERT ... ON DUPLICATE KEY UPDATE to avoid deadlocks
-     * when multiple workers update heartbeats simultaneously.
+     * Uses UPDATE-first pattern to avoid deadlocks and handle NULL values
+     * in unique constraints (MySQL doesn't match NULLs in unique keys).
      *
      * @param  array<string, mixed>|null  $metadata
      */
@@ -157,23 +178,20 @@ final class Heartbeat extends BaseModel
         $effectiveCloseReason = $isConnected ? null : $closeReason;
         $effectiveReconnectAttempts = $isConnected ? 0 : $reconnectAttempts;
 
-        // Atomic upsert: single statement, no locks, no deadlocks
-        DB::statement(
-            'INSERT INTO heartbeats (canonical, api_system_id, account_id, `group`, last_beat_at, beat_count, connection_status, connected_at, last_close_code, last_close_reason, internal_reconnect_attempts, metadata, created_at, updated_at)
-             VALUES (?, ?, NULL, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-                connection_status = VALUES(connection_status),
-                connected_at = COALESCE(VALUES(connected_at), connected_at),
-                last_close_code = VALUES(last_close_code),
-                last_close_reason = VALUES(last_close_reason),
-                internal_reconnect_attempts = VALUES(internal_reconnect_attempts),
-                metadata = COALESCE(VALUES(metadata), metadata),
-                updated_at = VALUES(updated_at)',
+        // Try UPDATE first (handles NULL values correctly with <=> operator)
+        $updated = DB::update(
+            'UPDATE heartbeats SET
+                connection_status = ?,
+                connected_at = COALESCE(?, connected_at),
+                last_close_code = ?,
+                last_close_reason = ?,
+                internal_reconnect_attempts = ?,
+                metadata = COALESCE(?, metadata),
+                updated_at = ?
+             WHERE canonical = ?
+               AND api_system_id <=> ?
+               AND `group` <=> ?',
             [
-                $canonical,
-                $apiSystemId,
-                $group,
-                $now,
                 $status,
                 $connectedAt,
                 $effectiveCloseCode,
@@ -181,9 +199,33 @@ final class Heartbeat extends BaseModel
                 $effectiveReconnectAttempts,
                 $metadataJson,
                 $now,
-                $now,
+                $canonical,
+                $apiSystemId,
+                $group,
             ]
         );
+
+        // Only INSERT if no row was updated (first connection)
+        if ($updated === 0) {
+            DB::insert(
+                'INSERT INTO heartbeats (canonical, api_system_id, account_id, `group`, last_beat_at, beat_count, connection_status, connected_at, last_close_code, last_close_reason, internal_reconnect_attempts, metadata, created_at, updated_at)
+                 VALUES (?, ?, NULL, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                    $canonical,
+                    $apiSystemId,
+                    $group,
+                    $now,
+                    $status,
+                    $connectedAt,
+                    $effectiveCloseCode,
+                    $effectiveCloseReason,
+                    $effectiveReconnectAttempts,
+                    $metadataJson,
+                    $now,
+                    $now,
+                ]
+            );
+        }
     }
 
     /**
