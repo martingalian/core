@@ -7,10 +7,8 @@ namespace Martingalian\Core\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Martingalian\Core\Abstracts\BaseModel;
-use Throwable;
 
 /**
  * @property int $id
@@ -66,26 +64,6 @@ final class Heartbeat extends BaseModel
     ];
 
     /**
-     * Get the API system associated with this heartbeat.
-     *
-     * @return BelongsTo<ApiSystem, $this>
-     */
-    public function apiSystem(): BelongsTo
-    {
-        return $this->belongsTo(ApiSystem::class);
-    }
-
-    /**
-     * Get the account associated with this heartbeat.
-     *
-     * @return BelongsTo<Account, $this>
-     */
-    public function account(): BelongsTo
-    {
-        return $this->belongsTo(Account::class);
-    }
-
-    /**
      * Get the supervisor worker program name from config for an exchange/group.
      *
      * Used by CheckStaleDataCommand to restart stale WebSocket workers.
@@ -102,7 +80,8 @@ final class Heartbeat extends BaseModel
     /**
      * Record a heartbeat for a given process.
      *
-     * Uses upsert pattern: creates row if not exists, updates if exists.
+     * Uses atomic INSERT ... ON DUPLICATE KEY UPDATE to avoid deadlocks
+     * when multiple workers update heartbeats simultaneously.
      *
      * @param  array<string, mixed>|null  $metadata
      */
@@ -115,50 +94,33 @@ final class Heartbeat extends BaseModel
         ?string $lastPayload = null,
         ?float $memoryUsageMb = null
     ): void {
-        self::executeWithDeadlockRetry(static function () use ($canonical, $apiSystemId, $accountId, $group, $metadata, $lastPayload, $memoryUsageMb): void {
-            $existing = self::query()
-                ->where('canonical', $canonical)
-                ->where('api_system_id', $apiSystemId)
-                ->where('account_id', $accountId)
-                ->where('group', $group)
-                ->lockForUpdate()
-                ->first();
+        $now = now()->toDateTimeString();
+        $metadataJson = $metadata !== null ? json_encode($metadata) : null;
 
-            if ($existing) {
-                /** @var Heartbeat $existing */
-                $updateData = [
-                    'last_beat_at' => now(),
-                    'beat_count' => $existing->beat_count + 1,
-                    'last_payload' => $lastPayload,
-                    'memory_usage_mb' => $memoryUsageMb,
-                ];
-
-                // Merge new metadata with existing, but clear restart tracking
-                // since a successful beat means the worker is healthy again
-                $existingMetadata = $existing->metadata ?? [];
-                unset($existingMetadata['restart_attempts'], $existingMetadata['last_restart_at']);
-
-                if ($metadata !== null) {
-                    $updateData['metadata'] = array_merge($existingMetadata, $metadata);
-                } elseif (! empty($existingMetadata)) {
-                    $updateData['metadata'] = $existingMetadata;
-                }
-
-                $existing->update($updateData);
-            } else {
-                self::query()->create([
-                    'canonical' => $canonical,
-                    'api_system_id' => $apiSystemId,
-                    'account_id' => $accountId,
-                    'group' => $group,
-                    'last_beat_at' => now(),
-                    'beat_count' => 1,
-                    'metadata' => $metadata,
-                    'last_payload' => $lastPayload,
-                    'memory_usage_mb' => $memoryUsageMb,
-                ]);
-            }
-        });
+        // Atomic upsert: single statement, no locks, no deadlocks
+        DB::statement(
+            'INSERT INTO heartbeats (canonical, api_system_id, account_id, `group`, last_beat_at, beat_count, metadata, last_payload, memory_usage_mb, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                last_beat_at = VALUES(last_beat_at),
+                beat_count = beat_count + 1,
+                metadata = VALUES(metadata),
+                last_payload = VALUES(last_payload),
+                memory_usage_mb = VALUES(memory_usage_mb),
+                updated_at = VALUES(updated_at)',
+            [
+                $canonical,
+                $apiSystemId,
+                $accountId,
+                $group,
+                $now,
+                $metadataJson,
+                $lastPayload,
+                $memoryUsageMb,
+                $now,
+                $now,
+            ]
+        );
     }
 
     /**
@@ -169,6 +131,9 @@ final class Heartbeat extends BaseModel
      * - Reconnecting: Connection closed, attempting internal reconnect
      * - Disconnected: Max reconnect attempts reached
      * - Stale: Connection open but no messages received (zombie)
+     *
+     * Uses atomic INSERT ... ON DUPLICATE KEY UPDATE to avoid deadlocks
+     * when multiple workers update heartbeats simultaneously.
      *
      * @param  array<string, mixed>|null  $metadata
      */
@@ -182,65 +147,43 @@ final class Heartbeat extends BaseModel
         int $reconnectAttempts = 0,
         ?array $metadata = null
     ): void {
-        self::executeWithDeadlockRetry(static function () use ($canonical, $apiSystemId, $group, $status, $closeCode, $closeReason, $reconnectAttempts, $metadata): void {
-            $heartbeat = self::query()
-                ->where('canonical', $canonical)
-                ->where('api_system_id', $apiSystemId)
-                ->where('group', $group)
-                ->lockForUpdate()
-                ->first();
+        $now = now()->toDateTimeString();
+        $metadataJson = $metadata !== null ? json_encode($metadata) : null;
 
-            if (! $heartbeat) {
-                // Create heartbeat if it doesn't exist (first connection)
-                self::query()->create([
-                    'canonical' => $canonical,
-                    'api_system_id' => $apiSystemId,
-                    'group' => $group,
-                    'last_beat_at' => now(),
-                    'beat_count' => 0,
-                    'connection_status' => $status,
-                    'connected_at' => $status === self::STATUS_CONNECTED ? now() : null,
-                    'last_close_code' => $closeCode,
-                    'last_close_reason' => $closeReason,
-                    'internal_reconnect_attempts' => $reconnectAttempts,
-                    'metadata' => $metadata,
-                ]);
+        // When connected: set connected_at, clear close info, reset reconnect attempts
+        $isConnected = $status === self::STATUS_CONNECTED;
+        $connectedAt = $isConnected ? $now : null;
+        $effectiveCloseCode = $isConnected ? null : $closeCode;
+        $effectiveCloseReason = $isConnected ? null : $closeReason;
+        $effectiveReconnectAttempts = $isConnected ? 0 : $reconnectAttempts;
 
-                return;
-            }
-
-            /** @var Heartbeat $heartbeat */
-            $updateData = [
-                'connection_status' => $status,
-                'internal_reconnect_attempts' => $reconnectAttempts,
-            ];
-
-            // Set connected_at when transitioning to connected
-            if ($status === self::STATUS_CONNECTED) {
-                $updateData['connected_at'] = now();
-                $updateData['last_close_code'] = null;
-                $updateData['last_close_reason'] = null;
-                $updateData['internal_reconnect_attempts'] = 0;
-            }
-
-            // Store close info when transitioning to reconnecting/disconnected
-            if (in_array($status, [self::STATUS_RECONNECTING, self::STATUS_DISCONNECTED])) {
-                if ($closeCode !== null) {
-                    $updateData['last_close_code'] = $closeCode;
-                }
-                if ($closeReason !== null) {
-                    $updateData['last_close_reason'] = $closeReason;
-                }
-            }
-
-            // Merge metadata if provided
-            if ($metadata !== null) {
-                $existingMetadata = $heartbeat->metadata ?? [];
-                $updateData['metadata'] = array_merge($existingMetadata, $metadata);
-            }
-
-            $heartbeat->update($updateData);
-        });
+        // Atomic upsert: single statement, no locks, no deadlocks
+        DB::statement(
+            'INSERT INTO heartbeats (canonical, api_system_id, account_id, `group`, last_beat_at, beat_count, connection_status, connected_at, last_close_code, last_close_reason, internal_reconnect_attempts, metadata, created_at, updated_at)
+             VALUES (?, ?, NULL, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                connection_status = VALUES(connection_status),
+                connected_at = COALESCE(VALUES(connected_at), connected_at),
+                last_close_code = VALUES(last_close_code),
+                last_close_reason = VALUES(last_close_reason),
+                internal_reconnect_attempts = VALUES(internal_reconnect_attempts),
+                metadata = COALESCE(VALUES(metadata), metadata),
+                updated_at = VALUES(updated_at)',
+            [
+                $canonical,
+                $apiSystemId,
+                $group,
+                $now,
+                $status,
+                $connectedAt,
+                $effectiveCloseCode,
+                $effectiveCloseReason,
+                $effectiveReconnectAttempts,
+                $metadataJson,
+                $now,
+                $now,
+            ]
+        );
     }
 
     /**
@@ -259,6 +202,52 @@ final class Heartbeat extends BaseModel
             ->where('api_system_id', $apiSystemId)
             ->where('group', $group)
             ->update(['last_price_data_at' => now()]);
+    }
+
+    /**
+     * Get a human-readable description of the close code.
+     */
+    public static function describeCloseCode(?int $code): string
+    {
+        return match ($code) {
+            null => 'No close code',
+            1000 => 'Normal closure',
+            1001 => 'Going away (server shutting down)',
+            1002 => 'Protocol error',
+            1003 => 'Unsupported data',
+            1005 => 'No status received',
+            1006 => 'Abnormal closure (connection lost)',
+            1007 => 'Invalid frame payload data',
+            1008 => 'Policy violation',
+            1009 => 'Message too big',
+            1010 => 'Mandatory extension missing',
+            1011 => 'Internal server error',
+            1012 => 'Service restart',
+            1013 => 'Try again later',
+            1014 => 'Bad gateway',
+            1015 => 'TLS handshake failure',
+            default => "Unknown code ({$code})",
+        };
+    }
+
+    /**
+     * Get the API system associated with this heartbeat.
+     *
+     * @return BelongsTo<ApiSystem, $this>
+     */
+    public function apiSystem(): BelongsTo
+    {
+        return $this->belongsTo(ApiSystem::class);
+    }
+
+    /**
+     * Get the account associated with this heartbeat.
+     *
+     * @return BelongsTo<Account, $this>
+     */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 
     /**
@@ -365,68 +354,5 @@ final class Heartbeat extends BaseModel
             'reason' => 'Unknown connection status',
             'wait_suggested' => false,
         ]);
-    }
-
-    /**
-     * Get a human-readable description of the close code.
-     */
-    public static function describeCloseCode(?int $code): string
-    {
-        return match ($code) {
-            null => 'No close code',
-            1000 => 'Normal closure',
-            1001 => 'Going away (server shutting down)',
-            1002 => 'Protocol error',
-            1003 => 'Unsupported data',
-            1005 => 'No status received',
-            1006 => 'Abnormal closure (connection lost)',
-            1007 => 'Invalid frame payload data',
-            1008 => 'Policy violation',
-            1009 => 'Message too big',
-            1010 => 'Mandatory extension missing',
-            1011 => 'Internal server error',
-            1012 => 'Service restart',
-            1013 => 'Try again later',
-            1014 => 'Bad gateway',
-            1015 => 'TLS handshake failure',
-            default => "Unknown code ({$code})",
-        };
-    }
-
-    /**
-     * Execute a callback with automatic retry on database deadlock.
-     *
-     * MySQL deadlocks (error 1213) can occur when multiple processes
-     * attempt to lock the same rows simultaneously. This helper retries
-     * the transaction with exponential backoff to resolve contention.
-     *
-     * @param  callable  $callback  The transaction callback to execute
-     * @param  int  $maxAttempts  Maximum retry attempts (default 3)
-     *
-     * @throws Throwable Re-throws exception after max attempts or for non-deadlock errors
-     */
-    public static function executeWithDeadlockRetry(callable $callback, int $maxAttempts = 3): void
-    {
-        $attempts = 0;
-
-        while (true) {
-            try {
-                DB::transaction($callback);
-
-                return;
-            } catch (QueryException $e) {
-                $attempts++;
-
-                // Check if it's a deadlock error (MySQL error 1213)
-                $isDeadlock = str_contains($e->getMessage(), '1213 Deadlock found');
-
-                if (! $isDeadlock || $attempts >= $maxAttempts) {
-                    throw $e;
-                }
-
-                // Random backoff: 10-50ms * attempt number
-                usleep(random_int(10000, 50000) * $attempts);
-            }
-        }
     }
 }
