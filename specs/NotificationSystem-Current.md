@@ -1,6 +1,6 @@
 # Notification System - Current Implementation
 
-**Last Updated**: 2025-12-20
+**Last Updated**: 2025-12-22
 **Status**: Production
 
 ---
@@ -77,12 +77,13 @@ public static function send(
 **Flow**:
 1. Check if notifications globally enabled (`config('martingalian.notifications_enabled')`)
 2. Load `Notification` model by canonical
-3. Determine throttle duration (parameter → database default)
-4. If `$cacheKeys` provided → build cache key string → atomic `Cache::add()` throttle
-5. Else → database throttle via `NotificationLog` query
-6. Call `NotificationMessageBuilder::build()` for message content
-7. Attach `$relatable` as dynamic property on User
-8. Dispatch `AlertNotification` via `$user->notify()`
+3. Check if notification is active (`is_active` column) — if `false`, return early
+4. Determine throttle duration (parameter → database default)
+5. If `$cacheKeys` provided → build cache key string → atomic `Cache::add()` throttle
+6. Else → database throttle via `NotificationLog` query
+7. Call `NotificationMessageBuilder::build()` for message content
+8. Attach `$relatable` as dynamic property on User
+9. Dispatch `AlertNotification` via `$user->notify()`
 
 **Throttling Logic**:
 - `$duration = null` → Use default from `notifications.cache_duration` column
@@ -229,6 +230,7 @@ Registry of notification templates. Controls WHAT to say, not HOW OFTEN.
 | `default_severity` | NotificationSeverity enum |
 | `cache_key` | JSON array of required cache key fields |
 | `cache_duration` | Default throttle in seconds |
+| `is_active` | Per-notification enable/disable toggle (default: true) |
 
 ---
 
@@ -563,6 +565,7 @@ Tracks IP addresses blocked from making API calls.
 | `server_rate_limit_exceeded` | Server Rate Limit Exceeded | Info | `['api_system', 'account', 'server']` | NotificationHandlers |
 | `slow_query_detected` | Slow Database Query Detected | High | - | Query logging |
 | `stale_dispatched_steps_detected` | Stale Dispatched Steps Detected | Critical | - | CheckStaleDataCommand |
+| `stale_priority_steps_detected` | Stale Priority Steps Detected | Critical | - | CheckStaleDataCommand | ⚠️ **Disabled** |
 | `stale_price_detected` | Stale Price Detected | High | - | CheckStaleDataCommand |
 | `token_delisting` | Token Delisting Detected | High | - | ExchangeSymbol observer |
 | `websocket_status_change` | WebSocket Status Change | High | `['api_system', 'group', 'status']` | HeartbeatObserver |
@@ -672,6 +675,7 @@ php artisan test:notification --clean
 - `ForbiddenHostnameNotificationTest.php` — tests all 4 ForbiddenHostname notification types
 - `ApiRequestLogNotificationTest.php` — tests API error notifications
 - `NotificationToggleTest.php` — tests notification enable/disable
+- `NotificationIsActiveTest.php` — tests per-notification is_active toggle
 
 ---
 
@@ -704,6 +708,7 @@ php artisan test:notification --clean
 
 ### Seeders
 - `packages/martingalian/core/database/seeders/ForbiddenHostnameNotificationsSeeder.php`
+- `packages/martingalian/core/database/seeders/DisableStaleStepsNotificationSeeder.php`
 
 ### Testing
 - `app/Console/Commands/Tests/TestNotificationCommand.php`
@@ -724,6 +729,26 @@ php artisan test:notification --clean
 // config/martingalian.php
 'notifications_enabled' => env('NOTIFICATIONS_ENABLED', true),
 ```
+
+### Per-Notification Toggle
+Individual notifications can be disabled via the `is_active` column in the `notifications` table:
+
+```php
+// Disable a notification
+Notification::where('canonical', 'stale_priority_steps_detected')
+    ->update(['is_active' => false]);
+
+// Enable it again
+Notification::where('canonical', 'stale_priority_steps_detected')
+    ->update(['is_active' => true]);
+```
+
+**Behavior**:
+- `is_active = true` (default) → Notification is sent normally
+- `is_active = false` → Notification is blocked, returns `false`
+- Global toggle takes precedence over per-notification toggle
+- Check happens BEFORE throttle logic (saves cache/DB operations)
+- Backwards compatible: if notification record doesn't exist, sends normally
 
 **CRITICAL**: After changing `NOTIFICATIONS_ENABLED` in `.env`, you MUST restart the `schedule-work` supervisor process. Long-running PHP processes (like `schedule:work`) cache config in memory and won't see `.env` changes until restarted.
 
@@ -751,6 +776,7 @@ All notification-related processes must be managed by supervisor to ensure confi
 ### Issue: Notification Not Sent
 **Check**: Is `notifications_enabled` config true?
 **Check**: Is the canonical in the `notifications` table?
+**Check**: Is `is_active` column set to `true` for this canonical?
 **Check**: Is throttling blocking it? Check `notification_logs`
 
 ### Issue: Relatable Not Saved in Log
@@ -778,6 +804,14 @@ All notification-related processes must be managed by supervisor to ensure confi
 ---
 
 ## Changelog
+
+### 2025-12-22
+- Added `is_active` boolean column to `notifications` table (default: true)
+- Per-notification enable/disable without code changes
+- NotificationService now checks `is_active` before sending (step 3 in flow)
+- Disabled `stale_priority_steps_detected` notification via seeder
+- Added `DisableStaleStepsNotificationSeeder` for disabling noisy notifications
+- Added `NotificationIsActiveTest.php` integration tests (7 test cases)
 
 ### 2025-12-20
 - Added HeartbeatObserver for centralized WebSocket status change notifications
