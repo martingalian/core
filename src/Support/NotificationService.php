@@ -87,6 +87,11 @@ final class NotificationService
         // Load notification for throttle duration and cache key template
         $notification = Notification::where('canonical', $canonical)->first();
 
+        // Check if this specific notification is active
+        if ($notification && ! $notification->is_active) {
+            return false;
+        }
+
         // Determine throttle duration:
         // - null: use default from notifications table
         // - 0: no throttling (send immediately)
@@ -185,9 +190,11 @@ final class NotificationService
         // Validate all required keys are present
         $missingKeys = [];
         foreach ($template as $requiredKey) {
-            if (array_key_exists($requiredKey, $data)) { continue; }
+            if (array_key_exists($requiredKey, $data)) {
+                continue;
+            }
 
-$missingKeys[] = $requiredKey;
+            $missingKeys[] = $requiredKey;
         }
 
         if (! empty($missingKeys)) {

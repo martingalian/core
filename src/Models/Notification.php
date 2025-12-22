@@ -29,6 +29,7 @@ use Martingalian\Core\Enums\NotificationSeverity;
  * @property bool $verified
  * @property NotificationSeverity|null $default_severity
  * @property array<int, string>|null $cache_key
+ * @property bool $is_active
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, NotificationLog> $logs
@@ -41,18 +42,11 @@ final class Notification extends Model
 
     protected $guarded = [];
 
-    /**
-     * Create a new factory instance for the model.
-     */
-    protected static function newFactory(): NotificationFactory
-    {
-        return NotificationFactory::new();
-    }
-
     protected $casts = [
         'default_severity' => NotificationSeverity::class,
         'verified' => 'boolean',
         'cache_key' => 'array',
+        'is_active' => 'boolean',
     ];
 
     /**
@@ -63,5 +57,13 @@ final class Notification extends Model
     public function logs(): HasMany
     {
         return $this->hasMany(NotificationLog::class);
+    }
+
+    /**
+     * Create a new factory instance for the model.
+     */
+    protected static function newFactory(): NotificationFactory
+    {
+        return NotificationFactory::new();
     }
 }
