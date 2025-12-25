@@ -168,7 +168,7 @@ return new class extends Migration
             $table->unsignedBigInteger('symbol_id');
             $table->unsignedBigInteger('quote_id');
             $table->unsignedInteger('api_system_id');
-            $table->boolean('is_manually_enabled')->default(0)->comment('Manual admin override: 0=default behavior, 1=force enabled');
+            $table->boolean('is_manually_enabled')->default(1)->comment('Manual admin override: 1=enabled (default), 0=disabled');
             $table->boolean('has_stale_price')->default(false)->comment('True when mark_price_synced_at is stale (older than threshold)');
             $table->boolean('has_no_indicator_data')->default(false)->comment('True when TAAPI returns no data (3+ failures)');
             $table->boolean('has_price_trend_misalignment')->default(false)->comment('True when price movement contradicts concluded direction');
