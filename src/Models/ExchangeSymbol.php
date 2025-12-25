@@ -58,6 +58,7 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property-read ApiSystem $apiSystem
  * @property-read string|null $parsed_trading_pair
  * @property-read string|null $parsed_trading_pair_extended
+ * @property-read bool $is_tradeable
  */
 final class ExchangeSymbol extends BaseModel
 {

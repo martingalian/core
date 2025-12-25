@@ -52,6 +52,15 @@ trait HasAccessors
     }
 
     /**
+     * Accessor for the `is_tradeable` attribute.
+     * Returns whether this exchange symbol is valid for trading.
+     */
+    public function getIsTradeableAttribute(): bool
+    {
+        return $this->isTradeable();
+    }
+
+    /**
      * Look up the displayed trading pair by raw asset name and api_system_id.
      * Used to convert exchange-specific formats (e.g., PF_XBTUSD) to clean display (e.g., XBT/USD).
      *
