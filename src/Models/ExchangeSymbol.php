@@ -38,6 +38,15 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property int $quantity_precision
  * @property float|null $min_notional
  * @property float $tick_size
+ * @property float|null $min_price
+ * @property float|null $max_price
+ * @property int|null $total_limit_orders
+ * @property array|null $limit_quantity_multipliers
+ * @property float|null $disable_on_price_spike_percentage
+ * @property int|null $price_spike_cooldown_hours
+ * @property int|null $delivery_ts_ms
+ * @property \Illuminate\Support\Carbon|null $delivery_at
+ * @property \Illuminate\Support\Carbon|null $tradeable_at
  * @property array|null $symbol_information
  * @property array|null $leverage_brackets
  * @property float|null $mark_price

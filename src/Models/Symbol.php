@@ -14,6 +14,8 @@ use Martingalian\Core\Database\Factories\SymbolFactory;
  * @property string $token
  * @property string $name
  * @property string|null $description
+ * @property string|null $site_url
+ * @property string|null $image_url
  * @property int|null $cmc_id
  * @property int|null $cmc_ranking
  * @property bool $is_stable_coin
