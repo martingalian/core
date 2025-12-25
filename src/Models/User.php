@@ -203,19 +203,19 @@ final class User extends Authenticatable
      */
     public function getNotificationChannelsAttribute($value): array
     {
-        $channels = is_string($value) ? json_decode($value, true) : $value;
+        $channels = is_string($value) ? json_decode($value, associative: true) : $value;
 
         if (! is_array($channels) || empty($channels)) {
             return [];
         }
 
-        return array_map(static function ($channel) {
+        return array_map(callback: static function ($channel) {
             return match ($channel) {
                 'pushover' => PushoverChannel::class,
                 'mail' => 'mail',
                 default => $channel
             };
-        }, $channels);
+        }, array: $channels);
     }
 
     /**

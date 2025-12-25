@@ -22,7 +22,7 @@ trait MapsOrderCancel
 
     public function resolveOrderCancelResponse(Response $response): array
     {
-        $result = json_decode((string) $response->getBody(), true);
+        $result = json_decode((string) $response->getBody(), associative: true);
 
         return [
             'order_id' => $result['orderId'],

@@ -133,10 +133,7 @@ final class QuerySymbolIndicatorsBulkJob extends BaseApiableJob
             // Build ALL indicator parameter sets for this symbol
             foreach ($this->indicators as $indicator) {
                 $indicatorClass = $indicator->class;
-                $indicatorInstance = new $indicatorClass($exchangeSymbol, array_merge(
-                    $indicator->parameters ?? [],
-                    ['interval' => $this->timeframe]
-                ));
+                $indicatorInstance = new $indicatorClass($exchangeSymbol, array_merge($indicator->parameters ?? [], ['interval' => $this->timeframe]));
 
                 $params = $indicatorInstance->parameters();
                 $params['indicator'] = $indicatorInstance->endpoint;
@@ -190,7 +187,7 @@ final class QuerySymbolIndicatorsBulkJob extends BaseApiableJob
         // Make the API call using proper infrastructure
         $guzzleResponse = $apiAccount->withApi()->getBulkIndicatorsValues($apiProperties);
 
-        return json_decode((string) $guzzleResponse->getBody(), true);
+        return json_decode((string) $guzzleResponse->getBody(), associative: true);
     }
 
     /**

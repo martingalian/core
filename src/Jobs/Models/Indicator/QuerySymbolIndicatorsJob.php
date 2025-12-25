@@ -87,7 +87,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
         $guzzleResponse = $apiAccount->withApi()->getBulkIndicatorsValues($apiProperties);
 
         // Parse Guzzle response to array
-        $response = json_decode((string) $guzzleResponse->getBody(), true);
+        $response = json_decode((string) $guzzleResponse->getBody(), associative: true);
 
         // Parse and store results
         return $this->parseAndStoreResults($response, $exchangeSymbol, $indicators);
@@ -112,10 +112,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
         // Build ALL indicator parameter sets for this symbol
         foreach ($indicators as $indicator) {
             $indicatorClass = $indicator->class;
-            $indicatorInstance = new $indicatorClass($exchangeSymbol, array_merge(
-                $indicator->parameters ?? [],
-                ['interval' => $this->timeframe]
-            ));
+            $indicatorInstance = new $indicatorClass($exchangeSymbol, array_merge($indicator->parameters ?? [], ['interval' => $this->timeframe]));
 
             $params = $indicatorInstance->parameters();
             $params['indicator'] = $indicatorInstance->endpoint;
@@ -128,7 +125,7 @@ final class QuerySymbolIndicatorsJob extends BaseApiableJob
 
         return [
             'exchange' => 'binancefutures',
-            'symbol' => str_replace('-', '/', $exchangeSymbol->token.'/'.$exchangeSymbol->quote),
+            'symbol' => str_replace(search: '-', replace: '/', subject: $exchangeSymbol->token.'/'.$exchangeSymbol->quote),
             'interval' => $this->timeframe,
             'indicators' => $indicatorsArray,
         ];

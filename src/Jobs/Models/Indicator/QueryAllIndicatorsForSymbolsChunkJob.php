@@ -118,7 +118,7 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
 
         // Parse Guzzle response to array
         info_if('[QueryAllIndicatorsForSymbolsChunkJob] Parsing response...');
-        $response = json_decode((string) $guzzleResponse->getBody(), true);
+        $response = json_decode((string) $guzzleResponse->getBody(), associative: true);
         info_if('[QueryAllIndicatorsForSymbolsChunkJob] Response parsed, data count: '.(isset($response['data']) ? count($response['data']) : 0));
 
         // Parse and store results
@@ -160,10 +160,7 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
             // Build ALL indicator parameter sets for this symbol
             foreach ($indicators as $indicator) {
                 $indicatorClass = $indicator->class;
-                $indicatorInstance = new $indicatorClass($exchangeSymbol, array_merge(
-                    $indicator->parameters ?? [],
-                    ['interval' => $this->timeframe]
-                ));
+                $indicatorInstance = new $indicatorClass($exchangeSymbol, array_merge($indicator->parameters ?? [], ['interval' => $this->timeframe]));
 
                 $params = $indicatorInstance->parameters();
                 $params['indicator'] = $indicatorInstance->endpoint;
@@ -176,7 +173,7 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
 
             $constructs[] = [
                 'exchange' => 'binancefutures',
-                'symbol' => str_replace('-', '/', $exchangeSymbol->symbol->token.'/'.$exchangeSymbol->quote->canonical),
+                'symbol' => str_replace(search: '-', replace: '/', subject: $exchangeSymbol->symbol->token.'/'.$exchangeSymbol->quote->canonical),
                 'interval' => $this->timeframe,
                 'indicators' => $indicatorsArray,
             ];

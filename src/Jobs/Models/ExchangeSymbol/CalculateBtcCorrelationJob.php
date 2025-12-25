@@ -109,9 +109,9 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
             $rollingResults[$timeframe] = $result['rolling'];
             $timeframeDetails[$timeframe] = [
                 'candles_analyzed' => $result['candles_analyzed'],
-                'pearson' => round($result['pearson'], 4),
-                'spearman' => round($result['spearman'], 4),
-                'rolling' => round($result['rolling'], 4),
+                'pearson' => round($result['pearson'], precision: 4),
+                'spearman' => round($result['spearman'], precision: 4),
+                'rolling' => round($result['rolling'], precision: 4),
             ];
         }
 
@@ -294,8 +294,8 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
         $weights = [];
 
         for ($i = 0; $i <= $n - $windowSize; $i += $stepSize) {
-            $windowX = array_slice($x, $i, $windowSize);
-            $windowY = array_slice($y, $i, $windowSize);
+            $windowX = array_slice($x, $i, length: $windowSize);
+            $windowY = array_slice($y, $i, length: $windowSize);
 
             $correlation = $this->calculatePearsonCorrelation($windowX, $windowY);
             $correlations[] = $correlation;

@@ -126,7 +126,7 @@ final class KucoinExceptionHandler extends BaseExceptionHandler
         // Check KuCoin-specific rate limit code
         if ($exception instanceof RequestException && $exception->hasResponse()) {
             $body = (string) $exception->getResponse()->getBody();
-            $json = json_decode($body, true);
+            $json = json_decode($body, associative: true);
 
             if (is_array($json) && isset($json['code'])) {
                 // KuCoin rate limit error code
@@ -156,12 +156,12 @@ final class KucoinExceptionHandler extends BaseExceptionHandler
         // Check KuCoin-specific account blocked codes
         if ($exception instanceof RequestException && $exception->hasResponse()) {
             $body = (string) $exception->getResponse()->getBody();
-            $json = json_decode($body, true);
+            $json = json_decode($body, associative: true);
 
             if (is_array($json) && isset($json['code'])) {
                 // 400100: Invalid API key
                 // 411100: User is frozen
-                if (in_array($json['code'], ['400100', '411100'], true)) {
+                if (in_array($json['code'], ['400100', '411100'], strict: true)) {
                     return true;
                 }
             }
@@ -222,7 +222,7 @@ final class KucoinExceptionHandler extends BaseExceptionHandler
         // Check KuCoin-specific retryable codes
         if ($exception instanceof RequestException && $exception->hasResponse()) {
             $body = (string) $exception->getResponse()->getBody();
-            $json = json_decode($body, true);
+            $json = json_decode($body, associative: true);
 
             if (is_array($json) && isset($json['code'])) {
                 // 300000: Internal error (retryable)
@@ -281,7 +281,7 @@ final class KucoinExceptionHandler extends BaseExceptionHandler
         // KuCoin uses "code" and "msg" fields
         if ($input instanceof RequestException && $input->hasResponse()) {
             $body = (string) $input->getResponse()->getBody();
-            $json = json_decode($body, true);
+            $json = json_decode($body, associative: true);
 
             if (is_array($json)) {
                 // Extract KuCoin error code and message

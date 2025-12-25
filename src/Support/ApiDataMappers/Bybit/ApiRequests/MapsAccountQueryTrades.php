@@ -60,11 +60,11 @@ trait MapsAccountQueryTrades
      */
     public function resolveQueryTradeResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $result = $data['result'] ?? [];
         $trades = $result['list'] ?? [];
 
-        return array_map(static function (array $trade): array {
+        return array_map(callback: static function (array $trade): array {
             return [
                 'tradeId' => $trade['execId'] ?? null,
                 'orderId' => $trade['orderId'] ?? null,
@@ -78,6 +78,6 @@ trait MapsAccountQueryTrades
                 'timestamp' => $trade['execTime'] ?? null,
                 '_raw' => $trade,
             ];
-        }, $trades);
+        }, array: $trades);
     }
 }

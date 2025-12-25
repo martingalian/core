@@ -50,20 +50,20 @@ trait MapsAlgoOrdersQuery
      */
     public function resolveQueryAlgoOrdersResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // Response is a raw array of orders, not wrapped in {"orders": [...]}
         $orders = is_array($data) && ! isset($data['code']) ? $data : [];
 
-        return array_map(function (array $order): array {
+        return array_map(callback: function (array $order): array {
             $order['_price'] = $this->computeAlgoOrderPrice($order);
             $order['_orderType'] = $this->canonicalAlgoOrderType($order);
-
+        
             // Mark as algo order for frontend distinction
             $order['order_source'] = 'algo';
-
+        
             return $order;
-        }, $orders);
+        }, array: $orders);
     }
 
     /**

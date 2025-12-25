@@ -48,7 +48,7 @@ final class VerifyTradingPairNotOpenJob extends BaseQueueableJob
         // 1. Check open positions from api_snapshots
         $openPositions = ApiSnapshot::getFrom($account, 'account-positions') ?? [];
 
-        if (array_key_exists($positionKey, $openPositions)) {
+        if (array_key_exists(key: $positionKey, array: $openPositions)) {
             $this->tradingPairIsOpen = true;
             $this->reason = "Position {$positionKey} already exists on exchange";
 

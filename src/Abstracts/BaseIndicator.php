@@ -54,7 +54,7 @@ abstract class BaseIndicator
         $mergedParams = array_merge($indicatorParams, $parameters);
 
         // Enforce the presence of the "interval" parameter.
-        if (! array_key_exists('interval', $mergedParams)) {
+        if (! array_key_exists(key: 'interval', array: $mergedParams)) {
             throw new Exception('Indicator misses key -- interval --');
         }
 
@@ -151,9 +151,9 @@ abstract class BaseIndicator
         // Case 1: Legacy/flat shape with 'timestamp' already present
         if (isset($this->data['timestamp'])) {
             if (is_array($this->data['timestamp'])) {
-                $this->data['timestamp_for_humans'] = array_map(static function ($ts) {
+                $this->data['timestamp_for_humans'] = array_map(callback: static function ($ts) {
                     return date('Y-m-d H:i:s', (int) $ts);
-                }, $this->data['timestamp']);
+                }, array: $this->data['timestamp']);
             } else {
                 $this->data['timestamp_for_humans'] = date('Y-m-d H:i:s', (int) $this->data['timestamp']);
             }
@@ -162,7 +162,7 @@ abstract class BaseIndicator
         }
 
         // Case 2: A list of candles (numeric keys) — extract timestamps column if available
-        if (is_array($this->data) && array_key_exists(0, $this->data) && is_array($this->data[0])) {
+        if (is_array($this->data) && array_key_exists(key: 0, array: $this->data) && is_array($this->data[0])) {
             $timestamps = [];
             foreach ($this->data as $row) {
                 if (!(isset($row['timestamp']))) { continue; }
@@ -173,9 +173,9 @@ $timestamps[] = (int) $row['timestamp'];
             if (! empty($timestamps)) {
                 // Materialize a flat timestamp array + its human variant
                 $this->data['timestamp'] = $timestamps;
-                $this->data['timestamp_for_humans'] = array_map(static function ($ts) {
+                $this->data['timestamp_for_humans'] = array_map(callback: static function ($ts) {
                     return date('Y-m-d H:i:s', (int) $ts);
-                }, $timestamps);
+                }, array: $timestamps);
             }
 
             // If there are no timestamps per candle, we silently skip

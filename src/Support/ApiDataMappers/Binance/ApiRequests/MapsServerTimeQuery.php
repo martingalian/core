@@ -17,7 +17,7 @@ trait MapsServerTimeQuery
 
     public function resolveServerTimeResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // Binance returns: {"serverTime": 1499827319559}
         $timestampMs = (int) ($data['serverTime'] ?? 0);

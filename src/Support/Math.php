@@ -53,7 +53,7 @@ final class Math
         $as = self::toDecimalString($a, $s);
         $bs = self::toDecimalString($b, $s);
 
-        return bccomp($as, $bs, $s);
+        return bccomp($as, $bs, scale: $s);
     }
 
     /**
@@ -73,7 +73,7 @@ final class Math
         self::ensureBcmath();
         $s = self::normalizeScale($scale);
 
-        return bcadd(self::toDecimalString($a, $s), self::toDecimalString($b, $s), $s);
+        return bcadd(self::toDecimalString($a, $s), self::toDecimalString($b, $s), scale: $s);
     }
 
     /**
@@ -95,7 +95,7 @@ final class Math
         self::ensureBcmath();
         $s = self::normalizeScale($scale);
 
-        return bcdiv(self::toDecimalString($a, $s), self::toDecimalString($b, $s), $s);
+        return bcdiv(self::toDecimalString($a, $s), self::toDecimalString($b, $s), scale: $s);
     }
 
     /**
@@ -135,7 +135,7 @@ final class Math
         self::ensureBcmath();
         $s = self::normalizeScale($scale);
 
-        return bcsub(self::toDecimalString($a, $s), self::toDecimalString($b, $s), $s);
+        return bcsub(self::toDecimalString($a, $s), self::toDecimalString($b, $s), scale: $s);
     }
 
     /**
@@ -155,7 +155,7 @@ final class Math
         self::ensureBcmath();
         $s = self::normalizeScale($scale);
 
-        return bcmul(self::toDecimalString($a, $s), self::toDecimalString($b, $s), $s);
+        return bcmul(self::toDecimalString($a, $s), self::toDecimalString($b, $s), scale: $s);
     }
 
     /**
@@ -271,12 +271,12 @@ final class Math
         $bs = self::toDecimalString($b, $s);
         $eps = self::toDecimalString($epsilon, $s);
 
-        $diff = bcsub($as, $bs, $s);
-        if (str_starts_with($diff, '-')) {
+        $diff = bcsub($as, $bs, scale: $s);
+        if (str_starts_with(haystack: $diff, needle: '-')) {
             $diff = mb_substr($diff, 1);
         }
 
-        return bccomp($diff, $eps, $s) <= 0;
+        return bccomp($diff, $eps, scale: $s) <= 0;
     }
 
     /**
@@ -306,7 +306,7 @@ final class Math
                 return '0';
             }
 
-            $v = str_replace(',', '.', $v);
+            $v = str_replace(search: ',', replace: '.', subject: $v);
 
             // Scientific notation handling (e.g., "1e-8" or "-3.2E+5").
             if (preg_match('/^[\+\-]?\d*\.?\d+[eE][\+\-]?\d+$/', $v) === 1) {
@@ -365,7 +365,7 @@ final class Math
             $intPart = $mantissa;
             $fracPart = '';
         } else {
-            $intPart = mb_substr($mantissa, 0, $pos);
+            $intPart = mb_substr($mantissa, 0, length: $pos);
             $fracPart = mb_substr($mantissa, $pos + 1);
         }
 
@@ -391,7 +391,7 @@ final class Math
             if ($left <= 0) {
                 $out = '0.'.str_repeat('0', -$left).$digits;
             } else {
-                $out = mb_substr($digits, 0, $left).'.'.mb_substr($digits, $left);
+                $out = mb_substr($digits, 0, length: $left).'.'.mb_substr($digits, $left);
             }
         }
 
@@ -400,13 +400,13 @@ final class Math
         $out = self::trimZeros($out);
 
         // If there is a fractional part, pad/truncate to given scale for stability.
-        if (str_contains($out, '.')) {
+        if (str_contains(haystack: $out, needle: '.')) {
             // Pad to at least 1 and at most $scale decimals deterministically.
-            [$i, $f] = explode('.', $out, 2);
+            [$i, $f] = explode('.', $out, limit: 2);
             if ($scale <= 0) {
                 $out = $i;
             } else {
-                $f = mb_substr(mb_str_pad($f, $scale, '0'), 0, $scale);
+                $f = mb_substr(mb_str_pad($f, $scale, '0'), 0, length: $scale);
                 $out = mb_rtrim($i.'.'.$f, '.');
                 $out = self::trimZeros($out);
             }
@@ -463,7 +463,7 @@ final class Math
      */
     private static function trimZeros(string $s): string
     {
-        if (str_contains($s, '.')) {
+        if (str_contains(haystack: $s, needle: '.')) {
             $negative = false;
             if ($s[0] === '-') {
                 $negative = true;

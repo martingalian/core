@@ -38,7 +38,7 @@ trait HasAccessors
         $credentials = [];
 
         foreach ($keys as $key) {
-            if (array_key_exists($key, $this->attributes)) {
+            if (array_key_exists(key: $key, array: $this->attributes)) {
                 $credentials[$key] = $this->getAttributeValue($key);
             } else {
                 $credentials[$key] = null;

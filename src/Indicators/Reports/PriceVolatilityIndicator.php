@@ -105,7 +105,7 @@ final class PriceVolatilityIndicator extends BaseIndicator
     public function normalizeCandles($raw): array
     {
         // If it's already a list of candles (0-indexed), return as-is.
-        if (is_array($raw) && array_key_exists(0, $raw) && is_array($raw[0])) {
+        if (is_array($raw) && array_key_exists(key: 0, array: $raw) && is_array($raw[0])) {
             return $raw;
         }
 

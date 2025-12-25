@@ -385,9 +385,9 @@ $indicatorData[$history->indicator->canonical] = [
     private function normalizeScientificNotation(mixed $data): mixed
     {
         if (is_array($data)) {
-            return array_map(function ($value) {
+            return array_map(callback: function ($value) {
                 return $this->normalizeScientificNotation($value);
-            }, $data);
+            }, array: $data);
         }
 
         if (is_float($data)) {
@@ -486,7 +486,7 @@ $indicatorData[$history->indicator->canonical] = [
 $path[] = "{$tf}={$conclusions[$tf]}";
         }
 
-        return implode(' -> ', $path);
+        return implode(separator: ' -> ', array: $path);
     }
 
     /**

@@ -18,7 +18,7 @@ final class ADXIndicator extends BaseIndicator implements ValidationIndicator
 
     public function isValid(): bool
     {
-        if (! array_key_exists(0, $this->data['value'])) {
+        if (! array_key_exists(key: 0, array: $this->data['value'])) {
             return false;
         }
 

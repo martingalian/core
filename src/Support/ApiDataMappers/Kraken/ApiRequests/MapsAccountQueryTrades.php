@@ -54,10 +54,10 @@ trait MapsAccountQueryTrades
      */
     public function resolveQueryTradeResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $fills = $data['fills'] ?? [];
 
-        return array_map(static function (array $fill): array {
+        return array_map(callback: static function (array $fill): array {
             return [
                 'id' => $fill['fill_id'] ?? null,
                 'symbol' => $fill['symbol'] ?? null,
@@ -71,6 +71,6 @@ trait MapsAccountQueryTrades
                 'maker' => ($fill['fillType'] ?? '') === 'maker',
                 '_raw' => $fill,
             ];
-        }, $fills);
+        }, array: $fills);
     }
 }

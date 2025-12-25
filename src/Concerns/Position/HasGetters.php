@@ -153,7 +153,7 @@ trait HasGetters
     public function pnl(): ?string
     {
         // Guard: if quantity is null/zero, return "0"
-        if ($this->quantity === null || bccomp((string) $this->quantity, '0', 8) === 0) {
+        if ($this->quantity === null || bccomp((string) $this->quantity, '0', scale: 8) === 0) {
             return '0';
         }
 
@@ -174,10 +174,10 @@ trait HasGetters
         $side = $this->direction;
 
         $diff = $side === 'LONG'
-            ? bcsub($markPrice, $entryPrice, 16)
-            : bcsub($entryPrice, $markPrice, 16);
+            ? bcsub($markPrice, $entryPrice, scale: 16)
+            : bcsub($entryPrice, $markPrice, scale: 16);
 
-        $pnl = bcmul($diff, $quantity, 16);
+        $pnl = bcmul($diff, $quantity, scale: 16);
 
         // api_format_price returns a numeric string; keep it as string
         return (string) api_format_price($pnl, $this->exchangeSymbol);
@@ -194,7 +194,7 @@ trait HasGetters
             return 0;
         }
 
-        $percent = (float) bcmul($fraction, '100', 2);
+        $percent = (float) bcmul($fraction, '100', scale: 2);
         $bucket = (int) ceil($percent / 10.0);
 
         if ($bucket < 0) {
@@ -218,7 +218,7 @@ trait HasGetters
             return '0.0';
         }
 
-        return number_format((float) bcmul($fraction, '100', 2), 1, '.', '');
+        return number_format((float) bcmul($fraction, '100', scale: 2), 1, '.', '');
     }
 
     /**
@@ -239,27 +239,27 @@ trait HasGetters
         $target = (string) $target;
         $curr = (string) $curr;
 
-        if (bccomp($target, $start, 16) > 0) {
-            $den = bcsub($target, $start, 16);
-            $num = bcsub($curr, $start, 16);
+        if (bccomp($target, $start, scale: 16) > 0) {
+            $den = bcsub($target, $start, scale: 16);
+            $num = bcsub($curr, $start, scale: 16);
         } else {
-            $den = bcsub($start, $target, 16);
-            $num = bcsub($start, $curr, 16);
+            $den = bcsub($start, $target, scale: 16);
+            $num = bcsub($start, $curr, scale: 16);
         }
 
-        if (bccomp($den, '0', 16) === 0) {
+        if (bccomp($den, '0', scale: 16) === 0) {
             return 0.0;
         }
 
-        $fraction = bcdiv($num, $den, 8);
+        $fraction = bcdiv($num, $den, scale: 8);
 
-        if (bccomp($fraction, '0', 8) < 0) {
+        if (bccomp($fraction, '0', scale: 8) < 0) {
             $fraction = '0';
-        } elseif (bccomp($fraction, '1', 8) > 0) {
+        } elseif (bccomp($fraction, '1', scale: 8) > 0) {
             $fraction = '1';
         }
 
-        return (float) bcmul($fraction, '100', 2);
+        return (float) bcmul($fraction, '100', scale: 2);
     }
 
     /**
@@ -280,35 +280,35 @@ trait HasGetters
         $end = (string) $end;
         $curr = (string) $curr;
 
-        if (bccomp($end, $start, 16) > 0) {
-            if (bccomp($curr, $start, 16) <= 0) {
+        if (bccomp($end, $start, scale: 16) > 0) {
+            if (bccomp($curr, $start, scale: 16) <= 0) {
                 $fraction = '0';
-            } elseif (bccomp($curr, $end, 16) >= 0) {
+            } elseif (bccomp($curr, $end, scale: 16) >= 0) {
                 $fraction = '1';
             } else {
-                $num = bcsub($curr, $start, 16);
-                $den = bcsub($end, $start, 16);
-                if (bccomp($den, '0', 16) === 0) {
+                $num = bcsub($curr, $start, scale: 16);
+                $den = bcsub($end, $start, scale: 16);
+                if (bccomp($den, '0', scale: 16) === 0) {
                     return 0.0;
                 }
-                $fraction = bcdiv($num, $den, 8);
+                $fraction = bcdiv($num, $den, scale: 8);
             }
         } else {
-            if (bccomp($curr, $start, 16) >= 0) {
+            if (bccomp($curr, $start, scale: 16) >= 0) {
                 $fraction = '0';
-            } elseif (bccomp($curr, $end, 16) <= 0) {
+            } elseif (bccomp($curr, $end, scale: 16) <= 0) {
                 $fraction = '1';
             } else {
-                $num = bcsub($start, $curr, 16);
-                $den = bcsub($start, $end, 16);
-                if (bccomp($den, '0', 16) === 0) {
+                $num = bcsub($start, $curr, scale: 16);
+                $den = bcsub($start, $end, scale: 16);
+                if (bccomp($den, '0', scale: 16) === 0) {
                     return 0.0;
                 }
-                $fraction = bcdiv($num, $den, 8);
+                $fraction = bcdiv($num, $den, scale: 8);
             }
         }
 
-        return (float) bcmul($fraction, '100', 2);
+        return (float) bcmul($fraction, '100', scale: 2);
     }
 
     /**
@@ -349,11 +349,11 @@ trait HasGetters
         $quantity = (string) $this->quantity;
         $markPrice = (string) $this->exchangeSymbol->mark_price;
 
-        $notional = bcmul($quantity, $markPrice, 16);
+        $notional = bcmul($quantity, $markPrice, scale: 16);
 
         $openPositions = ApiSnapshot::getFrom($this->account, 'account-positions');
 
-        if (is_array($openPositions) && array_key_exists($this->parsed_trading_pair, $openPositions)) {
+        if (is_array($openPositions) && array_key_exists(key: $this->parsed_trading_pair, array: $openPositions)) {
             return $openPositions[$this->parsed_trading_pair]['notional'];
         }
 
@@ -386,38 +386,38 @@ trait HasGetters
         $curr = (string) $curr;
 
         // Compute fraction depending on whether end < start or end >= start
-        if (bccomp($end, $start, 16) < 0) {
-            if (bccomp($curr, $start, 16) >= 0) {
+        if (bccomp($end, $start, scale: 16) < 0) {
+            if (bccomp($curr, $start, scale: 16) >= 0) {
                 $fraction = '0';
-            } elseif (bccomp($curr, $end, 16) <= 0) {
+            } elseif (bccomp($curr, $end, scale: 16) <= 0) {
                 $fraction = '1';
             } else {
-                $num = bcsub($start, $curr, 16);
-                $den = bcsub($start, $end, 16);
-                if (bccomp($den, '0', 16) === 0) {
+                $num = bcsub($start, $curr, scale: 16);
+                $den = bcsub($start, $end, scale: 16);
+                if (bccomp($den, '0', scale: 16) === 0) {
                     return '0';
                 }
-                $fraction = bcdiv($num, $den, $scale);
+                $fraction = bcdiv($num, $den, scale: $scale);
             }
         } else {
-            if (bccomp($curr, $start, 16) <= 0) {
+            if (bccomp($curr, $start, scale: 16) <= 0) {
                 $fraction = '0';
-            } elseif (bccomp($curr, $end, 16) >= 0) {
+            } elseif (bccomp($curr, $end, scale: 16) >= 0) {
                 $fraction = '1';
             } else {
-                $num = bcsub($curr, $start, 16);
-                $den = bcsub($end, $start, 16);
-                if (bccomp($den, '0', 16) === 0) {
+                $num = bcsub($curr, $start, scale: 16);
+                $den = bcsub($end, $start, scale: 16);
+                if (bccomp($den, '0', scale: 16) === 0) {
                     return '0';
                 }
-                $fraction = bcdiv($num, $den, $scale);
+                $fraction = bcdiv($num, $den, scale: $scale);
             }
         }
 
         // Clamp to [0,1]
-        if (bccomp($fraction, '0', $scale) < 0) {
+        if (bccomp($fraction, '0', scale: $scale) < 0) {
             $fraction = '0';
-        } elseif (bccomp($fraction, '1', $scale) > 0) {
+        } elseif (bccomp($fraction, '1', scale: $scale) > 0) {
             $fraction = '1';
         }
 

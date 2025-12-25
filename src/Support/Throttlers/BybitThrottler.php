@@ -144,12 +144,12 @@ final class BybitThrottler extends BaseApiThrottler
 
             // Calculate remaining percentage
             $remainingPercentage = $limitStatus / $limitMax;
-            throttle_log($stepId, "         ├─ Remaining percentage: ".round($remainingPercentage * 100, 2).'%');
+            throttle_log($stepId, "         ├─ Remaining percentage: ".round($remainingPercentage * 100, precision: 2).'%');
 
             // If below safety threshold, wait
             if ($remainingPercentage < $safetyThreshold) {
                 throttle_log($stepId, "         ❌ THROTTLED by safety threshold");
-                throttle_log($stepId, "            └─ ".round($remainingPercentage * 100, 2).'% < '.($safetyThreshold * 100).'%');
+                throttle_log($stepId, "            └─ ".round($remainingPercentage * 100, precision: 2).'% < '.($safetyThreshold * 100).'%');
 
                 return 1; // Wait at least 1 second
             }

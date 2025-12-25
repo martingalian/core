@@ -51,7 +51,7 @@ trait MapsAccountQueryTrades
      */
     public function resolveAccountQueryTradesResponse(Response $response): array
     {
-        $body = json_decode((string) $response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), associative: true);
 
         return $body['data']['fillList'] ?? [];
     }

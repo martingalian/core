@@ -195,7 +195,7 @@ trait HandlesStepLifecycle
 
             $message = "Max retries ({$this->step->retries}) reached for Step ID {$this->step->id}.";
             if (! empty($diagnostics)) {
-                $message .= ' | Diagnostics: '.implode(', ', $diagnostics);
+                $message .= ' | Diagnostics: '.implode(separator: ', ', array: $diagnostics);
             }
 
             throw new MaxRetriesReachedException($message);

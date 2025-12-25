@@ -190,7 +190,7 @@ final class NotificationService
         // Validate all required keys are present
         $missingKeys = [];
         foreach ($template as $requiredKey) {
-            if (array_key_exists($requiredKey, $data)) {
+            if (array_key_exists(key: $requiredKey, array: $data)) {
                 continue;
             }
 
@@ -199,7 +199,7 @@ final class NotificationService
 
         if (! empty($missingKeys)) {
             throw new InvalidArgumentException(
-                "Missing required cache keys for canonical '{$canonical}': ".implode(', ', $missingKeys)
+                "Missing required cache keys for canonical '{$canonical}': ".implode(separator: ', ', array: $missingKeys)
             );
         }
 
@@ -210,7 +210,7 @@ final class NotificationService
             $parts[] = "{$key}:{$value}";
         }
 
-        $construction = implode(',', $parts);
+        $construction = implode(separator: ',', array: $parts);
 
         // Final format: {canonical}-{construction}
         return "{$canonical}-{$construction}";

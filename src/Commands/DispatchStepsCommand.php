@@ -41,11 +41,11 @@ final class DispatchStepsCommand extends BaseCommand
                 $groups = preg_split('/[,\s;|:]+/', $opt, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
                 // Normalize "null"/"NULL" to actual null (to target the global group if desired)
-                $groups = array_map(static function ($g) {
+                $groups = array_map(callback: static function ($g) {
                     $g = mb_trim($g);
-
+                
                     return ($g === '' || strcasecmp($g, 'null') === 0) ? null : $g;
-                }, $groups);
+                }, array: $groups);
 
                 $groups = array_values(array_unique($groups));
 

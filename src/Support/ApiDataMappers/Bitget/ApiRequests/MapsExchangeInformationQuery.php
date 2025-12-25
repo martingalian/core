@@ -63,7 +63,7 @@ trait MapsExchangeInformationQuery
      */
     public function resolveQueryMarketDataResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         $contracts = $data['data'] ?? [];
 
@@ -83,7 +83,7 @@ trait MapsExchangeInformationQuery
             ->filter(static function ($contract) use ($stablecoins) {
                 $baseCoin = mb_strtoupper($contract['baseCoin'] ?? '');
 
-                return ! in_array($baseCoin, $stablecoins, true);
+                return ! in_array($baseCoin, $stablecoins, strict: true);
             });
 
         return $filtered
@@ -97,7 +97,7 @@ trait MapsExchangeInformationQuery
                 // Calculate tick size from priceEndStep or pricePlace
                 $tickSize = isset($contract['priceEndStep'])
                     ? (float) $contract['priceEndStep']
-                    : pow(10, -$pricePrecision);
+                    : pow(10, exponent: -$pricePrecision);
 
                 return [
                     'pair' => $symbol,

@@ -95,7 +95,7 @@ final class ForbiddenHostname extends BaseModel
         return in_array($this->type, [
             self::TYPE_IP_NOT_WHITELISTED,
             self::TYPE_ACCOUNT_BLOCKED,
-        ], true);
+        ], strict: true);
     }
 
     /**

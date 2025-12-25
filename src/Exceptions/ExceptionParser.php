@@ -35,7 +35,7 @@ final class ExceptionParser
         $this->classname = class_basename($e);
         $this->originalMessage = $e->getMessage();
         $this->line = $e->getLine();
-        $this->filename = str_replace($basePath.DIRECTORY_SEPARATOR, '', $e->getFile());
+        $this->filename = str_replace(search: $basePath.DIRECTORY_SEPARATOR, replace: '', subject: $e->getFile());
         $this->stackTrace = $e->getTraceAsString();
 
         foreach ($e->getTrace() as $frame) {
@@ -48,10 +48,10 @@ final class ExceptionParser
                     $file = $method->getFileName();
 
                     if ($file &&
-                        str_starts_with($file, $basePath) &&
-                        ! str_contains($file, DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR)
+                        str_starts_with(haystack: $file, needle: $basePath) &&
+                        ! str_contains(haystack: $file, needle: DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR)
                     ) {
-                        $this->filename = str_replace($basePath.DIRECTORY_SEPARATOR, '', $file);
+                        $this->filename = str_replace(search: $basePath.DIRECTORY_SEPARATOR, replace: '', subject: $file);
                         break;
                     }
                 } catch (ReflectionException) {
@@ -64,7 +64,7 @@ final class ExceptionParser
             $this->httpStatusCode = $e->getResponse()->getStatusCode();
 
             $body = (string) $e->getResponse()->getBody();
-            $json = json_decode($body, true);
+            $json = json_decode($body, associative: true);
 
             if (is_array($json)) {
                 $this->errorCode = $json['code'] ?? null;

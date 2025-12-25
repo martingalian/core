@@ -39,7 +39,7 @@ trait MapsExchangeInformationQuery
      */
     public function resolveQueryMarketDataResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         $instruments = $data['instruments'] ?? [];
 
@@ -61,7 +61,7 @@ trait MapsExchangeInformationQuery
 
                 // Only include symbols starting with PF_ (perpetual flex) or PI_ (perpetual inverse)
                 // This excludes FF_ (fixed-maturity futures) which have expiry dates
-                return str_starts_with($symbol, 'PF_') || str_starts_with($symbol, 'PI_');
+                return str_starts_with(haystack: $symbol, needle: 'PF_') || str_starts_with(haystack: $symbol, needle: 'PI_');
             })
             // Exclude fiat currency pairs (forex perpetuals)
             ->filter(function ($instrument) use ($fiatCurrencies) {
@@ -69,14 +69,14 @@ trait MapsExchangeInformationQuery
                 $baseQuote = $this->identifyBaseAndQuote($symbol);
 
                 // Exclude if base asset is a fiat currency
-                return ! in_array($baseQuote['base'], $fiatCurrencies, true);
+                return ! in_array($baseQuote['base'], $fiatCurrencies, strict: true);
             })
             // Exclude stablecoins - they don't need price tracking
             ->filter(function ($instrument) use ($stablecoins) {
                 $symbol = $instrument['symbol'] ?? '';
                 $baseQuote = $this->identifyBaseAndQuote($symbol);
 
-                return ! in_array($baseQuote['base'], $stablecoins, true);
+                return ! in_array($baseQuote['base'], $stablecoins, strict: true);
             });
 
         // Prioritize PF_ (flexible_futures) over PI_ (inverse) when both exist for same token/quote
@@ -90,7 +90,7 @@ trait MapsExchangeInformationQuery
             ->map(static function ($group) {
                 // If group has a PF_ contract, use it; otherwise use the first available
                 $pfContract = $group->first(static function ($instrument) {
-                    return str_starts_with($instrument['symbol'], 'PF_');
+                    return str_starts_with(haystack: $instrument['symbol'], needle: 'PF_');
                 });
 
                 return $pfContract ?? $group->first();

@@ -36,7 +36,7 @@ trait MapsGroupedQueryIndicators
 
     public function resolveGroupedQueryIndicatorsResponse(Response $response): array
     {
-        return json_decode((string) $response->getBody(), true);
+        return json_decode((string) $response->getBody(), associative: true);
     }
 
     /**
@@ -53,13 +53,10 @@ trait MapsGroupedQueryIndicators
 
             $parameters = $indicatorModel->parameters ?? [];
 
-            $enrichedIndicator = array_merge(
-                [
-                    'id' => $indicatorModel->canonical,
-                    'indicator' => $indicatorInstance->endpoint,
-                ],
-                $indicatorInstance->parameters
-            );
+            $enrichedIndicator = array_merge([
+                'id' => $indicatorModel->canonical,
+                'indicator' => $indicatorInstance->endpoint,
+            ], $indicatorInstance->parameters);
 
             $enrichedIndicators[] = $enrichedIndicator;
         }

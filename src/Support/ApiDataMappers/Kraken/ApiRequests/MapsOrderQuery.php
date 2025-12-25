@@ -47,7 +47,7 @@ trait MapsOrderQuery
      */
     public function resolveOrderQueryResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $orders = $data['openOrders'] ?? [];
 
         // Find the order (should be pre-filtered, but handle as array)

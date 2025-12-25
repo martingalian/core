@@ -57,7 +57,7 @@ final class ForbiddenHostnameObserver
             $notifyAdmin = in_array($record->type, [
                 ForbiddenHostname::TYPE_IP_BANNED,
                 ForbiddenHostname::TYPE_IP_RATE_LIMITED,
-            ], true);
+            ], strict: true);
 
             // Get the user to notify
             $user = $notifyAdmin

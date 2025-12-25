@@ -41,7 +41,7 @@ trait MapsOrderModify
      */
     public function resolveOrderModifyResponse(Response $response): array
     {
-        $body = json_decode((string) $response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), associative: true);
         $result = $body['data'] ?? [];
 
         return [

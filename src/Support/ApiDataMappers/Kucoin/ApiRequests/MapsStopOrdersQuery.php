@@ -57,18 +57,18 @@ trait MapsStopOrdersQuery
      */
     public function resolveQueryStopOrdersResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $orders = $data['data']['items'] ?? [];
 
-        return array_map(function (array $order): array {
+        return array_map(callback: function (array $order): array {
             $order['_price'] = $this->computeStopOrderPrice($order);
             $order['_orderType'] = $this->canonicalOrderType($order);
-
+        
             // Mark as conditional order for frontend distinction
             $order['order_source'] = 'conditional';
-
+        
             return $order;
-        }, $orders);
+        }, array: $orders);
     }
 
     /**

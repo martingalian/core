@@ -112,9 +112,9 @@ final class BitgetApiDataMapper extends BaseDataMapper
         ];
 
         foreach ($availableQuoteCurrencies as $quoteCurrency) {
-            if (!(str_ends_with($symbol, $quoteCurrency))) { continue; }
+            if (!(str_ends_with(haystack: $symbol, needle: $quoteCurrency))) { continue; }
 
-$base = str_replace($quoteCurrency, '', $symbol);
+$base = str_replace(search: $quoteCurrency, replace: '', subject: $symbol);
 
                 return [
                     'base' => $base,

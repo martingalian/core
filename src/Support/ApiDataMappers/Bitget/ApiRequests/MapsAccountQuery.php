@@ -55,7 +55,7 @@ trait MapsAccountQuery
      */
     public function resolveQueryAccountResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         $accountsData = $data['data'] ?? [];
 

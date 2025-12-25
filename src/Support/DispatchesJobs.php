@@ -122,7 +122,7 @@ trait DispatchesJobs
             foreach ($parameters as $parameter) {
                 $name = $parameter->getName();
 
-                if (array_key_exists($name, $arguments)) {
+                if (array_key_exists(key: $name, array: $arguments)) {
                     $resolvedArguments[] = $arguments[$name];
                 } elseif ($parameter->isDefaultValueAvailable()) {
                     $resolvedArguments[] = $parameter->getDefaultValue();
@@ -133,7 +133,7 @@ trait DispatchesJobs
 
             if (! empty($missingArguments)) {
                 throw new InvalidArgumentException(
-                    '[DispatchesJobs] Missing required arguments: '.implode(', ', $missingArguments)." for class {$class}"
+                    '[DispatchesJobs] Missing required arguments: '.implode(separator: ', ', array: $missingArguments)." for class {$class}"
                 );
             }
 

@@ -143,7 +143,7 @@ final class BybitApiClient extends BaseWebsocketClient
             }
 
             $this->pingCount++;
-            $timeSinceLastPong = $this->lastPongAt > 0 ? round(microtime(true) - $this->lastPongAt, 1) : 'never';
+            $timeSinceLastPong = $this->lastPongAt > 0 ? round(microtime(true) - $this->lastPongAt, precision: 1) : 'never';
 
             $conn->send(json_encode(['op' => 'ping']));
             log_on('bybit-websocket.log', "[CONN#{$connId}] Ping #{$this->pingCount} sent | Pongs received: {$this->pongCount} | Last pong: {$timeSinceLastPong}s ago");
@@ -173,7 +173,7 @@ final class BybitApiClient extends BaseWebsocketClient
             'connection_id' => $this->connectionId,
             'ping_count' => $this->pingCount,
             'pong_count' => $this->pongCount,
-            'last_pong_ago' => $this->lastPongAt > 0 ? round(microtime(true) - $this->lastPongAt, 1) : null,
+            'last_pong_ago' => $this->lastPongAt > 0 ? round(microtime(true) - $this->lastPongAt, precision: 1) : null,
         ];
     }
 }

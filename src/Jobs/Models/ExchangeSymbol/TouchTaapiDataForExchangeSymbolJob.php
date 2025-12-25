@@ -85,7 +85,7 @@ final class TouchTaapiDataForExchangeSymbolJob extends BaseApiableJob
 
         $isNoDataError = false;
         foreach ($noDataPatterns as $pattern) {
-            if (!(str_contains($body, $pattern))) { continue; }
+            if (!(str_contains(haystack: $body, needle: $pattern))) { continue; }
 
 $isNoDataError = true;
                 break;
@@ -146,7 +146,7 @@ $isNoDataError = true;
             return $this->markAsNoData($token, $exchangeName, $formattedSymbol, 'Invalid response type');
         }
 
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // If we got a valid response with candle data, TAAPI has data for this symbol
         if (is_array($data) && (isset($data['timestamp']) || ! empty($data))) {

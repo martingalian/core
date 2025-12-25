@@ -47,10 +47,10 @@ trait MapsMarkPriceQuery
      */
     public function resolveQueryMarkPriceResponse(Response $response): ?string
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // If response is a single ticker or already filtered
-        if (array_key_exists('markPrice', $data)) {
+        if (array_key_exists(key: 'markPrice', array: $data)) {
             return (string) $data['markPrice'];
         }
 

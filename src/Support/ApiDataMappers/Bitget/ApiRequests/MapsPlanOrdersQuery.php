@@ -66,19 +66,19 @@ trait MapsPlanOrdersQuery
      */
     public function resolveQueryPlanOrdersResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $orders = $data['data']['entrustedList'] ?? [];
 
-        return array_map(function (array $order): array {
+        return array_map(callback: function (array $order): array {
             // Add _price using triggerPrice for plan orders
             $order['_price'] = $this->computePlanOrderPrice($order);
             $order['_orderType'] = $this->canonicalOrderType($order);
-
+        
             // Mark as plan order for frontend distinction
             $order['order_source'] = 'plan';
-
+        
             return $order;
-        }, $orders);
+        }, array: $orders);
     }
 
     /**

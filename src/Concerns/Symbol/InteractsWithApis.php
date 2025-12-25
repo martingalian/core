@@ -41,14 +41,14 @@ trait InteractsWithApis
         $this->apiProperties = $this->apiMapper()->prepareSyncMarketDataProperties($this);
         $this->apiProperties->set('account', $this->apiAccount);
         $this->apiResponse = $this->apiAccount->withApi()->getSymbolsMetadata($this->apiProperties);
-        $result = json_decode((string) $this->apiResponse->getBody(), true);
+        $result = json_decode((string) $this->apiResponse->getBody(), associative: true);
 
         // Sync symbol metadata
         $marketData = collect($result['data'])->first();
 
         if ($marketData) {
             // Detect if this is a stablecoin by checking the tags array
-            $isStableCoin = in_array('stablecoin', $marketData['tags'] ?? [], true);
+            $isStableCoin = in_array('stablecoin', $marketData['tags'] ?? [], strict: true);
 
             // Extract primary category from tags
             $cmcCategory = $this->extractPrimaryCategory(
@@ -111,7 +111,7 @@ return $tag;
 $isExcluded = false;
 
                 foreach ($excludePatterns as $pattern) {
-                    if (!(str_contains($tag, $pattern))) { continue; }
+                    if (!(str_contains(haystack: $tag, needle: $pattern))) { continue; }
 
 $isExcluded = true;
                         break;
@@ -124,7 +124,7 @@ $isExcluded = true;
 
         // Priority 2: Return first broad category found
         foreach (self::BROAD_CATEGORIES as $broadCategory) {
-            if (!(in_array($broadCategory, $categoryTags, true))) { continue; }
+            if (!(in_array($broadCategory, $categoryTags, strict: true))) { continue; }
 
 return $broadCategory;
         }

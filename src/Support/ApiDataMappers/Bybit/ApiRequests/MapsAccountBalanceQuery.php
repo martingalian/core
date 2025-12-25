@@ -35,7 +35,7 @@ trait MapsAccountBalanceQuery
      */
     public function resolveGetBalanceResponse(Response $response, Account $account): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $tradingQuote = $account->tradingQuote->canonical ?? 'USDT';
 
         if (! isset($data['result']['list'][0])) {
@@ -67,7 +67,7 @@ trait MapsAccountBalanceQuery
         // Calculate available = wallet - locked (availableToWithdraw is deprecated)
         $walletBalance = $quoteBalance['walletBalance'] ?? '0';
         $locked = $quoteBalance['locked'] ?? '0';
-        $availableBalance = bcsub($walletBalance, $locked, 8);
+        $availableBalance = bcsub($walletBalance, $locked, scale: 8);
 
         return [
             'wallet-balance' => $walletBalance,

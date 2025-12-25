@@ -41,17 +41,17 @@ trait MapsCancelOrders
      */
     public function resolveCancelOrdersResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $cancelStatus = $data['cancelStatus'] ?? [];
 
         $cancelledOrders = $cancelStatus['cancelledOrders'] ?? [];
 
         return [
-            'successList' => array_map(static function (array $order): array {
+            'successList' => array_map(callback: static function (array $order): array {
                 return [
                     'orderId' => $order['order_id'] ?? null,
                 ];
-            }, $cancelledOrders),
+            }, array: $cancelledOrders),
             'failureList' => [], // Kraken doesn't return failed orders in this endpoint
             '_raw' => $data,
         ];

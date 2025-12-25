@@ -143,14 +143,14 @@ final class FetchAndStoreOnCandleJob extends BaseApiableJob
         if ($e instanceof RequestException && $e->hasResponse()) {
             $body = (string) $e->getResponse()->getBody();
             foreach ($ignoredMessages as $msg) {
-                if (!(str_contains($body, $msg))) { continue; }
+                if (!(str_contains(haystack: $body, needle: $msg))) { continue; }
 
 return true;
             }
         }
 
         foreach ($ignoredMessages as $msg) {
-            if (!(str_contains($e->getMessage(), $msg))) { continue; }
+            if (!(str_contains(haystack: $e->getMessage(), needle: $msg))) { continue; }
 
 return true;
         }
@@ -293,7 +293,7 @@ return true;
                 } catch (\Illuminate\Database\QueryException $e) {
                     // With advisory locks, deadlocks should be extremely rare
                     // But keep local retry as optimization (avoids full job dispatch cycle)
-                    if ($e->getCode() === '40001' || str_contains($e->getMessage(), 'Deadlock')) {
+                    if ($e->getCode() === '40001' || str_contains(haystack: $e->getMessage(), needle: 'Deadlock')) {
                         $attempt++;
 
                         if ($attempt >= $maxAttempts) {

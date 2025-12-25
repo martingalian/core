@@ -21,7 +21,7 @@ final class UpdateRecvwindowSafetyDurationCommand extends BaseCommand
 
         // Get the server time from Binance API via the admin account
         $response = $account->withApi()->serverTime();
-        $serverTime = json_decode($response->getBody(), true)['serverTime'];
+        $serverTime = json_decode($response->getBody(), associative: true)['serverTime'];
 
         // Get current system time in milliseconds
         $systemTime = (int) (microtime(true) * 1000);

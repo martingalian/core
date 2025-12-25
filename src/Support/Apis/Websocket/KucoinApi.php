@@ -98,7 +98,7 @@ final class KucoinApi
         $restApi = new KucoinRestApi($this->credentials);
         $response = $restApi->getPublicWebSocketToken();
 
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         if (isset($data['data']['token'], $data['data']['instanceServers'][0])) {
             $server = $data['data']['instanceServers'][0];
@@ -119,7 +119,7 @@ final class KucoinApi
         $restApi = new KucoinRestApi($this->credentials);
         $response = $restApi->getPrivateWebSocketToken();
 
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         if (isset($data['data']['token'], $data['data']['instanceServers'][0])) {
             $server = $data['data']['instanceServers'][0];

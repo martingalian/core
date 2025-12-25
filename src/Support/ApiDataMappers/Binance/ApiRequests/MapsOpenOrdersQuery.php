@@ -20,14 +20,14 @@ trait MapsOpenOrdersQuery
 
     public function resolveQueryOpenOrdersResponse(Response $response): array
     {
-        $orders = json_decode((string) $response->getBody(), true);
+        $orders = json_decode((string) $response->getBody(), associative: true);
 
-        return array_map(function (array $order): array {
+        return array_map(callback: function (array $order): array {
             $order['_price'] = $this->computeOrderPrice($order);
             $order['_orderType'] = $this->canonicalOrderType($order);
-
+        
             return $order;
-        }, $orders);
+        }, array: $orders);
     }
 
     /**

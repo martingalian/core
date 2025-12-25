@@ -107,9 +107,9 @@ final class BybitApiDataMapper extends BaseDataMapper
     public function identifyBaseAndQuote(#[\SensitiveParameter] string $token): array
     {
         // Handle PERP suffix (Bybit uses PERP for USDC-settled perpetual contracts)
-        if (str_ends_with($token, 'PERP')) {
+        if (str_ends_with(haystack: $token, needle: 'PERP')) {
             return [
-                'base' => str_replace('PERP', '', $token),
+                'base' => str_replace(search: 'PERP', replace: '', subject: $token),
                 'quote' => 'USDC',
             ];
         }
@@ -120,10 +120,10 @@ final class BybitApiDataMapper extends BaseDataMapper
         ];
 
         foreach ($availableQuoteCurrencies as $quoteCurrency) {
-            if (!(str_ends_with($token, $quoteCurrency))) { continue; }
+            if (!(str_ends_with(haystack: $token, needle: $quoteCurrency))) { continue; }
 
 return [
-                    'base' => str_replace($quoteCurrency, '', $token),
+                    'base' => str_replace(search: $quoteCurrency, replace: '', subject: $token),
                     'quote' => $quoteCurrency,
                 ];
         }

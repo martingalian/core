@@ -55,7 +55,7 @@ abstract class BaseNotificationHandler
     protected function matchesMapping(int $httpCode, ?int $vendorCode, array $mappings): bool
     {
         // Check if httpCode exists as flat element (e.g., [418, 429])
-        if (in_array($httpCode, $mappings, true)) {
+        if (in_array($httpCode, $mappings, strict: true)) {
             return true;
         }
 
@@ -66,7 +66,7 @@ abstract class BaseNotificationHandler
 
         // Check nested array structure (e.g., [200 => [10003, 10004]])
         foreach ($mappings as $code => $subCodes) {
-            if (!($code === $httpCode && is_array($subCodes) && in_array($vendorCode, $subCodes, true))) { continue; }
+            if (!($code === $httpCode && is_array($subCodes) && in_array($vendorCode, $subCodes, strict: true))) { continue; }
 
 return true;
         }

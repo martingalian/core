@@ -41,6 +41,6 @@ trait FormatsStepResult
 
         $content = (string) $body;
 
-        return json_decode($content, true) ?? $content;
+        return json_decode($content, associative: true) ?? $content;
     }
 }

@@ -30,7 +30,7 @@ trait DatabaseExceptionHelpers
     {
         // Handle advisory lock timeouts (our custom RuntimeException from upsert logic)
         if ($exception instanceof RuntimeException
-            && str_contains($exception->getMessage(), 'Failed to acquire advisory lock')) {
+            && str_contains(haystack: $exception->getMessage(), needle: 'Failed to acquire advisory lock')) {
             return true;
         }
 

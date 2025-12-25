@@ -20,7 +20,7 @@ trait MapsPositionsQuery
 
     public function resolveQueryPositionsResponse(Response $response): array
     {
-        $positions = collect(json_decode((string) $response->getBody(), true))
+        $positions = collect(json_decode((string) $response->getBody(), associative: true))
             ->map(function ($position) {
                 // Format symbol using exchange-specific convention (BTCUSDT for Binance)
                 if (isset($position['symbol'])) {
@@ -39,7 +39,7 @@ trait MapsPositionsQuery
             ->toArray();
 
         // Remove false positive positions (positionAmt = 0.0)
-        return array_filter($positions, static function ($position) {
+        return array_filter($positions, callback: static function ($position) {
             return (float) $position['positionAmt'] !== 0.0;
         });
     }

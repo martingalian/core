@@ -72,7 +72,7 @@ trait MapsOrderQuery
      */
     public function resolveOrderQueryResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $order = $data['data'] ?? [];
 
         if (empty($order)) {

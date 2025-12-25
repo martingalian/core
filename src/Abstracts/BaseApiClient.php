@@ -51,10 +51,7 @@ abstract class BaseApiClient
 
     protected function processRequest(ApiRequest $apiRequest, bool $sendAsJson = false)
     {
-        $headers = array_merge(
-            $this->getHeaders(),
-            (array) ($apiRequest->properties->getOr('headers', []))
-        );
+        $headers = array_merge($this->getHeaders(), (array) ($apiRequest->properties->getOr('headers', [])));
 
         $logData = $this->prepareLogData($apiRequest, $headers);
         $options = $this->prepareRequestOptions($apiRequest, $sendAsJson, $headers);
@@ -172,7 +169,7 @@ abstract class BaseApiClient
         $logData['completed_at'] = now();
         $logData['duration'] = max(0, (int) (($endTime - $startTime) * 1000)); // Ensure non-negative
         $logData['http_response_code'] = $response->getStatusCode();
-        $logData['response'] = json_decode((string) $response->getBody(), true);
+        $logData['response'] = json_decode((string) $response->getBody(), associative: true);
         $logData['http_headers_returned'] = $response->getHeaders();
 
         $this->updateRequestLogData($logData);
@@ -212,7 +209,7 @@ abstract class BaseApiClient
     protected function handleRequestException(RequestException $e, ApiRequest $apiRequest, array $options, array &$logData, float $startTime)
     {
         $logData['http_response_code'] = $e->getResponse() ? $e->getResponse()->getStatusCode() : null;
-        $logData['response'] = $e->getResponse() ? json_decode((string) $e->getResponse()->getBody(), true) : null;
+        $logData['response'] = $e->getResponse() ? json_decode((string) $e->getResponse()->getBody(), associative: true) : null;
         $logData['http_headers_returned'] = $e->getResponse() ? $e->getResponse()->getHeaders() : null;
 
         if ($this->shouldRetryRequest($e)) {

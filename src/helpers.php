@@ -73,7 +73,7 @@ function summarize_model_attributes(Model $model, array $only = []): string
 $parts[] = "{$key}=".var_export($value, true);
     }
 
-    return implode(', ', $parts);
+    return implode(separator: ', ', array: $parts);
 }
 
 function format_model_attributes(Model $model, array $only = [], array $except = []): array
@@ -88,7 +88,7 @@ function format_model_attributes(Model $model, array $only = [], array $except =
             }
 
             // Try first decode
-            $decoded = json_decode($value, true);
+            $decoded = json_decode($value, associative: true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 return [$key => $value];
             }
@@ -104,11 +104,11 @@ function format_model_attributes(Model $model, array $only = [], array $except =
 function deep_clean_json($value)
 {
     if (is_array($value)) {
-        return array_map('deep_clean_json', $value);
+        return array_map(callback: 'deep_clean_json', array: $value);
     }
 
     if (is_string($value)) {
-        $decoded = json_decode($value, true);
+        $decoded = json_decode($value, associative: true);
         if (json_last_error() === JSON_ERROR_NONE) {
             return deep_clean_json($decoded);
         }
@@ -144,7 +144,7 @@ function api_format_quantity($quantity, ExchangeSymbol $exchangeSymbol): string
     $s = number_format((float) $quantity, $precision + 8, '.', '');
     $dot = mb_strpos($s, '.');
     if ($dot !== false) {
-        $s = mb_substr($s, 0, $dot + 1 + $precision);
+        $s = mb_substr($s, 0, length: $dot + 1 + $precision);
     }
     $s = mb_rtrim($s, '0');
     $s = mb_rtrim($s, '.');
@@ -162,13 +162,13 @@ function api_format_price($price, ExchangeSymbol $exchangeSymbol): string
     $t = number_format((float) $tickSize, $precision + 8, '.', '');
 
     // Floor to nearest tick: floor(price / tick) * tick
-    $ratio = floor((float) bcdiv($p, $t, 12)); // high scale to avoid float rounding
-    $floored = bcmul((string) $ratio, $t, $precision + 8);
+    $ratio = floor((float) bcdiv($p, $t, scale: 12)); // high scale to avoid float rounding
+    $floored = bcmul((string) $ratio, $t, scale: $precision + 8);
 
     // Truncate to price precision
     $dot = mb_strpos($floored, '.');
     if ($dot !== false) {
-        $floored = mb_substr($floored, 0, $dot + 1 + $precision);
+        $floored = mb_substr($floored, 0, length: $dot + 1 + $precision);
     }
 
     // Clean trailing zeros
@@ -201,7 +201,7 @@ function log_step(int|string $stepId, string $message): void
     $logFile = "{$logsPath}/step.log";
     $logMessage = "[{$timestamp}] {$message}" . PHP_EOL;
 
-    file_put_contents($logFile, $logMessage, FILE_APPEND | LOCK_EX);
+    file_put_contents($logFile, $logMessage, flags: FILE_APPEND | LOCK_EX);
 }
 
 /**
@@ -231,7 +231,7 @@ function throttle_log(int|string|null $stepId, string $message): void
     $logFile = "{$logsPath}/throttler.log";
     $logMessage = "[{$timestamp}] {$message}" . PHP_EOL;
 
-    file_put_contents($logFile, $logMessage, FILE_APPEND | LOCK_EX);
+    file_put_contents($logFile, $logMessage, flags: FILE_APPEND | LOCK_EX);
 }
 
 /**
@@ -255,5 +255,5 @@ function log_on(string $filename, string $message): void
     $logFile = "{$logsPath}/{$filename}";
     $logMessage = "[{$timestamp}] {$message}" . PHP_EOL;
 
-    file_put_contents($logFile, $logMessage, FILE_APPEND | LOCK_EX);
+    file_put_contents($logFile, $logMessage, flags: FILE_APPEND | LOCK_EX);
 }

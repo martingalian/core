@@ -87,7 +87,7 @@ trait MapsExchangeInformationQuery
      */
     public function resolveQueryMarketDataResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         $contracts = $data['data'] ?? [];
 
@@ -111,7 +111,7 @@ trait MapsExchangeInformationQuery
             ->filter(static function ($contract) use ($stablecoins) {
                 $baseCurrency = mb_strtoupper($contract['baseCurrency'] ?? '');
 
-                return ! in_array($baseCurrency, $stablecoins, true);
+                return ! in_array($baseCurrency, $stablecoins, strict: true);
             });
 
         return $filtered

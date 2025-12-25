@@ -20,7 +20,7 @@ trait MapsExchangeInformationQuery
 
     public function resolveQueryMarketDataResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // Stablecoins to exclude - these don't need price tracking as they're pegged to fiat
         $stablecoins = ['USDC', 'USDT', 'USDE', 'DAI', 'TUSD', 'BUSD', 'FRAX', 'USDP', 'GUSD', 'PAX', 'LUSD', 'SUSD', 'FDUSD', 'PYUSD', 'RLUSD', 'CUSD', 'USDD', 'USDJ', 'USTC', 'EURC', 'EURT'];
@@ -49,7 +49,7 @@ trait MapsExchangeInformationQuery
             ->filter(static function ($symbolData) use ($stablecoins) {
                 $baseAsset = mb_strtoupper($symbolData['baseAsset'] ?? '');
 
-                return ! in_array($baseAsset, $stablecoins, true);
+                return ! in_array($baseAsset, $stablecoins, strict: true);
             })
             ->map(static function ($symbolData) {
                 $filters = collect($symbolData['filters'] ?? []);

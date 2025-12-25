@@ -37,7 +37,7 @@ trait MapsCancelOrders
      */
     public function resolveCancelOrdersResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         return $data['data'] ?? [];
     }

@@ -151,7 +151,7 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
         $data = $this->extractHttpErrorCodes($exception);
         $message = mb_strtolower((string) ($data['message'] ?? ''));
 
-        return str_contains($message, 'ip');
+        return str_contains(haystack: $message, needle: 'ip');
     }
 
     /**
@@ -238,7 +238,7 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
         $message = mb_strtolower((string) ($data['message'] ?? ''));
 
         // If message contains "IP", it's Case 1 (IP not whitelisted), not Case 4
-        return ! str_contains($message, 'ip');
+        return ! str_contains(haystack: $message, needle: 'ip');
     }
 
     /**
@@ -316,7 +316,7 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
     public function backoffSeconds(Throwable $e): int
     {
         if ($e instanceof RequestException && $e->hasResponse()) {
-            if ($this->isRateLimited($e) || in_array($e->getResponse()->getStatusCode(), [429, 418], true)) {
+            if ($this->isRateLimited($e) || in_array($e->getResponse()->getStatusCode(), [429, 418], strict: true)) {
                 $until = $this->rateLimitUntil($e);
                 $delta = max(0, now()->diffInSeconds($until, false));
 
@@ -394,7 +394,7 @@ final class BinanceExceptionHandler extends BaseExceptionHandler
             $interval = Str::after($key, $prefix);
 
             // Parse intervalNum and intervalLetter (e.g., "1m" => num=1, letter=m)
-            if (preg_match('/^(\d+)([smhd])$/i', $interval, $matches)) {
+            if (preg_match('/^(\d+)([smhd])$/i', $interval, matches: $matches)) {
                 $result[$interval] = [
                     'intervalNum' => (int) $matches[1],
                     'intervalLetter' => mb_strtolower($matches[2]),

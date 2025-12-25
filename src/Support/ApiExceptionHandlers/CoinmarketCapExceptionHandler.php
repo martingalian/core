@@ -146,19 +146,19 @@ final class CoinmarketCapExceptionHandler extends BaseExceptionHandler
             : $now;
 
         // Minute-level caps (reset every 60s)
-        if (in_array($vendorCode, $this->cmcMinuteCodes, true)) {
+        if (in_array($vendorCode, $this->cmcMinuteCodes, strict: true)) {
             $resetAt = $this->nextWindowResetAt($serverNow, 1, 'm');
 
             return $resetAt->copy()->addMilliseconds(random_int(20, 80));
         }
 
         // Daily cap: wait until start of next day
-        if (in_array($vendorCode, $this->cmcDailyCodes, true)) {
+        if (in_array($vendorCode, $this->cmcDailyCodes, strict: true)) {
             return $serverNow->copy()->startOfDay()->addDay()->addSeconds(random_int(2, 6));
         }
 
         // Monthly cap: wait until start of next month
-        if (in_array($vendorCode, $this->cmcMonthlyCodes, true)) {
+        if (in_array($vendorCode, $this->cmcMonthlyCodes, strict: true)) {
             return $serverNow->copy()->startOfMonth()->addMonth()->addSeconds(random_int(2, 6));
         }
 

@@ -17,7 +17,7 @@ trait MapsServerTimeQuery
 
     public function resolveServerTimeResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // Bybit returns: {"retCode": 0, "retMsg": "OK", "result": {"timeSecond": "1688639403", "timeNano": "1688639403423213947"}, "time": 1688639403423}
         // Extract from result.timeNano or time field (time is already in milliseconds)

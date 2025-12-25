@@ -141,7 +141,7 @@ final class BitgetExceptionHandler extends BaseExceptionHandler
         // Check BitGet-specific account blocked codes
         if ($exception instanceof RequestException && $exception->hasResponse()) {
             $body = (string) $exception->getResponse()->getBody();
-            $json = json_decode($body, true);
+            $json = json_decode($body, associative: true);
 
             if (is_array($json) && isset($json['code'])) {
                 // 40009: Sign signature error (invalid secret)
@@ -149,7 +149,7 @@ final class BitgetExceptionHandler extends BaseExceptionHandler
                 // 40017: Parameter verification failed or not a trader
                 // 40018: Invalid passphrase
                 // 40037: API key does not exist
-                if (in_array($json['code'], ['40009', '40014', '40017', '40018', '40037'], true)) {
+                if (in_array($json['code'], ['40009', '40014', '40017', '40018', '40037'], strict: true)) {
                     return true;
                 }
             }
@@ -209,13 +209,13 @@ final class BitgetExceptionHandler extends BaseExceptionHandler
         // Check BitGet-specific retryable codes
         if ($exception instanceof RequestException && $exception->hasResponse()) {
             $body = (string) $exception->getResponse()->getBody();
-            $json = json_decode($body, true);
+            $json = json_decode($body, associative: true);
 
             if (is_array($json) && isset($json['code'])) {
                 // 45001: System maintenance
                 // 40725: System release error
                 // 40015: System release error
-                if (in_array($json['code'], ['45001', '40725', '40015'], true)) {
+                if (in_array($json['code'], ['45001', '40725', '40015'], strict: true)) {
                     return true;
                 }
             }
@@ -266,7 +266,7 @@ final class BitgetExceptionHandler extends BaseExceptionHandler
         // BitGet uses "code" and "msg" fields
         if ($input instanceof RequestException && $input->hasResponse()) {
             $body = (string) $input->getResponse()->getBody();
-            $json = json_decode($body, true);
+            $json = json_decode($body, associative: true);
 
             if (is_array($json)) {
                 // Extract BitGet error code and message

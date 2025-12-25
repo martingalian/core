@@ -21,7 +21,7 @@ trait MapsAccountQuery
 
     public function resolveQueryAccountResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // Extract the result data from Bybit's response structure
         if (! isset($data['result'])) {
@@ -43,11 +43,11 @@ trait MapsAccountQuery
             ];
 
             // Remove assets and positions arrays if present (same as Binance mapper)
-            if (array_key_exists('assets', $normalized)) {
+            if (array_key_exists(key: 'assets', array: $normalized)) {
                 unset($normalized['assets']);
             }
 
-            if (array_key_exists('positions', $normalized)) {
+            if (array_key_exists(key: 'positions', array: $normalized)) {
                 unset($normalized['positions']);
             }
 

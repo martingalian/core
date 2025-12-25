@@ -56,7 +56,7 @@ final class VerifyMinAccountBalanceJob extends BaseApiableJob
         $minAccountBalance = $this->account->tradeConfiguration->min_account_balance ?? '100';
 
         // Compare using bccomp for precision (returns -1 if available < min)
-        $this->hasMinBalance = bccomp($availableBalance, $minAccountBalance, 8) >= 0;
+        $this->hasMinBalance = bccomp($availableBalance, $minAccountBalance, scale: 8) >= 0;
 
         return [
             'account_id' => $this->account->id,

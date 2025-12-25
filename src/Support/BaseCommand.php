@@ -23,12 +23,9 @@ abstract class BaseCommand extends Command
      */
     protected function getOptions(): array
     {
-        return array_merge(
-            parent::getOptions(),
-            [
-                new InputOption('output', null, InputOption::VALUE_NONE, 'Display command output (silent by default)'),
-            ]
-        );
+        return array_merge(parent::getOptions(), [
+            new InputOption('output', null, InputOption::VALUE_NONE, 'Display command output (silent by default)'),
+        ]);
     }
 
     /**

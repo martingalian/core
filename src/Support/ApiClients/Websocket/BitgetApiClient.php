@@ -97,13 +97,13 @@ final class BitgetApiClient extends BaseWebsocketClient
         if (! empty($this->subscriptionArgs)) {
             // BitGet allows multiple subscriptions in a single message
             // Format: {"op": "subscribe", "args": [{"instType": "USDT-FUTURES", "channel": "ticker", "instId": "SYMBOL"}]}
-            $args = array_map(static function ($symbol) {
+            $args = array_map(callback: static function ($symbol) {
                 return [
                     'instType' => 'USDT-FUTURES',
                     'channel' => 'ticker',
                     'instId' => $symbol,
                 ];
-            }, $this->subscriptionArgs);
+            }, array: $this->subscriptionArgs);
 
             $subscriptionMessage = json_encode([
                 'op' => 'subscribe',

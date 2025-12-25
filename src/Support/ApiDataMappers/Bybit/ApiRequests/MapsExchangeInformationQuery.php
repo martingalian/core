@@ -26,7 +26,7 @@ trait MapsExchangeInformationQuery
 
     public function resolveQueryMarketDataResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // Bybit V5 API structure: {retCode, retMsg, result: {list: [...], nextPageCursor: ...}}
         $symbols = $data['result']['list'] ?? [];
@@ -72,7 +72,7 @@ trait MapsExchangeInformationQuery
             ->filter(static function ($symbolData) use ($stablecoins) {
                 $baseCoin = mb_strtoupper($symbolData['baseCoin'] ?? '');
 
-                return ! in_array($baseCoin, $stablecoins, true);
+                return ! in_array($baseCoin, $stablecoins, strict: true);
             })
             ->map(static function ($symbolData) {
                 // Extract price filter

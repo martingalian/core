@@ -204,7 +204,7 @@ final class KrakenExceptionHandler extends BaseExceptionHandler
         // Kraken Futures uses "result": "error" and "error": "message"
         if ($input instanceof RequestException && $input->hasResponse()) {
             $body = (string) $input->getResponse()->getBody();
-            $json = json_decode($body, true);
+            $json = json_decode($body, associative: true);
 
             if (is_array($json)) {
                 // Check for Kraken Futures error format

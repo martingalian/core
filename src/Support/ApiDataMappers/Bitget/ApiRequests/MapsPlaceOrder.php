@@ -69,7 +69,7 @@ trait MapsPlaceOrder
      */
     public function resolvePlaceOrderResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $order = $data['data'] ?? [];
 
         // BitGet returns minimal data on place order, so we add computed fields.

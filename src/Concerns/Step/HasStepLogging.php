@@ -41,7 +41,7 @@ trait HasStepLogging
         $timestamp = now()->format('Y-m-d H:i:s.u');
         $logMessage = "[{$timestamp}] {$message}" . PHP_EOL;
 
-        file_put_contents($logFile, $logMessage, FILE_APPEND | LOCK_EX);
+        file_put_contents($logFile, $logMessage, flags: FILE_APPEND | LOCK_EX);
     }
 
     /**

@@ -26,7 +26,7 @@ trait MapsServerTimeQuery
      */
     public function resolveServerTimeResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // Kraken returns ISO 8601 formatted time
         $serverTime = $data['serverTime'] ?? null;

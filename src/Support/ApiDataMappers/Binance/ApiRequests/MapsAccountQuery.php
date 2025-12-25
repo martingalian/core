@@ -20,13 +20,13 @@ trait MapsAccountQuery
 
     public function resolveQueryAccountResponse(Response $response): array
     {
-        $response = json_decode((string) $response->getBody(), true);
+        $response = json_decode((string) $response->getBody(), associative: true);
 
-        if (array_key_exists('assets', $response)) {
+        if (array_key_exists(key: 'assets', array: $response)) {
             unset($response['assets']);
         }
 
-        if (array_key_exists('positions', $response)) {
+        if (array_key_exists(key: 'positions', array: $response)) {
             unset($response['positions']);
         }
 

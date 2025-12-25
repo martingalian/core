@@ -139,7 +139,7 @@ $bindings[$k] = $v->format('Y-m-d H:i:s');
             foreach ($bindings as $binding) {
                 $val = is_null($binding) ? 'NULL' : addslashes((string) $binding);
                 $wrap = is_null($binding) ? 'NULL' : "'{$val}'";
-                $sqlFull = preg_replace('/\?/', $wrap, $sqlFull, 1);
+                $sqlFull = preg_replace('/\?/', $wrap, $sqlFull, limit: 1);
             }
 
             SlowQuery::create([

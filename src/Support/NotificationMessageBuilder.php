@@ -519,7 +519,7 @@ final class NotificationMessageBuilder
                 $thresholdMs = is_int($context['threshold_ms'] ?? null) ? $context['threshold_ms'] : 2500;
 
                 // Truncate SQL for pushover (max ~256 chars recommended)
-                $truncatedSql = mb_strlen($sqlFull) > 100 ? mb_substr($sqlFull, 0, 100).'...' : $sqlFull;
+                $truncatedSql = mb_strlen($sqlFull) > 100 ? mb_substr($sqlFull, 0, length: 100).'...' : $sqlFull;
 
                 return [
                     'severity' => NotificationSeverity::High,

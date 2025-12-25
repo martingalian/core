@@ -105,7 +105,7 @@ abstract class BaseQueueableJob extends BaseJob
             log_step($stepId, '✓ handle() completed successfully');
             log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
         } catch (Throwable $e) {
-            $errorTime = round((microtime(true) - $startTime) * 1000, 2);
+            $errorTime = round((microtime(true) - $startTime) * 1000, precision: 2);
             Log::channel('jobs')->error("[JOB ERROR] Step #{$stepId} | {$jobClass} | After {$errorTime}ms | Error: ".$e->getMessage());
             log_step($stepId, '⚠️⚠️⚠️ EXCEPTION CAUGHT IN handle() ⚠️⚠️⚠️');
             log_step($stepId, 'Exception details:');

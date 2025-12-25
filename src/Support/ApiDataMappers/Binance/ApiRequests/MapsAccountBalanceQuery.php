@@ -31,7 +31,7 @@ trait MapsAccountBalanceQuery
      */
     public function resolveGetBalanceResponse(Response $response, Account $account): array
     {
-        $assets = json_decode((string) $response->getBody(), true);
+        $assets = json_decode((string) $response->getBody(), associative: true);
         $tradingQuote = $account->tradingQuote->canonical ?? 'USDT';
 
         $quoteBalance = collect($assets)

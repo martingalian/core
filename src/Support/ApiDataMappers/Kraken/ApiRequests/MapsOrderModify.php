@@ -31,7 +31,7 @@ trait MapsOrderModify
             $formattedPrice = (string) api_format_price($price, $order->position->exchangeSymbol);
 
             // For stop orders, use stopPrice
-            if (in_array($order->type, ['STOP-MARKET', 'TAKE-PROFIT'], true)) {
+            if (in_array($order->type, ['STOP-MARKET', 'TAKE-PROFIT'], strict: true)) {
                 $properties->set('options.stopPrice', $formattedPrice);
             } else {
                 $properties->set('options.limitPrice', $formattedPrice);
@@ -57,7 +57,7 @@ trait MapsOrderModify
      */
     public function resolveOrderModifyResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $editStatus = $data['editStatus'] ?? [];
 
         $orderEvents = $editStatus['orderEvents'] ?? [];

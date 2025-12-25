@@ -113,8 +113,8 @@ final class CalculateBtcElasticityJob extends BaseQueueableJob
             $timeframeDetails[$timeframe] = [
                 'movements_analyzed_long' => $result['movements_analyzed_long'],
                 'movements_analyzed_short' => $result['movements_analyzed_short'],
-                'elasticity_long' => round($result['elasticity_long'], 4),
-                'elasticity_short' => round($result['elasticity_short'], 4),
+                'elasticity_long' => round($result['elasticity_long'], precision: 4),
+                'elasticity_short' => round($result['elasticity_short'], precision: 4),
             ];
         }
 

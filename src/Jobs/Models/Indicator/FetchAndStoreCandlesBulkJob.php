@@ -194,7 +194,7 @@ final class FetchAndStoreCandlesBulkJob extends BaseApiableJob
 
         $guzzleResponse = $taapiClient->publicRequest($apiRequest);
 
-        return json_decode((string) $guzzleResponse->getBody(), true);
+        return json_decode((string) $guzzleResponse->getBody(), associative: true);
     }
 
     /**
@@ -455,7 +455,7 @@ final class FetchAndStoreCandlesBulkJob extends BaseApiableJob
 
                     return;
                 } catch (\Illuminate\Database\QueryException $e) {
-                    if ($e->getCode() === '40001' || str_contains($e->getMessage(), 'Deadlock')) {
+                    if ($e->getCode() === '40001' || str_contains(haystack: $e->getMessage(), needle: 'Deadlock')) {
                         $attempt++;
 
                         if ($attempt >= $maxAttempts) {

@@ -155,7 +155,7 @@ abstract class BaseApiThrottler
     protected static function calculateExponentialBackoff(int $retryCount): int
     {
         // Exponential growth: retryCount^1.5 for smoother curve
-        $exponential = (int) ceil(pow($retryCount, 1.5));
+        $exponential = (int) ceil(pow($retryCount, exponent: 1.5));
 
         // Add random jitter (0-2 seconds) to spread out retries
         $jitter = random_int(0, 2);

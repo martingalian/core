@@ -274,10 +274,7 @@ final class NotificationWebhookController extends Controller
             $bounceField => $bounceTimestamp,
             'error_message' => $errorMessage,
             'http_headers_received' => $request->headers->all(),
-            'gateway_response' => array_merge(
-                $notificationLog->gateway_response ?? [],
-                ['bounce_event' => $data]
-            ),
+            'gateway_response' => array_merge($notificationLog->gateway_response ?? [], ['bounce_event' => $data]),
         ]);
 
         Log::info('[ZEPTOMAIL WEBHOOK] Bounce processed successfully', [
@@ -400,10 +397,7 @@ final class NotificationWebhookController extends Controller
             'opened_at' => $openedAtTimestamp,
             'status' => 'opened',
             'http_headers_received' => $request->headers->all(),
-            'gateway_response' => array_merge(
-                $notificationLog->gateway_response ?? [],
-                ['open_event' => $data]
-            ),
+            'gateway_response' => array_merge($notificationLog->gateway_response ?? [], ['open_event' => $data]),
         ]);
 
         Log::info('[ZEPTOMAIL WEBHOOK] ✓ Open event processed successfully', [
@@ -486,10 +480,7 @@ final class NotificationWebhookController extends Controller
         // Store click event in gateway_response
         $notificationLog->update([
             'http_headers_received' => $request->headers->all(),
-            'gateway_response' => array_merge(
-                $notificationLog->gateway_response ?? [],
-                ['click_event' => $data]
-            ),
+            'gateway_response' => array_merge($notificationLog->gateway_response ?? [], ['click_event' => $data]),
         ]);
 
         Log::info('[ZEPTOMAIL WEBHOOK] Click event processed successfully', [
@@ -529,9 +520,9 @@ final class NotificationWebhookController extends Controller
         // Parse signature header format: ts=<timestamp>;s=<signature>;s-algorithm=HmacSHA256
         $parts = [];
         foreach (explode(';', $signatureHeader) as $part) {
-            if (!(str_contains($part, '='))) { continue; }
+            if (!(str_contains(haystack: $part, needle: '='))) { continue; }
 
-[$key, $value] = explode('=', $part, 2);
+[$key, $value] = explode('=', $part, limit: 2);
                 $parts[mb_trim($key)] = mb_trim($value);
         }
 

@@ -58,7 +58,7 @@ trait MapsPlaceOrder
 
     public function resolvePlaceOrderResponse(Response $response): array
     {
-        $order = json_decode((string) $response->getBody(), true);
+        $order = json_decode((string) $response->getBody(), associative: true);
         $order['_price'] = $this->computePlaceOrderPrice($order);
         $order['_orderType'] = $this->canonicalOrderType($order);
 

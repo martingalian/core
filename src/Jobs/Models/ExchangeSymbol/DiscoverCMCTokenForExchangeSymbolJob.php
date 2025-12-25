@@ -181,17 +181,17 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
         }
 
         // 4. Strip 1M prefix (1MBABYDOGE → BABYDOGE)
-        if (preg_match('/^1M(.+)$/i', $upperToken, $matches)) {
+        if (preg_match('/^1M(.+)$/i', $upperToken, matches: $matches)) {
             $candidates[] = mb_strtoupper($matches[1]);
         }
 
         // 5. Strip 1K prefix (1KSHIB → SHIB)
-        if (preg_match('/^1K(.+)$/i', $upperToken, $matches)) {
+        if (preg_match('/^1K(.+)$/i', $upperToken, matches: $matches)) {
             $candidates[] = mb_strtoupper($matches[1]);
         }
 
         // 6. Strip 1B prefix (1BCAT → CAT)
-        if (preg_match('/^1B(.+)$/i', $upperToken, $matches)) {
+        if (preg_match('/^1B(.+)$/i', $upperToken, matches: $matches)) {
             $candidates[] = mb_strtoupper($matches[1]);
         }
 
@@ -202,7 +202,7 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
         }
 
         // 8. Strip 1000 anywhere (1000PEPE → PEPE)
-        $stripped1000 = str_replace('1000', '', $upperToken);
+        $stripped1000 = str_replace(search: '1000', replace: '', subject: $upperToken);
         if ($stripped1000 !== $upperToken && $stripped1000 !== '') {
             $candidates[] = $stripped1000;
         }
@@ -210,31 +210,31 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
         // 9. Strip common suffixes (BTCPERP → BTC, BTCUSD → BTC)
         $suffixes = ['PERP', 'USD', 'USDT', 'USDC', 'BUSD', 'PERPETUAL'];
         foreach ($suffixes as $suffix) {
-            if (!(str_ends_with($upperToken, $suffix))) { continue; }
+            if (!(str_ends_with(haystack: $upperToken, needle: $suffix))) { continue; }
 
-$stripped = substr($upperToken, 0, -strlen($suffix));
+$stripped = substr($upperToken, 0, length: -strlen($suffix));
                 if ($stripped !== '') {
                     $candidates[] = $stripped;
                 }
         }
 
         // 10. Strip W prefix for wrapped tokens (WBTC → BTC)
-        if (preg_match('/^W(.+)$/i', $upperToken, $matches) && strlen($matches[1]) >= 2) {
+        if (preg_match('/^W(.+)$/i', $upperToken, matches: $matches) && strlen($matches[1]) >= 2) {
             $candidates[] = mb_strtoupper($matches[1]);
         }
 
         // 11. Strip st prefix for staked tokens (stETH → ETH)
-        if (preg_match('/^ST(.+)$/i', $upperToken, $matches) && strlen($matches[1]) >= 2) {
+        if (preg_match('/^ST(.+)$/i', $upperToken, matches: $matches) && strlen($matches[1]) >= 2) {
             $candidates[] = mb_strtoupper($matches[1]);
         }
 
         // 12. Strip .P suffix for perpetual (BTC.P → BTC)
-        if (str_ends_with($upperToken, '.P')) {
-            $candidates[] = substr($upperToken, 0, -2);
+        if (str_ends_with(haystack: $upperToken, needle: '.P')) {
+            $candidates[] = substr($upperToken, 0, length: -2);
         }
 
         // 13. Try partial match - extract longest alphabetic sequence
-        if (preg_match('/([A-Z]{3,})/', $upperToken, $matches)) {
+        if (preg_match('/([A-Z]{3,})/', $upperToken, matches: $matches)) {
             if ($matches[1] !== $upperToken) {
                 $candidates[] = $matches[1];
             }

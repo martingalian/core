@@ -293,7 +293,7 @@ trait ApiExceptionHelpers
         }
 
         if ($body) {
-            $json = json_decode($body, true);
+            $json = json_decode($body, associative: true);
             if (is_array($json)) {
                 // Common schema (e.g., Binance-like)
                 $statusCode = $json['code'] ?? null;
@@ -343,7 +343,7 @@ trait ApiExceptionHelpers
             ]
         );
 
-        $typeLabel = str_replace('_', ' ', $type);
+        $typeLabel = str_replace(search: '_', replace: ' ', subject: $type);
         log_step('api-exceptions', "----- HOSTNAME FORBIDDEN ({$typeLabel}): {$record->ip_address}");
 
         // Notification is sent by ForbiddenHostnameObserver::created() when the record is newly created
@@ -371,15 +371,15 @@ trait ApiExceptionHelpers
         $httpCode = $data['http_code'];
         $statusCode = $data['status_code'];
 
-        if (array_key_exists($httpCode, $statusCodes)) {
+        if (array_key_exists(key: $httpCode, array: $statusCodes)) {
             $codes = $statusCodes[$httpCode];
 
             return is_array($codes) && $codes !== []
-                ? in_array($statusCode, $codes, true)
+                ? in_array($statusCode, $codes, strict: true)
                 : true;
         }
 
-        return in_array($httpCode, $statusCodes, true);
+        return in_array($httpCode, $statusCodes, strict: true);
     }
 
     /**
@@ -389,7 +389,7 @@ trait ApiExceptionHelpers
     {
         $headers = [];
         foreach ($msg->getHeaders() as $k => $vals) {
-            $headers[mb_strtolower($k)] = implode(', ', $vals);
+            $headers[mb_strtolower($k)] = implode(separator: ', ', array: $vals);
         }
 
         return $headers;

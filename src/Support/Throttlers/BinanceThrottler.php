@@ -287,11 +287,11 @@ final class BinanceThrottler extends BaseApiThrottler
                 $current = Cache::get($key) ?? 0;
                 $percentage = $limit > 0 ? ($current / $limit) : 0;
 
-                throttle_log($stepId, "            [{$type} - {$interval}] Current: {$current}/{$limit} (".round($percentage * 100, 1).'%)');
+                throttle_log($stepId, "            [{$type} - {$interval}] Current: {$current}/{$limit} (".round($percentage * 100, precision: 1).'%)');
 
                 if ($percentage > $safetyThreshold) {
                     throttle_log($stepId, "            ❌ Safety threshold exceeded for {$type} {$interval}");
-                    throttle_log($stepId, "               └─ {$current}/{$limit} = ".round($percentage * 100, 1).'% > '.($safetyThreshold * 100).'%');
+                    throttle_log($stepId, "               └─ {$current}/{$limit} = ".round($percentage * 100, precision: 1).'% > '.($safetyThreshold * 100).'%');
 
                     // Calculate time until this window resets
                     $waitTime = self::calculateWindowResetTime($interval);
@@ -317,7 +317,7 @@ final class BinanceThrottler extends BaseApiThrottler
     protected static function calculateWindowResetTime(string $interval): int
     {
         // Parse interval like "1m", "10s"
-        if (preg_match('/^(\d+)([smhd])$/i', $interval, $matches)) {
+        if (preg_match('/^(\d+)([smhd])$/i', $interval, matches: $matches)) {
             $intervalNum = (int) $matches[1];
             $intervalLetter = mb_strtolower($matches[2]);
 
@@ -358,7 +358,7 @@ final class BinanceThrottler extends BaseApiThrottler
             $interval = Str::after($key, $prefix);
 
             // Parse intervalNum and intervalLetter (e.g., "1m" => num=1, letter=m)
-            if (preg_match('/^(\d+)([smhd])$/i', $interval, $matches)) {
+            if (preg_match('/^(\d+)([smhd])$/i', $interval, matches: $matches)) {
                 $result[$interval] = [
                     'intervalNum' => (int) $matches[1],
                     'intervalLetter' => mb_strtolower($matches[2]),
@@ -392,7 +392,7 @@ final class BinanceThrottler extends BaseApiThrottler
     {
         $headers = [];
         foreach ($msg->getHeaders() as $k => $vals) {
-            $headers[mb_strtolower($k)] = implode(', ', $vals);
+            $headers[mb_strtolower($k)] = implode(separator: ', ', array: $vals);
         }
 
         return $headers;

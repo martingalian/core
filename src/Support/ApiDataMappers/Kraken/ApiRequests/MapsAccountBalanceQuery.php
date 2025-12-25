@@ -40,7 +40,7 @@ trait MapsAccountBalanceQuery
      */
     public function resolveGetBalanceResponse(Response $response, Account $account): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $tradingQuote = mb_strtolower($account->tradingQuote->canonical ?? 'usdt');
 
         // Kraken Futures uses 'flex' account for multi-collateral futures trading

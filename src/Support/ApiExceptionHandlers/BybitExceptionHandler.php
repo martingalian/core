@@ -271,7 +271,7 @@ final class BybitExceptionHandler extends BaseExceptionHandler
     public function backoffSeconds(Throwable $e): int
     {
         if ($e instanceof RequestException && $e->hasResponse()) {
-            if ($this->isRateLimited($e) || in_array($e->getResponse()->getStatusCode(), [429, 403], true)) {
+            if ($this->isRateLimited($e) || in_array($e->getResponse()->getStatusCode(), [429, 403], strict: true)) {
                 $until = $this->rateLimitUntil($e);
                 $delta = max(0, now()->diffInSeconds($until, false));
 
@@ -331,7 +331,7 @@ final class BybitExceptionHandler extends BaseExceptionHandler
         // Parent extracts 'code' by default, but Bybit uses 'retCode'
         if ($input instanceof RequestException && $input->hasResponse()) {
             $body = (string) $input->getResponse()->getBody();
-            $json = json_decode($body, true);
+            $json = json_decode($body, associative: true);
 
             if (is_array($json) && isset($json['retCode'])) {
                 $data['status_code'] = (int) $json['retCode'];

@@ -41,7 +41,7 @@ final class ModelChanges
 
     public function wasChanged(string $key): bool
     {
-        return array_key_exists($key, $this->changes);
+        return array_key_exists(key: $key, array: $this->changes);
     }
 
     public function old(string $key): mixed

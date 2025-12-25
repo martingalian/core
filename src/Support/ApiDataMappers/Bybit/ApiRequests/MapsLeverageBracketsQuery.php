@@ -28,7 +28,7 @@ trait MapsLeverageBracketsQuery
 
     public function resolveLeverageBracketsDataResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // Bybit V5 API structure: {retCode, retMsg, result: {category, list: [...]}}
         $riskLimits = $data['result']['list'] ?? [];

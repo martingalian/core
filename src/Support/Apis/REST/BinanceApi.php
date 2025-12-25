@@ -343,7 +343,7 @@ final class BinanceApi
         $response = $this->client->publicRequest($apiRequest);   // ← unsigned
 
         $body = $response instanceof ResponseInterface
-          ? json_decode((string) $response->getBody(), true)
+          ? json_decode((string) $response->getBody(), associative: true)
           : $response;                                         // array in tests
 
         return $body['listenKey'] ?? throw new RuntimeException('No listenKey returned');
@@ -370,7 +370,7 @@ final class BinanceApi
             ?? throw new RuntimeException('Empty listenKey body and no current key supplied.');
         }
 
-        $data = json_decode($body, true);
+        $data = json_decode($body, associative: true);
 
         // Binance error payload?
         if (isset($data['code'], $data['msg'])) {

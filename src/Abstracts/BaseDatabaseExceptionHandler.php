@@ -61,7 +61,7 @@ abstract class BaseDatabaseExceptionHandler
         // Check message patterns
         if (property_exists($this, 'retryableMessages')) {
             foreach ($this->retryableMessages as $pattern) {
-                if (!(str_contains($e->getMessage(), $pattern))) { continue; }
+                if (!(str_contains(haystack: $e->getMessage(), needle: $pattern))) { continue; }
 
 return true;
             }
@@ -69,7 +69,7 @@ return true;
 
         // Check SQLSTATE codes
         if (property_exists($this, 'retryableSqlStates')) {
-            if (in_array($e->getCode(), $this->retryableSqlStates, true)) {
+            if (in_array($e->getCode(), $this->retryableSqlStates, strict: true)) {
                 return true;
             }
         }
@@ -77,7 +77,7 @@ return true;
         // Check MySQL error numbers (errorInfo[1])
         if (property_exists($this, 'retryableErrorCodes')) {
             $errorCode = $e->errorInfo[1] ?? null;
-            if ($errorCode && in_array($errorCode, $this->retryableErrorCodes, true)) {
+            if ($errorCode && in_array($errorCode, $this->retryableErrorCodes, strict: true)) {
                 return true;
             }
         }
@@ -95,7 +95,7 @@ return true;
         // Check permanent message patterns
         if (property_exists($this, 'permanentMessages')) {
             foreach ($this->permanentMessages as $pattern) {
-                if (!(str_contains($e->getMessage(), $pattern))) { continue; }
+                if (!(str_contains(haystack: $e->getMessage(), needle: $pattern))) { continue; }
 
 return true;
             }
@@ -103,7 +103,7 @@ return true;
 
         // Check permanent SQLSTATE codes
         if (property_exists($this, 'permanentSqlStates')) {
-            if (in_array($e->getCode(), $this->permanentSqlStates, true)) {
+            if (in_array($e->getCode(), $this->permanentSqlStates, strict: true)) {
                 return true;
             }
         }
@@ -111,7 +111,7 @@ return true;
         // Check permanent error codes
         if (property_exists($this, 'permanentErrorCodes')) {
             $errorCode = $e->errorInfo[1] ?? null;
-            if ($errorCode && in_array($errorCode, $this->permanentErrorCodes, true)) {
+            if ($errorCode && in_array($errorCode, $this->permanentErrorCodes, strict: true)) {
                 return true;
             }
         }
@@ -128,7 +128,7 @@ return true;
         // Check ignorable message patterns
         if (property_exists($this, 'ignorableMessages')) {
             foreach ($this->ignorableMessages as $pattern) {
-                if (!(str_contains($e->getMessage(), $pattern))) { continue; }
+                if (!(str_contains(haystack: $e->getMessage(), needle: $pattern))) { continue; }
 
 return true;
             }
@@ -136,7 +136,7 @@ return true;
 
         // Check ignorable SQLSTATE codes
         if (property_exists($this, 'ignorableSqlStates')) {
-            if (in_array($e->getCode(), $this->ignorableSqlStates, true)) {
+            if (in_array($e->getCode(), $this->ignorableSqlStates, strict: true)) {
                 return true;
             }
         }
@@ -144,7 +144,7 @@ return true;
         // Check ignorable error codes
         if (property_exists($this, 'ignorableErrorCodes')) {
             $errorCode = $e->errorInfo[1] ?? null;
-            if ($errorCode && in_array($errorCode, $this->ignorableErrorCodes, true)) {
+            if ($errorCode && in_array($errorCode, $this->ignorableErrorCodes, strict: true)) {
                 return true;
             }
         }

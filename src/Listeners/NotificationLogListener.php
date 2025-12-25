@@ -300,7 +300,7 @@ final class NotificationLogListener
                             if (is_object($header) && method_exists($header, 'getBodyAsString')) {
                                 $headerValue = $header->getBodyAsString();
                                 if (is_string($headerValue)) {
-                                    $decoded = json_decode($headerValue, true);
+                                    $decoded = json_decode($headerValue, associative: true);
                                     if (is_array($decoded)) {
                                         /** @var array<string, mixed> */
                                         return $decoded;
@@ -324,7 +324,7 @@ final class NotificationLogListener
                         if (is_object($header) && method_exists($header, 'getBodyAsString')) {
                             $headerValue = $header->getBodyAsString();
                             if (is_string($headerValue)) {
-                                $decoded = json_decode($headerValue, true);
+                                $decoded = json_decode($headerValue, associative: true);
                                 if (is_array($decoded)) {
                                     /** @var array<string, mixed> */
                                     return $decoded;
@@ -352,7 +352,7 @@ final class NotificationLogListener
         if (is_object($response)) {
             $encoded = json_encode($response);
             if (is_string($encoded)) {
-                $decoded = json_decode($encoded, true);
+                $decoded = json_decode($encoded, associative: true);
                 if (is_array($decoded)) {
                     /** @var array<string, mixed> */
                     return $decoded;
@@ -447,7 +447,7 @@ final class NotificationLogListener
             $dump['toArray'] = $notification->toArray($notifiable);
         }
 
-        $encoded = json_encode($dump, JSON_PRETTY_PRINT);
+        $encoded = json_encode($dump, flags: JSON_PRETTY_PRINT);
 
         return is_string($encoded) ? $encoded : '{}';
     }
@@ -474,7 +474,7 @@ final class NotificationLogListener
                             if (is_object($header) && method_exists($header, 'getBodyAsString')) {
                                 $headerValue = $header->getBodyAsString();
                                 if (is_string($headerValue)) {
-                                    $decoded = json_decode($headerValue, true);
+                                    $decoded = json_decode($headerValue, associative: true);
                                     if (is_array($decoded)) {
                                         /** @var array<string, mixed> */
                                         return $decoded;
@@ -498,7 +498,7 @@ final class NotificationLogListener
                         if (is_object($header) && method_exists($header, 'getBodyAsString')) {
                             $headerValue = $header->getBodyAsString();
                             if (is_string($headerValue)) {
-                                $decoded = json_decode($headerValue, true);
+                                $decoded = json_decode($headerValue, associative: true);
                                 if (is_array($decoded)) {
                                     /** @var array<string, mixed> */
                                     return $decoded;

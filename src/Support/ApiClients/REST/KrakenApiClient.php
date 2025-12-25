@@ -74,7 +74,7 @@ final class KrakenApiClient extends BaseApiClient
         // Generate nonce in microsecond precision format (timestamp + microseconds)
         // Format: 1234567890123456 (16 digits)
         $microtime = explode(' ', microtime());
-        $nonce = $microtime[1].mb_str_pad(mb_substr($microtime[0], 2, 6), 6, '0');
+        $nonce = $microtime[1].mb_str_pad(mb_substr($microtime[0], 2, length: 6), 6, '0');
 
         // Build POST data string from options
         $options = $apiRequest->properties->getOr('options', []);
@@ -83,7 +83,7 @@ final class KrakenApiClient extends BaseApiClient
         // Get the endpoint path for signature - must strip /derivatives prefix
         // The request URL is /derivatives/api/v3/accounts but signature uses /api/v3/accounts
         // This matches the working mvaessen/kraken-future-api library behavior
-        $endpointPath = str_replace('/derivatives', '', $apiRequest->path);
+        $endpointPath = str_replace(search: '/derivatives', replace: '', subject: $apiRequest->path);
 
         // Kraken signature algorithm:
         // 1. Concatenate: postData + nonce + endpointPath
@@ -133,7 +133,7 @@ final class KrakenApiClient extends BaseApiClient
         $body = (string) $response->getBody();
 
         /** @var array{result?: string, error?: string}|null $data */
-        $data = json_decode($body, true);
+        $data = json_decode($body, associative: true);
 
         if (! is_array($data) || ! isset($data['result']) || $data['result'] !== 'error') {
             return;

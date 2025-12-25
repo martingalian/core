@@ -82,7 +82,7 @@ final class ValueNormalizer
 
         if (is_string($value)) {
             $trimmed = trim($value);
-            if (str_starts_with($trimmed, '{') || str_starts_with($trimmed, '[')) {
+            if (str_starts_with(haystack: $trimmed, needle: '{') || str_starts_with(haystack: $trimmed, needle: '[')) {
                 json_decode($value);
 
                 return json_last_error() === JSON_ERROR_NONE;
@@ -97,7 +97,7 @@ final class ValueNormalizer
      */
     private static function normalizeJson(mixed $value): array
     {
-        $array = is_array($value) ? $value : json_decode($value, true);
+        $array = is_array($value) ? $value : json_decode($value, associative: true);
 
         return self::sortArrayRecursively($array);
     }

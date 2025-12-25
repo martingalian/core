@@ -36,7 +36,7 @@ trait MapsMarkPriceQuery
      */
     public function resolveMarkPriceQueryResponse(Response $response): ?string
     {
-        $body = json_decode((string) $response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), associative: true);
 
         return $body['data']['markPrice'] ?? null;
     }

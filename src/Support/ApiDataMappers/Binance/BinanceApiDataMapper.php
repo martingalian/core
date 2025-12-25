@@ -103,10 +103,10 @@ final class BinanceApiDataMapper extends BaseDataMapper
         ];
 
         foreach ($availableQuoteCurrencies as $quoteCurrency) {
-            if (!(str_ends_with($token, $quoteCurrency))) { continue; }
+            if (!(str_ends_with(haystack: $token, needle: $quoteCurrency))) { continue; }
 
 return [
-                    'base' => str_replace($quoteCurrency, '', $token),
+                    'base' => str_replace(search: $quoteCurrency, replace: '', subject: $token),
                     'quote' => $quoteCurrency,
                 ];
         }

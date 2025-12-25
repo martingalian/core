@@ -100,7 +100,7 @@ final class KucoinApiClient extends BaseWebsocketClient
         if (! empty($this->subscriptionArgs)) {
             // KuCoin /contract/instrument topic for mark price updates
             // Format: /contract/instrument:{symbol1},{symbol2},...
-            $symbols = implode(',', $this->subscriptionArgs);
+            $symbols = implode(separator: ',', array: $this->subscriptionArgs);
             $subscriptionMessage = json_encode([
                 'id' => $this->generateMessageId(),
                 'type' => 'subscribe',

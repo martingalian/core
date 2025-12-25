@@ -32,7 +32,7 @@ trait MapsServerTimeQuery
      */
     public function resolveServerTimeResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // BitGet returns timestamp in milliseconds in data.serverTime
         $timestampMs = $data['data']['serverTime'] ?? $data['requestTime'] ?? null;

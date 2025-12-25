@@ -132,9 +132,9 @@ final class KucoinApiDataMapper extends BaseDataMapper
         ];
 
         foreach ($availableQuoteCurrencies as $quoteCurrency) {
-            if (!(str_ends_with($symbolPart, $quoteCurrency))) { continue; }
+            if (!(str_ends_with(haystack: $symbolPart, needle: $quoteCurrency))) { continue; }
 
-$base = str_replace($quoteCurrency, '', $symbolPart);
+$base = str_replace(search: $quoteCurrency, replace: '', subject: $symbolPart);
 
                 return [
                     'base' => $base,

@@ -80,7 +80,7 @@ trait MapsPlaceOrder
      */
     public function resolvePlaceOrderResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $sendStatus = $data['sendStatus'] ?? [];
 
         // Normalize response to expected format

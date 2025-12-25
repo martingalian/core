@@ -28,7 +28,7 @@ trait MapsServerTimeQuery
      */
     public function resolveServerTimeResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
 
         // KuCoin returns timestamp in milliseconds
         $timestampMs = $data['data'] ?? null;

@@ -188,7 +188,7 @@ final class ApiRequestLogObserver
         ];
 
         foreach ($noDataPatterns as $pattern) {
-            if (!(str_contains($response, $pattern))) { continue; }
+            if (!(str_contains(haystack: $response, needle: $pattern))) { continue; }
 
 return true;
         }
@@ -198,7 +198,7 @@ return true;
 
     private function resolveExchangeSymbolFromPayload(ApiRequestLog $log): ?ExchangeSymbol
     {
-        $payload = is_string($log->payload) ? json_decode($log->payload, true) : $log->payload;
+        $payload = is_string($log->payload) ? json_decode($log->payload, associative: true) : $log->payload;
 
         if (! isset($payload['options']['exchange'], $payload['options']['symbol'])) {
             return null;
@@ -241,7 +241,7 @@ return true;
     private function hasConsistentFailurePattern(ExchangeSymbol $exchangeSymbol, ApiRequestLog $currentLog): bool
     {
         // Build the search pattern for this specific exchange/symbol/quote combination
-        $payload = is_string($currentLog->payload) ? json_decode($currentLog->payload, true) : $currentLog->payload;
+        $payload = is_string($currentLog->payload) ? json_decode($currentLog->payload, associative: true) : $currentLog->payload;
         $exchange = $payload['options']['exchange'] ?? null;
         $symbol = $payload['options']['symbol'] ?? null;
 
@@ -253,7 +253,7 @@ return true;
 
         // Escape the symbol for LIKE query (JSON stores it as "ETC\/USDC")
         // MySQL LIKE needs quadruple backslash in PHP to match JSON's escaped slash
-        $escapedSymbol = str_replace('/', '\\\/', $symbol);
+        $escapedSymbol = str_replace(search: '/', replace: '\\\/', subject: $symbol);
 
         // Get last 5 requests for this same exchange/symbol/quote combination
         $recentLogs = ApiRequestLog::where('api_system_id', $taapiSystem->id)
@@ -278,10 +278,10 @@ return true;
     private function sendDeactivationNotification(ExchangeSymbol $exchangeSymbol, ApiRequestLog $log): void
     {
         // Count how many failures occurred
-        $payload = is_string($log->payload) ? json_decode($log->payload, true) : $log->payload;
+        $payload = is_string($log->payload) ? json_decode($log->payload, associative: true) : $log->payload;
         $exchange = $payload['options']['exchange'] ?? null;
         $symbol = $payload['options']['symbol'] ?? null;
-        $escapedSymbol = str_replace('/', '\\\/', $symbol);
+        $escapedSymbol = str_replace(search: '/', replace: '\\\/', subject: $symbol);
 
         $taapiSystem = ApiSystem::where('canonical', 'taapi')->first();
         $failureCount = ApiRequestLog::where('api_system_id', $taapiSystem->id)

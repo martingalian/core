@@ -74,12 +74,12 @@ final class DashboardApiController extends Controller
     public function generateGlobalStats(): array
     {
         return [
-            'gross_revenue' => round(random_int(1000, 5000) + (random_int(0, 99) / 100), 2),
-            'daily_gross' => round(random_int(50, 300) + (random_int(0, 99) / 100), 2),
-            'margin_ratio' => round(random_int(20, 100) + (random_int(0, 99) / 100), 2),
-            'drawdown' => round(random_int(-100, -5) + (random_int(0, 99) / 100), 2),
-            'clean_revenue' => round(random_int(500, 4000) + (random_int(0, 99) / 100), 2),
-            'avg_variation' => round(random_int(-50, 50) + (random_int(0, 99) / 100), 2),
+            'gross_revenue' => round(random_int(1000, 5000) + (random_int(0, 99) / 100), precision: 2),
+            'daily_gross' => round(random_int(50, 300) + (random_int(0, 99) / 100), precision: 2),
+            'margin_ratio' => round(random_int(20, 100) + (random_int(0, 99) / 100), precision: 2),
+            'drawdown' => round(random_int(-100, -5) + (random_int(0, 99) / 100), precision: 2),
+            'clean_revenue' => round(random_int(500, 4000) + (random_int(0, 99) / 100), precision: 2),
+            'avg_variation' => round(random_int(-50, 50) + (random_int(0, 99) / 100), precision: 2),
         ];
     }
 
@@ -120,8 +120,8 @@ final class DashboardApiController extends Controller
         for ($i = 0; $i < $count; $i++) {
             $tokenData = $tokens[$i % count($tokens)];
             $basePrice = $tokenData['base_price'];
-            $markPrice = round($basePrice * (1 + (random_int(-20, 20) / 100)), 2);
-            $variationPercent = round(((random_int(-2000, 2000) / 100)), 2);
+            $markPrice = round($basePrice * (1 + (random_int(-20, 20) / 100)), precision: 2);
+            $variationPercent = round(((random_int(-2000, 2000) / 100)), precision: 2);
 
             // Generate random opened_at datetime (1-14 days ago)
             $openedAt = now()->subHours(random_int(1, 336)); // Random time in last 14 days
@@ -132,28 +132,28 @@ final class DashboardApiController extends Controller
             $isRecentlyOpened = ! $isHedged && ! $isWaped && random_int(0, 5) === 0; // ~16% chance
 
             // Generate ladder data with actual prices (UI will calculate percentages)
-            $openingPrice = round($basePrice * (1 + (random_int(-10, 10) / 100)), 2);
+            $openingPrice = round($basePrice * (1 + (random_int(-10, 10) / 100)), precision: 2);
 
             // For LONG: ladder goes from opening price DOWN (buying lower)
             // For SHORT: ladder goes from opening price UP (selling higher)
             $ladderDirection = mb_strtolower($positionType) === 'long' ? -1 : 1;
             $ladderStartPrice = $openingPrice;
-            $ladderEndPrice = round($openingPrice * (1 + ($ladderDirection * 0.05)), 2); // 5% range
+            $ladderEndPrice = round($openingPrice * (1 + ($ladderDirection * 0.05)), precision: 2); // 5% range
 
             // Generate profit price within ladder range (10-40% through the ladder)
             $profitPricePercent = random_int(10, 40) / 100;
-            $profitPrice = round($ladderStartPrice + (($ladderEndPrice - $ladderStartPrice) * $profitPricePercent), 2);
+            $profitPrice = round($ladderStartPrice + (($ladderEndPrice - $ladderStartPrice) * $profitPricePercent), precision: 2);
 
             // Generate current price (30-70% through the ladder, AFTER profit price)
             // This ensures the P marker will show (profit already passed, P is behind green bar)
             $currentPricePercent = random_int(30, 70) / 100; // After profit (10-40%)
-            $currentPrice = round($ladderStartPrice + (($ladderEndPrice - $ladderStartPrice) * $currentPricePercent), 2);
+            $currentPrice = round($ladderStartPrice + (($ladderEndPrice - $ladderStartPrice) * $currentPricePercent), precision: 2);
 
             $numTicks = 4;
 
             $tickPrices = [];
             for ($t = 1; $t <= $numTicks; $t++) {
-                $tickPrices[] = round($ladderStartPrice + (($ladderEndPrice - $ladderStartPrice) * ($t / $numTicks)), 2);
+                $tickPrices[] = round($ladderStartPrice + (($ladderEndPrice - $ladderStartPrice) * ($t / $numTicks)), precision: 2);
             }
 
             $positions[] = [
@@ -184,16 +184,16 @@ final class DashboardApiController extends Controller
                 ],
 
                 'stats' => [
-                    'size' => round(random_int(10000, 100000) + (random_int(0, 99) / 100), 2),
-                    'alpha_path' => round(random_int(80, 120) + (random_int(0, 99) / 100), 1),
+                    'size' => round(random_int(10000, 100000) + (random_int(0, 99) / 100), precision: 2),
+                    'alpha_path' => round(random_int(80, 120) + (random_int(0, 99) / 100), precision: 1),
                     'limit_filled_count' => random_int(0, 4),
-                    'limit_filled_percent' => round(random_int(0, 100) + (random_int(0, 99) / 100), 1),
+                    'limit_filled_percent' => round(random_int(0, 100) + (random_int(0, 99) / 100), precision: 1),
                 ],
 
                 'prices' => [
                     'opening_price' => $openingPrice,
                     'profit_price' => $profitPrice,
-                    'next_limit_order' => random_int(0, 1) ? round($basePrice * (1 + (random_int(-5, 5) / 100)), 2) : null,
+                    'next_limit_order' => random_int(0, 1) ? round($basePrice * (1 + (random_int(-5, 5) / 100)), precision: 2) : null,
                 ],
 
                 // Timeframes: 1 = positive (green), -1 = negative (red)
@@ -221,7 +221,7 @@ final class DashboardApiController extends Controller
 
             // Create realistic price movement
             $priceVariation = (random_int(-500, 500) / 100); // -5% to +5%
-            $markPrice = round($basePrice * (1 + ($priceVariation / 100)), 2);
+            $markPrice = round($basePrice * (1 + ($priceVariation / 100)), precision: 2);
 
             $ticks[] = [
                 'timestamp' => $timestamp,

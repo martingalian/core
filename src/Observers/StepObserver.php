@@ -32,7 +32,7 @@ final class StepObserver
             ->toArray();
         $validQueues = array_merge($validQueues, $serverQueues);
 
-        if (empty($step->queue) || ! in_array($step->queue, $validQueues, true)) {
+        if (empty($step->queue) || ! in_array($step->queue, $validQueues, strict: true)) {
             $step->queue = 'default';
         }
 
@@ -150,7 +150,7 @@ final class StepObserver
             ->toArray();
         $validQueues = array_merge($validQueues, $serverQueues);
 
-        if (empty($step->queue) || ! in_array($step->queue, $validQueues, true)) {
+        if (empty($step->queue) || ! in_array($step->queue, $validQueues, strict: true)) {
             $step->queue = 'default';
         }
 

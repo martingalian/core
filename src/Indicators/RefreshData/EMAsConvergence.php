@@ -26,7 +26,7 @@ final class EMAsConvergence extends BaseIndicator implements DirectionIndicator
     {
         // Collect only the EMA indicators from the data
         $emas = collect($this->data)
-            ->filter(static fn ($indicator, $key) => str_starts_with($key, 'ema-'));
+            ->filter(static fn ($indicator, $key) => str_starts_with(haystack: $key, needle: 'ema-'));
 
         if ($emas->count() < 2) {
             // Not enough EMAs for analysis
@@ -35,7 +35,7 @@ final class EMAsConvergence extends BaseIndicator implements DirectionIndicator
 
         // Sort EMAs by their period (e.g., ema-18 < ema-10)
         $sortedEmas = $emas->sortKeysUsing(
-            static fn ($keyA, $keyB) => (int) str_replace('ema-', '', $keyA) <=> (int) str_replace('ema-', '', $keyB)
+            static fn ($keyA, $keyB) => (int) str_replace(search: 'ema-', replace: '', subject: $keyA) <=> (int) str_replace(search: 'ema-', replace: '', subject: $keyB)
         );
 
         $previousValue = null;

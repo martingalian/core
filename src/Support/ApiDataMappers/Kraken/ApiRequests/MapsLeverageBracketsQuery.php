@@ -40,7 +40,7 @@ trait MapsLeverageBracketsQuery
      */
     public function resolveLeverageBracketsDataResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $preferences = $data['leveragePreferences'] ?? [];
 
         // Transform to a more usable format keyed by symbol

@@ -200,7 +200,7 @@ abstract class BaseWebsocketClient
             }
 
             // Handle JSON ping-pong (e.g., {"ping": timestamp})
-            $decoded = json_decode($payload, true);
+            $decoded = json_decode($payload, associative: true);
             if (is_array($decoded) && isset($decoded['ping'])) {
                 $conn->send(json_encode(['pong' => $decoded['ping']]));
 
@@ -288,7 +288,7 @@ abstract class BaseWebsocketClient
             return;
         }
 
-        $delay = pow(2, $this->reconnectAttempt - 1);
+        $delay = pow(2, exponent: $this->reconnectAttempt - 1);
         error_log("[{$this->exchangeName}] Reconnecting in {$delay}s (attempt {$this->reconnectAttempt}/{$this->maxReconnectAttempts})...");
 
         $this->loop->addTimer($delay, function () use ($url, $callback) {

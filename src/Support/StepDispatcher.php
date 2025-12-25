@@ -415,7 +415,7 @@ final class StepDispatcher
                 $nonTerminalResolveExceptions = $childSteps->filter(
                     static function ($step) {
                         return $step->type === 'resolve-exception'
-                            && ! in_array(get_class($step->state), Step::terminalStepStates(), true);
+                            && ! in_array(get_class($step->state), Step::terminalStepStates(), strict: true);
                     }
                 );
 
@@ -564,7 +564,7 @@ final class StepDispatcher
                 log_step($step->id, 'CANCELLATION CANDIDATE: Step #'.$step->id.' | index: '.$step->index.' | state: '.$step->state.' | isParent: '.($step->isParent() ? 'yes' : 'no'));
 
                 // Double guard: never attempt to transition terminal states.
-                if (in_array(get_class($step->state), Step::terminalStepStates(), true)) {
+                if (in_array(get_class($step->state), Step::terminalStepStates(), strict: true)) {
                     log_step($step->id, '⚠️ SKIP: Step #'.$step->id.' is in terminal state - will not cancel');
 
                     continue;
@@ -785,7 +785,7 @@ final class StepDispatcher
             return [];
         }
 
-        $placeholders = implode(',', array_fill(0, $rootBlocks->count(), '?'));
+        $placeholders = implode(separator: ',', array: array_fill(0, $rootBlocks->count(), '?'));
 
         $sql = "
             WITH RECURSIVE descendants AS (
@@ -836,7 +836,7 @@ final class StepDispatcher
             return;
         }
 
-        $stepIdsStr = implode(', ', $stepIds);
+        $stepIdsStr = implode(separator: ', ', array: $stepIds);
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
         $caller = isset($backtrace[1]) ? ($backtrace[1]['class'] ?? 'unknown').'::'.($backtrace[1]['function'] ?? 'unknown') : 'unknown';
 
@@ -942,7 +942,7 @@ final class StepDispatcher
             if ($hasParent) {
                 $parent = $parentsByChildBlock[$step->block_uuid];
                 $parentState = get_class($parent->state);
-                if (! in_array($parentState, [Running::class, Completed::class], true)) {
+                if (! in_array($parentState, [Running::class, Completed::class], strict: true)) {
                     return false;
                 }
 
@@ -976,13 +976,13 @@ final class StepDispatcher
             // Key format: "block_uuid_index"
             $parts = explode('_', $key);
             $index = array_pop($parts);
-            $blockUuid = implode('_', $parts);
+            $blockUuid = implode(separator: '_', array: $parts);
 
             // Check default type steps
             $defaultSteps = $steps->where('type', 'default');
             if ($defaultSteps->isNotEmpty() && $defaultSteps->every(
                 static function ($s) {
-                    return in_array(get_class($s->state), Step::concludedStepStates(), true);
+                    return in_array(get_class($s->state), Step::concludedStepStates(), strict: true);
                 }
             )) {
                 $concluded[$blockUuid.'_'.$index.'_default'] = true;
@@ -992,7 +992,7 @@ final class StepDispatcher
             $resolveSteps = $steps->where('type', 'resolve-exception');
             if ($resolveSteps->isNotEmpty() && $resolveSteps->every(
                 static function ($s) {
-                    return in_array(get_class($s->state), Step::concludedStepStates(), true);
+                    return in_array(get_class($s->state), Step::concludedStepStates(), strict: true);
                 }
             )) {
                 $concluded[$blockUuid.'_'.$index.'_resolve-exception'] = true;

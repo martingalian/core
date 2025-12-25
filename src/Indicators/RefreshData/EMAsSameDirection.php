@@ -25,7 +25,7 @@ final class EMAsSameDirection extends BaseIndicator implements DirectionIndicato
     {
         // Collect only the EMA indicators from the data
         $emas = collect($this->data)
-            ->filter(static fn ($indicator, $key) => str_starts_with($key, 'ema-'));
+            ->filter(static fn ($indicator, $key) => str_starts_with(haystack: $key, needle: 'ema-'));
 
         if ($emas->isEmpty()) {
             // No valid EMAs to analyze
@@ -35,7 +35,7 @@ final class EMAsSameDirection extends BaseIndicator implements DirectionIndicato
         $trend = null;
 
         foreach ($emas as $ema) {
-            if (! array_key_exists('value', $ema['result'])) {
+            if (! array_key_exists(key: 'value', array: $ema['result'])) {
                 return null;
             }
 

@@ -42,13 +42,13 @@ trait MapsCancelOrders
      */
     public function resolveCancelOrdersResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $result = $data['result'] ?? [];
         $list = $result['list'] ?? [];
 
-        $cancelledOrderIds = array_map(static function (array $order): string {
+        $cancelledOrderIds = array_map(callback: static function (array $order): string {
             return $order['orderId'] ?? '';
-        }, $list);
+        }, array: $list);
 
         return [
             'cancelledOrderIds' => array_filter($cancelledOrderIds),

@@ -42,7 +42,7 @@ trait MapsAccountBalanceQuery
      */
     public function resolveGetBalanceResponse(Response $response, Account $account): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $accountData = $data['data'] ?? [];
 
         if (empty($accountData)) {

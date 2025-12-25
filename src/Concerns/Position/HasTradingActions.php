@@ -29,7 +29,7 @@ trait HasTradingActions
     {
         $openPositions = ApiSnapshot::getFrom($this->account, 'account-positions');
 
-        return is_array($openPositions) && array_key_exists($this->parsed_trading_pair, $openPositions);
+        return is_array($openPositions) && array_key_exists(key: $this->parsed_trading_pair, array: $openPositions);
     }
 
     public function syncOrders()

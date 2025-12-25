@@ -44,7 +44,7 @@ trait MapsOrderCancel
      */
     public function resolveOrderCancelResponse(Response $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), associative: true);
         $cancelStatus = $data['cancelStatus'] ?? [];
 
         $status = $cancelStatus['status'] ?? 'unknown';

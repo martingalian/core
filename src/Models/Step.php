@@ -241,7 +241,7 @@ final class Step extends BaseModel
 
         // Check if all previous steps are concluded, i.e., have a concluded state
         $result = $previousSteps->every(
-            fn ($step) => in_array(get_class($step->state), $this->concludedStepStates(), true)
+            fn ($step) => in_array(get_class($step->state), $this->concludedStepStates(), strict: true)
         );
 
         // Log the result of the concluded check
@@ -301,7 +301,7 @@ final class Step extends BaseModel
             $stateClass = get_class($child->state);
             log_step($child->id, "[Step.childStepsAreConcludedFromMap] 🧒 Child ID {$child->id} | State: ".class_basename($stateClass));
 
-            if (! in_array($stateClass, $this->concludedStepStates(), true)) {
+            if (! in_array($stateClass, $this->concludedStepStates(), strict: true)) {
                 log_step($child->id, "[Step.childStepsAreConcludedFromMap] ❌ Child ID {$child->id} is NOT in concluded states. Returning FALSE.");
 
                 return false;
@@ -333,7 +333,7 @@ final class Step extends BaseModel
         }
 
         foreach ($children as $child) {
-            if (! in_array(get_class($child->state), $this->concludedStepStates(), true)) {
+            if (! in_array(get_class($child->state), $this->concludedStepStates(), strict: true)) {
                 return false;
             }
 

@@ -81,7 +81,7 @@ final class PendingToDispatched extends Transition
             log_step($this->step->id, 'Found '.$previousSteps->count().' previous resolve-exception step(s)');
 
             // If the previous step exists and is completed, allow transition
-            if ($previousSteps->isNotEmpty() && in_array(get_class($previousSteps->first()->state), Step::concludedStepStates(), true)) {
+            if ($previousSteps->isNotEmpty() && in_array(get_class($previousSteps->first()->state), Step::concludedStepStates(), strict: true)) {
                 log_step($this->step->id, '✓ Previous resolve-exception step is concluded - returning TRUE');
                 log_step($this->step->id, '═══════════════════════════════════════════════════════════');
 
@@ -144,7 +144,7 @@ final class PendingToDispatched extends Transition
 
             $parentState = get_class($parent->state);
             log_step($this->step->id, 'Checking if parent is Running or Completed...');
-            if (! in_array($parentState, [Running::class, Completed::class], true)) {
+            if (! in_array($parentState, [Running::class, Completed::class], strict: true)) {
                 log_step($this->step->id, '✗ Parent is NOT Running/Completed - returning FALSE');
                 log_step($this->step->id, '═══════════════════════════════════════════════════════════');
 
@@ -286,7 +286,7 @@ final class PendingToDispatched extends Transition
         }
 
         return $previousSteps->every(
-            static fn ($step) => in_array(get_class($step->state), Step::concludedStepStates(), true)
+            static fn ($step) => in_array(get_class($step->state), Step::concludedStepStates(), strict: true)
         );
     }
 
@@ -316,7 +316,7 @@ final class PendingToDispatched extends Transition
         }
 
         return $previousSteps->every(
-            static fn ($step) => in_array(get_class($step->state), Step::concludedStepStates(), true)
+            static fn ($step) => in_array(get_class($step->state), Step::concludedStepStates(), strict: true)
         );
     }
 

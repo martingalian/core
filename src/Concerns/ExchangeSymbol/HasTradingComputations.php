@@ -13,16 +13,16 @@ trait HasTradingComputations
         $scale = 18;
 
         $price = api_format_price((string) $this->mark_price, $this);
-        if (bccomp($price, '0', $scale) <= 0) {
+        if (bccomp($price, '0', scale: $scale) <= 0) {
             throw new InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
         }
 
-        $rawQty = bcdiv((string) $amount, $price, $scale);
+        $rawQty = bcdiv((string) $amount, $price, scale: $scale);
         $qty = api_format_quantity($rawQty, $this);
 
         if ($respectMinNotional) {
-            $notional = bcmul($qty, $price, $scale);
-            if (bccomp($notional, (string) $this->min_notional, $scale) < 0) {
+            $notional = bcmul($qty, $price, scale: $scale);
+            if (bccomp($notional, (string) $this->min_notional, scale: $scale) < 0) {
                 return '0';
             }
         }
@@ -35,12 +35,12 @@ trait HasTradingComputations
         $scale = 18;
 
         $price = api_format_price((string) $this->mark_price, $this);
-        if (bccomp($price, '0', $scale) <= 0) {
+        if (bccomp($price, '0', scale: $scale) <= 0) {
             throw new InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
         }
 
         $qty = api_format_quantity((string) $quantity, $this);
-        $amount = bcmul($qty, $price, $scale);
+        $amount = bcmul($qty, $price, scale: $scale);
 
         return remove_trailing_zeros($amount);
     }
@@ -50,13 +50,13 @@ trait HasTradingComputations
         $scale = 18;
 
         $price = api_format_price((string) $this->mark_price, $this);
-        if (bccomp($price, '0', $scale) <= 0) {
+        if (bccomp($price, '0', scale: $scale) <= 0) {
             throw new InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
         }
 
         $qty = api_format_quantity((string) $quantity, $this);
-        $notional = bcmul($qty, $price, $scale);
+        $notional = bcmul($qty, $price, scale: $scale);
 
-        return bccomp($notional, (string) $this->min_notional, $scale) < 0;
+        return bccomp($notional, (string) $this->min_notional, scale: $scale) < 0;
     }
 }

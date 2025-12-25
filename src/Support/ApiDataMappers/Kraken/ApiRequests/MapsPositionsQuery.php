@@ -38,7 +38,7 @@ trait MapsPositionsQuery
      */
     public function resolveQueryPositionsResponse(Response $response): array
     {
-        $body = json_decode((string) $response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), associative: true);
 
         $positionsList = $body['openPositions'] ?? [];
 
@@ -63,7 +63,7 @@ trait MapsPositionsQuery
             ->toArray();
 
         // Remove positions with zero size
-        return array_filter($positions, static function ($position) {
+        return array_filter($positions, callback: static function ($position) {
             return (float) ($position['size'] ?? 0) !== 0.0;
         });
     }
