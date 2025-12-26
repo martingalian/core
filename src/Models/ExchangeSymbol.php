@@ -61,6 +61,7 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property \Illuminate\Support\Carbon|null $mark_price_synced_at
  * @property string $websocket_group
  * @property bool|null $overlaps_with_binance
+ * @property bool $is_marked_for_delisting
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property-read Symbol|null $symbol
@@ -87,6 +88,7 @@ final class ExchangeSymbol extends BaseModel
         'has_early_direction_change' => 'boolean',
         'has_invalid_indicator_direction' => 'boolean',
         'overlaps_with_binance' => 'boolean',
+        'is_marked_for_delisting' => 'boolean',
 
         'api_statuses' => 'array',
         'symbol_information' => 'array',

@@ -12,6 +12,11 @@ trait HasStatuses
      */
     public function isTradeable(): bool
     {
+        // Must overlap with Binance (TAAPI uses Binance as reference)
+        if (! $this->overlaps_with_binance) {
+            return false;
+        }
+
         // Must have TAAPI indicator data
         if (! ($this->api_statuses['has_taapi_data'] ?? false)) {
             return false;
@@ -24,6 +29,11 @@ trait HasStatuses
 
         // Must not have indicator data issues
         if ($this->has_no_indicator_data) {
+            return false;
+        }
+
+        // Must not be marked for delisting
+        if ($this->is_marked_for_delisting) {
             return false;
         }
 

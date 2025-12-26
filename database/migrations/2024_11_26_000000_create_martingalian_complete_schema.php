@@ -205,6 +205,7 @@ return new class extends Migration
             $table->timestamp('tradeable_at')->nullable()->comment('Cooldown timestamp so a symbol cannot be tradeable until a certain moment');
             $table->string('websocket_group', 20)->default('group-1')->comment('WebSocket subscription group for exchanges with subscription limits (e.g., KuCoin max 300)');
             $table->boolean('overlaps_with_binance')->nullable()->index()->comment('True if this token exists on Binance (for TAAPI indicator compatibility)');
+            $table->boolean('is_marked_for_delisting')->default(false)->index()->comment('True when Binance symbol is delisted, cascades to other exchanges');
             $table->timestamps();
 
             $table->unique(['symbol_id', 'api_system_id', 'quote_id'], 'exchange_symbols_symbol_id_api_system_id_quote_id_unique');

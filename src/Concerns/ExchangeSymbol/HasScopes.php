@@ -10,13 +10,15 @@ trait HasScopes
 {
     /**
      * Symbols that can be used to open positions.
-     * Checks: linked to CMC symbol, manually enabled, has TAAPI data, has direction, respects cooldowns, fresh price, no behavioral flags.
+     * Checks: overlaps with Binance, linked to CMC symbol, manually enabled, has TAAPI data, has direction, respects cooldowns, fresh price, no behavioral flags.
      */
     public function scopeTradeable(Builder $query): Builder
     {
-        return $query->where('exchange_symbols.api_statuses->has_taapi_data', true)
+        return $query->where('exchange_symbols.overlaps_with_binance', true)
+            ->where('exchange_symbols.api_statuses->has_taapi_data', true)
             ->where('exchange_symbols.has_stale_price', false)
             ->where('exchange_symbols.has_no_indicator_data', false)
+            ->where('exchange_symbols.is_marked_for_delisting', false)
             ->where('exchange_symbols.has_price_trend_misalignment', false)
             ->where('exchange_symbols.has_early_direction_change', false)
             ->where('exchange_symbols.has_invalid_indicator_direction', false)
@@ -41,10 +43,10 @@ trait HasScopes
             // Has indicator data OR we're still trying to get it
             $q->where('exchange_symbols.has_no_indicator_data', false)
             // And not explicitly disabled by admin (NULL or true, but not false)
-            ->where(static function ($q2) {
-                $q2->whereNull('exchange_symbols.is_manually_enabled')
-                    ->orWhere('exchange_symbols.is_manually_enabled', true);
-            });
+                ->where(static function ($q2) {
+                    $q2->whereNull('exchange_symbols.is_manually_enabled')
+                        ->orWhere('exchange_symbols.is_manually_enabled', true);
+                });
         });
     }
 
