@@ -4,21 +4,50 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Martingalian\Core\Abstracts\BaseModel;
 use Martingalian\Core\Database\Factories\CandleFactory;
 
+/**
+ * @property int $id
+ * @property int $exchange_symbol_id
+ * @property string $timeframe
+ * @property string $open
+ * @property string $high
+ * @property string $low
+ * @property string $close
+ * @property string $volume
+ * @property int $timestamp
+ * @property \Illuminate\Support\Carbon|null $candle_time_utc
+ * @property \Illuminate\Support\Carbon|null $candle_time_local
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property \Illuminate\Support\Carbon $updated_at
+ */
 final class Candle extends BaseModel
 {
     use HasFactory;
 
     protected $casts = [
-        'created_at' => 'datetime',
-        'candle_time' => 'datetime',
-        'updated_at' => 'datetime',
+        'candle_time_utc' => 'datetime',
+        'candle_time_local' => 'datetime',
     ];
 
-    public function exchangeSymbol()
+    /**
+     * Set candle_time_utc and auto-compute candle_time_local.
+     */
+    public function setCandleTimeUtcAttribute(mixed $value): void
+    {
+        $this->attributes['candle_time_utc'] = $value;
+
+        if ($value !== null) {
+            $utcTime = Carbon::parse($value, 'UTC');
+            $this->attributes['candle_time_local'] = $utcTime->setTimezone(config('app.timezone'))->toDateTimeString();
+        }
+    }
+
+    public function exchangeSymbol(): BelongsTo
     {
         return $this->belongsTo(ExchangeSymbol::class);
     }

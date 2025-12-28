@@ -16,6 +16,7 @@ trait MapsKlinesQuery
      * Note: Kraken uses symbol and resolution in the URL path.
      * Note: Kraken symbols have a PF_ prefix for perpetuals (e.g., PF_XBTUSD).
      * Note: Kraken API accepts timestamps in milliseconds for from/to parameters.
+     * Note: Kraken doesn't have a limit param - we calculate time range from limit.
      *
      * @see https://docs.kraken.com/api/docs/futures-api/trading/get-ohlc/
      */
@@ -31,15 +32,47 @@ trait MapsKlinesQuery
         $properties->set('options.symbol', (string) $exchangeSymbol->parsed_trading_pair);
         $properties->set('options.resolution', $resolution);
 
-        if ($startTime !== null) {
-            $properties->set('options.from', $startTime);
-        }
+        // Kraken doesn't support a limit param - use time range instead
+        // Note: Kraken API accepts from/to in SECONDS (not milliseconds)
+        // If limit is set and no explicit time range, calculate from limit
+        if ($limit !== null && $startTime === null && $endTime === null) {
+            $intervalSeconds = $this->getIntervalSeconds($resolution);
+            $nowSec = time();
+            $fromSec = $nowSec - ($limit * $intervalSeconds);
 
-        if ($endTime !== null) {
-            $properties->set('options.to', $endTime);
+            $properties->set('options.from', $fromSec);
+            $properties->set('options.to', $nowSec);
+        } else {
+            if ($startTime !== null) {
+                $properties->set('options.from', $startTime);
+            }
+
+            if ($endTime !== null) {
+                $properties->set('options.to', $endTime);
+            }
         }
 
         return $properties;
+    }
+
+    /**
+     * Convert interval string to seconds.
+     */
+    private function getIntervalSeconds(string $interval): int
+    {
+        $map = [
+            '1m' => 60,
+            '5m' => 300,
+            '15m' => 900,
+            '30m' => 1800,
+            '1h' => 3600,
+            '4h' => 14400,
+            '12h' => 43200,
+            '1d' => 86400,
+            '1w' => 604800,
+        ];
+
+        return $map[$interval] ?? 300;
     }
 
     /**

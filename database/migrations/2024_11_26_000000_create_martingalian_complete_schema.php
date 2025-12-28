@@ -223,7 +223,8 @@ return new class extends Migration
             $table->decimal('close', 36, 18);
             $table->decimal('volume', 36, 18)->default(0);
             $table->unsignedBigInteger('timestamp')->index();
-            $table->dateTime('candle_time')->nullable()->index();
+            $table->dateTime('candle_time_utc')->nullable()->index();
+            $table->dateTime('candle_time_local')->nullable()->index();
             $table->timestamps();
 
             $table->unique(['exchange_symbol_id', 'timeframe', 'timestamp'], 'candles_symbol_timeframe_timestamp_unique');

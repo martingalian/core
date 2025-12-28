@@ -15,6 +15,7 @@ trait MapsKlinesQuery
      *
      * Note: KuCoin uses `granularity` in minutes (e.g., 5 for 5 minutes).
      * Note: KuCoin symbols have an 'M' suffix for perpetuals (e.g., XBTUSDTM).
+     * Note: KuCoin doesn't have a limit param - we calculate time range from limit.
      *
      * @see https://www.kucoin.com/docs/rest/futures-trading/market-data/get-klines
      */
@@ -30,15 +31,48 @@ trait MapsKlinesQuery
         $properties->set('options.symbol', (string) $exchangeSymbol->parsed_trading_pair);
         $properties->set('options.granularity', $this->convertIntervalForKucoin($interval));
 
-        if ($startTime !== null) {
-            $properties->set('options.from', $startTime);
-        }
+        // KuCoin doesn't support a limit param - use time range instead
+        // If limit is set and no explicit time range, calculate from limit
+        if ($limit !== null && $startTime === null && $endTime === null) {
+            $intervalSeconds = $this->getIntervalSeconds($interval);
+            $nowMs = (int) (microtime(true) * 1000);
+            $fromMs = $nowMs - ($limit * $intervalSeconds * 1000);
 
-        if ($endTime !== null) {
-            $properties->set('options.to', $endTime);
+            $properties->set('options.from', $fromMs);
+            $properties->set('options.to', $nowMs);
+        } else {
+            if ($startTime !== null) {
+                $properties->set('options.from', $startTime);
+            }
+
+            if ($endTime !== null) {
+                $properties->set('options.to', $endTime);
+            }
         }
 
         return $properties;
+    }
+
+    /**
+     * Convert interval string to seconds.
+     */
+    private function getIntervalSeconds(string $interval): int
+    {
+        $map = [
+            '1m' => 60,
+            '5m' => 300,
+            '15m' => 900,
+            '30m' => 1800,
+            '1h' => 3600,
+            '2h' => 7200,
+            '4h' => 14400,
+            '8h' => 28800,
+            '12h' => 43200,
+            '1d' => 86400,
+            '1w' => 604800,
+        ];
+
+        return $map[$interval] ?? 300;
     }
 
     /**

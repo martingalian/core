@@ -125,13 +125,15 @@ final class FetchKlinesJob extends BaseApiableJob
             $epochSec = $this->normalizeEpochToSeconds($kline['timestamp']);
 
             // Convert to SQL datetime in UTC
-            $candleTime = Carbon::createFromTimestampUTC($epochSec)->format('Y-m-d H:i:s');
+            $candleTimeUtc = Carbon::createFromTimestampUTC($epochSec);
+            $candleTimeLocal = $candleTimeUtc->copy()->setTimezone(config('app.timezone'));
 
             $buffer[] = [
                 'exchange_symbol_id' => $this->exchangeSymbol->id,
                 'timeframe' => $this->timeframe,
                 'timestamp' => $epochSec,
-                'candle_time' => $candleTime,
+                'candle_time_utc' => $candleTimeUtc->format('Y-m-d H:i:s'),
+                'candle_time_local' => $candleTimeLocal->format('Y-m-d H:i:s'),
                 'open' => $kline['open'],
                 'high' => $kline['high'],
                 'low' => $kline['low'],
@@ -194,7 +196,7 @@ final class FetchKlinesJob extends BaseApiableJob
                         Candle::query()->upsert(
                             $buffer,
                             ['exchange_symbol_id', 'timeframe', 'timestamp'],
-                            ['open', 'high', 'low', 'close', 'volume', 'candle_time', 'updated_at']
+                            ['open', 'high', 'low', 'close', 'volume', 'candle_time_utc', 'candle_time_local', 'updated_at']
                         );
                     });
 
