@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Observers;
 
+use Illuminate\Support\Once;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\TokenMapper;
@@ -12,22 +13,28 @@ use Martingalian\Core\Support\Proxies\TradingMapperProxy;
 final class ExchangeSymbolObserver
 {
     /**
-     * Max symbols per websocket group for KuCoin.
-     * KuCoin documentation says 300 limit but in practice 100 works reliably.
+     * Fields that affect tradeable status and should be propagated from Binance to other exchanges.
+     * When any of these fields change on a Binance symbol, they are synced to overlapping symbols.
      */
-    private const KUCOIN_MAX_PER_GROUP = 100;
+    private const TRADEABLE_FIELDS = [
+        'direction',
+        'indicators_values',
+        'indicators_timeframe',
+        'indicators_synced_at',
+        'has_no_indicator_data',
+        'has_price_trend_misalignment',
+        'has_early_direction_change',
+        'has_invalid_indicator_direction',
+    ];
 
     /**
-     * Max symbols per websocket group for BitGet.
-     * BitGet recommends <50 channels per connection for stability.
-     * Using 45 for extra safety margin.
+     * Reset the cached Binance system ID.
+     * Useful for testing - clears the Once cache that holds the ID.
      */
-    private const BITGET_MAX_PER_GROUP = 45;
-
-    /**
-     * Cached Binance system ID to avoid repeated queries.
-     */
-    private static ?int $binanceSystemId = null;
+    public static function resetBinanceSystemIdCache(): void
+    {
+        Once::flush();
+    }
 
     public function creating(ExchangeSymbol $model): void
     {
@@ -50,9 +57,6 @@ final class ExchangeSymbolObserver
         }
 
         $model->api_statuses = $apiStatuses;
-
-        // Assign websocket_group for exchanges with subscription limits (KuCoin, BitGet)
-        $this->assignWebsocketGroup($model);
     }
 
     /**
@@ -97,44 +101,17 @@ final class ExchangeSymbolObserver
 
     public function saved(ExchangeSymbol $model): void
     {
-        // Model-specific business logic
         $model->sendDelistingNotificationIfNeeded();
 
-        // Propagate TAAPI data if this is a Binance symbol with api_statuses changed
-        if ($this->isBinanceSymbol($model) && $model->wasChanged('api_statuses')) {
-            $this->propagateTaapiDataToOverlappingSymbols($model);
-        }
-    }
-
-    /**
-     * Assign websocket_group for exchanges with subscription limits.
-     * Some exchanges have per-connection subscription limits that require
-     * splitting symbols across multiple WebSocket connections.
-     */
-    public function assignWebsocketGroup(ExchangeSymbol $model): void
-    {
-        // Get the max symbols per group for this exchange (null if no limit)
-        $maxPerGroup = $this->getMaxSymbolsPerGroup($model->api_system_id);
-
-        if ($maxPerGroup === null) {
-            // Exchange doesn't need group splitting - uses default 'group-1'
+        if (! $this->isBinanceSymbol($model)) {
             return;
         }
 
-        // Find first group with available capacity
-        $groupNumber = 1;
-        while (true) {
-            $groupName = "group-{$groupNumber}";
-            $count = ExchangeSymbol::where('api_system_id', $model->api_system_id)
-                ->where('websocket_group', $groupName)
-                ->count();
+        // Propagate tradeable-related fields if any of them changed
+        $fieldsToCheck = array_merge(self::TRADEABLE_FIELDS, ['api_statuses']);
 
-            if ($count < $maxPerGroup) {
-                $model->websocket_group = $groupName;
-
-                return;
-            }
-            $groupNumber++;
+        if ($model->wasChanged($fieldsToCheck)) {
+            $this->propagateTradeableFieldsToOverlappingSymbols($model);
         }
     }
 
@@ -217,68 +194,6 @@ final class ExchangeSymbolObserver
     }
 
     /**
-     * Propagate has_taapi_data from a Binance symbol to overlapping non-Binance symbols.
-     * Uses withoutEvents to prevent circular observer calls.
-     */
-    public function propagateTaapiDataToOverlappingSymbols(ExchangeSymbol $binanceSymbol): void
-    {
-        $hasTaapiData = $binanceSymbol->api_statuses['has_taapi_data'] ?? null;
-
-        if ($hasTaapiData === null) {
-            return;
-        }
-
-        $binanceSystemId = $this->getBinanceSystemId();
-
-        if ($binanceSystemId === null) {
-            return;
-        }
-
-        // Direct token match propagation
-        ExchangeSymbol::withoutEvents(function () use ($binanceSymbol, $hasTaapiData, $binanceSystemId): void {
-            ExchangeSymbol::where('token', $binanceSymbol->token)
-                ->where('api_system_id', '!=', $binanceSystemId)
-                ->where('overlaps_with_binance', true)
-                ->each(function (ExchangeSymbol $symbol) use ($hasTaapiData): void {
-                    $apiStatuses = $symbol->api_statuses ?? [];
-                    $apiStatuses['has_taapi_data'] = $hasTaapiData;
-                    $symbol->updateSaving(['api_statuses' => $apiStatuses]);
-                });
-        });
-
-        // TokenMapper reverse lookup propagation (for different token names across exchanges)
-        $this->propagateViaMappedTokens($binanceSymbol, $hasTaapiData, $binanceSystemId);
-    }
-
-    /**
-     * Propagate TAAPI data via TokenMapper for cross-exchange token name differences.
-     * E.g., NEIRO on Binance = 1000NEIRO on KuCoin.
-     */
-    public function propagateViaMappedTokens(ExchangeSymbol $binanceSymbol, bool $hasTaapiData, int $binanceSystemId): void
-    {
-        // Find mappings where this Binance token has different names on other exchanges
-        $mappings = TokenMapper::where('binance_token', $binanceSymbol->token)->get();
-
-        if ($mappings->isEmpty()) {
-            return;
-        }
-
-        ExchangeSymbol::withoutEvents(function () use ($mappings, $hasTaapiData, $binanceSystemId): void {
-            foreach ($mappings as $mapping) {
-                ExchangeSymbol::where('api_system_id', $mapping->other_api_system_id)
-                    ->where('token', $mapping->other_token)
-                    ->where('api_system_id', '!=', $binanceSystemId)
-                    ->where('overlaps_with_binance', true)
-                    ->each(function (ExchangeSymbol $symbol) use ($hasTaapiData): void {
-                        $apiStatuses = $symbol->api_statuses ?? [];
-                        $apiStatuses['has_taapi_data'] = $hasTaapiData;
-                        $symbol->updateSaving(['api_statuses' => $apiStatuses]);
-                    });
-            }
-        });
-    }
-
-    /**
      * Check if a symbol belongs to Binance.
      */
     public function isBinanceSymbol(ExchangeSymbol $model): bool
@@ -290,44 +205,84 @@ final class ExchangeSymbolObserver
 
     /**
      * Get the Binance system ID, caching it for performance.
+     * Uses Laravel's once() helper which is properly cleared between tests.
      */
     public function getBinanceSystemId(): ?int
     {
-        if (self::$binanceSystemId === null) {
-            self::$binanceSystemId = ApiSystem::where('canonical', 'binance')->value('id');
-        }
-
-        return self::$binanceSystemId;
+        return once(function (): ?int {
+            return ApiSystem::where('canonical', 'binance')->value('id');
+        });
     }
 
     /**
-     * Get the maximum symbols per WebSocket group for an exchange.
-     * Returns null if the exchange doesn't require group splitting.
+     * Propagate tradeable-related fields from a Binance symbol to overlapping non-Binance symbols.
+     * Uses withoutEvents to prevent circular observer calls.
      */
-    public function getMaxSymbolsPerGroup(int $apiSystemId): ?int
+    private function propagateTradeableFieldsToOverlappingSymbols(ExchangeSymbol $binanceSymbol): void
     {
-        // Mapping of exchange canonicals to their max symbols per group
-        $exchangeLimits = [
-            'kucoin' => self::KUCOIN_MAX_PER_GROUP,
-            'bitget' => self::BITGET_MAX_PER_GROUP,
-        ];
+        $binanceSystemId = $this->getBinanceSystemId();
 
-        // Find the canonical name for this api_system_id
-        $apiSystem = ApiSystem::find($apiSystemId);
-
-        if ($apiSystem === null) {
-            return null;
+        if ($binanceSystemId === null) {
+            return;
         }
 
-        return $exchangeLimits[$apiSystem->canonical] ?? null;
+        // Build update data from current Binance symbol values
+        $updateData = [];
+        foreach (self::TRADEABLE_FIELDS as $field) {
+            $updateData[$field] = $binanceSymbol->{$field};
+        }
+
+        // Also sync has_taapi_data from api_statuses
+        $hasTaapiData = $binanceSymbol->api_statuses['has_taapi_data'] ?? false;
+
+        // Direct token match propagation
+        ExchangeSymbol::withoutEvents(function () use ($binanceSymbol, $updateData, $hasTaapiData, $binanceSystemId): void {
+            ExchangeSymbol::where('token', $binanceSymbol->token)
+                ->where('api_system_id', '!=', $binanceSystemId)
+                ->where('overlaps_with_binance', true)
+                ->each(function (ExchangeSymbol $symbol) use ($updateData, $hasTaapiData): void {
+                    $apiStatuses = $symbol->api_statuses ?? [];
+                    $apiStatuses['has_taapi_data'] = $hasTaapiData;
+                    $updateData['api_statuses'] = $apiStatuses;
+                    $symbol->updateSaving($updateData);
+                });
+        });
+
+        // TokenMapper propagation for different token names across exchanges
+        $this->propagateTradeableFieldsViaMappedTokens($binanceSymbol, $updateData, $hasTaapiData, $binanceSystemId);
     }
 
     /**
-     * Reset the cached Binance system ID.
-     * Useful for testing.
+     * Propagate tradeable fields via TokenMapper for cross-exchange token name differences.
+     * E.g., 1000SHIB on Binance = SHIB on KuCoin.
+     *
+     * @param  array<string, mixed>  $updateData
      */
-    public static function resetBinanceSystemIdCache(): void
-    {
-        self::$binanceSystemId = null;
+    private function propagateTradeableFieldsViaMappedTokens(
+        ExchangeSymbol $binanceSymbol,
+        array $updateData,
+        bool $hasTaapiData,
+        int $binanceSystemId
+    ): void {
+        // Find mappings where this Binance token has different names on other exchanges
+        $mappings = TokenMapper::where('binance_token', $binanceSymbol->token)->get();
+
+        if ($mappings->isEmpty()) {
+            return;
+        }
+
+        ExchangeSymbol::withoutEvents(function () use ($mappings, $updateData, $hasTaapiData): void {
+            foreach ($mappings as $mapping) {
+                ExchangeSymbol::where('api_system_id', $mapping->other_api_system_id)
+                    ->where('token', $mapping->other_token)
+                    ->where('overlaps_with_binance', true)
+                    ->each(function (ExchangeSymbol $symbol) use ($updateData, $hasTaapiData): void {
+                        $apiStatuses = $symbol->api_statuses ?? [];
+                        $apiStatuses['has_taapi_data'] = $hasTaapiData;
+                        $updateData['api_statuses'] = $apiStatuses;
+                        $symbol->updateSaving($updateData);
+                    });
+            }
+        });
     }
 }

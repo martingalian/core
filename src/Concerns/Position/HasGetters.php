@@ -163,19 +163,18 @@ trait HasGetters
             return '0';
         }
 
-        // Guard: mark price and exchangeSymbol presence
-        $markPrice = $this->exchangeSymbol?->mark_price;
-        if ($markPrice === null || $markPrice === '') {
+        // Guard: current price and exchangeSymbol presence
+        $currentPrice = $this->exchangeSymbol?->current_price;
+        if ($currentPrice === null || $currentPrice === '') {
             return '0';
         }
 
-        $markPrice = (string) $markPrice;
         $quantity = (string) $this->quantity;
         $side = $this->direction;
 
         $diff = $side === 'LONG'
-            ? bcsub($markPrice, $entryPrice, scale: 16)
-            : bcsub($entryPrice, $markPrice, scale: 16);
+            ? bcsub($currentPrice, $entryPrice, scale: 16)
+            : bcsub($entryPrice, $currentPrice, scale: 16);
 
         $pnl = bcmul($diff, $quantity, scale: 16);
 
@@ -229,7 +228,7 @@ trait HasGetters
     {
         $start = $this->profitOrder()?->price;
         $target = $this->nextPendingLimitOrderPrice();
-        $curr = $this->exchangeSymbol?->mark_price;
+        $curr = $this->exchangeSymbol?->current_price;
 
         if ($start === null || $target === null || $curr === null) {
             return 0.0;
@@ -270,7 +269,7 @@ trait HasGetters
     {
         $start = $this->profitOrder()?->price;
         $end = $this->nextPendingLimitOrderPrice();
-        $curr = $this->exchangeSymbol?->mark_price;
+        $curr = $this->exchangeSymbol?->current_price;
 
         if ($start === null || $end === null || $curr === null) {
             return 0.0;
@@ -342,14 +341,14 @@ trait HasGetters
      */
     public function size(): ?string
     {
-        if ($this->quantity === null || $this->exchangeSymbol?->mark_price === null) {
+        if ($this->quantity === null || $this->exchangeSymbol?->current_price === null) {
             return '0';
         }
 
         $quantity = (string) $this->quantity;
-        $markPrice = (string) $this->exchangeSymbol->mark_price;
+        $currentPrice = (string) $this->exchangeSymbol->current_price;
 
-        $notional = bcmul($quantity, $markPrice, scale: 16);
+        $notional = bcmul($quantity, $currentPrice, scale: 16);
 
         $openPositions = ApiSnapshot::getFrom($this->account, 'account-positions');
 
@@ -373,8 +372,8 @@ trait HasGetters
         $lastLimit = $this->lastLimitOrder();              // may be null (SAFE)
         $end = $lastLimit?->price;                   // null-safe
 
-        // Current mark price
-        $curr = $this->exchangeSymbol?->mark_price;
+        // Current price from latest candle
+        $curr = $this->exchangeSymbol?->current_price;
 
         // If any required piece is missing, return "0"
         if ($start === null || $end === null || $curr === null) {

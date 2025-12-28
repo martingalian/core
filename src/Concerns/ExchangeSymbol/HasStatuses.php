@@ -22,11 +22,6 @@ trait HasStatuses
             return false;
         }
 
-        // Must not have stale price
-        if ($this->has_stale_price) {
-            return false;
-        }
-
         // Must not have indicator data issues
         if ($this->has_no_indicator_data) {
             return false;
@@ -64,11 +59,6 @@ trait HasStatuses
 
         // Must not be in cooldown period (tradeable_at null or in the past)
         if ($this->tradeable_at !== null && $this->tradeable_at->isFuture()) {
-            return false;
-        }
-
-        // Must have a valid mark price
-        if ($this->mark_price === null || $this->mark_price <= 0) {
             return false;
         }
 

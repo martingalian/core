@@ -76,7 +76,7 @@ trait HasAccessors
     public function getDailyVariationPercentageAttribute(): ?string
     {
         $symbol = $this->exchangeSymbol;
-        if (! $symbol || $symbol->mark_price === null || $symbol->mark_price === '') {
+        if (! $symbol || $symbol->current_price === null || $symbol->current_price === '') {
             return '0.00';
         }
 
@@ -108,7 +108,7 @@ trait HasAccessors
             return '0.00';
         }
 
-        $current = (float) $symbol->mark_price;
+        $current = (float) $symbol->current_price;
         $percent = (($current - $open) / $open) * 100.0;
 
         return number_format($percent, 2, '.', '');
@@ -126,13 +126,13 @@ trait HasAccessors
 
     /**
      * $position->current_price
-     * Source: mark_price
+     * Source: latest candle close price
      * Returns numeric string or "0".
      */
     public function getCurrentPriceAttribute(): ?string
     {
-        $mp = $this->exchangeSymbol?->mark_price;
+        $price = $this->exchangeSymbol?->current_price;
 
-        return ($mp === null || $mp === '') ? '0' : (string) $mp;
+        return ($price === null || $price === '') ? '0' : (string) $price;
     }
 }

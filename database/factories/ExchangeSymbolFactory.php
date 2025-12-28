@@ -27,7 +27,6 @@ final class ExchangeSymbolFactory extends Factory
             'symbol_id' => null,
             'api_system_id' => ApiSystem::factory(),
             'is_manually_enabled' => true,
-            'has_stale_price' => false,
             'has_no_indicator_data' => false,
             'has_price_trend_misalignment' => false,
             'has_early_direction_change' => false,
@@ -47,14 +46,12 @@ final class ExchangeSymbolFactory extends Factory
             'symbol_information' => null,
             'total_limit_orders' => 4,
             'leverage_brackets' => null,
-            'mark_price' => null,
             'indicators_values' => null,
             'limit_quantity_multipliers' => null,
             'disable_on_price_spike_percentage' => 15.00,
             'price_spike_cooldown_hours' => 72,
             'indicators_timeframe' => null,
             'indicators_synced_at' => null,
-            'mark_price_synced_at' => null,
         ];
     }
 

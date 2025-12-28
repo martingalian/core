@@ -26,7 +26,6 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property array{cmc_api_called?: bool, taapi_verified?: bool, has_taapi_data?: bool} $api_statuses
  * @property int $api_system_id
  * @property bool|null $is_manually_enabled
- * @property bool $has_stale_price
  * @property bool $has_no_indicator_data
  * @property bool $has_price_trend_misalignment
  * @property bool $has_early_direction_change
@@ -49,7 +48,6 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property \Illuminate\Support\Carbon|null $tradeable_at
  * @property array|null $symbol_information
  * @property array|null $leverage_brackets
- * @property float|null $mark_price
  * @property mixed $indicators_values
  * @property string|null $indicators_timeframe
  * @property \Illuminate\Support\Carbon|null $indicators_synced_at
@@ -58,8 +56,6 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property array<string, float>|null $btc_correlation_rolling
  * @property array<string, float>|null $btc_elasticity_long
  * @property array<string, float>|null $btc_elasticity_short
- * @property \Illuminate\Support\Carbon|null $mark_price_synced_at
- * @property string $websocket_group
  * @property bool|null $overlaps_with_binance
  * @property bool $is_marked_for_delisting
  * @property \Illuminate\Support\Carbon $created_at
@@ -82,7 +78,6 @@ final class ExchangeSymbol extends BaseModel
 
     protected $casts = [
         'is_manually_enabled' => 'boolean',
-        'has_stale_price' => 'boolean',
         'has_no_indicator_data' => 'boolean',
         'has_price_trend_misalignment' => 'boolean',
         'has_early_direction_change' => 'boolean',
@@ -103,18 +98,12 @@ final class ExchangeSymbol extends BaseModel
         'btc_elasticity_long' => 'array',
         'btc_elasticity_short' => 'array',
 
-        'mark_price_synced_at' => 'datetime',
         'indicators_synced_at' => 'datetime',
         'delivery_at' => 'datetime',
         'tradeable_at' => 'datetime',
 
         'delivery_ts_ms' => 'integer',
     ];
-
-    public function priceHistories(): HasMany
-    {
-        return $this->hasMany(PriceHistory::class);
-    }
 
     public function steps(): MorphMany
     {

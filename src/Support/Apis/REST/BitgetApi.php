@@ -74,6 +74,29 @@ final class BitgetApi
     }
 
     /**
+     * Get candlestick/kline data for a symbol.
+     *
+     * @see https://www.bitget.com/api-doc/contract/market/Get-Candle-Data
+     */
+    public function getKlines(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        // Default to USDT-FUTURES for perpetuals
+        if (! $properties->has('options.productType')) {
+            $properties->set('options.productType', 'USDT-FUTURES');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v2/mix/market/candles',
+            $properties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
+    /**
      * Get open positions.
      *
      * @see https://www.bitget.com/api-doc/contract/position/Get-All-Position

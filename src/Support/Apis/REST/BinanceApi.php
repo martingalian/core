@@ -69,6 +69,24 @@ final class BinanceApi
         return $this->client->publicRequest($apiRequest);
     }
 
+    /**
+     * Get candlestick/kline data for a symbol.
+     *
+     * @see https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Kline-Candlestick-Data
+     */
+    public function getKlines(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/fapi/v1/klines',
+            $properties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
     // https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/Current-All-Open-Orders
     public function getCurrentOpenOrders(ApiProperties $properties)
     {

@@ -69,6 +69,24 @@ final class KucoinApi
     }
 
     /**
+     * Get candlestick/kline data for a symbol.
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/market-data/get-klines
+     */
+    public function getKlines(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v1/kline/query',
+            $properties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
+    /**
      * Get open positions.
      *
      * @see https://www.kucoin.com/docs/rest/futures-trading/positions/get-position-list

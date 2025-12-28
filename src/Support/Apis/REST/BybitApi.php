@@ -70,6 +70,29 @@ final class BybitApi
         return $this->client->publicRequest($apiRequest);
     }
 
+    /**
+     * Get candlestick/kline data for a symbol.
+     *
+     * @see https://bybit-exchange.github.io/docs/v5/market/kline
+     */
+    public function getKlines(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        // Bybit requires category parameter - default to linear (USDT perpetual)
+        if (! $properties->get('options.category')) {
+            $properties->set('options.category', 'linear');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/v5/market/kline',
+            $properties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
     // https://bybit-exchange.github.io/docs/v5/account/wallet-balance
     public function account(ApiProperties $properties)
     {

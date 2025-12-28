@@ -11,6 +11,7 @@ use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsAccountQuery
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsAccountQueryTrades;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsCancelOrders;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsExchangeInformationQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsKlinesQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsLeverageBracketsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsMarkPriceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsOpenOrdersQuery;
@@ -31,6 +32,7 @@ final class BitgetApiDataMapper extends BaseDataMapper
     use MapsAccountQueryTrades;
     use MapsCancelOrders;
     use MapsExchangeInformationQuery;
+    use MapsKlinesQuery;
     use MapsLeverageBracketsQuery;
     use MapsMarkPriceQuery;
     use MapsOpenOrdersQuery;

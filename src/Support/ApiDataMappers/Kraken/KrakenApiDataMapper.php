@@ -11,6 +11,7 @@ use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsAccountQuery
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsAccountQueryTrades;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsCancelOrders;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsExchangeInformationQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsKlinesQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsLeverageBracketsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsMarkPriceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests\MapsOpenOrdersQuery;
@@ -30,6 +31,7 @@ final class KrakenApiDataMapper extends BaseDataMapper
     use MapsAccountQueryTrades;
     use MapsCancelOrders;
     use MapsExchangeInformationQuery;
+    use MapsKlinesQuery;
     use MapsLeverageBracketsQuery;
     use MapsMarkPriceQuery;
     use MapsOpenOrdersQuery;

@@ -326,6 +326,64 @@ Streams:
 - Ticker streams for mark prices
 - Ping every 30 seconds (send "ping" string, receive "pong")
 
+## Klines (Candlestick Data)
+
+All exchange REST APIs support fetching historical candlestick (OHLCV) data via the `getKlines()` method. This enables fetching price history without WebSocket connections.
+
+### Endpoints by Exchange
+
+| Exchange | Endpoint | Public | Key Parameters |
+|----------|----------|--------|----------------|
+| Binance | `GET /fapi/v1/klines` | Yes | `symbol`, `interval`, `startTime`, `endTime`, `limit` |
+| Bybit | `GET /v5/market/kline` | Yes | `category`, `symbol`, `interval`, `start`, `end`, `limit` |
+| KuCoin | `GET /api/v1/kline/query` | Yes | `symbol`, `granularity`, `from`, `to` |
+| BitGet | `GET /api/v2/mix/market/candles` | Yes | `productType`, `symbol`, `granularity`, `startTime`, `endTime` |
+| Kraken | `GET /api/charts/v1/trade/{symbol}/{resolution}` | Yes | `from`, `to` (seconds) |
+
+### Exchange-Specific Notes
+
+**Binance**:
+- Interval format: `5m`, `15m`, `1h`, etc.
+- Timestamps in milliseconds
+- Returns array of arrays: `[openTime, open, high, low, close, volume, ...]`
+
+**Bybit**:
+- Requires `category=linear` for USDT perpetuals
+- Interval format: Just the number (`5` for 5 minutes, not `5m`)
+- Timestamps in milliseconds
+- Response: `{ result: { list: [[timestamp, open, high, low, close, volume, turnover], ...] } }`
+
+**KuCoin**:
+- Symbol format includes `M` suffix: `XBTUSDTM`
+- Granularity in minutes (integer): `5` for 5 minutes
+- Timestamps in milliseconds
+- Response: `{ data: [[time, open, high, low, close, volume], ...] }`
+
+**BitGet**:
+- Requires `productType=USDT-FUTURES`
+- Granularity format: `5m`, `15m`, `1h`, etc.
+- Timestamps in milliseconds
+- Response: `{ data: [["ts", "o", "h", "l", "c", "vol", "quoteVol"], ...] }` (array of string arrays)
+
+**Kraken**:
+- Symbol and resolution in URL path (not query params)
+- Symbol format: `PF_XBTUSD` (PF_ prefix for perpetuals)
+- **Timestamps in SECONDS** (not milliseconds)
+- Resolution format: `5m`, `15m`, `1h`, etc.
+- Response: `{ candles: [{time, open, high, low, close, volume}, ...] }` (array of objects)
+
+### Usage Example
+
+```php
+$api = new BinanceApi($credentials);
+$properties = new ApiProperties;
+$properties->set('options.symbol', 'BTCUSDT');
+$properties->set('options.interval', '5m');
+$properties->set('options.limit', 100);
+
+$response = $api->getKlines($properties);
+```
+
 ## Market Data Providers
 
 ### TAAPI (Technical Analysis API)

@@ -10,13 +10,12 @@ trait HasScopes
 {
     /**
      * Symbols that can be used to open positions.
-     * Checks: overlaps with Binance, linked to CMC symbol, manually enabled, has TAAPI data, has direction, respects cooldowns, fresh price, no behavioral flags.
+     * Checks: overlaps with Binance, linked to CMC symbol, manually enabled, has TAAPI data, has direction, respects cooldowns, no behavioral flags.
      */
     public function scopeTradeable(Builder $query): Builder
     {
         return $query->where('exchange_symbols.overlaps_with_binance', true)
             ->where('exchange_symbols.api_statuses->has_taapi_data', true)
-            ->where('exchange_symbols.has_stale_price', false)
             ->where('exchange_symbols.has_no_indicator_data', false)
             ->where('exchange_symbols.is_marked_for_delisting', false)
             ->where('exchange_symbols.has_price_trend_misalignment', false)

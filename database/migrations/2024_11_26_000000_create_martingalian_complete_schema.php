@@ -169,7 +169,6 @@ return new class extends Migration
             $table->unsignedBigInteger('quote_id');
             $table->unsignedInteger('api_system_id');
             $table->boolean('is_manually_enabled')->default(1)->comment('Manual admin override: 1=enabled (default), 0=disabled');
-            $table->boolean('has_stale_price')->default(false)->comment('True when mark_price_synced_at is stale (older than threshold)');
             $table->boolean('has_no_indicator_data')->default(false)->comment('True when TAAPI returns no data (3+ failures)');
             $table->boolean('has_price_trend_misalignment')->default(false)->comment('True when price movement contradicts concluded direction');
             $table->boolean('has_early_direction_change')->default(false)->comment('True when direction changes before minimum allowed timeframe index');
@@ -189,7 +188,6 @@ return new class extends Migration
             $table->longText('symbol_information')->nullable();
             $table->unsignedInteger('total_limit_orders')->default(4)->comment('Total limit orders, for the martingale calculation');
             $table->longText('leverage_brackets')->nullable();
-            $table->decimal('mark_price', 20, 8)->nullable();
             $table->text('indicators_values')->nullable();
             $table->json('limit_quantity_multipliers')->nullable();
             $table->decimal('disable_on_price_spike_percentage', 4, 2)->default(15.00);
@@ -201,16 +199,12 @@ return new class extends Migration
             $table->json('btc_correlation_rolling')->nullable();
             $table->json('btc_elasticity_long')->nullable();
             $table->json('btc_elasticity_short')->nullable();
-            $table->timestamp('mark_price_synced_at')->nullable()->index('idx_mark_price_synced_at');
             $table->timestamp('tradeable_at')->nullable()->comment('Cooldown timestamp so a symbol cannot be tradeable until a certain moment');
-            $table->string('websocket_group', 20)->default('group-1')->comment('WebSocket subscription group for exchanges with subscription limits (e.g., KuCoin max 300)');
             $table->boolean('overlaps_with_binance')->nullable()->index()->comment('True if this token exists on Binance (for TAAPI indicator compatibility)');
             $table->boolean('is_marked_for_delisting')->default(false)->index()->comment('True when Binance symbol is delisted, cascades to other exchanges');
             $table->timestamps();
 
             $table->unique(['symbol_id', 'api_system_id', 'quote_id'], 'exchange_symbols_symbol_id_api_system_id_quote_id_unique');
-            $table->index('websocket_group', 'idx_exchange_symbols_websocket_group');
-            $table->index('has_stale_price', 'idx_exchange_symbols_has_stale_price');
             $table->index('has_no_indicator_data', 'idx_exchange_symbols_has_no_indicator_data');
             $table->index('has_price_trend_misalignment', 'idx_exchange_symbols_has_price_trend_misalignment');
             $table->index('has_early_direction_change', 'idx_exchange_symbols_has_early_direction_change');
@@ -469,16 +463,6 @@ return new class extends Migration
             $table->index('status', 'idx_positions_status');
             $table->index(['account_id', 'status'], 'idx_positions_account_status');
             $table->index('direction', 'idx_positions_direction');
-        });
-
-        // price_history table
-        Schema::create('price_history', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('exchange_symbol_id');
-            $table->decimal('mark_price', 20, 8)->nullable();
-            $table->timestamps();
-
-            $table->index(['created_at', 'id'], 'idx_p_ph_created_id');
         });
 
         // quotes table
@@ -746,7 +730,6 @@ return new class extends Migration
         Schema::dropIfExists('candles');
         Schema::dropIfExists('indicator_histories');
         Schema::dropIfExists('indicators');
-        Schema::dropIfExists('price_history');
         Schema::dropIfExists('orders');
         Schema::dropIfExists('order_history');
         Schema::dropIfExists('positions');

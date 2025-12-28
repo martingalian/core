@@ -1,7 +1,7 @@
 # API Data Mapping System
 
 ## Overview
-Exchange-agnostic data transformation layer that converts between internal data models and exchange-specific API formats. Provides unified interface for interacting with multiple exchanges (Binance, Bybit, Kraken Futures) and data providers (TAAPI, CoinMarketCap) while handling format differences transparently.
+Exchange-agnostic data transformation layer that converts between internal data models and exchange-specific API formats. Provides unified interface for interacting with multiple exchanges (Binance, Bybit, Kraken, BitGet, KuCoin) and data providers (TAAPI, CoinMarketCap) while handling format differences transparently.
 
 ## Architecture
 
@@ -59,6 +59,7 @@ Internal Model updated
 - `MapsMarkPriceQuery` - Current price
 - `MapsSymbolMarginType` - Margin type (ISOLATED/CROSS)
 - `MapsTokenLeverageRatios` - Leverage settings
+- `MapsKlinesQuery` - Candlestick/OHLCV data
 
 **Common Methods**:
 ```php
@@ -86,10 +87,22 @@ $parts = $mapper->identifyBaseAndQuote('BTCUSDT');
 **Location**: `Martingalian\Core\Support\ApiDataMappers\Bybit\BybitApiDataMapper`
 **Purpose**: Maps data to/from Bybit V5 API format
 
-**Similar Structure to Binance**:
-- Trait-based mapping for each API endpoint
-- Direction/side type conversions
-- Trading pair formatting
+**Traits**:
+- `MapsPlaceOrder` - Order placement
+- `MapsOrderQuery` - Order status query
+- `MapsOrderCancel` - Order cancellation
+- `MapsOrderModify` - Order modification
+- `MapsOpenOrdersQuery` - Open orders query
+- `MapsCancelOrders` - Batch order cancellation
+- `MapsPositionsQuery` - Positions query
+- `MapsAccountQuery` - Account info query
+- `MapsAccountBalanceQuery` - Balance query
+- `MapsExchangeInformationQuery` - Symbol metadata
+- `MapsLeverageBracketsQuery` - Leverage tiers
+- `MapsMarkPriceQuery` - Current price
+- `MapsSymbolMarginType` - Margin type (ISOLATED/CROSS)
+- `MapsTokenLeverageRatios` - Leverage settings
+- `MapsKlinesQuery` - Candlestick/OHLCV data
 
 **Differences from Binance**:
 - V5 API uses different parameter names
@@ -145,6 +158,15 @@ $properties->set('options.orderType', 'Market'); // Not 'type'
 - `MapsAccountBalanceQuery` - Account balance query
 - `MapsOpenOrdersQuery` - Open orders query
 - `MapsAccountQuery` - Account info query
+- `MapsPlaceOrder` - Order placement
+- `MapsOrderCancel` - Order cancellation
+- `MapsOrderModify` - Order modification
+- `MapsCancelOrders` - Batch order cancellation
+- `MapsMarkPriceQuery` - Current price (via tickers)
+- `MapsLeverageBracketsQuery` - Leverage preferences
+- `MapsSymbolMarginType` - Margin type settings
+- `MapsTokenLeverageRatios` - Leverage settings
+- `MapsKlinesQuery` - Candlestick/OHLCV data
 
 **Common Methods**:
 ```php
@@ -186,6 +208,83 @@ GET /derivatives/api/v3/accounts
 
 // Open orders
 GET /derivatives/api/v3/openorders
+```
+
+---
+
+### BitgetApiDataMapper
+**Location**: `Martingalian\Core\Support\ApiDataMappers\Bitget\BitgetApiDataMapper`
+**Purpose**: Maps data to/from BitGet Futures V2 API format
+
+**Traits**:
+- `MapsPlaceOrder` - Order placement
+- `MapsOrderQuery` - Order status query
+- `MapsOrderCancel` - Order cancellation
+- `MapsOrderModify` - Order modification
+- `MapsOpenOrdersQuery` - Open orders query
+- `MapsCancelOrders` - Batch order cancellation
+- `MapsPositionsQuery` - Positions query
+- `MapsAccountQuery` - Account info query
+- `MapsAccountBalanceQuery` - Balance query
+- `MapsExchangeInformationQuery` - Symbol metadata
+- `MapsLeverageBracketsQuery` - Leverage tiers
+- `MapsMarkPriceQuery` - Current price
+- `MapsSymbolMarginType` - Margin type (ISOLATED/CROSS)
+- `MapsTokenLeverageRatios` - Leverage settings
+- `MapsKlinesQuery` - Candlestick/OHLCV data
+
+**Differences from Binance**:
+- Requires `productType` parameter (e.g., `USDT-FUTURES`)
+- Uses `granularity` instead of `interval` for klines
+- Different response structure with nested `data` array
+
+**Trading Pair Handling**:
+```php
+// Build trading pair (simple concatenation)
+$pair = $mapper->baseWithQuote('BTC', 'USDT'); // Returns: "BTCUSDT"
+
+// Parse trading pair
+$parts = $mapper->identifyBaseAndQuote('BTCUSDT');
+// Returns: ['base' => 'BTC', 'quote' => 'USDT']
+```
+
+---
+
+### KucoinApiDataMapper
+**Location**: `Martingalian\Core\Support\ApiDataMappers\Kucoin\KucoinApiDataMapper`
+**Purpose**: Maps data to/from KuCoin Futures API format
+
+**Traits**:
+- `MapsPlaceOrder` - Order placement
+- `MapsOrderQuery` - Order status query
+- `MapsOrderCancel` - Order cancellation
+- `MapsOrderModify` - Order modification
+- `MapsOpenOrdersQuery` - Open orders query
+- `MapsCancelOrders` - Batch order cancellation
+- `MapsPositionsQuery` - Positions query
+- `MapsAccountQuery` - Account info query
+- `MapsAccountBalanceQuery` - Balance query
+- `MapsExchangeInformationQuery` - Symbol metadata
+- `MapsLeverageBracketsQuery` - Leverage tiers
+- `MapsMarkPriceQuery` - Current price
+- `MapsSymbolMarginType` - Margin type (ISOLATED/CROSS)
+- `MapsTokenLeverageRatios` - Leverage settings
+- `MapsKlinesQuery` - Candlestick/OHLCV data
+
+**Differences from Binance**:
+- Symbol format uses `M` suffix for perpetuals (e.g., `XBTUSDTM` instead of `BTCUSDT`)
+- Uses `XBT` instead of `BTC` for Bitcoin
+- Uses `granularity` in minutes (integer) instead of interval string for klines
+- Timestamps in seconds for some endpoints
+
+**Trading Pair Handling**:
+```php
+// Build trading pair (adds M suffix)
+$pair = $mapper->baseWithQuote('BTC', 'USDT'); // Returns: "XBTUSDTM"
+
+// Parse trading pair
+$parts = $mapper->identifyBaseAndQuote('XBTUSDTM');
+// Returns: ['base' => 'BTC', 'quote' => 'USDT']
 ```
 
 ---
@@ -247,6 +346,12 @@ $mapper = ApiDataMapperProxy::make('bybit');
 
 $mapper = ApiDataMapperProxy::make('kraken');
 // Returns: KrakenApiDataMapper instance
+
+$mapper = ApiDataMapperProxy::make('bitget');
+// Returns: BitgetApiDataMapper instance
+
+$mapper = ApiDataMapperProxy::make('kucoin');
+// Returns: KucoinApiDataMapper instance
 
 // Use mapper
 $properties = $mapper->preparePlaceOrderProperties($order);
@@ -372,6 +477,53 @@ public function resolvePositionsQueryResponse(Response $response): array
 This ensures consistency with `Position::parsed_trading_pair` and enables symbol comparison in `Position::apiClose()`.
 
 **CRITICAL**: All response mappers must normalize symbols using `identifyBaseAndQuote()`. This was a production bug - `MapsPositionsQuery` initially didn't normalize symbols, causing `apiClose()` to fail position matching.
+
+---
+
+### Klines Query Pattern
+Each exchange has a `MapsKlinesQuery` trait that handles candlestick/OHLCV data fetching.
+
+**Preparation Method**: `prepareQueryKlinesProperties()`
+```php
+public function prepareQueryKlinesProperties(
+    ExchangeSymbol $exchangeSymbol,
+    string $interval = '5m',
+    ?int $startTime = null,
+    ?int $endTime = null,
+    ?int $limit = null
+): ApiProperties
+```
+
+**Resolution Method**: `resolveQueryKlinesResponse()`
+Returns normalized array regardless of exchange:
+```php
+[
+    [
+        'timestamp' => 1703520000000, // Unix milliseconds
+        'open' => '42000.50',
+        'high' => '42150.00',
+        'low' => '41900.00',
+        'close' => '42100.00',
+        'volume' => '1234.567',
+    ],
+    // ... more candles
+]
+```
+
+**Exchange-Specific Differences**:
+
+| Exchange | Interval Format | Timestamp Unit | Response Structure |
+|----------|-----------------|----------------|-------------------|
+| Binance | `"5m"` | milliseconds | `[[openTime, o, h, l, c, v, ...], ...]` |
+| Bybit | `"5"` (number only) | milliseconds | `{result: {list: [[ts, o, h, l, c, v, turnover], ...]}}` |
+| KuCoin | `5` (integer minutes) | seconds | `{data: [[time, o, h, l, c, v], ...]}` |
+| BitGet | `"5m"` | milliseconds | `{data: [["ts", "o", "h", "l", "c", "vol", "quoteVol"], ...]}` |
+| Kraken | `"5m"` (in URL path) | seconds | `{candles: [{time, open, high, low, close, volume}, ...]}` |
+
+**Key Normalization**:
+- All responses normalized to milliseconds (Kraken/KuCoin convert from seconds)
+- All numeric values cast to strings for consistency
+- Empty/malformed candles filtered out
 
 ---
 

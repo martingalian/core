@@ -12,9 +12,9 @@ trait HasTradingComputations
     {
         $scale = 18;
 
-        $price = api_format_price((string) $this->mark_price, $this);
+        $price = api_format_price((string) $this->current_price, $this);
         if (bccomp($price, '0', scale: $scale) <= 0) {
-            throw new InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
+            throw new InvalidArgumentException("Invalid or missing price for {$this->symbol}.");
         }
 
         $rawQty = bcdiv((string) $amount, $price, scale: $scale);
@@ -34,9 +34,9 @@ trait HasTradingComputations
     {
         $scale = 18;
 
-        $price = api_format_price((string) $this->mark_price, $this);
+        $price = api_format_price((string) $this->current_price, $this);
         if (bccomp($price, '0', scale: $scale) <= 0) {
-            throw new InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
+            throw new InvalidArgumentException("Invalid or missing price for {$this->symbol}.");
         }
 
         $qty = api_format_quantity((string) $quantity, $this);
@@ -49,9 +49,9 @@ trait HasTradingComputations
     {
         $scale = 18;
 
-        $price = api_format_price((string) $this->mark_price, $this);
+        $price = api_format_price((string) $this->current_price, $this);
         if (bccomp($price, '0', scale: $scale) <= 0) {
-            throw new InvalidArgumentException("Invalid or missing mark price for {$this->symbol}.");
+            throw new InvalidArgumentException("Invalid or missing price for {$this->symbol}.");
         }
 
         $qty = api_format_quantity((string) $quantity, $this);

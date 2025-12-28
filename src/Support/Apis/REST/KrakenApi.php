@@ -70,6 +70,33 @@ final class KrakenApi
     }
 
     /**
+     * Get candlestick/kline data for a symbol.
+     *
+     * Note: Kraken uses symbol and resolution in the URL path.
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/get-ohlc/
+     */
+    public function getKlines(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        $symbol = $properties->get('options.symbol');
+        $resolution = $properties->getOr('options.resolution', '5m');
+
+        // Remove from options since they go in the URL
+        $properties->delete('options.symbol');
+        $properties->delete('options.resolution');
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            "/api/charts/v1/trade/{$symbol}/{$resolution}",
+            $properties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
+
+    /**
      * Get open positions.
      *
      * @see https://docs.kraken.com/api/docs/futures-api/trading/get-openpositions

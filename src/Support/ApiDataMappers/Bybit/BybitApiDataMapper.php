@@ -11,6 +11,7 @@ use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsAccountQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsAccountQueryTrades;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsCancelOrders;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsExchangeInformationQuery;
+use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsKlinesQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsLeverageBracketsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsMarkPriceQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests\MapsOpenOrdersQuery;
@@ -31,6 +32,7 @@ final class BybitApiDataMapper extends BaseDataMapper
     use MapsAccountQueryTrades;
     use MapsCancelOrders;
     use MapsExchangeInformationQuery;
+    use MapsKlinesQuery;
     use MapsLeverageBracketsQuery;
     use MapsMarkPriceQuery;
     use MapsOpenOrdersQuery;

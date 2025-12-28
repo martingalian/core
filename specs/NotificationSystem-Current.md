@@ -570,6 +570,8 @@ Tracks IP addresses blocked from making API calls.
 | `token_delisting` | Token Delisting Detected | High | - | ExchangeSymbol observer |
 | `websocket_status_change` | WebSocket Status Change | High | `['api_system', 'group', 'status']` | HeartbeatObserver |
 | `websocket_prices_update_error` | WebSocket Prices: Database Update Error | Critical | `['api_system']` | UpdatePricesCommand catch block |
+| `websocket_restart_failed` | WebSocket Restart Failed | Critical | `['api_system', 'group']` | CheckStaleDataCommand |
+| `stale_websocket_heartbeat` | WebSocket Heartbeat Stale | Critical | `['api_system', 'group']` | CheckStaleDataCommand |
 
 **Note**: WebSocket notifications are centralized in `HeartbeatObserver`. The `websocket_status_change` canonical replaced the previous `update_prices_restart`, `websocket_invalid_json`, and `websocket_restart_success` canonicals which were removed from UpdatePricesCommand files.
 
@@ -804,6 +806,10 @@ All notification-related processes must be managed by supervisor to ensure confi
 ---
 
 ## Changelog
+
+### 2025-12-28
+- See `specs/Heartbeats.md` for complete heartbeat system documentation
+- `ExchangeSymbolObserver::ensureHeartbeatExists()` now creates heartbeat rows when websocket groups are assigned
 
 ### 2025-12-22
 - Added `is_active` boolean column to `notifications` table (default: true)
