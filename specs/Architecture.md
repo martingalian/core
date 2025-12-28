@@ -1,302 +1,212 @@
 # System Architecture
 
 ## Overview
-Laravel 12 cryptocurrency trading automation. Multi-exchange support (Binance, Bybit), WebSocket data streaming, background job processing (Horizon), step-based job execution, and multi-channel notifications.
+
+Laravel 12 cryptocurrency trading automation platform. Multi-exchange support with background job processing, step-based workflow execution, and multi-channel notifications.
+
+---
 
 ## Technology Stack
-- **PHP**: 8.4.13, **Laravel**: v12, **Database**: MySQL, **Queue**: Redis + Horizon v5
-- **Testing**: Pest v4, PHPUnit v12, **CSS**: Tailwind v4, **Bundler**: Vite
-- **Exchanges**: Binance, Bybit, **Market Data**: TAAPI, CoinMarketCap, Alternative.me
-- **Notifications**: Pushover, SMTP, **Quality**: Pint v1, Larastan v3, Rector v2
 
-## Directory Structure
+| Category | Technology |
+|----------|------------|
+| Backend | PHP 8.4, Laravel 12, MySQL |
+| Queue | Redis, Laravel Horizon |
+| Testing | Pest v4, PHPUnit v12 |
+| Static Analysis | Larastan v3 |
+| Frontend | Tailwind CSS v4, Alpine.js, Vite |
+| Exchanges | Binance, Bybit, Kraken, KuCoin, Bitget |
+| Market Data | TAAPI, CoinMarketCap, Alternative.me |
+| Notifications | Pushover, SMTP (Zeptomail) |
 
-**IMPORTANT**: Laravel 12 has no `app/Console/Kernel.php`, no middleware directory. You can now create new migration files and seeders under `packages/martingalian/core/database/migrations/` and `packages/martingalian/core/database/seeders/`. Migration files should directly call their corresponding seeder in the up() method after creating tables.
+---
 
-```
-app/
-├── Console/Commands/        # Auto-registered
-├── Enums/
-├── Mail/
-├── Models/                  # App-specific models
-└── Support/                 # Helper classes
+## Package Structure
 
-packages/martingalian/core/src/
-├── Abstracts/               # BaseQueueableJob, BaseApiableJob, BaseApiClient, BaseWebsocketClient, BaseExceptionHandler, BaseModel
-├── Models/                  # User, Account, Position, Order, Step, ApiRequestLog, Notification, NotificationLog, ThrottleLog, ThrottleRule
-├── Notifications/           # AlertNotification
-├── Mail/                    # AlertMail
-├── Enums/                   # NotificationSeverity
-├── Listeners/               # NotificationLogListener
-├── Concerns/                # Traits for models (HasModelCache, ApiRequestLog/SendsNotifications, Step/HasActions, etc.)
-├── States/                  # Step states (Pending, Running, Completed, Failed, etc.)
-├── Support/                 # ApiClients, ExceptionHandlers, StepDispatcher, NotificationService, ModelCache, Throttler
-└── database/                # migrations/, factories/, seeders/ (ALL HERE, not in main app)
-```
+The system is organized into two main packages:
 
-## Database Schema
+### Core Package (`Martingalian\Core`)
+Contains all domain logic, models, and business rules:
+- **Models**: User, Account, Position, Order, Step, ExchangeSymbol, ApiRequestLog, Notification
+- **Jobs**: BaseQueueableJob, BaseApiableJob, all business logic jobs
+- **Support**: API clients, exception handlers, StepDispatcher, NotificationService
+- **Database**: All migrations, factories, and seeders
 
-### users
-- `is_active` (boolean) - controls notification delivery
-- `notification_channels` (JSON) - ['mail', 'pushover'] or null (defaults to pushover)
-- `pushover_key` (nullable) - for Pushover delivery
+### Application Layer (`App\`)
+Contains HTTP layer and console commands:
+- **Controllers**: Web and API controllers
+- **Commands**: Cronjobs, administrative commands, test commands
+- **HTTP**: Middleware, form requests
 
-### accounts
-- `user_id` (nullable) - if null, notifications go to admin
-- `api_system_id` - FK to api_systems
-- `api_key`, `api_secret` (encrypted)
-
-### api_systems
-- `canonical` - binance, bybit, taapi, coinmarketcap, alternativeme
-
-### api_request_logs
-- `account_id` (nullable), `api_system_id`
-- `http_response_code`, `response` (JSON)
-- `hostname` - server that made request
-- **Observer**: Triggers `SendsNotifications::sendNotificationIfNeeded()` on save
-
-### notifications
-- `canonical` - message template identifier (e.g., 'api_access_denied')
-- `user_types` (JSON) - ['user'], ['admin'], or ['admin', 'user']
-
-### throttle_rules
-- `canonical` - throttle identifier (e.g., 'server_rate_limit_exceeded')
-- `throttle_seconds` - minimum time between notifications
-- Database-driven throttling (deprecated `throttle_logs` table removed in favor of `notification_logs`)
-
-See `Specs/StepDispatcher.md` for steps tables schema
+---
 
 ## Job Architecture
 
 ### Base Classes
 
-**BaseQueueableJob** (`packages/martingalian/core/src/Abstracts/BaseQueueableJob.php`)
-- `__construct()`: ONLY attribute assignments (NO processing logic)
-- `handle()`: Processing logic entry point
-- Implements `ShouldQueue`
+| Class | Purpose |
+|-------|---------|
+| `BaseQueueableJob` | Foundation for all queued jobs. Provides lifecycle hooks, exception handling, retry logic |
+| `BaseApiableJob` | Extends BaseQueueableJob. Adds API-specific handling: rate limiting, pre-flight checks, response caching |
 
-**BaseApiableJob** (extends BaseQueueableJob)
-- Exception handling via BaseExceptionHandler
-- Rate limit compliance
-- IP ban coordination
+### Job Organization
 
-**RULE**: Never run `php artisan steps:dispatch` manually - supervisor runs it every second
+Jobs are organized by their primary parameter:
 
-### Job Organization - Lifecycle Jobs
+| Parameter Type | Location | Example |
+|----------------|----------|---------|
+| `apiSystemId` | `Jobs/Lifecycles/ApiSystem/` | DiscoverExchangeSymbolsJob |
+| `accountId` | `Jobs/Lifecycles/Account/` | SyncAccountBalanceJob |
+| `exchangeSymbolId` | `Jobs/Models/ExchangeSymbol/` | FetchKlinesJob |
+| `positionId` | `Jobs/Models/Position/` | ClosePositionJob |
 
-**Lifecycle Jobs** are orchestrator jobs that dispatch other jobs to create workflows. They are organized by the parameter type they receive in their constructor:
+### Critical Rules
 
-**Rule**: Place lifecycle jobs in `packages/martingalian/core/src/Jobs/Lifecycles/{ParameterType}/`
+1. **Constructor**: Only attribute assignments, NO processing logic
+2. **Observers**: Always use `Model::create()` not `Model::insert()` to trigger observers
+3. **Horizon**: Restart after changing job classes
+4. **Dispatching**: Never run `steps:dispatch` manually - supervisor handles it
 
-**Examples**:
-- Job receives `apiSystemId` → `Jobs/Lifecycles/ApiSystem/`
-- Job receives `accountId` → `Jobs/Lifecycles/Accounts/`
-- Job receives `exchangeSymbolId` → `Jobs/Lifecycles/ExchangeSymbols/`
-- Job receives `positionId` → `Jobs/Lifecycles/Positions/`
-- Job receives `orderId` → `Jobs/Lifecycles/Orders/`
+---
 
-**Example Implementation**:
-```php
-// Jobs/Lifecycles/ApiSystem/DiscoverExchangeSymbolsJob.php
-namespace Martingalian\Core\Jobs\Lifecycles\ApiSystem;
+## Step Dispatcher
 
-final class DiscoverExchangeSymbolsJob extends BaseApiableJob
-{
-    public ApiSystem $apiSystem;
+A state machine-based workflow engine for reliable job execution.
 
-    public function __construct(int $apiSystemId) // ← Parameter type determines folder
-    {
-        $this->apiSystem = ApiSystem::findOrFail($apiSystemId);
-    }
+### Core Concepts
 
-    public function computeApiable()
-    {
-        // Dispatch child jobs using Step::create()
-        Step::create([
-            'class' => GetAllSymbolsFromExchangeJob::class,
-            'arguments' => ['apiSystemId' => $this->apiSystem->id],
-            'child_block_uuid' => $this->uuid(), // Creates parent-child relationship
-        ]);
-    }
-}
+- **Step**: A database record representing a job to be executed
+- **Parent-Child**: Steps can have dependencies forming execution chains
+- **States**: Pending → Dispatched → Running → Completed/Failed/Stopped
+- **Dispatch Groups**: Load balancing across servers
+
+### State Transitions
+
+```
+Pending → Dispatched → Running → Completed
+                              → Failed (→ Pending if retry)
+                              → Stopped
+        → Cancelled
+        → Skipped
 ```
 
-**Non-Lifecycle Jobs** (standard model-specific jobs) go in `Jobs/Models/{ModelName}/`
+### Business Rules
 
-### Queue Configuration
-- **Horizon**: Manages queue workers (`/horizon` dashboard)
-- **Supervisors**: default, notifications, api
-- **Connections**: sync (testing), redis (production)
+1. Parent cannot complete until ALL children are concluded
+2. Parent failure cascades to all children
+3. Parent skip/cancel cascades to all children
+4. If ALL children fail, parent transitions to Failed
+5. Steps only dispatch after `dispatch_after` timestamp
 
-## Command Architecture
+See `StepDispatcher.md` for complete documentation.
 
-### Command Types
-- **Cronjobs** (`app/Console/Commands/Cronjobs/`): Scheduled tasks (snapshot balances, update prices)
-- **Administrative**: One-off manual commands (make:admin, exchange:sync-orders)
-- **Testing** (`app/Console/Commands/Tests/`): Development/testing (test:notifications)
-
-**Scheduling**: `routes/console.php` (Laravel 12 - no Kernel.php)
-
-### Command Rules
-1. Type hints for all parameters
-2. Return exit codes (0 = success, 1+ = error)
-3. Notify admin on critical failures
+---
 
 ## Notification Flow
 
-**RULE**: All notifications originate from `ApiRequestLog` model (via `SendsNotifications` trait). `BaseExceptionHandler` does NOT send notifications - only handles retries, rate limits, IP bans.
+All notifications originate from model observers or cronjob commands:
 
-### Flow
-1. **API Request Logged** → `ApiRequestLog` created with `http_response_code`, `response`, `hostname`
-2. **Observer Triggered** → `ApiRequestLogObserver::saved()` calls `$log->sendNotificationIfNeeded()`
-3. **Analyze HTTP Code** → Trait checks if `http_response_code >= 400`
-4. **Load Handler** → Creates `BaseExceptionHandler::make($apiSystem->canonical)` for code analysis
-5. **Route Notification** → Calls `sendUserNotification()` (if account_id) or `sendAdminNotification()` (if null)
-6. **Check Error Type** → Uses `handler->isForbiddenFromLog()`, `handler->isRateLimitedFromLog()` to determine error type
-7. **Build Message** → `NotificationMessageBuilder::build($canonical, $context)` creates user-friendly message
-8. **Check user_types** → `Notification::findByCanonical($canonical)->user_types` determines recipients
-9. **Send** → `NotificationService::sendToUser()` or `::sendToAdmin()`
-10. **Deliver** → `AlertNotification` respects `user->notification_channels` (['mail', 'pushover'])
+1. **Trigger**: Observer detects event (API error, status change)
+2. **Throttle Check**: Database or cache-based throttling prevents spam
+3. **Message Build**: Template builder creates user-friendly content
+4. **Dispatch**: AlertNotification sent via user's preferred channels
+5. **Log**: NotificationLog created for audit trail
 
-### Key Classes (All in Martingalian\Core namespace)
-- **ApiRequestLog** (uses `SendsNotifications` trait) - Single source of truth (`Martingalian\Core\Models\ApiRequestLog`)
-- **ApiRequestLogObserver** - Minimal trigger (8 lines) (`Martingalian\Core\Observers\ApiRequestLogObserver`)
-- **BaseExceptionHandler** - HTTP code analysis (`Martingalian\Core\Abstracts\BaseExceptionHandler`)
-- **NotificationMessageBuilder** - Template builder (`Martingalian\Core\Support\NotificationMessageBuilder`)
-- **NotificationService** - Delivery layer (`Martingalian\Core\Support\NotificationService`)
-- **Throttler** - Rate limiting service (`Martingalian\Core\Support\Throttler`)
-- **AlertNotification** - Laravel notification class (`Martingalian\Core\Notifications\AlertNotification`)
-- **AlertMail** - Email mailable (`Martingalian\Core\Mail\AlertMail`)
-- **NotificationSeverity** - Severity enum (`Martingalian\Core\Enums\NotificationSeverity`)
+### Key Principles
 
-### Canonical Types
-- **Throttle Canonical**: `{exchange}_{error_type}` (e.g., `binance_rate_limit_exceeded`) - for throttling
-- **Message Canonical**: `{error_type}` (e.g., `api_access_denied`) - for templates
+- ApiRequestLogObserver handles API error notifications
+- HeartbeatObserver handles WebSocket status notifications
+- ForbiddenHostnameObserver handles IP ban notifications
+- ExceptionHandlers classify errors but do NOT send notifications
 
-See `Specs/Notifications.md` for detailed canonical list and routing rules
+See `NotificationSystem-Current.md` for complete documentation.
 
-## WebSocket Architecture
-
-### Flow
-1. Initialize event loop (ReactPHP)
-2. Establish connection (Ratchet)
-3. Subscribe to streams
-4. Message handler dispatches jobs
-5. Keepalive pings
-6. Auto-reconnect on disconnect
-
-### Clients
-- **BinanceApiClient**: `wss://stream.binance.com:9443/ws/{streams}`, keepalive every 30min
-- **BybitApiClient**: `wss://stream.bybit.com/v5/public/linear`, ping every 20s
-
-**Data Processing**: Incoming messages dispatch jobs (e.g., `ProcessTickerDataJob::dispatch($data)`)
+---
 
 ## Configuration
 
-**RULE**: Never use `env()` outside config files. Always use `config('key')` in application code.
+### Critical Rules
 
-### Config Files
-- `config/martingalian.php`: API credentials, dispatch groups, Pushover config
-- `config/horizon.php`: Queue supervisors, balance strategies
-- `config/app.php`, `config/database.php`, `config/mail.php`, `config/services.php`
+1. **Never use `env()` outside config files** - Always use `config('key')`
+2. **Restart supervisors after config changes** - Long-running processes cache config
+3. **Use transactions and pessimistic locking** for database operations
 
-**Runtime config**: `config(['app.debug' => false])` (temporary)
+### Key Config Files
 
-## Security & Performance
+| File | Purpose |
+|------|---------|
+| `config/martingalian.php` | API credentials, dispatch groups, Pushover config |
+| `config/horizon.php` | Queue supervisors, balance strategies |
+| `routes/console.php` | Scheduled commands (Laravel 12 - no Kernel.php) |
 
-### Security
+---
+
+## Database Conventions
+
+### Model Rules
+
+1. Use `Model::create()` to trigger observers
+2. Never use cascading deletes in migrations
+3. All migrations go in core package, not main Laravel project
+4. Migrations call their seeders in the `up()` method
+
+### Query Rules
+
+1. Use Eloquent relationships over manual joins
+2. Use eager loading to prevent N+1 queries
+3. Use `Model::query()` instead of `DB::` facade
+4. Wrap multi-step operations in transactions
+
+---
+
+## Security
+
 - API credentials encrypted in database
-- Laravel built-in authentication/authorization
-- Rate limiting: API endpoints, notifications (30min throttle), exchange compliance
-- IP ban coordination via Redis
+- Rate limiting on all API calls
+- IP ban coordination via Redis cache
+- Notification throttling prevents spam
 
-### Performance
-- **Database**: Indexes, eager loading, pessimistic locking, transactions
-- **Caching**: Redis (API responses, config, routes/views in production)
-- **Queues**: Priority-based, Horizon auto-scaling
+---
 
 ## Deployment
 
-### Requirements
-PHP 8.4+, MySQL 8.0+, Redis 6.0+, Composer 2.0+, Node.js 18+
-
 ### Services (Supervisor Managed)
-- **Horizon**: Queue workers
-- **WebSocket**: Long-running connection
-- **Scheduler**: Cron `php artisan schedule:run` every minute
+
+| Service | Purpose |
+|---------|---------|
+| `horizon` | Queue workers |
+| `schedule-work` | Cron scheduler |
 
 ### Deployment Steps
-1. `git pull` → `composer install --no-dev --optimize-autoloader` → `php artisan migrate --force`
-2. `php artisan optimize:clear` → `php artisan optimize` → `npm run build`
-3. `php artisan horizon:terminate` → Restart WebSocket supervisor
 
-## Monitoring
-- **Logs**: `storage/logs/laravel.log` (PSR-3)
-- **Horizon**: `/horizon` dashboard (job metrics, failures)
-- **Alerts**: Critical errors notify admin
+1. Disable circuit breaker (stop new dispatches)
+2. Wait for active jobs to complete
+3. Deploy code: `git pull`, `composer install`, `migrate`
+4. Clear and rebuild caches
+5. Restart Horizon
+6. Re-enable circuit breaker
 
-## Namespace Organization
-
-### Core Package (`Martingalian\Core`)
-**Package Path**: `packages/martingalian/core/src/`
-
-All domain logic, models, notifications, and support services live in the Core package namespace. This ensures the core trading engine is portable and reusable.
-
-**What Lives in Core**:
-- Models: User, Account, Position, Order, Step, ApiRequestLog, Notification, NotificationLog, ThrottleLog, ThrottleRule
-- Notifications: AlertNotification
-- Mail: AlertMail
-- Support: NotificationService, NotificationMessageBuilder, Throttler, StepDispatcher, ApiClients, ExceptionHandlers
-- Abstracts: BaseQueueableJob, BaseApiableJob, BaseApiClient, BaseExceptionHandler
-- Concerns: Traits for models (SendsNotifications, HasActions, etc.)
-- States: Step states (Pending, Running, Completed, Failed)
-- Enums: NotificationSeverity
-- Listeners: NotificationLogListener
-- Observers: ApiRequestLogObserver, StepObserver
-- Database: migrations/, factories/, seeders/
-
-### App Layer (`App\`)
-**Path**: `app/`
-
-Application-specific controllers, commands, and HTTP layer concerns remain in the App namespace.
-
-**What Lives in App**:
-- Controllers: `App\Http\Controllers\` (including NotificationWebhookController)
-- Console Commands: `App\Console\Commands\`
-- HTTP Middleware: Registered in `bootstrap/app.php`
-- Providers: `App\Providers\` (EventServiceProvider, AppServiceProvider)
-- Test Support: `App\Support\Tests\` (TestQueueableJob, etc.)
-
-### Migration History (November 2025)
-All notification-related logic was migrated from `App\` to `Martingalian\Core\` namespace to consolidate the core domain logic in the package. This migration included:
-- NotificationService, NotificationMessageBuilder, Throttler → `Core\Support\`
-- Notification, NotificationLog, ThrottleLog, ThrottleRule → `Core\Models\`
-- NotificationSeverity → `Core\Enums\`
-- AlertMail → `Core\Mail\`
-- NotificationLogListener → `Core\Listeners\`
-
-**Exception**: Controllers remain in `App\Http\Controllers\` (HTTP layer separation).
+---
 
 ## Important Conventions
 
-### Never Do These
-1. ❌ Use `env()` outside config files
-2. ❌ Put processing logic in job `__construct()`
-3. ❌ Use `Model::insert()` (skips observers)
-4. ❌ Use cascading deletes in migrations
-5. ❌ Make business decisions (always ask first)
-6. ❌ Run `steps:dispatch` (supervisor handles it)
-7. ❌ Create migrations in main Laravel project (use core package)
-8. ❌ Use private methods (breaks static analysis)
+### Never Do
 
-### Always Do These
-1. ✅ Use `config()` for configuration values
-2. ✅ Use `Model::create()` to trigger observers
-3. ✅ Use public methods (or ArchTests will fail)
-4. ✅ Use DB transactions for related operations
-5. ✅ Use pessimistic locking for concurrent updates
-6. ✅ Run Pint before committing
-7. ✅ Write tests for new features
-8. ✅ Comment code meaningfully (not what, but why)
-9. ✅ Restart Horizon after changing job classes
-10. ✅ Ask before making business decisions
+- Use `env()` outside config files
+- Put processing logic in job constructors
+- Use `Model::insert()` (skips observers)
+- Use cascading deletes
+- Make business decisions without asking
+- Run `steps:dispatch` manually
+- Use private methods (breaks static analysis)
+
+### Always Do
+
+- Use `config()` for configuration values
+- Use `Model::create()` to trigger observers
+- Use public methods only
+- Use DB transactions for related operations
+- Use pessimistic locking for concurrent updates
+- Run Pint before committing
+- Write tests for new features
+- Restart Horizon after changing job classes

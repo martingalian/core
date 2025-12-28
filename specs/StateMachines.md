@@ -1,212 +1,132 @@
 # State Machines
 
 ## Overview
+
 State machine implementations for managing workflow execution (Steps), order lifecycle (Orders), and position lifecycle (Positions). Provides structured state transitions with validation, guards, and side effects.
+
+---
 
 ## Architecture
 
 ### State Machine Types
 
-1. **Step State Machine** - Uses Spatie ModelStates package
-   - Complex workflow with 9 states
-   - Explicit transition classes
-   - Guards and side effects
+| Type | Package | Complexity | Source of Truth |
+|------|---------|------------|-----------------|
+| Step State Machine | Spatie ModelStates | Complex (9 states, explicit transitions) | Internal |
+| Order Status Machine | String-based | Simple (6 states) | Exchange API |
+| Position Status Machine | String-based | Simple (3 states) | Position lifecycle jobs |
 
-2. **Order Status Machine** - Simple string-based
-   - 6 states reflecting exchange order status
-   - Updated from exchange API responses
-
-3. **Position Status Machine** - Simple string-based
-   - 3 states (OPEN, CLOSED, LIQUIDATED)
-   - Managed by position lifecycle jobs
+---
 
 ## Step State Machine
 
 ### Overview
-**Package**: Spatie ModelStates
-**Model**: `Martingalian\Core\Models\Step`
-**Abstract State**: `Martingalian\Core\Abstracts\StepStatus`
 
-**Purpose**: Manages job execution workflow with precise state tracking
+| Aspect | Details |
+|--------|---------|
+| Package | Spatie ModelStates |
+| Model | `Martingalian\Core\Models\Step` |
+| Abstract State | `Martingalian\Core\Abstracts\StepStatus` |
+| Purpose | Manages job execution workflow with precise state tracking |
 
 ---
 
 ### States
 
 #### Pending
-**Class**: `Martingalian\Core\States\Pending`
-**Value**: `"pending"`
-**Meaning**: Step created, waiting for dispatch
 
-**When**:
-- Step just created via `steps:dispatch` command
-- Parent steps not yet completed
-- Waiting for scheduled `dispatch_after` time
-
-**Query**:
-```php
-Step::where('state', Pending::class)->get();
-// OR
-Step::pending()->get(); // Via scope
-```
+| Aspect | Details |
+|--------|---------|
+| Value | `"pending"` |
+| Meaning | Step created, waiting for dispatch |
+| When | Step just created, parent not completed, waiting for scheduled time |
 
 ---
 
 #### Dispatched
-**Class**: `Martingalian\Core\States\Dispatched`
-**Value**: `"dispatched"`
-**Meaning**: Step dispatched to queue, not yet picked up by worker
 
-**When**:
-- Step dispatched by StepsDispatcher
-- Waiting in queue for available worker
-
-**Transition From**: Pending
+| Aspect | Details |
+|--------|---------|
+| Value | `"dispatched"` |
+| Meaning | Dispatched to queue, not yet picked up by worker |
+| Transition From | Pending |
 
 ---
 
 #### Running
-**Class**: `Martingalian\Core\States\Running`
-**Value**: `"running"`
-**Meaning**: Step currently executing on worker
 
-**When**:
-- Job handler executing `handle()` method
-- Started at timestamp recorded
-
-**Transition From**: Pending, Dispatched, Running (self-transition for updates)
-
-**Side Effects**:
-- Sets `started_at` timestamp
-- Updates `hostname` with worker hostname
+| Aspect | Details |
+|--------|---------|
+| Value | `"running"` |
+| Meaning | Currently executing on worker |
+| Transition From | Pending, Dispatched, Running (self-transition) |
+| Side Effects | Sets `started_at`, updates `hostname` |
 
 ---
 
 #### Completed
-**Class**: `Martingalian\Core\States\Completed`
-**Value**: `"completed"`
-**Meaning**: Step finished successfully
 
-**When**:
-- Job completed without exceptions
-- All business logic executed successfully
-- No errors encountered
-
-**Transition From**: Running
-
-**Side Effects**:
-- Sets `completed_at` timestamp
-- Calculates `duration` (completed_at - started_at)
-- Stores `response` (job return value)
-
-**Query**:
-```php
-$completedSteps = Step::where('state', Completed::class)->get();
-```
+| Aspect | Details |
+|--------|---------|
+| Value | `"completed"` |
+| Meaning | Finished successfully |
+| Transition From | Running |
+| Side Effects | Sets `completed_at`, calculates `duration`, stores `response` |
 
 ---
 
 #### Failed
-**Class**: `Martingalian\Core\States\Failed`
-**Value**: `"failed"`
-**Meaning**: Step failed with unrecoverable error
 
-**When**:
-- Exception thrown and max retries reached
-- Non-retryable error encountered
-- Validation failed
-
-**Transition From**: Pending, Dispatched, Running
-
-**Side Effects**:
-- Sets `error_message` (exception message)
-- Sets `error_stack_trace` (full stack trace)
-- Sets `completed_at` timestamp
-- May trigger notification (if not throttled)
-
-**Query**:
-```php
-$failedSteps = Step::where('state', Failed::class)->get();
-```
+| Aspect | Details |
+|--------|---------|
+| Value | `"failed"` |
+| Meaning | Failed with unrecoverable error |
+| Transition From | Pending, Dispatched, Running |
+| Side Effects | Sets `error_message`, `error_stack_trace`, `completed_at` |
 
 ---
 
 #### Cancelled
-**Class**: `Martingalian\Core\States\Cancelled`
-**Value**: `"cancelled"`
-**Meaning**: Step cancelled before execution (never ran)
 
-**When**:
-- Parent step failed → children cancelled
-- Parent step stopped → children cancelled
-- Sibling at lower index failed/stopped → higher index siblings cancelled
-- User-initiated cancellation
-- System shutdown requested
-
-**Transition From**: Pending, Dispatched
-
-**Important**: Cancelled is used for steps that never executed. It's the result of cascading from a Failed or Stopped parent/sibling - the step itself didn't fail, it was preemptively cancelled.
-
-**Query**:
-```php
-$cancelledSteps = Step::where('state', Cancelled::class)->get();
-```
+| Aspect | Details |
+|--------|---------|
+| Value | `"cancelled"` |
+| Meaning | Cancelled before execution (never ran) |
+| Transition From | Pending, Dispatched |
+| Important | Used for steps that never executed - cascaded from parent/sibling failure |
 
 ---
 
 #### Skipped
-**Class**: `Martingalian\Core\States\Skipped`
-**Value**: `"skipped"`
-**Meaning**: Step intentionally bypassed
 
-**When**:
-- Pre-conditions not met (but not an error)
-- Feature flag disabled
-- Already processed (idempotency check)
-
-**Transition From**: Pending, Running
-
-**Example**:
-```php
-// In job handle()
-if ($this->order->status === 'FILLED') {
-    // Order already filled, skip
-    $this->step->state->transitionTo(Skipped::class);
-    return;
-}
-```
+| Aspect | Details |
+|--------|---------|
+| Value | `"skipped"` |
+| Meaning | Intentionally bypassed |
+| Transition From | Pending, Running |
+| When | Pre-conditions not met, feature flag disabled, idempotency check passed |
 
 ---
 
 #### Stopped
-**Class**: `Martingalian\Core\States\Stopped`
-**Value**: `"stopped"`
-**Meaning**: Step stopped mid-execution (not failed, not completed)
 
-**When**:
-- Job manually stopped by admin
-- Timeout reached (but want to preserve partial work)
-- Soft failure (want to investigate before retrying)
-
-**Transition From**: Running
-
-**Difference from Failed**: Stopped is intentional/controlled, Failed is unexpected
+| Aspect | Details |
+|--------|---------|
+| Value | `"stopped"` |
+| Meaning | Stopped mid-execution (not failed, not completed) |
+| Transition From | Running |
+| Difference from Failed | Intentional/controlled vs unexpected |
 
 ---
 
 #### NotRunnable
-**Class**: `Martingalian\Core\States\NotRunnable`
-**Value**: `"not_runnable"`
-**Meaning**: Step cannot be executed (temporarily)
 
-**When**:
-- Missing required dependencies
-- Account disabled
-- API credentials invalid
-
-**Transition From**: (Initial state, can transition to Pending when resolved)
-
-**Transition To**: Pending (when issue resolved)
+| Aspect | Details |
+|--------|---------|
+| Value | `"not_runnable"` |
+| Meaning | Cannot be executed (temporarily) |
+| When | Missing dependencies, account disabled, invalid credentials |
+| Transition To | Pending (when issue resolved) |
 
 ---
 
@@ -235,40 +155,44 @@ if ($this->order->status === 'FILLED') {
 
 ### State Propagation Rules
 
-When a step fails or stops, states propagate through the step hierarchy:
-
 #### Upward Propagation (Child → Parent)
 
 | Child State | Parent Becomes |
 |-------------|----------------|
-| **Failed**  | Failed         |
-| **Stopped** | Stopped        |
+| Failed | Failed |
+| Stopped | Stopped |
 
-- Parent receives `error_message` listing the failed/stopped child IDs
-- Only affects **Running** parents (already-completed parents unaffected)
-- Propagates recursively up the tree (grandchild failed → child failed → parent failed)
+- Parent receives `error_message` listing failed/stopped child IDs
+- Only affects **Running** parents
+- Propagates recursively up the tree
+
+---
 
 #### Downward Propagation (Parent → Children)
 
 | Parent State | Children Become |
 |--------------|-----------------|
-| **Failed**   | Cancelled       |
-| **Stopped**  | Cancelled       |
+| Failed | Cancelled |
+| Stopped | Cancelled |
 
-- Only affects **Pending** or **Dispatched** children (not running/completed)
+- Only affects **Pending** or **Dispatched** children
 - Children are Cancelled, not Failed (they never ran)
 - Propagates recursively down the tree
 
-#### Sibling Propagation (Same block_uuid, sequential index)
+---
+
+#### Sibling Propagation
 
 | Sibling State | Higher-Index Siblings Become |
 |---------------|------------------------------|
-| **Failed**    | Cancelled                    |
-| **Stopped**   | Cancelled                    |
+| Failed | Cancelled |
+| Stopped | Cancelled |
 
-- Steps at the same `block_uuid` are siblings
+- Steps at same `block_uuid` are siblings
 - If step at `index=2` fails, steps at `index=3,4,5...` are cancelled
 - Only affects Pending/Dispatched siblings
+
+---
 
 #### Propagation Example
 
@@ -283,256 +207,76 @@ Parent (Running)
 Result: Parent → Failed (upward from Child B)
 ```
 
+---
+
 #### Key Distinction: Failed vs Stopped vs Cancelled
 
 | State | Meaning | When Used |
 |-------|---------|-----------|
-| **Failed** | Step ran and encountered an error | Exception thrown during execution |
-| **Stopped** | Step ran and was intentionally stopped | Manual stop, timeout, soft failure |
-| **Cancelled** | Step never ran | Cascade from failed/stopped parent or sibling |
+| Failed | Step ran and encountered an error | Exception during execution |
+| Stopped | Step ran and was intentionally stopped | Manual stop, timeout, soft failure |
+| Cancelled | Step never ran | Cascade from failed/stopped parent or sibling |
 
 ---
 
 ### Transitions
 
-#### PendingToDispatched
-**Location**: `Martingalian\Core\Transitions\PendingToDispatched`
-**Trigger**: StepsDispatcher picks up step for dispatch
-
-**Logic**:
-```php
-public function handle(): Step
-{
-    $this->step->state = new Dispatched($this->step);
-    $this->step->save();
-
-    return $this->step;
-}
-```
-
----
-
-#### PendingToRunning
-**Location**: `Martingalian\Core\Transitions\PendingToRunning`
-**Trigger**: Worker starts executing step (skips Dispatched state)
-
-**Logic**:
-```php
-public function handle(): Step
-{
-    $this->step->state = new Running($this->step);
-    $this->step->started_at = now();
-    $this->step->hostname = gethostname();
-    $this->step->save();
-
-    return $this->step;
-}
-```
-
----
-
-#### RunningToCompleted
-**Location**: `Martingalian\Core\Transitions\RunningToCompleted`
-**Trigger**: Job completes successfully
-
-**Logic**:
-```php
-public function handle(): Step
-{
-    $this->step->state = new Completed($this->step);
-    $this->step->completed_at = now();
-    $this->step->duration = $this->step->started_at->diffInMilliseconds($this->step->completed_at);
-    $this->step->save();
-
-    return $this->step;
-}
-```
-
----
-
-#### RunningToFailed
-**Location**: `Martingalian\Core\Transitions\RunningToFailed`
-**Trigger**: Job throws unrecoverable exception
-
-**Logic**:
-```php
-public function handle(): Step
-{
-    $this->step->state = new Failed($this->step);
-    $this->step->completed_at = now();
-    $this->step->duration = $this->step->started_at->diffInMilliseconds($this->step->completed_at);
-    // error_message and error_stack_trace set separately
-    $this->step->save();
-
-    return $this->step;
-}
-```
-
----
-
-#### RunningToPending
-**Location**: `Martingalian\Core\Transitions\RunningToPending`
-**Trigger**: Job needs to retry (transient error, rate limit)
-
-**Logic**:
-```php
-public function handle(): Step
-{
-    $this->step->state = new Pending($this->step);
-    $this->step->retries++;
-    $this->step->dispatch_after = now()->addSeconds($backoffSeconds);
-    $this->step->save();
-
-    return $this->step;
-}
-```
-
----
-
-#### RunningToRunning
-**Location**: `Martingalian\Core\Transitions\RunningToRunning`
-**Trigger**: Long-running job updates progress (heartbeat)
-
-**Logic**:
-```php
-public function handle(): Step
-{
-    // Self-transition to update step metadata
-    $this->step->response = $progressData; // e.g., percentage
-    $this->step->save();
-
-    return $this->step;
-}
-```
+| Transition | From | To | Side Effects |
+|------------|------|----|--------------|
+| PendingToDispatched | Pending | Dispatched | None |
+| PendingToRunning | Pending | Running | Sets `started_at`, `hostname` |
+| RunningToCompleted | Running | Completed | Sets `completed_at`, calculates `duration` |
+| RunningToFailed | Running | Failed | Sets `completed_at`, `duration` |
+| RunningToPending | Running | Pending | Increments `retries`, sets `dispatch_after` |
+| RunningToRunning | Running | Running | Updates `response` (progress heartbeat) |
 
 ---
 
 ### Guards and Validation
 
-**Pre-Transition Validation**:
-```php
-// Before transitioning, check conditions
-if (!$step->state->canTransitionTo(Completed::class)) {
-    throw new InvalidStateTransition("Cannot complete step in {$step->state} state");
-}
-```
-
 **Common Guards**:
-1. **Parent Not Running**: Cannot transition to Running if parent is not Running
-2. **Previous Index Not Concluded**: Cannot run if previous index step not completed
-3. **Max Retries**: Cannot transition to Pending if max retries reached
 
-**Example Guard in Step Model**:
-```php
-public function previousIndexIsConcluded(): bool
-{
-    // Check if previous step (index - 1) is completed
-    $previousSteps = self::where('block_uuid', $this->block_uuid)
-        ->where('index', $this->index - 1)
-        ->get();
-
-    return $previousSteps->every(
-        fn($step) => in_array(get_class($step->state), [Completed::class, Skipped::class])
-    );
-}
-```
+| Guard | Description |
+|-------|-------------|
+| Parent Not Running | Cannot transition to Running if parent is not Running |
+| Previous Index Not Concluded | Cannot run if previous index step not completed |
+| Max Retries | Cannot transition to Pending if max retries reached |
 
 ---
 
 ### State Queries
 
-**Terminal States** (no further transitions):
-```php
-Step::terminalStepStates();
-// Returns: [Completed, Skipped, Cancelled, Failed, Stopped]
-
-$terminalSteps = Step::whereIn('state', Step::terminalStepStates())->get();
-```
-
-**Concluded States** (successful termination):
-```php
-Step::concludedStepStates();
-// Returns: [Completed, Skipped]
-
-$concludedSteps = Step::whereIn('state', Step::concludedStepStates())->get();
-```
-
-**Failed States** (unsuccessful termination):
-```php
-Step::failedStepStates();
-// Returns: [Failed, Stopped]
-
-$failedSteps = Step::whereIn('state', Step::failedStepStates())->get();
-```
-
-**Dispatchable Scope**:
-```php
-$dispatchableSteps = Step::dispatchable()->get();
-// WHERE state = Pending AND type = 'default'
-```
+| Query | States Returned |
+|-------|-----------------|
+| `terminalStepStates()` | Completed, Skipped, Cancelled, Failed, Stopped |
+| `concludedStepStates()` | Completed, Skipped |
+| `failedStepStates()` | Failed, Stopped |
+| `dispatchable()` scope | Pending steps with type = 'default' |
 
 ---
 
 ## Order Status Machine
 
 ### Overview
-**Model**: `Martingalian\Core\Models\Order`
-**Type**: String-based status field (not Spatie ModelStates)
-**Source of Truth**: Exchange API responses
+
+| Aspect | Details |
+|--------|---------|
+| Model | `Martingalian\Core\Models\Order` |
+| Type | String-based status field |
+| Source of Truth | Exchange API responses |
 
 ---
 
 ### States
 
-#### NEW
-**Meaning**: Order placed, awaiting exchange processing
-**When**: Just created via API, not yet matched
-
----
-
-#### PARTIALLY_FILLED
-**Meaning**: Order partially executed
-**When**: Some quantity filled, remaining on order book
-**Data**:
-- `filled_quantity` - Amount executed so far
-- `average_fill_price` - Weighted average of fills
-
----
-
-#### FILLED
-**Meaning**: Order completely executed
-**When**: Full quantity traded
-**Data**:
-- `filled_quantity` = `quantity`
-- `average_fill_price` - Final average price
-- `commission` - Total fees paid
-
----
-
-#### CANCELED
-**Meaning**: Order cancelled (not executed)
-**When**:
-- User-initiated cancellation
-- Exchange rejected
-- IOC/FOK not immediately filled
-
----
-
-#### REJECTED
-**Meaning**: Exchange rejected order
-**When**:
-- Invalid parameters
-- Insufficient balance
-- Symbol not tradeable
-- Leverage too high
-
----
-
-#### EXPIRED
-**Meaning**: Order expired without fill
-**When**:
-- Time-in-force expired
-- Post-only order would have matched immediately
+| State | Meaning | When |
+|-------|---------|------|
+| NEW | Order placed, awaiting processing | Just created via API |
+| PARTIALLY_FILLED | Partially executed | Some quantity filled |
+| FILLED | Completely executed | Full quantity traded |
+| CANCELED | Cancelled (not executed) | User/exchange cancellation |
+| REJECTED | Exchange rejected | Invalid parameters, insufficient balance |
+| EXPIRED | Expired without fill | Time-in-force expired |
 
 ---
 
@@ -555,97 +299,48 @@ $dispatchableSteps = Step::dispatchable()->get();
 
 ### Transitions
 
-**NEW → PARTIALLY_FILLED**:
-- Exchange matched part of order
-- Update from WebSocket or polling
-
-**NEW → FILLED**:
-- MARKET order executed immediately
-- LIMIT order filled entirely in one match
-
-**NEW → CANCELED**:
-- User cancels pending order
-- System cancels (position closed)
-
-**NEW → REJECTED**:
-- Exchange validation failed
-- Usually immediate (no retry)
-
-**PARTIALLY_FILLED → FILLED**:
-- Remaining quantity executed
-- Most common path for large orders
-
-**PARTIALLY_FILLED → CANCELED**:
-- User cancels partially filled order
-- Keep filled portion
-
-**NEW → EXPIRED**:
-- FOK order not filled immediately
-- GTD order reached expiration time
+| From | To | Trigger |
+|------|----|---------|
+| NEW | PARTIALLY_FILLED | Exchange matched part of order |
+| NEW | FILLED | MARKET order or full LIMIT fill |
+| NEW | CANCELED | User/system cancellation |
+| NEW | REJECTED | Exchange validation failed |
+| NEW | EXPIRED | FOK not filled, GTD expired |
+| PARTIALLY_FILLED | FILLED | Remaining quantity executed |
+| PARTIALLY_FILLED | CANCELED | User cancels partially filled order |
 
 ---
 
-### Order History
+### OrderHistory Model
 
-**OrderHistory Model**: Records each status change
-```php
-OrderHistory::create([
-    'order_id' => $order->id,
-    'status' => 'PARTIALLY_FILLED',
-    'filled_quantity' => 0.05,
-    'remaining_quantity' => 0.05,
-    'average_price' => 45000.00,
-    'commission' => 2.25,
-    'timestamp' => now(),
-    'raw_data' => $apiResponse,
-]);
-```
-
-**Audit Trail**: Full history of order execution
+Records each status change with:
+- Previous and new status
+- Fill quantities
+- Average price
+- Commission
+- Raw API response
 
 ---
 
 ## Position Status Machine
 
 ### Overview
-**Model**: `Martingalian\Core\Models\Position`
-**Type**: String-based status field
-**Managed By**: Position lifecycle jobs
+
+| Aspect | Details |
+|--------|---------|
+| Model | `Martingalian\Core\Models\Position` |
+| Type | String-based status field |
+| Managed By | Position lifecycle jobs |
 
 ---
 
 ### States
 
-#### OPEN
-**Meaning**: Active position with exposure
-**When**: Position opened, not yet closed
-**Monitoring**: Continuous price updates, PNL tracking
-
----
-
-#### CLOSED
-**Meaning**: Position exited normally
-**When**:
-- Take profit hit
-- Stop loss hit
-- Manual close
-- Direction reversal signal
-
-**Data**:
-- `closed_at` timestamp
-- Final `realized_pnl`
-
----
-
-#### LIQUIDATED
-**Meaning**: Position forcefully closed by exchange (margin depleted)
-**When**: Price reached liquidation price
-**Severity**: CRITICAL (immediate notification)
-
-**Data**:
-- `closed_at` timestamp
-- Final `realized_pnl` (usually large negative)
-- Account likely disabled (`can_trade` = false)
+| State | Meaning | When |
+|-------|---------|------|
+| OPEN | Active position with exposure | Position opened, not yet closed |
+| CLOSED | Exited normally | TP/SL hit, manual close, direction reversal |
+| LIQUIDATED | Forcefully closed by exchange | Margin depleted |
 
 ---
 
@@ -663,32 +358,20 @@ OrderHistory::create([
 
 ### Transitions
 
-**OPEN → CLOSED**:
-- Exit order filled (TP or SL)
-- Manual close order filled
-- Strategy exit signal
-
-**OPEN → LIQUIDATED**:
-- Margin ratio reached 0%
-- Exchange force-liquidates position
-- Cannot be prevented once triggered
+| From | To | Trigger |
+|------|----|---------|
+| OPEN | CLOSED | Exit order filled, manual close |
+| OPEN | LIQUIDATED | Margin ratio reached 0%, exchange force-liquidates |
 
 ---
 
 ### Position Lifecycle Jobs
 
-**Monitor While OPEN**:
-- `SyncPositionJob` - Refresh position data from exchange
-- `UpdatePositionPnLJob` - Recalculate unrealized PNL
-- `MonitorPositionRiskJob` - Check liquidation distance
-
-**Trigger Close**:
-- `ClosePositionJob` - Exit position
-
-**After Liquidation**:
-- Disable account
-- Send CRITICAL notification
-- Log incident for analysis
+| Phase | Jobs |
+|-------|------|
+| While OPEN | SyncPositionJob, UpdatePositionPnLJob, MonitorPositionRiskJob |
+| Trigger Close | ClosePositionJob |
+| After Liquidation | Disable account, CRITICAL notification, log incident |
 
 ---
 
@@ -696,124 +379,74 @@ OrderHistory::create([
 
 ### Checking State
 
-**Step**:
-```php
-if ($step->state->equals(Completed::class)) {
-    // Step completed
-}
+**Step** (Spatie):
+- `$step->state->equals(Completed::class)`
+- `$step->state->isOneOf(Completed::class, Skipped::class)`
 
-if ($step->state->isOneOf(Completed::class, Skipped::class)) {
-    // Step concluded (successfully)
-}
-```
+**Order** (String):
+- `$order->status === 'FILLED'`
+- `in_array($order->status, ['FILLED', 'PARTIALLY_FILLED'])`
 
-**Order**:
-```php
-if ($order->status === 'FILLED') {
-    // Order filled
-}
-
-if (in_array($order->status, ['FILLED', 'PARTIALLY_FILLED'])) {
-    // Order has fills
-}
-```
-
-**Position**:
-```php
-if ($position->status === 'OPEN') {
-    // Position active
-}
-```
+**Position** (String):
+- `$position->status === 'OPEN'`
 
 ---
 
 ### Transitioning State
 
-**Step** (with Spatie):
-```php
-$step->state->transitionTo(Completed::class);
-// Triggers RunningToCompleted transition
-// Runs handle() method
-// Saves step automatically
-```
+**Step** (Spatie):
+- `$step->state->transitionTo(Completed::class)` - Triggers transition class, runs handle(), saves
 
-**Order** (manual):
-```php
-$order->update(['status' => 'FILLED']);
-// Direct update, no transition class
-```
+**Order** (Manual):
+- `$order->update(['status' => 'FILLED'])` - Direct update
 
-**Position** (manual):
-```php
-$position->update([
-    'status' => 'CLOSED',
-    'closed_at' => now(),
-]);
-```
+**Position** (Manual):
+- `$position->update(['status' => 'CLOSED', 'closed_at' => now()])`
 
 ---
 
 ### State Machine Benefits
 
-**Step State Machine** (Complex):
-- Explicit transitions with validation
-- Side effects encapsulated in transition classes
-- Guards prevent invalid transitions
-- Audit trail automatic (state column changes)
-- Type-safe state checks
-
-**Order/Position Status** (Simple):
-- Reflects external system (exchange)
-- Simple string comparison
-- Updated from API responses
-- Less overhead
+| Aspect | Step (Complex) | Order/Position (Simple) |
+|--------|---------------|------------------------|
+| Transitions | Explicit with validation | Direct update |
+| Side Effects | Encapsulated in transition classes | Manual |
+| Guards | Prevent invalid transitions | None |
+| Audit Trail | Automatic (state column) | Manual |
+| Type Safety | Yes | String comparison |
 
 ---
 
 ## Testing
 
 ### Unit Tests
+
 **Location**: `tests/Unit/States/`
+
+**Coverage**:
 - Valid transitions
 - Invalid transitions (expect exception)
 - Guard conditions
 - Side effects (timestamps, etc.)
 
-**Example**:
-```php
-it('transitions from Running to Completed', function () {
-    $step = Step::factory()->create(['state' => Running::class]);
-
-    $step->state->transitionTo(Completed::class);
-
-    expect($step->state)->toBeInstanceOf(Completed::class);
-    expect($step->completed_at)->not->toBeNull();
-});
-
-it('prevents invalid transition', function () {
-    $step = Step::factory()->create(['state' => Completed::class]);
-
-    expect(fn() => $step->state->transitionTo(Running::class))
-        ->toThrow(InvalidStateTransition::class);
-});
-```
-
----
-
 ### Integration Tests
+
 **Location**: `tests/Integration/States/`
-- Full job lifecycle (Pending → Running → Completed)
-- Retry flow (Running → Pending → Running → Completed)
-- Failure flow (Running → Failed)
+
+**Coverage**:
+- Full job lifecycle
+- Retry flow
+- Failure flow
 - Order status updates from API
 - Position closure flow
 
 ---
 
 ## Future Enhancements
+
 - Account state machine (active, disabled, suspended, liquidated)
 - ExchangeSymbol state machine (active, cooling_down, disabled)
 - State transition history table (audit log)
 - State machine visualization (flowchart generation)
-- State-based event listeners (on completed, on failed)
+- State-based event listeners
 - Automatic retry policies based on state history

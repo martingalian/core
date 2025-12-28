@@ -1,31 +1,33 @@
 # Data Models Catalog
 
 ## Overview
+
 Comprehensive catalog of all Eloquent models in the Martingalian Core package. Documents relationships, concerns/traits, scopes, observers, encryption patterns, and common usage patterns.
+
+---
 
 ## Model Organization
 
 ### Base Model
-**Location**: `Martingalian\Core\Abstracts\BaseModel`
-**Purpose**: Abstract base class for all Core models
-**Features**:
-- Common functionality shared across models
-- Boot logic for observers
-- Global scopes
+
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Abstracts\BaseModel` |
+| Purpose | Abstract base class for all Core models |
+| Features | Common functionality, boot logic for observers, global scopes |
+
+---
 
 ## Core Models
 
 ### User
-**Location**: `Martingalian\Core\Models\User`
-**Purpose**: Application users (traders, admins)
 
-**Schema**:
-- `id`, `uuid` - Identifiers
-- `name` - User full name
-- `email` - Login email
-- `password` - Encrypted password
-- `remember_token` - Session token
-- `created_at`, `updated_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\User` |
+| Purpose | Application users (traders, admins) |
+
+**Schema**: `id`, `uuid`, `name`, `email`, `password`, `remember_token`, `created_at`, `updated_at`
 
 **Relationships**:
 - `hasMany(Account)` - User's trading accounts
@@ -40,17 +42,20 @@ Comprehensive catalog of all Eloquent models in the Martingalian Core package. D
 ---
 
 ### Account
-**Location**: `Martingalian\Core\Models\Account`
-**Purpose**: Trading account connected to exchange
+
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\Account` |
+| Purpose | Trading account connected to exchange |
 
 **Schema**:
 - `id`, `uuid` - Identifiers
 - `user_id` - FK to users
 - `api_system_id` - FK to api_systems (Binance, Bybit)
-- `name` (NOT NULL) - User-friendly account name for identification in notifications (e.g., "Main Binance Account")
-- `trade_configuration_id` - FK to trade_configuration - **REQUIRED**
-- `portfolio_quote` - Quote currency string for portfolio valuation (e.g., 'USDT', 'USD')
-- `trading_quote` - Quote currency string for trading pairs (e.g., 'USDT', 'USD')
+- `name` (NOT NULL) - User-friendly account name for notifications
+- `trade_configuration_id` - FK to trade_configuration (**REQUIRED**)
+- `portfolio_quote` - Quote currency for portfolio valuation (e.g., 'USDT')
+- `trading_quote` - Quote currency for trading pairs
 - `margin` - Available margin
 - `can_trade` - Trading enabled flag
 - `last_notified_account_balance_history_id` - Last balance notification
@@ -60,27 +65,9 @@ Comprehensive catalog of all Eloquent models in the Martingalian Core package. D
 
 **Unique Constraint**: `(user_id, name)` - Each user must have unique account names
 
-**CRITICAL**: `trade_configuration_id` is **REQUIRED** when creating accounts:
-```php
-// ❌ WRONG: Missing trade_configuration_id
-$account = Account::factory()->create([
-    'user_id' => $user->id,
-    'api_system_id' => $apiSystem->id,
-]);
+**CRITICAL**: `trade_configuration_id` is **REQUIRED** when creating accounts
 
-// ✓ CORRECT: Include trade_configuration_id
-$account = Account::factory()->create([
-    'user_id' => $user->id,
-    'api_system_id' => $apiSystem->id,
-    'trade_configuration_id' => 1,  // Required!
-]);
-```
-
-**Encrypted Columns**:
-- `binance_api_key`, `binance_api_secret`
-- `bybit_api_key`, `bybit_api_secret`
-- `coinmarketcap_api_key` (admin-only, in-memory)
-- `taapi_secret` (admin-only, in-memory)
+**Encrypted Columns**: `binance_api_key`, `binance_api_secret`, `bybit_api_key`, `bybit_api_secret`
 
 **Relationships**:
 - `belongsTo(User)` - Account owner
@@ -97,47 +84,39 @@ $account = Account::factory()->create([
 - `morphMany(NotificationLog)` via `relatable`
 - `morphMany(ApiSnapshot)` via `responsable`
 
-**Concerns**:
-- `HasAccessors` - Computed properties
-- `HasCollections` - Collection helpers
-- `HasScopes` - Query scopes (`canTrade()`, `byApiSystem()`)
-- `HasStatuses` - Status checks
-- `HasTokenDiscovery` - API token discovery logic
-- `InteractsWithApis` - API client helpers
+**Concerns**: `HasAccessors`, `HasCollections`, `HasScopes`, `HasStatuses`, `HasTokenDiscovery`, `InteractsWithApis`
 
-**Special Method**:
-- `Account::admin(string $apiSystemCanonical)` - Creates in-memory account with admin credentials
+**Special Method**: `Account::admin(string $apiSystemCanonical)` - Creates in-memory account with admin credentials
 
 **Observer**: `AccountObserver`
 
 ---
 
 ### ApiSystem
-**Location**: `Martingalian\Core\Models\ApiSystem`
-**Purpose**: External API providers (Binance, Bybit, TAAPI, etc.)
 
-**Schema**:
-- `id` - Identifier
-- `canonical` - Unique name (binance, bybit, taapi)
-- `name` - Display name
-- `is_active` - Enabled flag
-- `created_at`, `updated_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\ApiSystem` |
+| Purpose | External API providers (Binance, Bybit, TAAPI, etc.) |
+
+**Schema**: `id`, `canonical`, `name`, `is_active`, `created_at`, `updated_at`
 
 **Relationships**:
 - `hasMany(Account)` - Accounts using this API
 - `hasMany(ExchangeSymbol)` - Symbols on this exchange
 
-**Concerns**:
-- `HasScopes` - Query scopes (`active()`, `byCanonical()`)
-- `InteractsWithApis` - API client instantiation
+**Concerns**: `HasScopes`, `InteractsWithApis`
 
 **Observer**: `ApiSystemObserver`
 
 ---
 
 ### TradeConfiguration
-**Location**: `Martingalian\Core\Models\TradeConfiguration`
-**Purpose**: Trading strategy configuration
+
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\TradeConfiguration` |
+| Purpose | Trading strategy configuration |
 
 **Schema**:
 - `id` - Identifier
@@ -149,939 +128,376 @@ $account = Account::factory()->create([
 - `fast_trade_position_closed_age_seconds` - Age threshold for fast trade consideration
 - `disable_exchange_symbol_from_negative_pnl_position` - Disable symbol after loss
 - `indicator_timeframes` (JSON) - Timeframes for analysis
-- `min_account_balance` (decimal, default 100) - Minimum account balance required to dispatch new positions
+- `min_account_balance` (decimal, default 100) - Minimum balance for position dispatching
 - `created_at`, `updated_at`
 
-**Key Fields**:
-- `min_account_balance`: Used by `VerifyMinAccountBalanceJob` to stop position dispatching if account's `available-balance` falls below this threshold
+**Relationships**: `hasMany(Account)` - Accounts using this config
 
-**Relationships**:
-- `hasMany(Account)` - Accounts using this config
-
-**Concerns**:
-- `HasGetters` - Retrieval helpers (`getDefault()`)
-- `HasScopes` - Query scopes (`default()`)
-
-**No Observer**
+**Concerns**: `HasGetters`, `HasScopes`
 
 ---
 
 ### Symbol
-**Location**: `Martingalian\Core\Models\Symbol`
-**Purpose**: Trading pair base asset (BTC, ETH, etc.)
 
-**Schema**:
-- `id` - Identifier
-- `token` - Unique identifier (BTC, ETH, DOGE) - **NOT 'canonical'**
-- `name` - Display name (Bitcoin, Ethereum, Dogecoin)
-- `cmc_id` - CoinMarketCap ID
-- `created_at`, `updated_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\Symbol` |
+| Purpose | Trading pair base asset (BTC, ETH, etc.) |
 
-**IMPORTANT**: Symbols use `token` field, NOT `canonical`:
-```php
-// ✓ CORRECT
-$symbol = Symbol::where('token', 'BTC')->first();
-$symbol = Symbol::firstOrCreate(['token' => 'BTC'], ['name' => 'Bitcoin', 'cmc_id' => 1]);
+**Schema**: `id`, `token`, `name`, `cmc_id`, `created_at`, `updated_at`
 
-// ❌ WRONG
-$symbol = Symbol::where('canonical', 'btc')->first();  // Field doesn't exist!
-```
+**IMPORTANT**: Symbols use `token` field, NOT `canonical`
 
-**Relationships**:
-- `hasMany(ExchangeSymbol)` - Symbol on different exchanges
+**Relationships**: `hasMany(ExchangeSymbol)` - Symbol on different exchanges
 
-**Concerns**:
-- `HasBaseAssetParsing` - Parse base asset from trading pair
-- `HasScopes` - Query scopes
-- `InteractsWithApis` - API interactions
+**Concerns**: `HasBaseAssetParsing`, `HasScopes`, `InteractsWithApis`
 
 **Observer**: `SymbolObserver`
 
 ---
 
 ### ExchangeSymbol
-**Location**: `Martingalian\Core\Models\ExchangeSymbol`
-**Purpose**: Trading pair on specific exchange (BTCUSDT on Binance)
+
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\ExchangeSymbol` |
+| Purpose | Trading pair on specific exchange (BTCUSDT on Binance) |
 
 **Schema**:
 - `id` - Identifier
-- `token` - Base asset token (e.g., 'BTC', 'ETH', 'SOL')
-- `quote` - Quote currency (e.g., 'USDT', 'USD')
-- `symbol_id` - Optional FK to symbols (for CMC metadata enrichment, nullable)
+- `token` - Base asset token (e.g., 'BTC', 'ETH')
+- `quote` - Quote currency (e.g., 'USDT')
+- `symbol_id` - Optional FK to symbols (nullable)
 - `api_system_id` - FK to api_systems (exchange)
-- `is_manually_enabled` (nullable boolean) - Admin override (NULL=follow auto, true=force enable, false=force disable)
+- `is_manually_enabled` (nullable boolean) - Admin override (NULL=auto, true=force enable, false=force disable)
 - `auto_disabled` (boolean) - System automatic deactivation flag
-- `auto_disabled_reason` (nullable string) - Why system deactivated (no_indicator_data, no_valid_direction, path_inconsistency)
-- `receives_indicator_data` (boolean) - Whether to fetch indicators from Taapi API (prevents wasting API calls on symbols without data)
+- `auto_disabled_reason` (nullable string) - Why system deactivated
+- `receives_indicator_data` (boolean) - Whether to fetch indicators
 - `direction` - Trading direction (LONG, SHORT, NULL)
-- `percentage_gap_long` - Entry threshold for LONG
-- `percentage_gap_short` - Entry threshold for SHORT
-- `price_precision` - Decimal places for price
-- `quantity_precision` - Decimal places for quantity
-- `min_notional` - Minimum order value
-- `tick_size` - Minimum price increment
+- `percentage_gap_long`, `percentage_gap_short` - Entry thresholds
+- `price_precision`, `quantity_precision` - Decimal places
+- `min_notional`, `tick_size` - Order constraints
 - `symbol_information` (JSON) - Exchange metadata
 - `leverage_brackets` (JSON) - Leverage tiers
 - `mark_price` - Current market price
 - `indicators_values` (JSON) - Latest indicator values
-- `indicators_timeframe` - Timeframe for direction conclusion
-- `indicators_synced_at` - Last indicator refresh
-- `mark_price_synced_at` - Last price update
+- `indicators_timeframe`, `indicators_synced_at`, `mark_price_synced_at`
 - `created_at`, `updated_at`
 
 **Three-Tier Status System**:
-1. **Manual Control** (`is_manually_enabled`): Admin override with three states
-   - `NULL` = Follow automatic system decisions (default)
-   - `true` = Force enabled regardless of automatic state
-   - `false` = Force disabled regardless of automatic state
 
-2. **Automatic Control** (`auto_disabled`): System-driven deactivation
-   - `false` = System considers symbol operational
-   - `true` = System detected issue (see `auto_disabled_reason`)
+| Level | Column | Purpose |
+|-------|--------|---------|
+| Manual Control | `is_manually_enabled` | Admin override (NULL=auto, true=force on, false=force off) |
+| Automatic Control | `auto_disabled` | System-driven deactivation |
+| Data Fetching | `receives_indicator_data` | Independent from trading status |
 
-3. **Data Fetching Control** (`receives_indicator_data`): Independent from trading status
-   - `true` = Attempt to fetch indicators from Taapi API (default)
-   - `false` = Skip indicator fetching (set by ApiRequestLogObserver after 3+ consecutive failures)
+**Tradeable Criteria** (both `scopeTradeable()` and `isTradeable()`):
+
+| Condition | Description |
+|-----------|-------------|
+| `api_statuses->has_taapi_data = true` | Has indicator data |
+| `auto_disabled = false` | Not auto-disabled |
+| `is_manually_enabled` is null or true | Not manually blocked |
+| `direction` is not null | Has concluded direction |
+| `tradeable_at` is null or in past | Not in cooldown |
+| `mark_price > 0` | Has valid price |
 
 **Relationships**:
-- `belongsTo(Symbol)` - Optional CMC metadata (nullable)
+- `belongsTo(Symbol)` - Optional CMC metadata
 - `belongsTo(ApiSystem)` - Exchange
-- `hasMany(PriceHistory)` - Price snapshots
-- `hasMany(Candle)` - OHLCV candles
-- `hasMany(LeverageBracket)` - Leverage tiers
+- `hasMany(PriceHistory)`, `hasMany(Candle)`, `hasMany(LeverageBracket)`
 
-**Morphable**:
-- `morphMany(Step)` via `relatable`
-- `morphMany(ApiRequestLog)` via `relatable`
-
-**Concerns**:
-- `HasAccessors` - Computed properties (`parsed_trading_pair`)
-- `HasScopes` - Query scopes:
-  - `tradeable()` - Symbols eligible to open positions (see Tradeable Criteria below)
-  - `needsPriceUpdates()` - Symbols for WebSocket price streaming (has/trying to get indicator data, not manually disabled)
-  - `needsIndicatorAttempt()` - Binance symbols with `has_taapi_data = true` (other exchanges receive copied results)
-- `HasStatuses` - Status checks:
-  - `isTradeable()` - Instance-level check mirroring `scopeTradeable` logic
-- `HasTradingComputations` - Position sizing, risk calculations
-- `InteractsWithApis` - Exchange API interactions
-- `SendsNotifications` - Notification dispatching
-
-**Tradeable Criteria** (both `scopeTradeable()` and `isTradeable()` method):
-An exchange symbol is valid for trading when ALL of these conditions are met:
-1. `api_statuses->has_taapi_data = true` - Has indicator data from TAAPI
-2. `auto_disabled = false` - Not auto-disabled by system
-3. `is_manually_enabled` is `null` or `true` - Not manually blocked (false blocks)
-4. `direction` is not `null` - Has a concluded direction (LONG/SHORT)
-5. `tradeable_at` is `null` or in the past - Not in cooldown period
-6. `mark_price > 0` - Has a valid current price (checked in `isTradeable()` only)
-
-**Direct Token/Quote Access**:
-ExchangeSymbol stores `token` and `quote` directly as strings:
-```php
-// ✓ Simple and direct
-$exchangeSymbol->token  // 'BTC'
-$exchangeSymbol->quote  // 'USDT'
-
-// The parsed_trading_pair accessor uses these directly
-$exchangeSymbol->parsed_trading_pair  // 'BTCUSDT'
-```
+**Concerns**: `HasAccessors`, `HasScopes`, `HasStatuses`, `HasTradingComputations`, `InteractsWithApis`, `SendsNotifications`
 
 **Observer**: `ExchangeSymbolObserver`
 
 ---
 
 ### Order
-**Location**: `Martingalian\Core\Models\Order`
-**Purpose**: Trading order on exchange
 
-**Schema**:
-- `id`, `uuid` - Identifiers
-- `account_id` - FK to accounts
-- `exchange_symbol_id` - FK to exchange_symbols
-- `exchange_order_id` - Exchange's order ID
-- `type` - MARKET, LIMIT, STOP_MARKET, TAKE_PROFIT_MARKET
-- `side` - BUY, SELL
-- `position_side` - LONG, SHORT
-- `quantity` - Amount to trade
-- `price` - Limit price (null for MARKET)
-- `stop_price` - Stop trigger price
-- `reduce_only` - Close position only flag
-- `status` - NEW, PARTIALLY_FILLED, FILLED, CANCELED, REJECTED, EXPIRED
-- `time_in_force` - GTC, IOC, FOK
-- `filled_quantity` - Amount executed
-- `average_fill_price` - Weighted average price
-- `commission` - Trading fees
-- `commission_asset` - Fee currency
-- `created_at`, `updated_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\Order` |
+| Purpose | Trading order on exchange |
+
+**Schema**: `id`, `uuid`, `account_id`, `exchange_symbol_id`, `exchange_order_id`, `type`, `side`, `position_side`, `quantity`, `price`, `stop_price`, `reduce_only`, `status`, `time_in_force`, `filled_quantity`, `average_fill_price`, `commission`, `commission_asset`, `created_at`, `updated_at`
+
+**Order Types**: MARKET, LIMIT, STOP_MARKET, TAKE_PROFIT_MARKET
+
+**Status Values**: NEW, PARTIALLY_FILLED, FILLED, CANCELED, REJECTED, EXPIRED
 
 **Relationships**:
-- `belongsTo(Account)` - Order account
-- `belongsTo(ExchangeSymbol)` - Trading symbol
+- `belongsTo(Account)`, `belongsTo(ExchangeSymbol)`
 - `hasMany(OrderHistory)` - Fill history
 
-**Morphable**:
-- `morphMany(Step)` via `relatable`
-
-**Concerns**:
-- `HandlesChanges` - Change tracking
-- `HasGetters` - Retrieval helpers
-- `HasScopes` - Query scopes (`filled()`, `open()`)
-- `HasStatuses` - Status checks
-- `HasTradingActions` - Trading operations
-- `InteractsWithApis` - Exchange API interactions
+**Concerns**: `HandlesChanges`, `HasGetters`, `HasScopes`, `HasStatuses`, `HasTradingActions`, `InteractsWithApis`
 
 **Observer**: `OrderObserver`
 
 ---
 
 ### OrderHistory
-**Location**: `Martingalian\Core\Models\OrderHistory`
-**Purpose**: Audit trail of order updates
 
-**Schema**:
-- `id` - Identifier
-- `order_id` - FK to orders
-- `status` - Order status at this point
-- `filled_quantity` - Cumulative filled
-- `remaining_quantity` - Unfilled amount
-- `average_price` - Fill price
-- `commission` - Fees this update
-- `timestamp` - Exchange timestamp
-- `raw_data` (JSON) - Full exchange response
-- `created_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\OrderHistory` |
+| Purpose | Audit trail of order updates |
 
-**Relationships**:
-- `belongsTo(Order)` - Parent order
+**Schema**: `id`, `order_id`, `status`, `filled_quantity`, `remaining_quantity`, `average_price`, `commission`, `timestamp`, `raw_data` (JSON), `created_at`
 
-**No Concerns**
-
-**No Observer**
+**Relationships**: `belongsTo(Order)`
 
 ---
 
 ### Position
-**Location**: `Martingalian\Core\Models\Position`
-**Purpose**: Open trading position
 
-**Schema**:
-- `id`, `uuid` - Identifiers
-- `account_id` - FK to accounts
-- `exchange_symbol_id` - FK to exchange_symbols
-- `side` - LONG, SHORT
-- `entry_price` - Average entry price
-- `current_price` - Latest market price
-- `quantity` - Position size
-- `leverage` - Leverage multiplier
-- `unrealized_pnl` - Current profit/loss
-- `realized_pnl` - Closed profit/loss
-- `liquidation_price` - Forced closure price
-- `margin` - Collateral used
-- `margin_type` - ISOLATED, CROSS
-- `opened_at` - Position open time
-- `closed_at` - Position close time
-- `status` - OPEN, CLOSED, LIQUIDATED
-- `stop_loss_price` - SL trigger
-- `take_profit_price` - TP trigger
-- `created_at`, `updated_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\Position` |
+| Purpose | Open trading position |
+
+**Schema**: `id`, `uuid`, `account_id`, `exchange_symbol_id`, `side`, `entry_price`, `current_price`, `quantity`, `leverage`, `unrealized_pnl`, `realized_pnl`, `liquidation_price`, `margin`, `margin_type`, `opened_at`, `closed_at`, `status`, `stop_loss_price`, `take_profit_price`, `created_at`, `updated_at`
+
+**Status Values**: OPEN, CLOSED, LIQUIDATED
 
 **Relationships**:
-- `belongsTo(Account)` - Position account
-- `belongsTo(ExchangeSymbol)` - Trading symbol
-- `hasMany(Order)` - Orders for this position
-- `hasMany(Funding)` - Funding payments
+- `belongsTo(Account)`, `belongsTo(ExchangeSymbol)`
+- `hasMany(Order)`, `hasMany(Funding)`
 
-**Concerns**:
-- `HasAccessors` - Computed properties
-- `HasGetters` - Retrieval helpers
-- `HasScopes` - Query scopes (`open()`, `closed()`, `bySymbol()`)
-- `HasStatuses` - Status checks
-- `HasTradingActions` - Trading operations
-- `InteractsWithApis` - Exchange API interactions
+**Concerns**: `HasAccessors`, `HasGetters`, `HasScopes`, `HasStatuses`, `HasTradingActions`, `InteractsWithApis`
 
 **Observer**: `PositionObserver`
 
 ---
 
-### Funding
-**Location**: `Martingalian\Core\Models\Funding`
-**Purpose**: Futures funding rate payments
+### Step
 
-**Schema**:
-- `id` - Identifier
-- `position_id` - FK to positions
-- `rate` - Funding rate percentage
-- `amount` - Payment amount (negative = paid, positive = received)
-- `timestamp` - Payment time
-- `created_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\Step` |
+| Purpose | Job execution tracking in step-based workflows |
+
+**Schema**: `id`, `block_uuid`, `type`, `state`, `class`, `index`, `response` (JSON), `error_message`, `error_stack_trace`, `relatable_type`, `relatable_id`, `child_block_uuid`, `execution_mode`, `double_check`, `queue`, `arguments` (JSON), `retries`, `dispatch_after`, `started_at`, `completed_at`, `duration`, `hostname`, `was_notified`, `created_at`, `updated_at`
+
+**State Machine**: Uses Spatie ModelStates
+
+**States**: Pending, Running, Completed, Failed, Skipped, Cancelled, Stopped
 
 **Relationships**:
-- `belongsTo(Position)` - Parent position
+- `morphTo(relatable)` - Parent model
+- `belongsTo(StepsDispatcherTicks, 'tick_id')`
+- `hasMany(Step, 'block_uuid', 'child_block_uuid')` - Child steps
 
-**No Concerns**
+**Concerns**: `HasActions` - Step actions (dispatch, complete, fail)
 
-**No Observer**
+**Observer**: `StepObserver`
 
 ---
 
 ### Indicator
-**Location**: `Martingalian\Core\Models\Indicator`
-**Purpose**: Technical indicator registry
 
-**Schema**:
-- `id` - Identifier
-- `canonical` - Unique name (rsi, macd, ema_50)
-- `name` - Display name
-- `description` - Indicator explanation
-- `category` - RefreshData, History, Reports
-- `parameters` (JSON) - Configuration
-- `is_active` - Enabled flag
-- `priority` - Calculation order
-- `created_at`, `updated_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\Indicator` |
+| Purpose | Technical indicator registry |
 
-**Relationships**:
-- `hasMany(IndicatorHistory)` - Historical values
+**Schema**: `id`, `canonical`, `name`, `description`, `category`, `parameters` (JSON), `is_active`, `priority`, `created_at`, `updated_at`
 
-**Concerns**:
-- `HasScopes` - Query scopes (`active()`, `byCategory()`)
+**Relationships**: `hasMany(IndicatorHistory)`
+
+**Concerns**: `HasScopes`
 
 **Observer**: `IndicatorObserver`
 
 ---
 
 ### IndicatorHistory
-**Location**: `Martingalian\Core\Models\IndicatorHistory`
-**Purpose**: Time-series indicator values
 
-**Schema**:
-- `id` - Identifier
-- `exchange_symbol_id` - FK to exchange_symbols
-- `indicator_id` - FK to indicators
-- `timeframe` - Candle interval (1m, 5m, 1h, 1d)
-- `timestamp` - Data point time
-- `value` (JSON) - Indicator values
-- `metadata` (JSON) - Additional context
-- `created_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\IndicatorHistory` |
+| Purpose | Time-series indicator values |
 
-**Relationships**:
-- `belongsTo(ExchangeSymbol)` - Symbol
-- `belongsTo(Indicator)` - Indicator type
+**Schema**: `id`, `exchange_symbol_id`, `indicator_id`, `timeframe`, `timestamp`, `value` (JSON), `metadata` (JSON), `created_at`
 
-**Indexes**:
-- Composite unique: `exchange_symbol_id` + `indicator_id` + `timeframe` + `timestamp`
+**Unique Index**: `exchange_symbol_id` + `indicator_id` + `timeframe` + `timestamp`
 
-**No Concerns**
-
-**No Observer**
+**Relationships**: `belongsTo(ExchangeSymbol)`, `belongsTo(Indicator)`
 
 ---
 
 ### Candle
-**Location**: `Martingalian\Core\Models\Candle`
-**Purpose**: OHLCV candlestick data
 
-**Schema**:
-- `id` - Identifier
-- `exchange_symbol_id` - FK to exchange_symbols
-- `timeframe` - Interval (1m, 5m, 1h, 1d)
-- `open` - Opening price
-- `high` - High price
-- `low` - Low price
-- `close` - Closing price
-- `volume` - Trading volume
-- `timestamp` - Candle open time
-- `created_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\Candle` |
+| Purpose | OHLCV candlestick data |
 
-**Relationships**:
-- `belongsTo(ExchangeSymbol)` - Symbol
+**Schema**: `id`, `exchange_symbol_id`, `timeframe`, `open`, `high`, `low`, `close`, `volume`, `timestamp`, `created_at`
 
-**Indexes**:
-- Composite unique: `exchange_symbol_id` + `timeframe` + `timestamp`
+**Unique Index**: `exchange_symbol_id` + `timeframe` + `timestamp`
 
-**No Concerns**
-
-**No Observer**
+**Relationships**: `belongsTo(ExchangeSymbol)`
 
 ---
 
-### PriceHistory
-**Location**: `Martingalian\Core\Models\PriceHistory`
-**Purpose**: Real-time price snapshots
+### Notification & NotificationLog
 
-**Schema**:
-- `id` - Identifier
-- `exchange_symbol_id` - FK to exchange_symbols
-- `price` - Market price
-- `timestamp` - Price time
-- `created_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\Notification`, `NotificationLog` |
+| Purpose | Notification definitions and delivery history |
 
-**Relationships**:
-- `belongsTo(ExchangeSymbol)` - Symbol
+**Notification Schema**: `id`, `canonical`, `title`, `message`, `severity`, `is_active`, `created_at`, `updated_at`
 
-**No Concerns**
-
-**No Observer**
-
----
-
-### LeverageBracket
-**Location**: `Martingalian\Core\Models\LeverageBracket`
-**Purpose**: Leverage tier limits per symbol
-
-**Schema**:
-- `id` - Identifier
-- `exchange_symbol_id` - FK to exchange_symbols
-- `bracket` - Tier number
-- `initial_leverage` - Max leverage for bracket
-- `notional_cap` - Max position size
-- `notional_floor` - Min position size
-- `maintenance_margin_rate` - Maintenance margin %
-- `created_at`, `updated_at`
-
-**Relationships**:
-- `belongsTo(ExchangeSymbol)` - Symbol
-
-**No Concerns**
-
-**No Observer**
-
----
-
-### AccountBalanceHistory
-**Location**: `Martingalian\Core\Models\AccountBalanceHistory`
-**Purpose**: Account balance snapshots
-
-**Schema**:
-- `id` - Identifier
-- `account_id` - FK to accounts
-- `balance` - Account balance
-- `margin_balance` - Available margin
-- `timestamp` - Snapshot time
-- `created_at`
-
-**Relationships**:
-- `belongsTo(Account)` - Account
-
-**Observer**: `AccountBalanceHistoryObserver`
-
----
-
-### Step
-**Location**: `Martingalian\Core\Models\Step`
-**Purpose**: Job execution tracking in step-based workflows
-
-**Schema**:
-- `id` - Identifier
-- `block_uuid` - Block group identifier
-- `type` - default, resolve-exception
-- `state` - Pending, Running, Completed, Failed, Skipped, Cancelled, Stopped
-- `class` - Job class name
-- `index` - Execution order
-- `response` (JSON) - Job result
-- `error_message` - Exception message
-- `error_stack_trace` - Stack trace
-- `relatable_type`, `relatable_id` - Polymorphic parent
-- `child_block_uuid` - Nested block reference
-- `execution_mode` - sync, async
-- `double_check` - Re-verify flag
-- `queue` - Queue name
-- `arguments` (JSON) - Job parameters
-- `retries` - Retry count
-- `dispatch_after` - Scheduled dispatch time
-- `started_at` - Job start time
-- `completed_at` - Job end time
-- `duration` - Execution duration
-- `hostname` - Worker hostname
-- `was_notified` - Notification sent flag
-- `created_at`, `updated_at`
-
-**Relationships**:
-- `morphTo(relatable)` - Parent model
-- `belongsTo(StepsDispatcherTicks, 'tick_id')` - Dispatch tick
-- `hasMany(Step, 'block_uuid', 'child_block_uuid')` - Child steps
-
-**State Machine**: Uses Spatie ModelStates
-- States: `Pending`, `Running`, `Completed`, `Failed`, `Skipped`, `Cancelled`, `Stopped`
-
-**Concerns**:
-- `HasActions` - Step actions (dispatch, complete, fail)
-
-**Observer**: `StepObserver`
-
----
-
-### StepsDispatcher
-**Location**: `Martingalian\Core\Models\StepsDispatcher`
-**Purpose**: Step dispatcher configuration
-
-**Schema**:
-- `id` - Identifier
-- `worker_server_id` - FK to servers
-- `dispatches_per_second` - Dispatch rate
-- `last_dispatched_step_id` - Last dispatched step
-- `is_active` - Dispatcher enabled
-- `created_at`, `updated_at`
-
-**Relationships**:
-- `belongsTo(Server, 'worker_server_id')` - Worker server
-
-**Static Method**:
-- `StepsDispatcher::getDispatchGroup()` - Get random dispatch group
-
-**No Concerns**
-
-**No Observer**
-
----
-
-### StepsDispatcherTicks
-**Location**: `Martingalian\Core\Models\StepsDispatcherTicks`
-**Purpose**: Dispatcher tick tracking
-
-**Schema**:
-- `id` - Identifier
-- `steps_dispatcher_id` - FK to steps_dispatchers
-- `started_at` - Tick start
-- `ended_at` - Tick end
-- `created_at`
-
-**Relationships**:
-- `belongsTo(StepsDispatcher)` - Dispatcher
-- `hasMany(Step, 'tick_id')` - Steps dispatched this tick
-
-**No Concerns**
-
-**No Observer**
-
----
-
-### Server
-**Location**: `Martingalian\Core\Models\Server`
-**Purpose**: Worker server registry
-
-**Schema**:
-- `id` - Identifier
-- `hostname` - Server hostname
-- `ip_address` - Server IP
-- `is_active` - Server enabled
-- `created_at`, `updated_at`
-
-**Relationships**:
-- `hasMany(StepsDispatcher)` - Dispatchers on this server
-
-**No Concerns**
-
-**No Observer**
-
----
-
-### Notification
-**Location**: `Martingalian\Core\Models\Notification`
-**Purpose**: Notification definitions
-
-**Schema**:
-- `id` - Identifier
-- `canonical` - Unique name
-- `title` - Notification title
-- `message` - Notification body
-- `severity` - info, warning, critical
-- `is_active` - Enabled flag
-- `created_at`, `updated_at`
-
-**Relationships**:
-- `hasMany(NotificationLog)` - Notification history
-
-**Concerns**:
-- `HasGetters` - Retrieval helpers
-- `HasScopes` - Query scopes (`active()`, `bySeverity()`)
-
-**No Observer**
-
----
-
-### NotificationLog
-**Location**: `Martingalian\Core\Models\NotificationLog`
-**Purpose**: Notification delivery history
-
-**Schema**:
-- `id` - Identifier
-- `notification_id` - FK to notifications
-- `relatable_type`, `relatable_id` - Polymorphic context
-- `channel` - pushover, email, slack
-- `sent_at` - Delivery time
-- `created_at`
-
-**Relationships**:
-- `belongsTo(Notification)` - Notification type
-- `morphTo(relatable)` - Context model
-
-**No Concerns**
-
-**No Observer**
-
----
-
-### ThrottleRule
-**Location**: `Martingalian\Core\Models\ThrottleRule`
-**Purpose**: Notification throttling rules
-
-**Schema**:
-- `id` - Identifier
-- `canonical` - Unique name
-- `description` - Rule description
-- `throttle_seconds` - Minimum time between notifications
-- `is_active` - Enabled flag
-- `created_at`, `updated_at`
-
-**Relationships**:
-- `hasMany(ThrottleLog)` - Throttle events
-
-**No Concerns**
-
-**No Observer**
-
----
-
-### ThrottleLog
-**Location**: `Martingalian\Core\Models\ThrottleLog`
-**Purpose**: Throttle event tracking
-
-**Schema**:
-- `id` - Identifier
-- `throttle_rule_id` - FK to throttle_rules
-- `contextable_type`, `contextable_id` - Polymorphic context
-- `triggered_at` - Event time
-- `created_at`
-
-**Relationships**:
-- `belongsTo(ThrottleRule)` - Throttle rule
-- `morphTo(contextable)` - Context model
-
-**No Concerns**
-
-**No Observer**
+**NotificationLog Schema**: `id`, `notification_id`, `relatable_type`, `relatable_id`, `channel`, `sent_at`, `created_at`
 
 ---
 
 ### ApiRequestLog
-**Location**: `Martingalian\Core\Models\ApiRequestLog`
-**Purpose**: API request/response logging
 
-**Schema**:
-- `id` - Identifier
-- `api_system_id` - FK to api_systems
-- `relatable_type`, `relatable_id` - Polymorphic context
-- `method` - GET, POST, DELETE
-- `endpoint` - API endpoint
-- `request_body` (JSON) - Request payload
-- `response_body` (JSON) - Response payload
-- `http_status_code` - HTTP status
-- `vendor_code` - Exchange error code
-- `duration` - Request duration (ms)
-- `created_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\ApiRequestLog` |
+| Purpose | API request/response logging |
 
-**Relationships**:
-- `belongsTo(ApiSystem)` - API provider
-- `morphTo(relatable)` - Context model
+**Schema**: `id`, `api_system_id`, `relatable_type`, `relatable_id`, `method`, `endpoint`, `request_body` (JSON), `response_body` (JSON), `http_status_code`, `vendor_code`, `duration`, `created_at`
 
-**Concerns**:
-- `SendsNotifications` - Notification triggers
+**Concerns**: `SendsNotifications`
 
 **Observer**: `ApiRequestLogObserver`
 
 ---
 
-### ApiSnapshot
-**Location**: `Martingalian\Core\Models\ApiSnapshot`
-**Purpose**: Full API response snapshots
+### Heartbeat
 
-**Schema**:
-- `id` - Identifier
-- `responsable_type`, `responsable_id` - Polymorphic parent
-- `payload` (JSON) - Full response
-- `created_at`
+| Aspect | Details |
+|--------|---------|
+| Location | `Martingalian\Core\Models\Heartbeat` |
+| Purpose | WebSocket connection health monitoring for price streams |
 
-**Relationships**:
-- `morphTo(responsable)` - Parent model
+**Schema**: `id`, `canonical`, `api_system_id`, `account_id`, `group`, `last_beat_at`, `beat_count`, `metadata` (JSON), `last_payload`, `connection_status`, `last_price_data_at`, `connected_at`, `last_close_code`, `last_close_reason`, `internal_reconnect_attempts`, `created_at`, `updated_at`
 
-**Observer**: `ApiSnapshotObserver`
+**Unique Constraint**: `(canonical, api_system_id, account_id, group)`
 
----
+**Connection Status Values**:
 
-### BinanceListenKey
-**Location**: `Martingalian\Core\Models\BinanceListenKey`
-**Purpose**: Binance WebSocket listen key management
+| Status | Description |
+|--------|-------------|
+| `unknown` | Initial state |
+| `connected` | Receiving messages |
+| `reconnecting` | Internal reconnect in progress |
+| `disconnected` | Max reconnect attempts exhausted |
+| `stale` | Zombie connection (open but no messages) |
+| `inactive` | Worker not running |
 
-**Schema**:
-- `id` - Identifier
-- `account_id` - FK to accounts
-- `listen_key` - WebSocket key
-- `expires_at` - Key expiration
-- `created_at`, `updated_at`
-
-**Relationships**:
-- `belongsTo(Account)` - Account
-
-**No Concerns**
-
-**No Observer**
+**Observer**: `HeartbeatObserver` - Sends notifications on status transitions
 
 ---
 
-### ForbiddenHostname
-**Location**: `Martingalian\Core\Models\ForbiddenHostname`
-**Purpose**: Blocked API endpoints per account
+### Other Models
 
-**Schema**:
-- `id` - Identifier
-- `account_id` - FK to accounts
-- `hostname` - Blocked hostname/endpoint
-- `created_at`, `updated_at`
-
-**Relationships**:
-- `belongsTo(Account)` - Account
-
-**Observer**: `ForbiddenHostnameObserver`
-
----
-
-### SlowQuery
-**Location**: `Martingalian\Core\Models\SlowQuery`
-**Purpose**: Slow database query logging
-
-**Schema**:
-- `id` - Identifier
-- `query` - SQL query
-- `duration` - Query duration (ms)
-- `bindings` (JSON) - Query bindings
-- `created_at`
-
-**No Relationships**
-
-**No Concerns**
-
-**No Observer**
-
----
-
-### Martingalian
-**Location**: `Martingalian\Core\Models\Martingalian`
-**Purpose**: System-wide configuration and admin credentials
-
-**Schema**:
-- `id` - Identifier (always 1)
-- `all_credentials` (JSON, encrypted) - All admin API credentials
-- `created_at`, `updated_at`
-
-**No Relationships**
-
-**Concerns**:
-- `HasAccessors` - Credential access helpers
-
-**No Observer**
+| Model | Purpose |
+|-------|---------|
+| `Funding` | Futures funding rate payments |
+| `PriceHistory` | Real-time price snapshots |
+| `LeverageBracket` | Leverage tier limits per symbol |
+| `AccountBalanceHistory` | Account balance snapshots |
+| `StepsDispatcher` | Step dispatcher configuration |
+| `StepsDispatcherTicks` | Dispatcher tick tracking |
+| `Server` | Worker server registry |
+| `ThrottleRule` | Notification throttling rules |
+| `ThrottleLog` | Throttle event tracking |
+| `ApiSnapshot` | Full API response snapshots |
+| `BinanceListenKey` | Binance WebSocket listen key management |
+| `ForbiddenHostname` | Blocked API endpoints per account |
+| `SlowQuery` | Slow database query logging |
+| `Martingalian` | System-wide configuration singleton |
 
 ---
 
 ## Common Patterns
 
 ### Encrypted Columns
-Models use Laravel's `encrypted` cast for sensitive data:
 
-```php
-protected $casts = [
-    'binance_api_key' => 'encrypted',
-    'binance_api_secret' => 'encrypted',
-];
-```
+Models use Laravel's `encrypted` cast for sensitive data. Encrypted columns include API keys, secrets, and credentials. Access is automatic (decryption on read, encryption on write).
 
-**Access**:
-```php
-$account->binance_api_key; // Automatically decrypted
-$account->binance_api_key = 'new_key'; // Automatically encrypted
-```
+---
 
 ### Morphable Relationships
+
 Many models use polymorphic relationships:
 
-**Step** can belong to any model:
-```php
-// Create step for ExchangeSymbol
-$exchangeSymbol->steps()->create([...]);
+| Model | Via | Can Belong To |
+|-------|-----|---------------|
+| Step | `relatable` | Account, ExchangeSymbol, Order, Position, User |
+| ApiRequestLog | `relatable` | Account, ExchangeSymbol |
+| NotificationLog | `relatable` | Account, User |
+| ThrottleLog | `contextable` | Account, User |
+| ApiSnapshot | `responsable` | Account |
 
-// Create step for Account
-$account->steps()->create([...]);
-```
-
-**Common Morphables**:
-- `Step` → `relatable` (Account, ExchangeSymbol, Order, Position, User)
-- `ApiRequestLog` → `relatable` (Account, ExchangeSymbol)
-- `NotificationLog` → `relatable` (Account, User)
-- `ThrottleLog` → `contextable` (Account, User)
-- `ApiSnapshot` → `responsable` (Account)
+---
 
 ### Concerns/Traits Pattern
+
 Models use concerns to organize functionality:
 
-**Naming Convention**:
-- `Has*` - Properties, accessors, computed values
-- `Interacts*` - External interactions (APIs, services)
+| Prefix | Purpose | Examples |
+|--------|---------|----------|
+| `Has*` | Properties, accessors, computed values | HasScopes, HasAccessors, HasStatuses |
+| `Interacts*` | External interactions | InteractsWithApis |
 
-**Common Concerns**:
-- `HasScopes` - Query scopes
-- `HasAccessors` - Computed properties
-- `HasStatuses` - Status checks
-- `HasGetters` - Retrieval helpers
-- `InteractsWithApis` - API client interactions
-
-**Example**:
-```php
-// Account\HasScopes
-public function scopeCanTrade($query)
-{
-    return $query->where('can_trade', true);
-}
-
-// Usage:
-$accounts = Account::canTrade()->get();
-```
+---
 
 ### Observer Pattern
+
 Models use observers for lifecycle events:
 
-**Common Observer Hooks**:
-- `creating` - Before insert
-- `created` - After insert
-- `updating` - Before update
-- `updated` - After update
-- `deleting` - Before delete
-- `deleted` - After delete
+| Hook | Timing |
+|------|--------|
+| `creating` | Before insert |
+| `created` | After insert |
+| `updating` | Before update |
+| `updated` | After update |
+| `deleting` | Before delete |
+| `deleted` | After delete |
 
-**Example** (ApiRequestLogObserver):
-```php
-public function created(ApiRequestLog $log)
-{
-    // Send notification if critical error
-    if ($this->isCriticalError($log)) {
-        NotificationService::critical("API error: {$log->vendor_code}");
-    }
-}
-```
+---
 
 ### Soft Deletes
-Some models use soft deletes:
-- `Account` - Preserve historical data
 
-```php
-// Soft delete
-$account->delete(); // Sets deleted_at
+The `Account` model uses soft deletes to preserve historical data. Soft deleted records have `deleted_at` set and are excluded from queries by default.
 
-// Query including soft deleted
-$accounts = Account::withTrashed()->get();
-
-// Only soft deleted
-$accounts = Account::onlyTrashed()->get();
-
-// Restore
-$account->restore();
-
-// Permanently delete
-$account->forceDelete();
-```
+---
 
 ### Factory Pattern
-All models have factories for testing:
 
-```php
-// Create single instance
-$account = Account::factory()->create();
+All models have factories for testing. Factories support:
+- Single and batch creation
+- Custom attributes
+- Named states (e.g., `canTrade()`)
 
-// Create multiple
-$accounts = Account::factory()->count(10)->create();
-
-// With custom attributes
-$account = Account::factory()->create([
-    'can_trade' => false,
-]);
-
-// With state
-$account = Account::factory()->canTrade()->create();
-```
+---
 
 ## Testing
 
 ### Model Tests
+
 **Location**: `tests/Unit/Models/`
-- Relationship integrity
-- Accessor/mutator logic
-- Scope correctness
-- Observer behavior
+
+**Coverage**: Relationship integrity, accessor/mutator logic, scope correctness, observer behavior
 
 ### Integration Tests
+
 **Location**: `tests/Integration/Models/`
-- Multi-model workflows
-- Complex queries
-- Observer side effects
 
-### Heartbeat
-**Location**: `Martingalian\Core\Models\Heartbeat`
-**Purpose**: WebSocket connection health monitoring for price streams
-
-**Schema**:
-- `id` - Identifier
-- `canonical` - Heartbeat type (e.g., 'price_stream')
-- `api_system_id` - FK to api_systems (nullable)
-- `account_id` - FK to accounts (nullable)
-- `group` - WebSocket group (e.g., 'group-1' for KuCoin sharding)
-- `last_beat_at` - Timestamp of last message received
-- `beat_count` - Total messages received
-- `metadata` (JSON) - Additional context (supervisor_worker, etc.)
-- `last_payload` - Last WebSocket message received
-- `connection_status` - Current status: unknown, connected, reconnecting, disconnected, stale, inactive
-- `last_price_data_at` - Last price data received (distinct from ping/pong)
-- `connected_at` - When connection was established
-- `last_close_code` - WebSocket close code
-- `last_close_reason` - WebSocket close reason
-- `internal_reconnect_attempts` - Current reconnect attempt count
-- `created_at`, `updated_at`
-
-**Unique Constraint**: `(canonical, api_system_id, account_id, group)`
-
-**Relationships**:
-- `belongsTo(ApiSystem)` - Exchange system
-- `belongsTo(Account)` - Optional account context
-
-**Static Methods**:
-- `beat()` - Record heartbeat (upsert pattern with deadlock retry)
-- `updateConnectionStatus()` - Update connection state
-- `recordPriceData()` - Track actual price data reception
-- `getSupervisorWorker()` - Get supervisor program name from config
-- `describeCloseCode()` - Human-readable close code description
-- `executeWithDeadlockRetry()` - Database transaction with deadlock retry
-
-**Instance Methods**:
-- `analyzeRestartDecision()` - Determine if worker should be restarted
-
-**Connection Status Values**:
-| Status | Description |
-|--------|-------------|
-| `unknown` | Initial state |
-| `connected` | WebSocket connected and receiving messages |
-| `reconnecting` | Internal reconnect in progress |
-| `disconnected` | Max reconnect attempts exhausted |
-| `stale` | Zombie connection (open but no messages) |
-| `inactive` | Worker not running (no symbols configured) |
-
-**Observer**: `HeartbeatObserver`
-- Sends `websocket_status_change` notification on status transitions
-- Skips `reconnecting` and `unknown` statuses (no notification spam)
-
-**Dashboard**: `/dashboard/heartbeats`
-- Real-time WebSocket health monitoring
-- Color-coded status indicators
-- Worker restart capability
+**Coverage**: Multi-model workflows, complex queries, observer side effects
 
 ---
 
 ## Future Enhancements
+
 - Model caching layer (Redis)
 - Audit trail for all model changes
 - Model-level encryption (entire records)

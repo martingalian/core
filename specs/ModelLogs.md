@@ -1,68 +1,48 @@
 # Model Logs System
 
 ## Overview
-Comprehensive model change tracking system that automatically logs all attribute changes across all models using Laravel observers. Provides a complete audit trail of data modifications with intelligent false positive prevention and RAW value comparison to prevent type casting issues.
+
+Comprehensive model change tracking system that automatically logs all attribute changes across all models using Laravel observers. Provides a complete audit trail of data modifications with intelligent false positive prevention and RAW value comparison.
+
+---
 
 ## Core Components
 
 ### ModelLog Model
-**Location**: `packages/martingalian/core/src/Models/ModelLog.php`
 
 **Purpose**: Stores audit trail of all model attribute changes
 
 **Key Fields**:
-- `id` - Primary key
-- `loggable_type` - Model class name (polymorphic)
-- `loggable_id` - Model ID (polymorphic)
-- `event_type` - Type of event: `attribute_created`, `attribute_changed`
-- `attribute_name` - Name of the changed attribute
-- `previous_value` - Old value (LONGTEXT column, stores RAW database value as string, supports up to 4GB)
-- `new_value` - New value (LONGTEXT column, stores RAW database value as string, supports up to 4GB)
-- `message` - Human-readable description of change
-- `created_at` - Timestamp of change
+| Field | Type | Description |
+|-------|------|-------------|
+| `loggable_type` | varchar | Model class name (polymorphic) |
+| `loggable_id` | bigint | Model ID (polymorphic) |
+| `event_type` | varchar | `attribute_created` or `attribute_changed` |
+| `attribute_name` | varchar | Name of the changed attribute |
+| `previous_value` | LONGTEXT | Old value (RAW database value) |
+| `new_value` | LONGTEXT | New value (RAW database value) |
+| `message` | text | Human-readable description |
+| `created_at` | timestamp | When change occurred |
 
-**Important**: `previous_value` and `new_value` are LONGTEXT columns (not JSON) to store RAW database values without type casting. Values are stored as strings (e.g., '0' for integer 0, '1' for integer 1). LONGTEXT supports up to 4GB of data, necessary for large array values like symbols_data.
-
-**Static Methods**:
-```php
-// Enable/disable logging globally
-ModelLog::enable();
-ModelLog::disable();
-
-// Check if logging is enabled
-ModelLog::isEnabled(); // Returns bool
-```
+**Important**: Values stored as LONGTEXT (not JSON) to preserve RAW database values without type casting.
 
 **Indexes**:
-- `loggable_type`, `loggable_id` - for retrieving all changes for a model
-- `created_at` - for time-based queries
-- `attribute_name` - for filtering by specific attributes
+- `loggable_type, loggable_id` - Model lookups
+- `created_at` - Time-based queries
+- `attribute_name` - Attribute filtering
 
-### ModelLogObserver
-**Location**: `packages/martingalian/core/src/Observers/ModelLogObserver.php`
+---
 
-**Purpose**: Observes all model events and creates ModelLog entries
+## How It Works
 
-**Events Handled**:
-1. **`created`** - Logs all initial attribute values
-2. **`saving`** - Caches RAW attribute values BEFORE database write
-3. **`saved`** - Compares RAW values BEFORE vs AFTER save to detect changes
+### Observer Flow
 
-**Critical Innovation**: Uses `saving()` and `saved()` events to compare RAW database values (not Eloquent-casted values), preventing false positives from type casting (e.g., integer 0 vs boolean false).
-
-**Flow**:
-```php
+```
 Model::create([...])
     ↓
 ModelLogObserver::created()
     ↓
-For each attribute in model->getAttributes()
-    ↓
-Check shouldSkipLogging()
-    ↓
-Create ModelLog with event_type='attribute_created'
-    ↓
-Clear cache to prevent saved() from running
+Log all initial attribute values
 
 Model->attribute = newValue
 Model->save()
@@ -75,667 +55,227 @@ Database write happens
     ↓
 ModelLogObserver::saved()
     ↓
-Compare RAW cached values vs RAW new values (both integers/strings)
+Compare RAW cached vs RAW new values
     ↓
-Check shouldSkipLogging()
-    ↓
-Create ModelLog with event_type='attribute_changed'
+Create ModelLog if actually changed
 ```
 
-**Key Methods**:
+### Key Innovation: RAW Value Comparison
 
-#### `created(BaseModel $model): void`
-Logs all initial attribute values when a model is created.
+**Problem**: Eloquent casts can cause false positives (0 vs false comparison)
 
-**Uses RAW values** from `getAttributes()` (not cast) to ensure accurate database representation.
+**Solution**: Compare RAW database values in both `saving()` and `saved()` events
 
-```php
-foreach ($model->getAttributes() as $attribute => $value) {
-    if ($this->shouldSkipLogging($model, $attribute, null, $value)) {
-        continue;
-    }
+| Event | Action |
+|-------|--------|
+| `saving()` | Cache RAW original values via `getRawOriginal()` |
+| `saved()` | Compare cached RAW vs new RAW (both integers) |
 
-    ModelLog::create([
-        'loggable_type' => get_class($model),
-        'loggable_id' => $model->getKey(),
-        'event_type' => 'attribute_created',
-        'attribute_name' => $attribute,
-        'previous_value' => null,
-        'new_value' => $value, // RAW value (e.g., 0, not false)
-        'message' => "Attribute \"{$attribute}\" created with value: ".$this->formatValue($value),
-    ]);
-}
+**Example**:
+- Database has: `has_taapi_data = 0` (tinyint)
+- User sets: `$model->has_taapi_data = false`
+- OLD approach: 0 vs false = different (FALSE POSITIVE)
+- NEW approach: 0 vs 0 = same (NO LOG)
 
-// Clear cache to prevent saved() from also running during creation
-unset(self::$attributesCache[spl_object_id($model)]);
-```
+---
 
-#### `saving(BaseModel $model): void`
-Caches RAW attribute values BEFORE database write.
+## Skip Logging Filters
 
-**Critical for accurate comparison**: Stores the ORIGINAL values from the database (before any changes) so they can be compared against the NEW values after save.
+Four-level filtering system prevents false positive logs:
 
-```php
-// Cache the ORIGINAL RAW attributes from the database (before any changes)
-// We need to manually get raw values without casts for accurate comparison
-$original = [];
-foreach ($model->getOriginal() as $key => $value) {
-    // getRawOriginal() returns the actual database value without casting
-    $original[$key] = $model->getRawOriginal($key);
-}
+### Level 0: Global Blacklist (All Models)
 
-self::$attributesCache[spl_object_id($model)] = $original;
-```
+| Attribute | Reason |
+|-----------|--------|
+| `updated_at` | Always changes on save |
+| `created_at` | Only set once |
+| `deleted_at` | Soft delete tracking |
+| `remember_token` | Session data |
 
-**Why this works**:
-- Before user calls `save()`, model has OLD values in database
-- User sets new values: `$model->has_taapi_data = true;`
-- `saving()` caches the RAW original values (e.g., 0 for boolean false)
-- Database write happens
-- `saved()` compares RAW cached (0) vs RAW new (1)
-- Both are integers, so comparison is accurate (0 vs 1, not 0 vs false)
+### Level 1: Per-Model Static Blacklist
 
-#### `saved(BaseModel $model): void`
-Compares RAW values before and after save.
+Models can define `$skipsLogging` property:
+- Exclude specific attributes permanently
+- No runtime logic needed
 
-**Prevents false positives**: Compares integer vs integer (0 vs 0), not integer vs boolean (0 vs false).
+### Level 2: Semantic Equality (ValueNormalizer)
 
-```php
-$objectId = spl_object_id($model);
+Prevents false positives from:
+| Type | Example |
+|------|---------|
+| Numeric strings | "5.00000000" vs 5 |
+| JSON key order | `{"a":1,"b":2}` vs `{"b":2,"a":1}` |
+| Carbon timestamps | Same time, different instance |
 
-// No cached before state? Skip (happens when model was just created)
-if (!isset(self::$attributesCache[$objectId])) {
-    return;
-}
-
-// Get RAW attributes AFTER save (no casts applied)
-$rawAfterSave = $model->getAttributes();
-$rawBeforeSave = self::$attributesCache[$objectId];
-
-// Compare each attribute for changes (RAW vs RAW)
-foreach ($rawAfterSave as $attribute => $newRawValue) {
-    $oldRawValue = $rawBeforeSave[$attribute] ?? null;
-
-    // No change? Skip
-    if ($oldRawValue === $newRawValue) {
-        continue;
-    }
-
-    if ($this->shouldSkipLogging($model, $attribute, $oldRawValue, $newRawValue)) {
-        continue;
-    }
-
-    ModelLog::create([
-        'loggable_type' => get_class($model),
-        'loggable_id' => $model->getKey(),
-        'event_type' => 'attribute_changed',
-        'attribute_name' => $attribute,
-        'previous_value' => $oldRawValue,  // RAW database value (e.g., 0, not false)
-        'new_value' => $newRawValue,       // RAW database value (e.g., 1, not true)
-        'message' => $this->buildChangeMessage($attribute, $oldRawValue, $newRawValue),
-    ]);
-}
-
-// Clean up cached attributes
-unset(self::$attributesCache[$objectId]);
-```
-
-**Real-World Example**:
-```php
-// ExchangeSymbol has boolean cast: 'has_taapi_data' => 'boolean'
-$symbol = ExchangeSymbol::find(1);
-// Database has: has_taapi_data = 0 (tinyint)
-// Eloquent returns: $symbol->has_taapi_data = false (boolean)
-
-$symbol->has_taapi_data = false; // User sets to false (same value)
-$symbol->save();
-
-// ❌ OLD APPROACH (using updated() event):
-// - Compares getRawOriginal('has_taapi_data') = 0 (integer)
-// - Against getAttributes()['has_taapi_data'] = false (boolean after casting)
-// - 0 !== false, so creates FALSE POSITIVE log!
-
-// ✅ NEW APPROACH (using saving() and saved() events):
-// - saving(): Caches getRawOriginal('has_taapi_data') = 0 (integer)
-// - Database write: has_taapi_data stays 0
-// - saved(): Compares cached 0 vs getAttributes()['has_taapi_data'] = 0 (integer)
-// - 0 === 0, so NO LOG CREATED! ✅
-```
-
-#### `shouldSkipLogging(BaseModel $model, string $attribute, mixed $oldValue, mixed $newValue): bool`
-Four-level filtering system to prevent false positive logs:
-
-**Level 0: Global Blacklist** (applies to ALL models)
-```php
-protected const GLOBAL_BLACKLIST = [
-    'updated_at',
-    'created_at',
-    'deleted_at',
-    'remember_token',
-];
-
-if (in_array($attribute, self::GLOBAL_BLACKLIST)) {
-    return true; // Skip it
-}
-```
-
-These columns are **automatically excluded for all models** and never logged. Add more columns here if needed globally.
-
-**Level 1: Per-Model Static Blacklist**
-```php
-$skipsLogging = $model->skipsLogging ?? [];
-if (in_array($attribute, $skipsLogging)) {
-    return true; // Skip it
-}
-```
-
-Models can define a `$skipsLogging` property to exclude specific attributes:
-```php
-class MyModel extends BaseModel
-{
-    public array $skipsLogging = ['last_seen_at', 'cached_balance'];
-}
-```
-
-**Level 2: Semantic Equality Check** (ValueNormalizer)
-```php
-if (ValueNormalizer::areEqual($oldValue, $newValue)) {
-    return true; // Values are semantically equal - skip logging
-}
-```
-
-Prevents false positives like:
-- `"5.00000000"` vs `5` (numeric strings vs integers)
-- `{"a":1,"b":2}` vs `{"b":2,"a":1}` (JSON key order differences)
-- Carbon timestamps with same time
-
-**Level 3: Dynamic skipLogging() Method**
-```php
-if (method_exists($model, 'skipLogging')) {
-    if ($model->skipLogging($attribute, $oldValue, $newValue) === true) {
-        return true; // Skip it
-    }
-}
-```
+### Level 3: Dynamic skipLogging() Method
 
 Models can implement custom logic:
-```php
-class MyModel extends BaseModel
-{
-    public function skipLogging(string $attribute, mixed $oldValue, mixed $newValue): bool
-    {
-        // Custom logic: Don't log changes to balance if < $0.01 difference
-        if ($attribute === 'balance') {
-            return abs((float)$oldValue - (float)$newValue) < 0.01;
-        }
+- Skip balance changes < $0.01
+- Skip non-significant changes
+- Runtime conditions
 
-        return false;
-    }
-}
-```
+---
 
-**Returns**: `true` to skip logging, `false` to log the change
+## ValueNormalizer
 
-### ValueNormalizer
-**Location**: `packages/martingalian/core/src/Support/ValueNormalizer.php`
+**Purpose**: Semantic value comparison to prevent false positives
 
-**Purpose**: Semantic value comparison to prevent false positive application logs
+### Normalization Logic
 
-**Problem Solved**: Laravel's Eloquent can save values in different formats than retrieved due to:
-- JSON encoding (e.g., key order: `{"a":1,"b":2}` vs `{"b":2,"a":1}`)
-- Numeric precision (e.g., `"5.00000000"` vs `5`)
-- Null handling (e.g., `null` vs empty string)
-- Carbon timestamps (same time, different instance)
+| Priority | Check | Action |
+|----------|-------|--------|
+| 1 | Exact match | Return true |
+| 2 | Both null | Return true |
+| 3 | One null | Return false |
+| 4 | Both numeric | Compare as float |
+| 5 | Both JSON-like | Normalize and compare |
+| 6 | Both Carbon | Use equalTo() |
+| 7 | Fallback | Compare as strings |
 
-**NOTE**: Boolean casting (0 vs false) is now handled by comparing RAW values in the observer, so ValueNormalizer doesn't need boolean-specific logic.
-
-**Main Method**: `areEqual(mixed $a, mixed $b): bool`
-
-**Normalization Logic**:
-
-1. **Exact Match** (fastest path):
-```php
-if ($oldValue === $newValue) {
-    return true;
-}
-```
-
-2. **Null Handling**:
-```php
-if ($a === null && $b === null) return true;
-if ($a === null || $b === null) return false;
-```
-
-3. **Numeric Comparison** (integers, floats, numeric strings):
-```php
-if (is_numeric($a) && is_numeric($b)) {
-    return (float)$a === (float)$b;
-}
-// Examples:
-// "5.00000000" === 5 → true
-// "10" === 10 → true
-// 1.0 === 1 → true
-```
-
-4. **JSON Comparison** (arrays, objects, JSON strings):
-```php
-if (self::isJsonLike($oldValue) && self::isJsonLike($newValue)) {
-    return self::normalizeJson($oldValue) === self::normalizeJson($newValue);
-}
-// Examples:
-// '{"a":1,"b":2}' === '{"b":2,"a":1}' → true (after normalization)
-// [1,2,3] === [1,2,3] → true
-```
-
-5. **Carbon Comparison**:
-```php
-if ($oldValue instanceof Carbon && $newValue instanceof Carbon) {
-    return $oldValue->equalTo($newValue);
-}
-```
-
-6. **String Comparison** (fallback):
-```php
-return (string)$a === (string)$b;
-```
-
-**Real-World Example**:
-
-**Before ValueNormalizer** (false positive):
-```php
-// Step model has JSON `arguments` column
-$step = Step::find(1);
-$step->arguments = ['symbol' => 'BTCUSDT', 'exchange' => 'binance'];
-$step->save();
-
-// Later, exact same data is saved again
-$step->arguments = ['exchange' => 'binance', 'symbol' => 'BTCUSDT']; // Different key order!
-$step->save();
-
-// ❌ Creates ModelLog showing "change" from:
-// previous_value: '{"symbol":"BTCUSDT","exchange":"binance"}'
-// new_value:      '{"exchange":"binance","symbol":"BTCUSDT"}'
-```
-
-**After ValueNormalizer** (prevented):
-```php
-// Same scenario
-$step->arguments = ['symbol' => 'BTCUSDT', 'exchange' => 'binance'];
-$step->save();
-
-$step->arguments = ['exchange' => 'binance', 'symbol' => 'BTCUSDT'];
-$step->save();
-
-// ✅ No ModelLog created - ValueNormalizer recognizes semantic equality
-// Both JSON strings decode to same array structure
-```
+---
 
 ## BaseModel Integration
 
 ### LogsApplicationEvents Trait
-**Location**: `packages/martingalian/core/src/Concerns/BaseModel/LogsApplicationEvents.php`
 
-**Purpose**: Provides automatic observer registration and unified logging interface for all models
+**Automatic Registration**: Trait registers `ModelLogObserver` on model boot
 
-**Automatic Registration**:
-The trait automatically registers `ModelLogObserver` when the model boots:
-```php
-protected static function bootLogsApplicationEvents(): void
-{
-    static::observe(ModelLogObserver::class);
-}
-```
+**All BaseModel descendants automatically get**:
+- Attribute change logging
+- Creation logging
+- Skip logic support
 
-**Usage**:
-```php
-use Martingalian\Core\Abstracts\BaseModel;
+### Manual Logging (Custom Events)
 
-class Step extends BaseModel
-{
-    // LogsApplicationEvents trait is already included in BaseModel
-    // ModelLogObserver is automatically registered
+For custom events beyond attribute changes:
+- `$model->appLog()` method available
+- Specify event type, metadata, related model, message
 
-    // Optional: Skip specific attributes
-    public array $skipsLogging = [
-        'last_seen_at',
-        'cached_balance',
-    ];
+---
 
-    // Optional: Custom skip logic
-    public function skipLogging(string $attribute, mixed $oldValue, mixed $newValue): bool
-    {
-        // Don't log trivial balance changes
-        if ($attribute === 'balance' && abs((float)$oldValue - (float)$newValue) < 0.01) {
-            return true;
-        }
+## Observer Best Practices
 
-        return false;
-    }
-}
-```
+### DO
 
-**Manual Logging** (for custom events):
-```php
-$model->appLog(
-    eventType: 'job_failed',
-    metadata: ['error' => 'Connection timeout'],
-    relatable: $apiSystem,
-    message: 'Failed to sync prices'
-);
-```
+| Practice | Reason |
+|----------|--------|
+| Business logic only | Observers handle UUID generation, timestamps |
+| Let ModelLogObserver handle logging | Automatic, consistent |
+| Use `$skipsLogging` for exclusions | Clean, declarative |
 
-## Model Observers
+### DON'T
 
-### Best Practices
-Model observers should **ONLY** contain model-specific business logic. Application logging is handled automatically by ModelLogObserver.
+| Practice | Reason |
+|----------|--------|
+| Manual logging in observers | Redundant, error-prone |
+| Use LogsModelChanges trait | Deprecated |
+| Log passwords/secrets | Security risk |
 
-**❌ DEPRECATED** (no longer needed):
-```php
-use Martingalian\Core\Concerns\LogsModelChanges;
+---
 
-class OrderObserver
-{
-    use LogsModelChanges; // ❌ Remove this
+## Global Enable/Disable
 
-    public function created(Order $model): void
-    {
-        $this->logModelCreation($model); // ❌ Remove this - automatic now
-    }
+| Method | Purpose |
+|--------|---------|
+| `ModelLog::disable()` | Turn off logging (for seeders/migrations) |
+| `ModelLog::enable()` | Turn on logging |
+| `ModelLog::isEnabled()` | Check status |
 
-    public function updated(Order $model): void
-    {
-        $this->logModelUpdate($model); // ❌ Remove this - automatic now
-    }
-}
-```
+**Use Case**: Disable during bulk operations for performance
 
-**✅ CORRECT** (business logic only):
-```php
-class OrderObserver
-{
-    public function creating(Order $model): void
-    {
-        // Business logic: generate UUIDs
-        $model->uuid ??= Str::uuid()->toString();
-    }
-
-    public function updating(Order $model): void
-    {
-        // Business logic: set filled timestamp
-        if ($model->status === 'FILLED') {
-            $model->filled_at = now();
-        }
-    }
-}
-```
-
-**Examples of clean observers**:
-- **OrderObserver** - UUID generation, order threshold validation
-- **PositionObserver** - UUID generation
-- **AccountObserver** - UUID generation
-- **ExchangeSymbolObserver** - Delisting notification
-- **IndicatorObserver** - Placeholder (no business logic yet)
-- **ApiSystemObserver** - Placeholder (no business logic yet)
-
-## Database Schema
-
-### model_logs
-```sql
-CREATE TABLE model_logs (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    loggable_type VARCHAR(255) NOT NULL,
-    loggable_id BIGINT UNSIGNED NOT NULL,
-    event_type VARCHAR(50) NOT NULL,
-    attribute_name VARCHAR(255) NOT NULL,
-    previous_value LONGTEXT NULL,  -- Changed from JSON to LONGTEXT
-    new_value LONGTEXT NULL,        -- Changed from JSON to LONGTEXT
-    message TEXT NULL,
-    created_at TIMESTAMP NULL,
-    updated_at TIMESTAMP NULL,
-
-    INDEX idx_loggable (loggable_type, loggable_id),
-    INDEX idx_created_at (created_at),
-    INDEX idx_attribute_name (attribute_name)
-);
-```
-
-**Migration**: `2025_11_24_003611_change_model_logs_value_columns_to_text.php`
-
-Changed `previous_value` and `new_value` from JSON to LONGTEXT to store RAW values without JSON encoding. LONGTEXT supports up to 4GB of data, necessary for large array values. Values are stored as strings (e.g., '0', '1', '3.14', 'LONG', or serialized arrays).
-
-## Configuration
-
-### Global Enable/Disable
-```php
-// In AppServiceProvider or config file
-use Martingalian\Core\Models\ModelLog;
-
-// Disable logging globally (e.g., for seeders)
-ModelLog::disable();
-
-// Run operations without logging
-DB::transaction(function () {
-    // Bulk operations
-});
-
-// Re-enable logging
-ModelLog::enable();
-```
-
-### Per-Model Configuration
-```php
-class MyModel extends BaseModel
-{
-    // Static blacklist - never log these attributes
-    public array $skipsLogging = [
-        'last_seen_at',
-        'remember_token',
-    ];
-
-    // Dynamic skip logic
-    public function skipLogging(string $attribute, mixed $oldValue, mixed $newValue): bool
-    {
-        // Custom conditions
-        return false;
-    }
-}
-```
+---
 
 ## Querying Logs
 
-### Get All Changes for a Model
-```php
-$step = Step::find(1);
-$logs = ModelLog::where('loggable_type', Step::class)
-    ->where('loggable_id', $step->id)
-    ->orderBy('created_at', 'desc')
-    ->get();
-```
+### Common Queries
 
-### Get Changes for Specific Attribute
-```php
-$logs = ModelLog::where('loggable_type', Step::class)
-    ->where('loggable_id', $step->id)
-    ->where('attribute_name', 'state')
-    ->get();
-```
+| Purpose | Filter By |
+|---------|-----------|
+| All changes for a model | `loggable_type` + `loggable_id` |
+| Specific attribute changes | `attribute_name` |
+| Recent changes | `created_at` ORDER DESC |
+| Date range | `whereBetween('created_at', ...)` |
 
-### Get Recent Changes Across All Models
-```php
-$recentChanges = ModelLog::orderBy('created_at', 'desc')
-    ->limit(100)
-    ->get();
-```
+---
 
-### Get Changes in Date Range
-```php
-$logs = ModelLog::whereBetween('created_at', [
-    now()->subDays(7),
-    now(),
-])->get();
-```
+## Performance Optimizations
 
-## Performance Considerations
+| Optimization | Description |
+|--------------|-------------|
+| RAW values | Avoids Eloquent casting overhead |
+| Early returns | Static blacklist checked first |
+| Indexed queries | Fast lookups by model/attribute/time |
+| Cached attributes | Uses static array keyed by `spl_object_id()` |
+| Bulk disable | Turn off for seeders/migrations |
 
-### Optimization 1: Raw Values
-- Observer uses `getAttributes()` and `getRawOriginal()` to avoid Eloquent casting overhead
-- Stores actual database values in LONGTEXT columns, not PHP representations
-- Prevents type juggling during comparison
-- Compares integer vs integer (0 vs 0), not integer vs boolean (0 vs false)
-- LONGTEXT supports large values (up to 4GB) for array/object attributes
+---
 
-### Optimization 2: Early Returns
-- Static blacklist checked first (fastest)
-- Strict equality checked second (fast)
-- Semantic equality checked third (moderate)
-- Dynamic method checked last (slowest)
-- Most logs skip at level 1 or 2
+## Database Schema
 
-### Optimization 3: Bulk Disable
-```php
-// Disable for seeders/migrations
-ModelLog::disable();
-DB::transaction(function () {
-    // Bulk insert 10,000 records
-});
-ModelLog::enable();
-```
+### model_logs Table
 
-### Optimization 4: Indexed Queries
-- All common query patterns use indexed columns
-- Fast lookups by model, attribute, or time range
+| Column | Type | Purpose |
+|--------|------|---------|
+| `id` | BIGINT | Primary key |
+| `loggable_type` | VARCHAR(255) | Model class |
+| `loggable_id` | BIGINT | Model ID |
+| `event_type` | VARCHAR(50) | created/changed |
+| `attribute_name` | VARCHAR(255) | Attribute name |
+| `previous_value` | LONGTEXT | Old value (4GB max) |
+| `new_value` | LONGTEXT | New value (4GB max) |
+| `message` | TEXT | Human-readable |
+| `created_at` | TIMESTAMP | When logged |
 
-### Optimization 5: Cached Attributes
-- Uses static array keyed by `spl_object_id()` to cache attributes
-- Avoids polluting model's own attributes
-- Automatically cleaned up after `saved()` event
-
-## Testing
-
-### Feature Tests
-**Location**: `tests/Feature/ModelLogObserverTest.php`
-
-**Key Tests**:
-✅ Logs all initial attribute values when model is created
-✅ Does not create false positive log when boolean value doesn't change (0 vs 0)
-✅ Creates proper log when boolean value actually changes (0 vs 1)
-✅ Stores RAW database values in logs (not casted booleans)
-✅ Does not log globally blacklisted attributes (updated_at, created_at, etc.)
-✅ Correctly handles multiple consecutive updates without false positives
-
-**Example Test**:
-```php
-test('does not create false positive log when boolean value does not actually change', function () {
-    // Create a new ExchangeSymbol with has_taapi_data = false (stored as 0 in DB)
-    $exchangeSymbol = ExchangeSymbol::factory()->create([
-        'has_taapi_data' => false,
-    ]);
-
-    // Get count of logs before the update
-    $logCountBefore = ModelLog::where('loggable_type', ExchangeSymbol::class)
-        ->where('loggable_id', $exchangeSymbol->id)
-        ->where('event_type', 'attribute_changed')
-        ->where('attribute_name', 'has_taapi_data')
-        ->count();
-
-    // Save the model again without changing has_taapi_data
-    $exchangeSymbol->auto_disabled = true; // Change a different field
-    $exchangeSymbol->save();
-
-    // Get count of logs after the update
-    $logCountAfter = ModelLog::where('loggable_type', ExchangeSymbol::class)
-        ->where('loggable_id', $exchangeSymbol->id)
-        ->where('event_type', 'attribute_changed')
-        ->where('attribute_name', 'has_taapi_data')
-        ->count();
-
-    // Should NOT have created a new log for has_taapi_data (still 0 in database)
-    expect($logCountAfter)->toBe($logCountBefore);
-});
-```
+---
 
 ## Common Patterns
 
 ### Temporarily Disable Logging
-```php
-ModelLog::disable();
 
-try {
-    // Operations without logging
-    Model::insert([...]); // No logs created
-} finally {
-    ModelLog::enable();
-}
-```
+1. Call `ModelLog::disable()`
+2. Run bulk operations
+3. Call `ModelLog::enable()`
 
-### Audit Trail for User Actions
-```php
-$step = Step::find(1);
-$history = ModelLog::where('loggable_type', Step::class)
-    ->where('loggable_id', $step->id)
-    ->where('attribute_name', 'state')
-    ->orderBy('created_at', 'desc')
-    ->get();
+### Audit Trail Query
 
-foreach ($history as $log) {
-    echo "{$log->created_at}: {$log->message}\n";
-}
-// Output:
-// 2025-11-24 00:45:12: Attribute "state" changed from "Running" to "Completed"
-// 2025-11-24 00:44:58: Attribute "state" changed from "Dispatched" to "Running"
-// 2025-11-24 00:44:45: Attribute "state" changed from "Pending" to "Dispatched"
-```
+1. Filter by model type and ID
+2. Filter by attribute name (e.g., 'state')
+3. Order by created_at DESC
+4. Display messages chronologically
 
 ### Exclude Sensitive Attributes
-```php
-class User extends BaseModel
-{
-    public array $skipsLogging = [
-        'password',
-        'remember_token',
-        'api_key',
-    ];
-}
-```
 
-## Important Notes
+Add to model's `$skipsLogging` array:
+- `password`
+- `remember_token`
+- `api_key`
+- `api_secret`
 
-⚠️ **RAW Values** - Observer uses `saving()` and `saved()` events to compare RAW database values (integers like 0 and 1), not Eloquent-casted values (booleans like false and true).
-
-✅ **TEXT Columns** - `previous_value` and `new_value` are TEXT columns that store RAW values as strings (e.g., '0', '1', '3.14').
-
-✅ **No False Positives** - Comparing RAW vs RAW (0 vs 0) instead of RAW vs CASTED (0 vs false) prevents false positive logs.
-
-✅ **Semantic Equality** - ValueNormalizer prevents false positives from JSON key order and numeric precision differences.
-
-✅ **Four-Level Filtering** - Combine global blacklist, per-model blacklist, semantic equality, and dynamic logic for precise control.
-
-❌ **Don't Log Passwords** - Always blacklist sensitive attributes using `$skipsLogging`.
-
-✅ **Disable for Seeders** - Use `ModelLog::disable()` during bulk operations to improve performance.
-
-✅ **Clean Observers** - Model observers should only contain business logic. Remove LogsModelChanges trait and manual logging calls.
+---
 
 ## Troubleshooting
 
-### False Positives (0 vs false)
-**Problem**: Logs showing change from `0` to `false` (or vice versa) when value didn't actually change.
-
-**Solution**: This is now fixed! The observer uses `saving()` and `saved()` events to compare RAW database values (both 0) instead of mixing RAW and casted values (0 vs false).
-
-**How it works**:
-1. `saving()` caches RAW original values using `getRawOriginal()` → 0 (integer)
-2. `saved()` compares cached RAW vs new RAW using `getAttributes()` → 0 vs 0 (both integers)
-3. No log created because 0 === 0 ✅
-
 ### Too Many Logs Created
-1. Check if attributes are in `$skipsLogging` array
-2. Verify ValueNormalizer is preventing false positives
-3. Implement custom `skipLogging()` method for edge cases
+
+1. Check `$skipsLogging` array
+2. Verify ValueNormalizer working
+3. Implement custom `skipLogging()` method
 
 ### Missing Logs
-1. Verify `ModelLog::isEnabled()` returns `true`
-2. Check if attribute is in `$skipsLogging` blacklist
-3. Verify model extends `BaseModel` (which includes `LogsApplicationEvents` trait)
-4. Check if `skipLogging()` method is returning `true` unexpectedly
-5. Check if observer cache was cleared properly after `created()` event
+
+1. Verify `ModelLog::isEnabled()` is true
+2. Check attribute not in blacklist
+3. Verify model extends BaseModel
+4. Check `skipLogging()` not returning true
+
+### False Positives (0 vs false)
+
+**Now Fixed**: Observer uses `saving()` and `saved()` events to compare RAW values (0 vs 0) instead of mixed types (0 vs false).
+
+---
+
+## Related Systems
+
+- **BaseModel**: Provides LogsApplicationEvents trait
+- **Observers**: Handle business logic only
+- **ValueNormalizer**: Semantic equality comparisons
