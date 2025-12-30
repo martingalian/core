@@ -5,11 +5,36 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\ApiDataMappers\Kraken\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
+use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsAccountQueryTrades
 {
+    /**
+     * Prepare properties for querying all fills for an account.
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/get-fills/
+     */
+    public function prepareQueryFillsProperties(Account $account): ApiProperties
+    {
+        $properties = new ApiProperties;
+        $properties->set('relatable', $account);
+
+        return $properties;
+    }
+
+    /**
+     * Resolve the fills response from Kraken.
+     * Returns the raw fills array for processing by the caller.
+     */
+    public function resolveQueryFillsResponse(Response $response): array
+    {
+        $data = json_decode((string) $response->getBody(), associative: true);
+
+        return $data['fills'] ?? [];
+    }
+
     /**
      * Prepare properties for querying trade fills on Kraken Futures.
      *

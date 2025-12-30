@@ -139,4 +139,20 @@ trait InteractsWithApis
             result: $this->apiMapper()->resolveGetBalanceResponse($this->apiResponse, $this)
         );
     }
+
+    /**
+     * Query trade fills (historical executions).
+     * Only supported by Kraken currently.
+     */
+    public function apiQueryFills(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->prepareQueryFillsProperties($this);
+        $this->apiProperties->set('account', $this);
+        $this->apiResponse = $this->withApi()->getFills($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolveQueryFillsResponse($this->apiResponse)
+        );
+    }
 }
