@@ -309,7 +309,7 @@ return new class extends Migration
             $table->longText('admin_pushover_application_key')->nullable();
             $table->string('email')->nullable();
             $table->boolean('allow_opening_positions')->default(false);
-            $table->boolean('is_cooling_down')->default(false)->comment('When true, scheduler stops dispatching steps for safe deployment');
+            $table->boolean('is_cooling_down')->default(true)->comment('When true, scheduler stops dispatching steps for safe deployment');
             $table->timestamps();
         });
 
