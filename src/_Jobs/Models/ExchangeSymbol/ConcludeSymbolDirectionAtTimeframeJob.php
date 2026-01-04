@@ -2,18 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
+namespace Martingalian\Core\_Jobs\Models\ExchangeSymbol;
 
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
+use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\_Jobs\Lifecycles\ExchangeSymbols\ConfirmPriceAlignmentWithDirectionJob;
 use Martingalian\Core\_Jobs\Lifecycles\ExchangeSymbols\CopyDirectionToOtherExchangesJob;
-use Martingalian\Core\Abstracts\BaseQueueableJob;
-use Martingalian\Core\Jobs\Models\Indicator\QuerySymbolIndicatorsJob;
+use Martingalian\Core\_Jobs\Models\Indicator\QuerySymbolIndicatorsJob;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\IndicatorHistory;
 use Martingalian\Core\Models\Step;
 use Martingalian\Core\Models\TradeConfiguration;
+
+use Str;
 
 /**
  * ConcludeSymbolDirectionAtTimeframeJob
@@ -118,13 +119,13 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
         // Build indicatorData for later use
         $indicatorData = [];
         foreach ($histories as $history) {
-            if (! ($history->indicator)) {
+            if (!($history->indicator)) {
                 continue;
             }
 
             $indicatorData[$history->indicator->canonical] = [
-                'result' => $history->data,
-            ];
+                    'result' => $history->data,
+                ];
         }
 
         // Check if we're concluding on the same data we already have
@@ -482,7 +483,7 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
     {
         $path = [];
         foreach ($allTimeframes as $tf) {
-            if (! (isset($conclusions[$tf]))) {
+            if (!(isset($conclusions[$tf]))) {
                 continue;
             }
 

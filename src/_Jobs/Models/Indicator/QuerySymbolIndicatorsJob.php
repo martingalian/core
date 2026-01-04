@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Models\Indicator;
+namespace Martingalian\Core\_Jobs\Models\Indicator;
 
 use Exception;
 use Illuminate\Support\Collection;
@@ -12,6 +12,7 @@ use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
+
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Throwable;
 

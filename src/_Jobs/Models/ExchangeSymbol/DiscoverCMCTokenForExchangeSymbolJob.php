@@ -2,16 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
+namespace Martingalian\Core\_Jobs\Models\ExchangeSymbol;
 
-use GuzzleHttp\Exception\RequestException;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
-use SensitiveParameter;
 
 /**
  * DiscoverCMCTokenForExchangeSymbolJob
@@ -139,7 +137,7 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
     /**
      * Try all database lookup strategies to find a matching symbol.
      */
-    private function tryDatabaseLookups(#[SensitiveParameter] string $token, array &$debug): ?Symbol
+    private function tryDatabaseLookups(#[\SensitiveParameter] string $token, array &$debug): ?Symbol
     {
         $candidates = $this->generateTokenCandidates($token);
         $debug['db_attempts'] = [];
@@ -163,7 +161,7 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
      * Generate all possible token candidates from the original token.
      * Order matters - most specific first.
      */
-    private function generateTokenCandidates(#[SensitiveParameter] string $token): array
+    private function generateTokenCandidates(#[\SensitiveParameter] string $token): array
     {
         $candidates = [];
         $upperToken = mb_strtoupper($token);
@@ -212,29 +210,29 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
         // 9. Strip common suffixes (BTCPERP → BTC, BTCUSD → BTC)
         $suffixes = ['PERP', 'USD', 'USDT', 'USDC', 'BUSD', 'PERPETUAL'];
         foreach ($suffixes as $suffix) {
-            if (! (str_ends_with(haystack: $upperToken, needle: $suffix))) {
+            if (!(str_ends_with(haystack: $upperToken, needle: $suffix))) {
                 continue;
             }
 
-            $stripped = mb_substr($upperToken, 0, length: -mb_strlen($suffix));
+            $stripped = substr($upperToken, 0, length: -strlen($suffix));
             if ($stripped !== '') {
                 $candidates[] = $stripped;
             }
         }
 
         // 10. Strip W prefix for wrapped tokens (WBTC → BTC)
-        if (preg_match('/^W(.+)$/i', $upperToken, matches: $matches) && mb_strlen($matches[1]) >= 2) {
+        if (preg_match('/^W(.+)$/i', $upperToken, matches: $matches) && strlen($matches[1]) >= 2) {
             $candidates[] = mb_strtoupper($matches[1]);
         }
 
         // 11. Strip st prefix for staked tokens (stETH → ETH)
-        if (preg_match('/^ST(.+)$/i', $upperToken, matches: $matches) && mb_strlen($matches[1]) >= 2) {
+        if (preg_match('/^ST(.+)$/i', $upperToken, matches: $matches) && strlen($matches[1]) >= 2) {
             $candidates[] = mb_strtoupper($matches[1]);
         }
 
         // 12. Strip .P suffix for perpetual (BTC.P → BTC)
         if (str_ends_with(haystack: $upperToken, needle: '.P')) {
-            $candidates[] = mb_substr($upperToken, 0, length: -2);
+            $candidates[] = substr($upperToken, 0, length: -2);
         }
 
         // 13. Try partial match - extract longest alphabetic sequence
@@ -252,7 +250,7 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
      * Query CMC API to find a matching symbol.
      * Only called if all DB lookups fail.
      */
-    private function tryCmcApiLookup(#[SensitiveParameter] string $token, array &$debug): ?Symbol
+    private function tryCmcApiLookup(#[\SensitiveParameter] string $token, array &$debug): ?Symbol
     {
         $candidates = $this->generateTokenCandidates($token);
         $debug['cmc_attempts'] = [];
@@ -278,7 +276,7 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
      * Query CMC API for a specific token.
      * Returns array with 'symbol' and 'api_data' for debugging.
      */
-    private function queryCmcForToken(#[SensitiveParameter] string $token): array
+    private function queryCmcForToken(#[\SensitiveParameter] string $token): array
     {
         $mapper = new ApiDataMapperProxy('coinmarketcap');
         $properties = $mapper->prepareSearchSymbolByTokenProperties($token);
@@ -290,7 +288,7 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
         try {
             $response = $cmcAccount->withApi()->getSymbols($properties);
             $result = $mapper->resolveSearchSymbolByTokenResponse($response);
-        } catch (RequestException $e) {
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
             // CMC returns 400 for invalid/unknown symbols - this is expected
             $statusCode = $e->hasResponse() ? $e->getResponse()->getStatusCode() : 0;
 

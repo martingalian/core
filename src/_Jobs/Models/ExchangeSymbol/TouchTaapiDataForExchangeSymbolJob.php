@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
+namespace Martingalian\Core\_Jobs\Models\ExchangeSymbol;
 
 use GuzzleHttp\Exception\RequestException;
 use Martingalian\Core\Abstracts\BaseApiableJob;
@@ -14,7 +14,6 @@ use Martingalian\Core\Models\TokenMapper;
 use Martingalian\Core\Support\ApiDataMappers\Taapi\TaapiApiDataMapper;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 use Psr\Http\Message\ResponseInterface;
-use SensitiveParameter;
 use Throwable;
 
 /**
@@ -86,12 +85,12 @@ final class TouchTaapiDataForExchangeSymbolJob extends BaseApiableJob
 
         $isNoDataError = false;
         foreach ($noDataPatterns as $pattern) {
-            if (! (str_contains(haystack: $body, needle: $pattern))) {
+            if (!(str_contains(haystack: $body, needle: $pattern))) {
                 continue;
             }
 
             $isNoDataError = true;
-            break;
+                break;
         }
 
         if (! $isNoDataError) {
@@ -232,7 +231,7 @@ final class TouchTaapiDataForExchangeSymbolJob extends BaseApiableJob
     /**
      * Mark the symbol as verified but having no TAAPI data.
      */
-    private function markAsNoData(#[SensitiveParameter] string $token, string $exchangeName, string $symbol, string $reason): array
+    private function markAsNoData(#[\SensitiveParameter] string $token, string $exchangeName, string $symbol, string $reason): array
     {
         // Mark as verified (we checked) but no data available
         $this->markAsVerified(hasData: false);

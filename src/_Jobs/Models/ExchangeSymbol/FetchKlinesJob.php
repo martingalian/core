@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
+namespace Martingalian\Core\_Jobs\Models\ExchangeSymbol;
 
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Sleep;
@@ -202,7 +201,7 @@ final class FetchKlinesJob extends BaseApiableJob
                     });
 
                     return;
-                } catch (QueryException $e) {
+                } catch (\Illuminate\Database\QueryException $e) {
                     if ($e->getCode() === '40001' || str_contains(haystack: $e->getMessage(), needle: 'Deadlock')) {
                         $attempt++;
 

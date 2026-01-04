@@ -2,21 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Lifecycles\Account;
+namespace Martingalian\Core\_Jobs\Lifecycles\Account;
 
 use Illuminate\Support\Str;
-use Martingalian\Core\_Jobs\Lifecycles\Position\DispatchPositionJob;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
-// TODO: Replace with Lifecycle class when created
+use Martingalian\Core\_Jobs\Lifecycles\Position\DispatchPositionJob;
 use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\Step;
 
-/**
+/*
  * DispatchPositionSlotsJob
  *
  * Dispatches all new positions for an account that have tokens assigned.
- * This is an orchestrator step (NOT proxied - same logic for all exchanges).
- *
- * Flow:
  * • Step 1: DispatchPositionJob (parallel) - Dispatches each position for trading
  */
 final class DispatchPositionSlotsJob extends BaseQueueableJob
@@ -49,17 +46,15 @@ final class DispatchPositionSlotsJob extends BaseQueueableJob
             ];
         }
 
-        $workflowId = (string) Str::uuid();
-
-        // TODO: Convert to Lifecycle pattern when Position lifecycles are created
         // Step 1: Dispatch each position (all with same index = parallel execution)
         foreach ($positions as $position) {
-            \Martingalian\Core\Models\Step::create([
+            Step::create([
                 'class' => DispatchPositionJob::class,
-                'arguments' => ['positionId' => $position->id],
+                'arguments' => [
+                    'positionId' => $position->id,
+                ],
                 'block_uuid' => $this->uuid(),
                 'child_block_uuid' => (string) Str::uuid(),
-                'workflow_id' => $workflowId,
                 'index' => 1,
             ]);
         }
