@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\_Jobs\Models\Account;
+namespace Martingalian\Core\Jobs\Models\Account;
 
 use Exception;
 use Martingalian\Core\Abstracts\BaseApiableJob;
