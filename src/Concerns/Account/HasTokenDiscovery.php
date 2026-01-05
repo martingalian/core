@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Martingalian\Core\Concerns\Account;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Symbol;
+use Martingalian\Core\Models\TokenMapper;
 
 /*
  * Trait HasTokenDiscovery
@@ -80,8 +82,32 @@ trait HasTokenDiscovery
          *    a) Priority 1: Fast-tracked symbols (direction check only)
          *    b) Priority 2: BTC bias scoring OR fallback scoring
          *    c) Delete unassigned slots
+         *
+         * Cross-Account Locking:
+         * When have_distinct_position_tokens_on_all_accounts is enabled, the ENTIRE
+         * method runs under an atomic lock per user. This ensures:
+         * - Symbol loading sees current state (including other accounts' assignments)
+         * - No race conditions between parallel account jobs
          */
 
+        // If cross-account exclusion is enabled, wrap entire method in atomic lock
+        if ($this->user->have_distinct_position_tokens_on_all_accounts) {
+            $lockKey = "user:{$this->user->id}:token_assignment_lock";
+
+            return Cache::lock($lockKey, 60)->block(30, function () {
+                return $this->executeTokenAssignment();
+            });
+        }
+
+        return $this->executeTokenAssignment();
+    }
+
+    /**
+     * Execute the actual token assignment logic.
+     * Separated to allow wrapping in atomic lock when needed.
+     */
+    public function executeTokenAssignment(): string
+    {
         // Reset tokens string for each call
         $this->tokens = '';
 
@@ -133,6 +159,57 @@ trait HasTokenDiscovery
                 ->filter(static function (ExchangeSymbol $symbol) use ($openTradingPairs): bool {
                     return ! $openTradingPairs->contains($symbol->parsed_trading_pair);
                 });
+        }
+
+        /*
+         * Step 1c: Cross-Account Token Exclusion (User-Level) - Database Check
+         *
+         * When user has have_distinct_position_tokens_on_all_accounts=true:
+         * - Get tokens from ALL user's active positions (across all accounts)
+         * - Expand tokens via TokenMapper to include equivalents (e.g., XBT↔BTC, FLOKI↔1000FLOKI)
+         * - Exclude all exchange symbols with those tokens
+         *
+         * This prevents the same token exposure across multiple accounts.
+         */
+        if ($this->user->have_distinct_position_tokens_on_all_accounts) {
+            $activeTokens = $this->user->positions()
+                ->opened()
+                ->whereNotNull('exchange_symbol_id')
+                ->with('exchangeSymbol')
+                ->get()
+                ->pluck('exchangeSymbol.token')
+                ->filter()
+                ->unique();
+
+            if ($activeTokens->isNotEmpty()) {
+                $excludedTokens = $this->expandTokensWithMappings($activeTokens);
+
+                $this->availableExchangeSymbols = $this->availableExchangeSymbols
+                    ->whereNotIn('token', $excludedTokens->all());
+            }
+        }
+
+        /*
+         * Step 1d: Cross-Account Token Exclusion (User-Level) - Cache Check
+         *
+         * When user has have_distinct_position_tokens_on_all_accounts=true:
+         * - Check cache for tokens reserved by other accounts (race condition protection)
+         * - This catches tokens that were just assigned but not yet saved to DB
+         * - Expand via TokenMapper and exclude from pool
+         *
+         * Cache key: user:{user_id}:reserved_tokens
+         * TTL: 10 minutes (auto-cleans if job fails)
+         */
+        if ($this->user->have_distinct_position_tokens_on_all_accounts) {
+            $cacheKey = "user:{$this->user->id}:reserved_tokens";
+            $cachedReservedTokens = Cache::get($cacheKey, []);
+
+            if (! empty($cachedReservedTokens)) {
+                $expandedCachedTokens = $this->expandTokensWithMappings(collect($cachedReservedTokens));
+
+                $this->availableExchangeSymbols = $this->availableExchangeSymbols
+                    ->whereNotIn('token', $expandedCachedTokens->all());
+            }
         }
 
         /*
@@ -222,7 +299,34 @@ trait HasTokenDiscovery
 
         /*
          * Step 7: Iterate Each Position and Assign Best Token
+         *
+         * Note: When have_distinct_position_tokens_on_all_accounts is enabled,
+         * this entire method runs under an atomic lock (see assignBestTokenToNewPositions).
          */
+        $this->assignTokensToPositions($newPositions, $useBtcBias, $btcDirection, $btcTimeframe, $batchExclusions);
+
+        /*
+         * Step 8: Delete Unassigned Position Slots
+         *
+         * Clean up positions that couldn't be assigned a token.
+         */
+        $this->deleteUnassignedPositionSlots();
+
+        return $this->tokens;
+    }
+
+    /**
+     * Assign tokens to positions (extracted for lock callback).
+     *
+     * @param  \Illuminate\Database\Eloquent\Collection<int, Position>  $newPositions
+     */
+    public function assignTokensToPositions(
+        $newPositions,
+        bool $useBtcBias,
+        ?string $btcDirection,
+        ?string $btcTimeframe,
+        array &$batchExclusions
+    ): void {
         foreach ($newPositions as $position) {
             $this->positionReference = $position;
             $direction = $position->direction;
@@ -296,16 +400,21 @@ trait HasTokenDiscovery
             ]);
 
             $batchExclusions[] = $bestToken->id;
+
+            /*
+             * Add Token to User's Reserved Tokens Cache
+             *
+             * This prevents other accounts (running in parallel) from selecting
+             * the same token before this position is fully saved to DB.
+             * TTL: 10 minutes (auto-cleans if job fails or position closes)
+             */
+            if ($this->user->have_distinct_position_tokens_on_all_accounts) {
+                $cacheKey = "user:{$this->user->id}:reserved_tokens";
+                $reservedTokens = Cache::get($cacheKey, []);
+                $reservedTokens[] = $bestToken->token;
+                Cache::put($cacheKey, array_unique($reservedTokens), now()->addMinutes(10));
+            }
         }
-
-        /*
-         * Step 8: Delete Unassigned Position Slots
-         *
-         * Clean up positions that couldn't be assigned a token.
-         */
-        $this->deleteUnassignedPositionSlots();
-
-        return $this->tokens;
     }
 
     public function getFastTrackedSymbolForDirection(string $direction, array $batchExclusions)
@@ -592,5 +701,36 @@ trait HasTokenDiscovery
         }
 
         return $deletedCount;
+    }
+
+    /**
+     * Expand a collection of tokens to include all equivalent tokens via TokenMapper.
+     *
+     * For each token:
+     * - If it matches a binance_token, add all corresponding other_token values
+     * - If it matches an other_token, add the corresponding binance_token
+     *
+     * Example: FLOKI → [FLOKI, 1000FLOKI], XBT → [XBT, BTC]
+     *
+     * @param  Collection<int, string>  $tokens
+     * @return Collection<int, string>
+     */
+    public function expandTokensWithMappings(Collection $tokens): Collection
+    {
+        $expandedTokens = $tokens->values();
+
+        // Find mappings where our tokens are the binance_token
+        $fromBinance = TokenMapper::whereIn('binance_token', $tokens)
+            ->pluck('other_token');
+
+        // Find mappings where our tokens are the other_token
+        $fromOther = TokenMapper::whereIn('other_token', $tokens)
+            ->pluck('binance_token');
+
+        return $expandedTokens
+            ->merge($fromBinance)
+            ->merge($fromOther)
+            ->unique()
+            ->values();
     }
 }

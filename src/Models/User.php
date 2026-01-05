@@ -28,6 +28,7 @@ use RuntimeException;
  * @property \Illuminate\Support\Carbon|null $last_logged_in_at
  * @property \Illuminate\Support\Carbon|null $previous_logged_in_at
  * @property bool $can_trade
+ * @property bool $have_distinct_position_tokens_on_all_accounts
  * @property bool $is_active
  * @property bool $is_admin
  * @property \Illuminate\Support\Carbon $created_at
@@ -59,6 +60,7 @@ final class User extends Authenticatable
         'previous_logged_in_at' => 'datetime',
 
         'can_trade' => 'boolean',
+        'have_distinct_position_tokens_on_all_accounts' => 'boolean',
         'is_active' => 'boolean',
         'is_admin' => 'boolean',
 
