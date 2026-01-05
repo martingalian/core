@@ -13,7 +13,11 @@ trait MapsKlinesQuery
     /**
      * Prepare properties for klines query.
      *
-     * Note: BitGet uses `granularity` with suffix (e.g., "5m" for 5 minutes).
+     * Note: BitGet Futures API uses uppercase for hour/day/week timeframes:
+     * - Minutes: 1m, 3m, 5m, 15m, 30m (lowercase)
+     * - Hours: 1H, 2H, 4H, 6H, 12H (uppercase H)
+     * - Days: 1D, 3D (uppercase D)
+     * - Weeks: 1W (uppercase W)
      *
      * @see https://www.bitget.com/api-doc/contract/market/Get-Candle-Data
      */
@@ -27,7 +31,7 @@ trait MapsKlinesQuery
         $properties = new ApiProperties;
         $properties->set('relatable', $exchangeSymbol);
         $properties->set('options.symbol', (string) $exchangeSymbol->parsed_trading_pair);
-        $properties->set('options.granularity', $granularity);
+        $properties->set('options.granularity', $this->normalizeBitgetGranularity($granularity));
         $properties->set('options.productType', 'USDT-FUTURES');
 
         if ($startTime !== null) {
@@ -81,5 +85,32 @@ trait MapsKlinesQuery
         }
 
         return $normalized;
+    }
+
+    /**
+     * Normalize granularity to Bitget Futures API format.
+     *
+     * Bitget Futures API requires uppercase for hour/day/week timeframes:
+     * - 1h → 1H, 4h → 4H, 12h → 12H
+     * - 1d → 1D, 3d → 3D
+     * - 1w → 1W
+     *
+     * Minutes stay lowercase: 1m, 5m, 15m, 30m
+     */
+    private function normalizeBitgetGranularity(string $granularity): string
+    {
+        // Match patterns like "4h", "12h", "1d", "1w" and uppercase the suffix
+        if (preg_match('/^(\d+)([hdw])$/i', $granularity, $matches)) {
+            $number = $matches[1];
+            $unit = strtolower($matches[2]);
+
+            // Hours, days, weeks use uppercase in Bitget Futures API
+            if (in_array($unit, ['h', 'd', 'w'], true)) {
+                return $number . strtoupper($unit);
+            }
+        }
+
+        // Minutes and already-correct formats pass through unchanged
+        return $granularity;
     }
 }

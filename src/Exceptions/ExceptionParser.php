@@ -24,7 +24,7 @@ final class ExceptionParser
 
     private ?int $httpStatusCode = null;
 
-    private ?int $errorCode = null;
+    private int|string|null $errorCode = null;
 
     private ?string $errorMsg = null;
 
@@ -67,8 +67,9 @@ final class ExceptionParser
             $json = json_decode($body, associative: true);
 
             if (is_array($json)) {
-                $this->errorCode = $json['code'] ?? null;
-                $this->errorMsg = $json['msg'] ?? null;
+                $code = $json['code'] ?? null;
+                $this->errorCode = is_int($code) || is_string($code) ? $code : null;
+                $this->errorMsg = isset($json['msg']) && is_string($json['msg']) ? $json['msg'] : null;
             }
         }
     }
@@ -119,7 +120,7 @@ final class ExceptionParser
         return $this->httpStatusCode;
     }
 
-    public function errorCode(): ?int
+    public function errorCode(): int|string|null
     {
         return $this->errorCode;
     }
