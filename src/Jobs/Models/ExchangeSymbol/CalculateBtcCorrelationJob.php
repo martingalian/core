@@ -125,7 +125,7 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
 
         return [
             'exchange_symbol_id' => $exchangeSymbol->id,
-            'symbol' => $exchangeSymbol->symbol->token,
+            'symbol' => $exchangeSymbol->token,
             'timeframes_calculated' => count($pearsonResults),
             'timeframes' => $timeframeDetails,
         ];

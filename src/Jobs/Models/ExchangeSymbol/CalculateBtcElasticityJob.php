@@ -127,7 +127,7 @@ final class CalculateBtcElasticityJob extends BaseQueueableJob
 
         return [
             'exchange_symbol_id' => $exchangeSymbol->id,
-            'symbol' => $exchangeSymbol->symbol->token,
+            'symbol' => $exchangeSymbol->token,
             'timeframes_calculated' => count($elasticityLongResults),
             'timeframes' => $timeframeDetails,
         ];
