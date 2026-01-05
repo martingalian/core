@@ -393,10 +393,7 @@ trait HasTokenDiscovery
             $position->updateSaving([
                 'exchange_symbol_id' => $bestToken->id,
                 'direction' => $bestToken->direction,
-            ]);
-
-            $position->updateSaving([
-                'parsed_trading_pair' => $position->getParsedTradingPair(),
+                'parsed_trading_pair' => $bestToken->parsed_trading_pair,
             ]);
 
             $batchExclusions[] = $bestToken->id;
