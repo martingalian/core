@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Lifecycles\Account;
 
 use Illuminate\Support\Str;
-use Martingalian\Core\_Jobs\Models\Account\AssignBestTokensToPositionSlotsJob;
-use Martingalian\Core\_Jobs\Models\Account\QueryAccountOpenOrdersJob;
-use Martingalian\Core\_Jobs\Models\Account\QueryAccountPositionsJob;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
-// TODO: Replace these with Lifecycle classes when created
+use Martingalian\Core\Jobs\Lifecycles\Account\QueryAccountOpenOrdersJob as QueryAccountOpenOrdersLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Account\QueryAccountPositionsJob as QueryAccountPositionsLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Account\VerifyMinAccountBalanceJob as VerifyMinAccountBalanceLifecycle;
+use Martingalian\Core\Jobs\Models\Account\AssignBestTokensToPositionSlotsJob;
 use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
 /**
@@ -57,29 +57,26 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
             workflowId: $workflowId
         );
 
-        // TODO: Convert to Lifecycle pattern when created
         // Step 2: Query exchange for open positions (parallel)
-        \Martingalian\Core\Models\Step::create([
-            'class' => QueryAccountPositionsJob::class,
-            'arguments' => ['accountId' => $this->account->id],
-            'block_uuid' => $this->uuid(),
-            'workflow_id' => $workflowId,
-            'index' => $nextIndex,
-        ]);
+        $positionsLifecycleClass = $resolver->resolve(QueryAccountPositionsLifecycle::class);
+        $positionsLifecycle = new $positionsLifecycleClass($this->account);
+        $positionsLifecycle->dispatch(
+            blockUuid: $this->uuid(),
+            startIndex: $nextIndex,
+            workflowId: $workflowId
+        );
 
         // Step 2: Query exchange for open orders (parallel - same index)
-        \Martingalian\Core\Models\Step::create([
-            'class' => QueryAccountOpenOrdersJob::class,
-            'arguments' => ['accountId' => $this->account->id],
-            'block_uuid' => $this->uuid(),
-            'workflow_id' => $workflowId,
-            'index' => $nextIndex,
-        ]);
+        $ordersLifecycleClass = $resolver->resolve(QueryAccountOpenOrdersLifecycle::class);
+        $ordersLifecycle = new $ordersLifecycleClass($this->account);
+        $nextIndex = $ordersLifecycle->dispatch(
+            blockUuid: $this->uuid(),
+            startIndex: $nextIndex,
+            workflowId: $workflowId
+        );
 
-        $nextIndex++;
-
-        // Step 3: Create slots + assign best tokens
-        \Martingalian\Core\Models\Step::create([
+        // Step 3: Create slots + assign best tokens (no resolver needed - same for all exchanges)
+        Step::create([
             'class' => AssignBestTokensToPositionSlotsJob::class,
             'arguments' => ['accountId' => $this->account->id],
             'block_uuid' => $this->uuid(),
@@ -89,15 +86,15 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
 
         $nextIndex++;
 
-        // Step 4: Dispatch positions for trading
-        \Martingalian\Core\Models\Step::create([
-            'class' => DispatchPositionSlotsJob::class,
-            'arguments' => ['accountId' => $this->account->id],
-            'block_uuid' => $this->uuid(),
-            'child_block_uuid' => (string) Str::uuid(),
-            'workflow_id' => $workflowId,
-            'index' => $nextIndex,
-        ]);
+        // // Step 4: Dispatch positions for trading
+        // \Martingalian\Core\Models\Step::create([
+        //     'class' => DispatchPositionSlotsJob::class,
+        //     'arguments' => ['accountId' => $this->account->id],
+        //     'block_uuid' => $this->uuid(),
+        //     'child_block_uuid' => (string) Str::uuid(),
+        //     'workflow_id' => $workflowId,
+        //     'index' => $nextIndex,
+        // ]);
 
         return [
             'account_id' => $this->account->id,

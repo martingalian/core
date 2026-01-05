@@ -17,7 +17,7 @@ use Martingalian\Core\Models\ApiSystem;
  * Compares available-balance against the trade configuration's min_account_balance.
  * Stops the workflow gracefully if balance is insufficient.
  */
-final class VerifyMinAccountBalanceJob extends BaseApiableJob
+class VerifyMinAccountBalanceJob extends BaseApiableJob
 {
     public Account $account;
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\_Jobs\Models\ExchangeSymbol;
+namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\Candle;

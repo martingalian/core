@@ -25,6 +25,11 @@ final class ExchangeSymbolObserver
         'has_price_trend_misalignment',
         'has_early_direction_change',
         'has_invalid_indicator_direction',
+        'btc_correlation_pearson',
+        'btc_correlation_spearman',
+        'btc_correlation_rolling',
+        'btc_elasticity_long',
+        'btc_elasticity_short',
     ];
 
     /**
