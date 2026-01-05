@@ -57,8 +57,34 @@ Jobs are organized by their primary parameter:
 |----------------|----------|---------|
 | `apiSystemId` | `Jobs/Lifecycles/ApiSystem/` | DiscoverExchangeSymbolsJob |
 | `accountId` | `Jobs/Lifecycles/Account/` | SyncAccountBalanceJob |
+| `accountId` | `Jobs/Models/Account/` | TestAccountServerConnectivityJob |
 | `exchangeSymbolId` | `Jobs/Models/ExchangeSymbol/` | FetchKlinesJob |
 | `positionId` | `Jobs/Models/Position/` | ClosePositionJob |
+
+### Lifecycle Jobs (Special Category)
+
+Jobs in `Jobs/Lifecycles/` are **orchestrators**, not queued jobs:
+- Extend `BaseLifecycle` abstract class (NOT `BaseQueueableJob`)
+- Do NOT implement `ShouldQueue` interface
+- Create Step records for atomic jobs to be dispatched
+- Return next available index for chaining
+
+```php
+// Lifecycle orchestrator pattern
+class QueryAccountPositionsJob extends BaseLifecycle
+{
+    public function dispatch(string $blockUuid, int $startIndex, ?string $workflowId = null): int
+    {
+        Step::create([
+            'class' => AtomicQueryAccountPositionsJob::class,
+            'arguments' => ['accountId' => $this->account->id],
+            'block_uuid' => $blockUuid,
+            'index' => $startIndex,
+        ]);
+        return $startIndex + 1;
+    }
+}
+```
 
 ### Critical Rules
 

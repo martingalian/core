@@ -85,6 +85,7 @@ The Analytics dashboard (`/analytics`) is a Turbo-based architecture for real-ti
 | Tables | Database table counts by letter | table-counts |
 | Health | Server status with commit comparison | servers-status |
 | Dispatcher | Step processing metrics | header-controls, total-stats, hostname-stats |
+| Account360 | Account details and server connectivity testing | account-360 |
 | Artisan | Run artisan commands | artisan-commands |
 
 ---
@@ -163,6 +164,12 @@ The Analytics dashboard (`/analytics`) is a Turbo-based architecture for real-ti
 | Cooldown Toggle | Pauses cron jobs from creating new steps |
 | Queue Size Badge | Total unprocessed steps |
 | Cooldown Banner | Shows when cooldown active |
+| Reset Button | Truncates steps tables and resets dispatchers |
+
+**Reset Operation** (`POST /analytics/api/dispatcher/truncate-steps`):
+- Truncates `steps` and `steps_dispatcher_ticks` tables
+- Resets all `StepsDispatcher.can_dispatch` flags to true
+- Note: Uses direct `TRUNCATE` (no transaction) because MySQL TRUNCATE implicitly commits
 
 ### Total Stats
 
@@ -213,6 +220,50 @@ The Analytics dashboard (`/analytics`) is a Turbo-based architecture for real-ti
 
 ---
 
+## Tab: Account360
+
+### Overview
+
+**Purpose**: Deep-dive view into individual account details, positions, orders, and server connectivity testing.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| Account Selector | Dropdown to select active account |
+| Account Details | API system, user, balance info |
+| Positions List | Current open positions for account |
+| Orders List | Recent orders for account |
+| Test Servers | Test connectivity to all servers for this account |
+
+### Test Servers Feature
+
+Tests if all worker servers can connect to the exchange API using the account's credentials.
+
+**Workflow**:
+1. User clicks "Test Servers" button
+2. Creates 2-step lifecycle per server:
+   - Index 1: `CleanForbiddenHostnameForServerJob` - Clears stale ForbiddenHostname entries
+   - Index 2: `TestAccountServerConnectivityJob` - Tests actual API connectivity
+3. Polls status endpoint until all tests complete
+4. Displays results (success/failure per server with error messages)
+
+**Jobs Used**:
+| Job | Purpose |
+|-----|---------|
+| `CleanForbiddenHostnameForServerJob` | Clears ForbiddenHostname records for specific server IP before testing |
+| `TestAccountServerConnectivityJob` | Makes signed API call (GetOpenOrders) to verify IP whitelisting |
+
+**API Endpoints**:
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /analytics/api/account360` | List active accounts |
+| `GET /analytics/api/account360/{uuid}` | Account details |
+| `POST /analytics/api/account360/{uuid}/test-servers` | Start server connectivity test |
+| `GET /analytics/api/account360/test-servers/{testBatchId}` | Poll test status |
+
+---
+
 ## Styling
 
 ### CSS Classes
@@ -256,6 +307,7 @@ app/Controllers/Analytics/
     │   ├── TotalStatsController.php
     │   └── HostnameStatsController.php
     ├── Tables/TableCountsController.php
+    ├── Account/Account360Controller.php
     └── Artisan/ArtisanCommandsController.php
 ```
 
