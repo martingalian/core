@@ -62,6 +62,20 @@ trait HasStatuses
             return false;
         }
 
+        // Must have a concluded timeframe
+        if ($this->indicators_timeframe === null) {
+            return false;
+        }
+
+        // Must have correlation data for the symbol's concluded timeframe
+        $correlationType = config('martingalian.token_discovery.correlation_type', 'rolling');
+        $correlationField = 'btc_correlation_'.$correlationType;
+        $correlationData = $this->{$correlationField};
+
+        if (! is_array($correlationData) || ! isset($correlationData[$this->indicators_timeframe])) {
+            return false;
+        }
+
         return true;
     }
 }

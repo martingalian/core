@@ -8,13 +8,12 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Symbol;
-use Martingalian\Core\Models\TradeConfiguration;
 
 /**
  * CalculateBtcElasticityJob
  *
  * Calculates price elasticity between a token and BTC using historical candle data.
- * Elasticity is calculated for all timeframes configured in TradeConfiguration.
+ * Elasticity is calculated for all timeframes configured in the exchange's ApiSystem.
  *
  * Elasticity measures how much a token's price movement amplifies relative to BTC:
  * - Elasticity = (Token % Change) / (BTC % Change)
@@ -51,7 +50,7 @@ final class CalculateBtcElasticityJob extends BaseQueueableJob
             return ['skipped' => true, 'reason' => 'Elasticity calculation disabled in config'];
         }
 
-        $exchangeSymbol = ExchangeSymbol::findOrFail($this->exchangeSymbolId);
+        $exchangeSymbol = ExchangeSymbol::with('apiSystem')->findOrFail($this->exchangeSymbolId);
 
         // Find BTC symbol dynamically
         $btcSymbol = Symbol::where('token', $config['btc_token'])->first();
@@ -76,15 +75,10 @@ final class CalculateBtcElasticityJob extends BaseQueueableJob
             return ['skipped' => true, 'reason' => 'BTC not found on same exchange'];
         }
 
-        // Get timeframes from TradeConfiguration
-        $tradeConfig = TradeConfiguration::default()->first();
-        if (! $tradeConfig) {
-            return ['skipped' => true, 'reason' => 'No default trade configuration found'];
-        }
-
-        $timeframes = $tradeConfig->indicator_timeframes;
+        // Get timeframes from exchange's ApiSystem
+        $timeframes = $exchangeSymbol->apiSystem->timeframes;
         if (! is_array($timeframes) || empty($timeframes)) {
-            return ['skipped' => true, 'reason' => 'No indicator timeframes configured'];
+            return ['skipped' => true, 'reason' => 'No timeframes configured for exchange'];
         }
 
         // Calculate elasticity for each timeframe

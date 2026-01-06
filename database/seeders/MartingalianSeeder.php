@@ -251,6 +251,7 @@ final class MartingalianSeeder extends Seeder
                 'name' => 'Binance',
                 'logo_url' => 'https://public.bnbstatic.com/static/images/common/favicon.ico',
                 'is_exchange' => true,
+                'timeframes' => ['5m', '1h', '4h', '12h', '1d'],
             ]
         );
 
@@ -260,6 +261,7 @@ final class MartingalianSeeder extends Seeder
                 'name' => 'Bybit',
                 'logo_url' => 'https://www.bybit.com/favicon.ico',
                 'is_exchange' => true,
+                'timeframes' => ['5m', '1h', '4h', '12h', '1d'],
             ]
         );
 
@@ -269,6 +271,7 @@ final class MartingalianSeeder extends Seeder
                 'name' => 'Kraken',
                 'logo_url' => 'https://www.kraken.com/favicon.ico',
                 'is_exchange' => true,
+                'timeframes' => ['5m', '1h', '4h', '12h', '1d'],
             ]
         );
 
@@ -278,6 +281,7 @@ final class MartingalianSeeder extends Seeder
                 'name' => 'KuCoin',
                 'logo_url' => 'https://www.kucoin.com/favicon.ico',
                 'is_exchange' => true,
+                'timeframes' => ['5m', '1h', '4h', '12h', '1d'],
             ]
         );
 
@@ -287,6 +291,7 @@ final class MartingalianSeeder extends Seeder
                 'name' => 'BitGet',
                 'logo_url' => 'https://www.bitget.com/favicon.ico',
                 'is_exchange' => true,
+                'timeframes' => ['5m', '1h', '4h', '12h', '1d'],
             ]
         );
 
@@ -357,7 +362,6 @@ final class MartingalianSeeder extends Seeder
             [
                 'is_default' => true,
                 'description' => 'Standard trade configuration, default for all tokens',
-                'indicator_timeframes' => ['1h', '4h', '6h', '12h', '1d'],
             ]
         );
     }

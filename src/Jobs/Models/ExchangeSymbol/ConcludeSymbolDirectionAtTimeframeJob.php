@@ -57,9 +57,20 @@ final class ConcludeSymbolDirectionAtTimeframeJob extends BaseQueueableJob
 
     public function compute()
     {
-        $exchangeSymbol = ExchangeSymbol::findOrFail($this->exchangeSymbolId);
-        $tradeConfig = TradeConfiguration::getDefault();
-        $allTimeframes = $tradeConfig->indicator_timeframes;
+        $exchangeSymbol = ExchangeSymbol::with('apiSystem')->findOrFail($this->exchangeSymbolId);
+
+        // Get timeframes from symbol's exchange (per-exchange configuration)
+        $allTimeframes = $exchangeSymbol->apiSystem->timeframes ?? [];
+
+        if (empty($allTimeframes)) {
+            $response = [
+                'result' => 'error',
+                'message' => "No timeframes configured for exchange {$exchangeSymbol->apiSystem->canonical}",
+            ];
+            $this->step->update(['response' => $response]);
+
+            return $response;
+        }
 
         // Query indicator_histories for this symbol + current timeframe
         // Get the latest timestamp for each indicator at this timeframe

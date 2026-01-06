@@ -8,13 +8,12 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\Candle;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Symbol;
-use Martingalian\Core\Models\TradeConfiguration;
 
 /**
  * CalculateBtcCorrelationJob
  *
  * Calculates correlation between a token and BTC using historical candle data.
- * Correlation is calculated for all timeframes configured in TradeConfiguration.
+ * Correlation is calculated for all timeframes configured in the exchange's ApiSystem.
  *
  * Three correlation types are calculated per timeframe:
  * - Pearson: Linear relationship between price movements
@@ -46,7 +45,7 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
             return ['skipped' => true, 'reason' => 'Correlation calculation disabled in config'];
         }
 
-        $exchangeSymbol = ExchangeSymbol::findOrFail($this->exchangeSymbolId);
+        $exchangeSymbol = ExchangeSymbol::with('apiSystem')->findOrFail($this->exchangeSymbolId);
 
         // Find BTC symbol dynamically
         $btcSymbol = Symbol::where('token', $config['btc_token'])->first();
@@ -71,15 +70,10 @@ final class CalculateBtcCorrelationJob extends BaseQueueableJob
             return ['skipped' => true, 'reason' => 'BTC not found on same exchange'];
         }
 
-        // Get timeframes from TradeConfiguration
-        $tradeConfig = TradeConfiguration::default()->first();
-        if (! $tradeConfig) {
-            return ['skipped' => true, 'reason' => 'No default trade configuration found'];
-        }
-
-        $timeframes = $tradeConfig->indicator_timeframes;
+        // Get timeframes from exchange's ApiSystem
+        $timeframes = $exchangeSymbol->apiSystem->timeframes;
         if (! is_array($timeframes) || empty($timeframes)) {
-            return ['skipped' => true, 'reason' => 'No indicator timeframes configured'];
+            return ['skipped' => true, 'reason' => 'No timeframes configured for exchange'];
         }
 
         // Calculate correlation for each timeframe

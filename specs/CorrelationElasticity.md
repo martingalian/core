@@ -14,9 +14,11 @@ The system uses BTC's current direction as a market bias to select optimal token
    - Same direction (BTC=LONG, position=LONG) → want **positive** correlation
    - Opposite direction (BTC=LONG, position=SHORT) → want **negative** correlation
 
-2. **Single timeframe scoring**: Uses only the timeframe where BTC's direction signal was detected
+2. **Symbol's own timeframe for scoring**: Each symbol is scored using its own `indicators_timeframe` (where its direction was concluded), NOT BTC's timeframe. BTC's direction is only used to determine the desired correlation sign.
 
-3. **Conservative approach**: If BTC has no direction → no positions can be opened
+3. **Tradeable requirement**: A symbol must have correlation data for its own `indicators_timeframe` to be considered tradeable. Missing correlation data for the symbol's timeframe excludes it from selection.
+
+4. **Conservative approach**: If BTC has no direction → no positions can be opened
 
 **Configuration**: `config('martingalian.token_discovery.correlation_type')` - Options: `pearson`, `spearman`, `rolling`
 
@@ -234,6 +236,8 @@ Used for correlation and elasticity calculations.
 | Location | `Concerns/Account/HasTokenDiscovery.php` |
 | Purpose | Score and rank symbols using BTC bias + elasticity + correlation |
 
+**Key Principle**: Each symbol is scored using its **own** `indicators_timeframe`, not BTC's timeframe. This ensures the correlation and elasticity values used match the timeframe where the symbol's direction was concluded.
+
 **Scoring Logic**:
 
 | Scenario | Goal | Filter | Score Formula |
@@ -242,6 +246,8 @@ Used for correlation and elasticity calculations.
 | BTC=LONG, Position=SHORT | Find tokens that FALL against BTC | Negative correlation | `|elasticity_short| × |correlation|` |
 | BTC=SHORT, Position=LONG | Find tokens that RISE against BTC | Negative correlation | `elasticity_long × |correlation|` |
 | BTC=SHORT, Position=SHORT | Find tokens that FALL with BTC | Positive correlation | `|elasticity_short| × correlation` |
+
+**Data Validation**: Symbols missing elasticity or correlation data for their own `indicators_timeframe` are excluded from candidates.
 
 ---
 
@@ -252,7 +258,8 @@ Used for correlation and elasticity calculations.
 | BTC has no direction | Delete all empty position slots |
 | No tokens match correlation sign | Position slot deleted |
 | All suitable tokens in use | Remaining slots deleted |
-| Token missing timeframe data | Excluded from candidates |
+| Token missing own timeframe correlation | Excluded from tradeable scope and candidates |
+| Token missing `indicators_timeframe` | Excluded from tradeable scope |
 
 ---
 

@@ -29,7 +29,6 @@ final class TradeConfigurationFactory extends Factory
             'fast_trade_position_duration_seconds' => 3600,
             'fast_trade_position_closed_age_seconds' => 1800,
             'disable_exchange_symbol_from_negative_pnl_position' => false,
-            'indicator_timeframes' => ['1m', '5m', '15m', '1h'],
         ];
     }
 

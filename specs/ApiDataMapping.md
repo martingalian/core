@@ -256,6 +256,50 @@ Each API endpoint has a `resolveXXXResponse()` method that transforms API respon
 | BitGet | `"5m"` | milliseconds | `{data: [...]}` |
 | Kraken | `"5m"` (in URL path) | seconds | `{candles: [...]}` |
 
+### Supported Timeframes by Exchange
+
+**IMPORTANT**: Not all exchanges support all timeframes. Attempting unsupported timeframes returns errors.
+
+| Timeframe | Binance | Bybit | Kraken | KuCoin | BitGet |
+|-----------|---------|-------|--------|--------|--------|
+| 1m | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 5m | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 15m | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 30m | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 1h | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 4h | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **6h** | ✓ | ✓ | **✗** | ✓ | ✓ |
+| 12h | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 1d | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 1w | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+**Kraken Limitation**: Kraken Futures API does not support `6h` timeframe. Returns "Invalid resolution" error.
+
+### Timeframe Storage Architecture
+
+Timeframes are stored **per-exchange** in the `api_systems.timeframes` column (JSON array). This replaces the previous global `trade_configuration.indicator_timeframes` setting.
+
+**Database**: `api_systems.timeframes`
+- Type: JSON array of strings
+- Example: `["5m", "1h", "4h", "12h", "1d"]`
+- NULL for non-exchanges (taapi, coinmarketcap, alternativeme)
+
+**Current Exchange Timeframes**:
+
+| Exchange | Timeframes |
+|----------|------------|
+| Binance | 5m, 1h, 4h, 12h, 1d |
+| Bybit | 5m, 1h, 4h, 12h, 1d |
+| Kraken | 5m, 1h, 4h, 12h, 1d |
+| KuCoin | 5m, 1h, 4h, 12h, 1d |
+| BitGet | 5m, 1h, 4h, 12h, 1d |
+
+**Accessing Timeframes**:
+```php
+$exchange = ApiSystem::canonical('binance');
+$timeframes = $exchange->timeframes; // ['5m', '15m', ...]
+```
+
 ### Normalized Output
 
 All klines responses are normalized to:

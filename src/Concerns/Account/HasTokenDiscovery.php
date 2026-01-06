@@ -466,7 +466,7 @@ trait HasTokenDiscovery
     public function selectBestTokenByBtcBias(
         string $positionDirection,
         string $btcDirection,
-        string $timeframe,
+        string $btcTimeframe,
         array $batchExclusions
     ) {
         /*
@@ -475,8 +475,13 @@ trait HasTokenDiscovery
          * ═══════════════════════════════════════════════════════════════════════════════
          *
          * Purpose:
-         * Select the optimal trading token based on BTC's current direction and timeframe.
+         * Select the optimal trading token based on BTC's current direction.
+         * Uses the SYMBOL'S OWN timeframe for correlation/elasticity lookups.
          * Uses correlation sign alignment to maximize position profitability.
+         *
+         * Note: BTC's timeframe ($btcTimeframe) is used to calculate correlations
+         * (same candle data source), but each symbol uses its OWN indicators_timeframe
+         * for the lookup key.
          *
          * ─────────────────────────────────────────────────────────────────────────────────
          * CORRELATION SIGN RULES
@@ -492,11 +497,11 @@ trait HasTokenDiscovery
          * Rule: (BTC direction == position direction) → want POSITIVE correlation
          *
          * ─────────────────────────────────────────────────────────────────────────────────
-         * SCORING FORMULA (Single Timeframe from BTC)
+         * SCORING FORMULA (Symbol's Own Timeframe)
          * ─────────────────────────────────────────────────────────────────────────────────
          *
-         * For LONG positions:  score = elasticity_long[timeframe] × |correlation[timeframe]|
-         * For SHORT positions: score = |elasticity_short[timeframe]| × |correlation[timeframe]|
+         * For LONG positions:  score = elasticity_long[symbol_timeframe] × |correlation[symbol_timeframe]|
+         * For SHORT positions: score = |elasticity_short[symbol_timeframe]| × |correlation[symbol_timeframe]|
          *
          * ─────────────────────────────────────────────────────────────────────────────────
          */
@@ -524,27 +529,35 @@ trait HasTokenDiscovery
         }
 
         /*
-         * Score Each Candidate on BTC's Timeframe Only
+         * Score Each Candidate Using SYMBOL'S OWN Timeframe
          */
         $scoredSymbols = $candidates->map(static function ($symbol) use (
             $positionDirection,
-            $timeframe,
             $correlationField,
             $requireMatchingSign,
             $wantPositiveCorrelation
         ) {
             /*
-             * Validate Data Availability for BTC's Timeframe
+             * Use the symbol's own concluded timeframe for lookups
              */
-            if (! isset($symbol->btc_elasticity_long[$timeframe])
-                || ! isset($symbol->btc_elasticity_short[$timeframe])
-                || ! isset($symbol->{$correlationField}[$timeframe])) {
+            $symbolTimeframe = $symbol->indicators_timeframe;
+
+            if (! $symbolTimeframe) {
                 return null;
             }
 
-            $elasticityLong = $symbol->btc_elasticity_long[$timeframe];
-            $elasticityShort = $symbol->btc_elasticity_short[$timeframe];
-            $correlation = $symbol->{$correlationField}[$timeframe];
+            /*
+             * Validate Data Availability for Symbol's Timeframe
+             */
+            if (! isset($symbol->btc_elasticity_long[$symbolTimeframe])
+                || ! isset($symbol->btc_elasticity_short[$symbolTimeframe])
+                || ! isset($symbol->{$correlationField}[$symbolTimeframe])) {
+                return null;
+            }
+
+            $elasticityLong = $symbol->btc_elasticity_long[$symbolTimeframe];
+            $elasticityShort = $symbol->btc_elasticity_short[$symbolTimeframe];
+            $correlation = $symbol->{$correlationField}[$symbolTimeframe];
 
             /*
              * Apply Correlation Sign Filter (if enabled)
@@ -579,7 +592,7 @@ trait HasTokenDiscovery
             return [
                 'symbol' => $symbol,
                 'score' => $score,
-                'timeframe' => $timeframe,
+                'timeframe' => $symbolTimeframe,
                 'correlation' => $correlation,
             ];
         })->filter();
@@ -629,7 +642,7 @@ trait HasTokenDiscovery
          * Score Each Candidate Across ALL Timeframes
          */
         $scoredSymbols = $candidates->map(function ($symbol) use ($direction, $correlationField) {
-            $timeframes = $this->tradeConfiguration->indicator_timeframes;
+            $timeframes = $symbol->apiSystem->timeframes ?? [];
 
             $bestScore = 0;
             $bestTimeframe = null;

@@ -112,13 +112,19 @@ Trade configuration is distributed across three tables:
    - `accounts.is_active` = true
    - Available position slots (current open < `total_positions_long` or `total_positions_short`)
 
-3. **Exchange Symbol Eligibility** (checked via `ExchangeSymbol::isTradeable()`):
+3. **Exchange Symbol Eligibility** (checked via `ExchangeSymbol::isTradeable()` and `scopeTradeable()`):
+   - `overlaps_with_binance = true` - Uses Binance as reference for TAAPI
    - `api_statuses->has_taapi_data = true` - Has indicator data
-   - `auto_disabled = false` - Not auto-disabled by system
+   - `has_no_indicator_data = false` - Has valid indicator data
+   - `is_marked_for_delisting = false` - Not marked for delisting
+   - `has_price_trend_misalignment = false` - No price/trend conflicts
+   - `has_early_direction_change = false` - No path inconsistency
+   - `has_invalid_indicator_direction = false` - Valid indicator direction
    - `is_manually_enabled` is `null` or `true` - Not manually blocked
    - `direction` is not `null` - Has concluded direction (LONG/SHORT)
+   - `indicators_timeframe` is not `null` - Has concluded timeframe
    - `tradeable_at` is `null` or in the past - Not in cooldown
-   - `mark_price > 0` - Has valid current price
+   - **Correlation data exists for symbol's own `indicators_timeframe`** - Required for scoring
 
 ### Position Types
 
