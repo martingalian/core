@@ -11,8 +11,8 @@ trait HasScopes
     /**
      * Symbols that can be used to open positions.
      * Checks: overlaps with Binance, linked to CMC symbol, manually enabled, has TAAPI data,
-     * has direction, respects cooldowns, no behavioral flags, and has correlation data
-     * for the symbol's concluded timeframe.
+     * has direction, respects cooldowns, no behavioral flags, has correlation data
+     * for the symbol's concluded timeframe, and has leverage brackets data.
      */
     public function scopeTradeable(Builder $query): Builder
     {
@@ -27,6 +27,7 @@ trait HasScopes
             ->where('exchange_symbols.has_early_direction_change', false)
             ->where('exchange_symbols.has_invalid_indicator_direction', false)
             ->whereNotNull('exchange_symbols.symbol_id')
+            ->whereNotNull('exchange_symbols.leverage_brackets')
             ->where(static function ($q) {
                 $q->whereNull('exchange_symbols.is_manually_enabled')
                     ->orWhere('exchange_symbols.is_manually_enabled', true);

@@ -457,13 +457,41 @@ These fields are populated during `refresh-exchange-symbols` command execution v
 
 ## Leverage Brackets Synchronization
 
+### Purpose
+
+Leverage brackets define position size tiers with corresponding maximum leverage and margin requirements. Synced during `refresh-exchange-symbols` workflow at Index 3 (after symbol discovery).
+
 ### Architecture
 
-| Component | Description |
-|-----------|-------------|
-| Parent Orchestrator | `SyncLeverageBracketsJob` (ApiSystem level) |
-| Binance | Single API call for all symbols |
-| Bybit | Per-symbol API calls with parent-child job pattern |
+```
+RefreshExchangeSymbolsCommand (Index 3)
+  └── SyncLeverageBracketsJob (Lifecycle) per exchange
+        │
+        ├── Binance/Kraken: Atomic (batch API - all symbols in one call)
+        └── Bybit/KuCoin/BitGet: Atomic per symbol (per-symbol API)
+```
+
+### Exchange Strategies
+
+| Exchange | Strategy | API Endpoint | Notes |
+|----------|----------|--------------|-------|
+| **Binance** | Batch | `/fapi/v1/leverageBracket` | Requires IP whitelist (signed endpoint) |
+| **Kraken** | Batch | `/derivatives/api/v3/instruments` | Uses `marginLevels` from instruments (public) |
+| **Bybit** | Per-symbol | `/v5/market/risk-limit` | Returns ~15 random symbols without param |
+| **KuCoin** | Per-symbol | `/api/v1/contracts/risk-limit/{symbol}` | Requires symbol in URL path |
+| **BitGet** | Per-symbol | `/api/v2/mix/market/query-position-lever` | Requires symbol parameter |
+
+### Job Resolution via JobProxy
+
+Lifecycle jobs are resolved per-exchange using `JobProxy`. Exchange-specific implementations override the default when needed:
+
+| Exchange | Lifecycle Implementation |
+|----------|-------------------------|
+| Binance | Default (batch) |
+| Kraken | Default (batch) |
+| Bybit | Override → creates N child steps |
+| KuCoin | Override → creates N child steps |
+| BitGet | Override → creates N child steps |
 
 ### Data Structure
 
@@ -471,29 +499,41 @@ All exchanges normalize to identical JSON structure stored in `exchange_symbols.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| bracket | integer | Tier number |
-| initialLeverage | integer | Max leverage for bracket |
-| notionalCap | float | Max position size |
-| notionalFloor | float | Min position size |
-| maintMarginRatio | float | Maintenance margin % |
-| cum | float | Cumulative value |
+| bracket | integer | Tier number (1 = highest leverage) |
+| initialLeverage | integer | Max leverage for this tier |
+| notionalCap | float/null | Max position size for tier |
+| notionalFloor | float | Min position size for tier |
+| maintMarginRatio | float | Maintenance margin percentage |
 
-### Bybit Per-Symbol Query
+### Kraken Special Handling
 
-**Problem**: Bybit's API returns ~15 random symbols without a symbol parameter.
+Kraken's API has two related but different endpoints:
+- `leveragepreferences` → **User-specific** settings (what the user configured)
+- `instruments` → **Market data** including `marginLevels` (leverage tiers)
 
-**Solution**: Query each symbol individually using parent-child job pattern with `child_block_uuid`.
+The system uses `marginLevels` from instruments because it's market data, not user-specific.
 
-### RefreshDataCommand Integration
+**Field name differences** in marginLevels:
+- `PF_` (flex perpetuals): uses `numNonContractUnits`
+- `PI_` (inverse perpetuals): uses `contracts`
 
-| Mode | Description |
-|------|-------------|
-| Full Refresh (`--clean`) | Truncates tables, rebuilds entire dataset |
-| Incremental Update (default) | Syncs new symbols, updates existing data |
+Leverage calculated from: `leverage = 1 / initialMargin` (e.g., 0.02 = 50x)
 
-### Perpetual Contract Filtering
+### Workflow Integration
 
-Bybit returns multiple contract types. Filter for perpetual futures only by checking `contractType === 'LinearPerpetual'`.
+Runs at Index 3 of `refresh-exchange-symbols` command, parallel with:
+- CMC token discovery for orphaned symbols
+- TAAPI data touch (Binance only)
+
+### Test Results (Production Ready)
+
+| Exchange | Coverage | Notes |
+|----------|----------|-------|
+| Bybit | 100% | Per-symbol (595 symbols) |
+| Kraken | 100% | Batch (304 symbols) |
+| KuCoin | 99.6% | Per-symbol (529 symbols) |
+| BitGet | 99.8% | Per-symbol (529 symbols) |
+| Binance | Blocked | Requires IP whitelist for signed endpoint |
 
 ---
 

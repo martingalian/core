@@ -67,6 +67,11 @@ trait HasStatuses
             return false;
         }
 
+        // Must have leverage brackets data
+        if ($this->leverage_brackets === null) {
+            return false;
+        }
+
         // Must have correlation data for the symbol's concluded timeframe
         $correlationType = config('martingalian.token_discovery.correlation_type', 'rolling');
         $correlationField = 'btc_correlation_'.$correlationType;
