@@ -1,0 +1,98 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Martingalian\Core\Jobs\Atomic\ApiSystem;
+
+use Martingalian\Core\Abstracts\BaseApiableJob;
+use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\ApiSystem;
+use Martingalian\Core\Models\ExchangeSymbol;
+
+/**
+ * SyncLeverageBracketsJob (Atomic)
+ *
+ * Fetches leverage brackets from exchange API and updates exchange_symbols.
+ * Used for exchanges that return all symbols in one API call (Binance, Kraken).
+ */
+class SyncLeverageBracketsJob extends BaseApiableJob
+{
+    public ApiSystem $apiSystem;
+
+    public function __construct(int $apiSystemId)
+    {
+        $this->apiSystem = ApiSystem::findOrFail($apiSystemId);
+    }
+
+    public function relatable()
+    {
+        return $this->apiSystem;
+    }
+
+    public function assignExceptionHandler(): void
+    {
+        $canonical = $this->apiSystem->canonical;
+        $this->exceptionHandler = BaseExceptionHandler::make($canonical)
+            ->withAccount(Account::admin($canonical));
+    }
+
+    public function startOrFail()
+    {
+        return $this->apiSystem->is_exchange;
+    }
+
+    public function computeApiable()
+    {
+        // Fetch leverage brackets from exchange
+        $apiResponse = $this->apiSystem->apiQueryLeverageBracketsData();
+        $bracketsData = $apiResponse->result;
+
+        $updatedCount = 0;
+        $skippedCount = 0;
+
+        // Process based on exchange response format
+        foreach ($bracketsData as $symbolData) {
+            $exchangeSymbol = $symbolData['symbol'] ?? null;
+            $brackets = $symbolData['brackets'] ?? null;
+
+            // For Kraken, maxLeverage is stored differently
+            if ($brackets === null && isset($symbolData['maxLeverage'])) {
+                $brackets = [
+                    [
+                        'bracket' => 1,
+                        'initialLeverage' => (int) $symbolData['maxLeverage'],
+                        'notionalCap' => null,
+                        'notionalFloor' => 0,
+                        'maintMarginRatio' => null,
+                    ],
+                ];
+            }
+
+            if (! $exchangeSymbol || ! $brackets) {
+                $skippedCount++;
+
+                continue;
+            }
+
+            // Find and update the exchange symbol
+            $symbol = ExchangeSymbol::where('api_system_id', $this->apiSystem->id)
+                ->where('asset', $exchangeSymbol)
+                ->first();
+
+            if ($symbol) {
+                $symbol->update(['leverage_brackets' => $brackets]);
+                $updatedCount++;
+            } else {
+                $skippedCount++;
+            }
+        }
+
+        return [
+            'exchange' => $this->apiSystem->canonical,
+            'updated' => $updatedCount,
+            'skipped' => $skippedCount,
+            'total_from_api' => count($bracketsData),
+        ];
+    }
+}

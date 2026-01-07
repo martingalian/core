@@ -311,4 +311,19 @@ final class KrakenApi
 
         return $this->client->signRequest($apiRequest);
     }
+
+    /**
+     * Get leverage brackets from instruments endpoint.
+     * Unified method name for ApiSystem\InteractsWithApis.
+     *
+     * Note: Kraken's leveragepreferences endpoint returns USER-specific settings,
+     * not market data. The instruments endpoint includes `marginLevels` which
+     * contains the actual leverage brackets per symbol (market data).
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/get-instruments
+     */
+    public function getLeverageBrackets(?ApiProperties $properties = null)
+    {
+        return $this->getExchangeInformation($properties);
+    }
 }

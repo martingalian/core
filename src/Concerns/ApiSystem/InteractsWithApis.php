@@ -50,4 +50,23 @@ trait InteractsWithApis
             result: $this->apiMapper()->resolveLeverageBracketsDataResponse($this->apiResponse)
         );
     }
+
+    /**
+     * Query leverage brackets for a specific symbol.
+     *
+     * Used by exchanges that require per-symbol API calls (Bybit, KuCoin).
+     */
+    public function apiQueryLeverageBracketsDataForSymbol(string $symbol): ApiResponse
+    {
+        $account = Account::admin($this->canonical);
+
+        $this->apiProperties = $this->apiMapper()->prepareQueryLeverageBracketsDataProperties($this, $symbol);
+        $this->apiProperties->set('account', $account);
+        $this->apiResponse = $account->withApi()->getLeverageBrackets($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolveLeverageBracketsDataResponse($this->apiResponse)
+        );
+    }
 }

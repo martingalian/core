@@ -11,29 +11,40 @@ use Martingalian\Core\Support\ValueObjects\ApiProperties;
 trait MapsLeverageBracketsQuery
 {
     /**
-     * Prepare properties for querying leverage preferences on Kraken Futures.
+     * Prepare properties for querying leverage brackets on Kraken Futures.
      *
-     * @see https://docs.kraken.com/api/docs/futures-api/trading/get-leverage-setting/
+     * Uses the instruments endpoint which returns marginLevels (market data).
+     * Note: leveragepreferences endpoint returns user-specific settings, not market data.
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/get-instruments
      */
-    public function prepareQueryLeverageBracketsDataProperties(ApiSystem $apiSystem): ApiProperties
+    public function prepareQueryLeverageBracketsDataProperties(ApiSystem $apiSystem, ?string $symbol = null): ApiProperties
     {
         $properties = new ApiProperties;
         $properties->set('relatable', $apiSystem);
+
+        // Kraken instruments endpoint returns all symbols in one call
 
         return $properties;
     }
 
     /**
-     * Resolve the leverage preferences response from Kraken.
+     * Resolve the leverage brackets response from Kraken instruments endpoint.
      *
-     * Kraken response structure:
+     * Kraken instruments response structure:
      * {
      *     "result": "success",
-     *     "serverTime": "2024-01-15T10:30:00.000Z",
-     *     "leveragePreferences": [
+     *     "instruments": [
      *         {
      *             "symbol": "PF_XBTUSD",
-     *             "maxLeverage": 50.0
+     *             "marginLevels": [
+     *                 {
+     *                     "contracts": 0,           // Position floor
+     *                     "initialMargin": 0.02,    // 1/leverage (0.02 = 50x)
+     *                     "maintenanceMargin": 0.01 // Maintenance margin ratio
+     *                 },
+     *                 ...
+     *             ]
      *         }
      *     ]
      * }
@@ -41,25 +52,52 @@ trait MapsLeverageBracketsQuery
     public function resolveLeverageBracketsDataResponse(Response $response): array
     {
         $data = json_decode((string) $response->getBody(), associative: true);
-        $preferences = $data['leveragePreferences'] ?? [];
+        $instruments = $data['instruments'] ?? [];
 
-        // Transform to a more usable format keyed by symbol
-        return collect($preferences)
+        // Transform instruments with marginLevels to normalized bracket format
+        return collect($instruments)
+            ->filter(static function (array $instrument): bool {
+                // Only include instruments that have marginLevels
+                return ! empty($instrument['marginLevels']);
+            })
             ->keyBy('symbol')
-            ->map(static function (array $pref): array {
+            ->map(static function (array $instrument): array {
+                $marginLevels = $instrument['marginLevels'] ?? [];
+
+                // Convert marginLevels to normalized bracket format
+                $brackets = collect($marginLevels)
+                    ->values()
+                    ->map(static function (array $level, int $index) use ($marginLevels): array {
+                        // Calculate leverage from initialMargin: leverage = 1 / initialMargin
+                        $initialMargin = $level['initialMargin'] ?? 0.02;
+                        $leverage = $initialMargin > 0 ? (int) round(1 / $initialMargin) : 50;
+
+                        // Position floor: PF_ uses numNonContractUnits, PI_ uses contracts
+                        $notionalFloor = $level['numNonContractUnits'] ?? $level['contracts'] ?? 0;
+
+                        // notionalCap is the next tier's floor (or null for last tier)
+                        $nextLevel = $marginLevels[$index + 1] ?? null;
+                        $notionalCap = $nextLevel !== null
+                            ? ($nextLevel['numNonContractUnits'] ?? $nextLevel['contracts'] ?? null)
+                            : null;
+
+                        return [
+                            'bracket' => $index + 1,
+                            'initialLeverage' => $leverage,
+                            'notionalCap' => $notionalCap,
+                            'notionalFloor' => $notionalFloor,
+                            'maintMarginRatio' => $level['maintenanceMargin'] ?? null,
+                        ];
+                    })
+                    ->toArray();
+
+                // Get max leverage from first bracket (lowest position size = highest leverage)
+                $maxLeverage = $brackets[0]['initialLeverage'] ?? 50;
+
                 return [
-                    'symbol' => $pref['symbol'] ?? null,
-                    'maxLeverage' => $pref['maxLeverage'] ?? null,
-                    // Kraken doesn't have brackets like Binance, just max leverage per symbol
-                    'brackets' => [
-                        [
-                            'bracket' => 1,
-                            'initialLeverage' => $pref['maxLeverage'] ?? 50,
-                            'notionalCap' => null,
-                            'notionalFloor' => 0,
-                            'maintMarginRatio' => null,
-                        ],
-                    ],
+                    'symbol' => $instrument['symbol'] ?? null,
+                    'maxLeverage' => $maxLeverage,
+                    'brackets' => $brackets,
                 ];
             })
             ->toArray();

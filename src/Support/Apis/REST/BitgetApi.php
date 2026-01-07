@@ -367,4 +367,27 @@ final class BitgetApi
 
         return $this->client->signRequest($apiRequest);
     }
+
+    /**
+     * Get position tier / leverage brackets for a symbol.
+     *
+     * @see https://www.bitget.com/api-doc/contract/position/Get-Query-Position-Lever
+     */
+    public function getLeverageBrackets(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        // Default to USDT-FUTURES for perpetuals
+        if (! $properties->has('options.productType')) {
+            $properties->set('options.productType', 'USDT-FUTURES');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v2/mix/market/query-position-lever',
+            $properties
+        );
+
+        return $this->client->publicRequest($apiRequest);
+    }
 }

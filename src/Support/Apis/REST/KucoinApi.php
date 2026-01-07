@@ -323,7 +323,7 @@ final class KucoinApi
         );
 
         // Remove symbol from options since it's in the URL
-        $properties->forget('options.symbol');
+        $properties->delete('options.symbol');
 
         return $this->client->publicRequest($apiRequest);
     }
@@ -345,7 +345,7 @@ final class KucoinApi
         );
 
         // Remove symbol from options since it's in the URL
-        $properties->forget('options.symbol');
+        $properties->delete('options.symbol');
 
         return $this->client->publicRequest($apiRequest);
     }
@@ -384,5 +384,16 @@ final class KucoinApi
         );
 
         return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get leverage brackets (wrapper for getRiskLimitLevel).
+     * Unified method name for ApiSystem\InteractsWithApis.
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/risk-limit/get-futures-risk-limit-level
+     */
+    public function getLeverageBrackets(?ApiProperties $properties = null)
+    {
+        return $this->getRiskLimitLevel($properties);
     }
 }

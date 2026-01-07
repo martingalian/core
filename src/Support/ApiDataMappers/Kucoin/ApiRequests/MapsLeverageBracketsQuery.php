@@ -13,12 +13,19 @@ trait MapsLeverageBracketsQuery
     /**
      * Prepare properties for querying risk limit levels on KuCoin Futures.
      *
+     * KuCoin requires symbol in the URL path: /api/v1/contracts/risk-limit/{symbol}
+     *
      * @see https://www.kucoin.com/docs/rest/futures-trading/risk-limit/get-futures-risk-limit-level
      */
-    public function prepareQueryLeverageBracketsDataProperties(ApiSystem $apiSystem): ApiProperties
+    public function prepareQueryLeverageBracketsDataProperties(ApiSystem $apiSystem, ?string $symbol = null): ApiProperties
     {
         $properties = new ApiProperties;
         $properties->set('relatable', $apiSystem);
+
+        // KuCoin requires symbol parameter for risk limit endpoint
+        if ($symbol) {
+            $properties->set('options.symbol', $symbol);
+        }
 
         return $properties;
     }

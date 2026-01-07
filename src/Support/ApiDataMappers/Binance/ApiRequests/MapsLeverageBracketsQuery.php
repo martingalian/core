@@ -10,10 +10,17 @@ use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsLeverageBracketsQuery
 {
-    public function prepareQueryLeverageBracketsDataProperties(ApiSystem $apiSystem): ApiProperties
+    /**
+     * Prepare properties for querying leverage brackets on Binance.
+     *
+     * Binance returns all symbols in one call (symbol parameter ignored).
+     */
+    public function prepareQueryLeverageBracketsDataProperties(ApiSystem $apiSystem, ?string $symbol = null): ApiProperties
     {
         $properties = new ApiProperties;
         $properties->set('relatable', $apiSystem);
+
+        // Binance batch API - symbol parameter is ignored (returns all symbols)
 
         return $properties;
     }
