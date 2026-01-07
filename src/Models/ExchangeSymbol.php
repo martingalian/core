@@ -36,6 +36,9 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property int $price_precision
  * @property int $quantity_precision
  * @property float|null $min_notional
+ * @property float|null $kraken_min_order_size
+ * @property float|null $kucoin_lot_size
+ * @property float|null $kucoin_multiplier
  * @property float $tick_size
  * @property float|null $min_price
  * @property float|null $max_price

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Martingalian;
 
+use Martingalian\Core\Martingalian\Concerns\HasMinNotionalChecks;
 use Martingalian\Core\Martingalian\Concerns\HasTradingGuards;
 use Martingalian\Core\Models\Account;
 
@@ -12,6 +13,7 @@ use Martingalian\Core\Models\Account;
  */
 final class Martingalian
 {
+    use HasMinNotionalChecks;
     use HasTradingGuards;
 
     public function __construct(

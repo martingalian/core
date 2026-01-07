@@ -135,6 +135,10 @@ trait MapsExchangeInformationQuery
                     'maxPrice' => isset($contract['maxPrice']) ? (float) $contract['maxPrice'] : null,
                     'minNotional' => null,
 
+                    // KuCoin-specific: lot size and multiplier for min order calculation
+                    'kucoinLotSize' => isset($contract['lotSize']) ? (float) $contract['lotSize'] : null,
+                    'kucoinMultiplier' => isset($contract['multiplier']) ? (float) $contract['multiplier'] : null,
+
                     // Status and contract information
                     'status' => ($contract['status'] ?? '') === 'Open' ? 'Trading' : 'Break',
                     'contractType' => $contract['type'] ?? null,

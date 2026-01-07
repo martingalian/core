@@ -31,6 +31,8 @@ trait MapsExchangeInformationQuery
      *             "tradeable": true,
      *             "tickSize": 0.5,
      *             "contractSize": 1,
+     *             "minimumTradeSize": 1,
+     *             "contractValueTradePrecision": 0,
      *             "marginLevels": [...],
      *             ...
      *         }
@@ -122,6 +124,12 @@ trait MapsExchangeInformationQuery
                     'minPrice' => null,
                     'maxPrice' => null,
                     'minNotional' => null,
+
+                    // Kraken-specific: contract size (typically 1 = $1 per contract)
+                    // Field name in API: contractSize
+                    'krakenMinOrderSize' => isset($instrument['contractSize'])
+                        ? (float) $instrument['contractSize']
+                        : null,
 
                     // Status and contract information
                     'status' => ($instrument['tradeable'] ?? false) ? 'Trading' : 'Break',

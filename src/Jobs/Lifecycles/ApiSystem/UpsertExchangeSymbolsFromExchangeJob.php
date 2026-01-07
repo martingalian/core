@@ -105,6 +105,11 @@ final class UpsertExchangeSymbolsFromExchangeJob extends BaseApiableJob
                 'max_price' => $symbolData['maxPrice'] ?? null,
                 'delivery_ts_ms' => $symbolData['deliveryDate'] ?? null,
                 'symbol_information' => $symbolData,
+
+                // Exchange-specific min order size fields
+                'kraken_min_order_size' => $symbolData['krakenMinOrderSize'] ?? null,
+                'kucoin_lot_size' => $symbolData['kucoinLotSize'] ?? null,
+                'kucoin_multiplier' => $symbolData['kucoinMultiplier'] ?? null,
             ];
 
             // Only set symbol_id if:

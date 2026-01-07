@@ -6,6 +6,7 @@ namespace Martingalian\Core\Concerns\Account;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Martingalian\Core\Martingalian\Martingalian;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Position;
@@ -216,14 +217,19 @@ trait HasTokenDiscovery
          * Step 2: Filter Pool - Only Complete Symbols
          *
          * Filter symbols that have:
-         * - Complete trading metadata (min_notional, tick_size, etc.)
+         * - Complete trading metadata (min order requirements, tick_size, etc.)
          * - Complete correlation/elasticity data
+         *
+         * Min order requirements are exchange-specific:
+         * - Binance/Bybit/BitGet: Direct min_notional
+         * - Kraken: kraken_min_order_size * current_price
+         * - KuCoin: kucoin_lot_size * kucoin_multiplier * current_price
          */
         $correlationType = config('martingalian.token_discovery.correlation_type', 'rolling');
         $correlationField = 'btc_correlation_'.$correlationType;
 
         $this->availableExchangeSymbols = $this->availableExchangeSymbols->filter(static function ($symbol) use ($correlationField) {
-            return filled($symbol->min_notional)
+            return Martingalian::hasMinOrderRequirements($symbol)
                 && filled($symbol->tick_size)
                 && filled($symbol->price_precision)
                 && filled($symbol->quantity_precision)

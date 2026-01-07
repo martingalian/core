@@ -412,6 +412,49 @@ All klines responses are normalized to:
 
 ---
 
+## Exchange-Specific Minimum Order Data
+
+### Purpose
+
+Exchanges have different ways of expressing minimum order requirements. Some provide `min_notional` directly (Binance), others require calculation from component values.
+
+### Exchange Approaches
+
+| Exchange | Approach | Fields Available |
+|----------|----------|------------------|
+| **Binance** | Direct `minNotional` | `min_notional` stored directly |
+| **Bybit** | Direct `minNotional` | `min_notional` stored directly |
+| **BitGet** | Direct `minNotional` | `min_notional` stored directly |
+| **Kraken** | Contract-based | `contractSize` (always 1) |
+| **KuCoin** | Lot + Multiplier | `lotSize`, `multiplier` |
+
+### Exchange-Specific Columns
+
+For exchanges without direct `min_notional`, we store component values:
+
+| Column | Exchange | Description |
+|--------|----------|-------------|
+| `kraken_min_order_size` | Kraken | Contract size (minimum order = 1 contract) |
+| `kucoin_lot_size` | KuCoin | Minimum contract increment |
+| `kucoin_multiplier` | KuCoin | Contract value multiplier |
+
+### Calculating Minimum Order Value
+
+**Binance/Bybit/BitGet**: Use `min_notional` directly.
+
+**Kraken**: Minimum order = `kraken_min_order_size` contracts (typically 1). Value = contracts × current price.
+
+**KuCoin**: Minimum order value = `kucoin_lot_size` × `kucoin_multiplier` × current price.
+
+### Data Population
+
+These fields are populated during `refresh-exchange-symbols` command execution via:
+1. `UpsertExchangeSymbolsFromExchangeJob` fetches symbol metadata
+2. Exchange-specific mappers extract relevant fields
+3. Values stored on `exchange_symbols` table
+
+---
+
 ## Leverage Brackets Synchronization
 
 ### Architecture
