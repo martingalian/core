@@ -10,6 +10,7 @@ use Illuminate\Support\Carbon;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Concerns\ApiExceptionHelpers;
 use Martingalian\Core\Support\Throttlers\BybitThrottler;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
@@ -340,6 +341,41 @@ final class BybitExceptionHandler extends BaseExceptionHandler
         }
 
         return $data;
+    }
+
+    /**
+     * Check HTTP 200 responses for Bybit API-level errors and throw if found.
+     * Bybit returns HTTP 200 even for errors, with retCode !== 0 indicating failure.
+     * This converts such responses into RequestExceptions for normal error handling.
+     *
+     * @param  ResponseInterface  $response  The HTTP 200 response to check
+     * @param  RequestInterface  $request  The original request (needed for RequestException)
+     *
+     * @throws RequestException  If retCode !== 0 (API-level error)
+     */
+    public function shouldThrowExceptionFromHTTP200(ResponseInterface $response, RequestInterface $request): void
+    {
+        $body = (string) $response->getBody();
+        $json = json_decode($body, associative: true);
+
+        if (! is_array($json)) {
+            return;
+        }
+
+        $retCode = $json['retCode'] ?? 0;
+
+        if ($retCode !== 0) {
+            $retMsg = $json['retMsg'] ?? 'Unknown Bybit API error';
+
+            // Rewind the response body so it can be read again by exception handlers
+            $response->getBody()->rewind();
+
+            throw new RequestException(
+                "Bybit API error (code {$retCode}): {$retMsg}",
+                $request,
+                $response
+            );
+        }
     }
 
     /**

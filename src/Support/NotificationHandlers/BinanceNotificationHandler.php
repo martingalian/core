@@ -16,35 +16,10 @@ namespace Martingalian\Core\Support\NotificationHandlers;
  */
 final class BinanceNotificationHandler extends BaseNotificationHandler
 {
-    /**
-     * HTTP codes that indicate server IP is forbidden/banned.
-     *
-     * @var array<int, array<int, int>|int>
-     */
     public array $serverForbiddenHttpCodes = [418];
 
-    /**
-     * HTTP codes that indicate server rate limiting.
-     *
-     * @var array<int, array<int, int>|int>
-     */
     public array $serverRateLimitedHttpCodes = [
         429,
         400 => [-1003],
     ];
-
-    public function getCanonical(int $httpCode, ?int $vendorCode): ?string
-    {
-        // Check rate limit first (more common)
-        if ($this->matchesMapping($httpCode, $vendorCode, $this->serverRateLimitedHttpCodes)) {
-            return 'server_rate_limit_exceeded';
-        }
-
-        // Check forbidden/banned
-        if ($this->matchesMapping($httpCode, $vendorCode, $this->serverForbiddenHttpCodes)) {
-            return 'server_ip_forbidden';
-        }
-
-        return null;
-    }
 }

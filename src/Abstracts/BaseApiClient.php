@@ -6,6 +6,7 @@ namespace Martingalian\Core\Abstracts;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Psr7\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use Martingalian\Core\Models\ApiRequestLog;
@@ -69,6 +70,12 @@ abstract class BaseApiClient
             );
 
             $this->recordSuccessfulResponse($response, $logData, $startTime);
+
+            // Check for API-level errors in HTTP 200 responses (e.g., Bybit returns errors in body)
+            if ($this->exceptionHandler && $response->getStatusCode() === 200) {
+                $request = new Request($apiRequest->method, $this->baseURL.$apiRequest->path);
+                $this->exceptionHandler->shouldThrowExceptionFromHTTP200($response, $request);
+            }
 
             return $response;
         } catch (RequestException $e) {

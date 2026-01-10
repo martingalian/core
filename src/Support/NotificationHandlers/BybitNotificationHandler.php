@@ -18,11 +18,6 @@ namespace Martingalian\Core\Support\NotificationHandlers;
  */
 final class BybitNotificationHandler extends BaseNotificationHandler
 {
-    /**
-     * HTTP codes that indicate server IP is forbidden/banned.
-     *
-     * @var array<int, array<int, int>|int>
-     */
     public array $serverForbiddenHttpCodes = [
         401,
         200 => [
@@ -35,11 +30,6 @@ final class BybitNotificationHandler extends BaseNotificationHandler
         ],
     ];
 
-    /**
-     * HTTP codes that indicate server rate limiting.
-     *
-     * @var array<int, array<int, int>|int>
-     */
     public array $serverRateLimitedHttpCodes = [
         403,
         429,
@@ -51,18 +41,18 @@ final class BybitNotificationHandler extends BaseNotificationHandler
         ],
     ];
 
-    public function getCanonical(int $httpCode, ?int $vendorCode): ?string
+    /**
+     * Extract vendor error code from Bybit response.
+     * Bybit uses 'retCode' field. A retCode of 0 means success.
+     */
+    public function extractVendorCode(?array $response): ?int
     {
-        // Check rate limit first (more common)
-        if ($this->matchesMapping($httpCode, $vendorCode, $this->serverRateLimitedHttpCodes)) {
-            return 'server_rate_limit_exceeded';
+        $retCode = $response['retCode'] ?? null;
+
+        if ($retCode === null || (int) $retCode === 0) {
+            return null;
         }
 
-        // Check forbidden/banned
-        if ($this->matchesMapping($httpCode, $vendorCode, $this->serverForbiddenHttpCodes)) {
-            return 'server_ip_forbidden';
-        }
-
-        return null;
+        return (int) $retCode;
     }
 }

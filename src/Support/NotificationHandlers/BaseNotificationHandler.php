@@ -18,13 +18,38 @@ use Exception;
 abstract class BaseNotificationHandler
 {
     /**
+     * HTTP codes that indicate server IP is forbidden/banned.
+     *
+     * @var array<int, array<int, int>|int>
+     */
+    public array $serverForbiddenHttpCodes = [];
+
+    /**
+     * HTTP codes that indicate server rate limiting.
+     *
+     * @var array<int, array<int, int>|int>
+     */
+    public array $serverRateLimitedHttpCodes = [];
+
+    /**
      * Get the notification canonical for a given HTTP code and vendor code.
      *
      * @param  int  $httpCode  The HTTP response code (e.g., 418, 429, 200)
      * @param  int|null  $vendorCode  The vendor-specific error code from response body (e.g., -1003 for Binance, 10018 for Bybit)
      * @return string|null The notification canonical (e.g., 'server_ip_forbidden') or null if no notification should be sent
      */
-    abstract public function getCanonical(int $httpCode, ?int $vendorCode): ?string;
+    public function getCanonical(int $httpCode, ?int $vendorCode): ?string
+    {
+        if ($this->matchesMapping($httpCode, $vendorCode, $this->serverRateLimitedHttpCodes)) {
+            return 'server_rate_limit_exceeded';
+        }
+
+        if ($this->matchesMapping($httpCode, $vendorCode, $this->serverForbiddenHttpCodes)) {
+            return 'server_ip_forbidden';
+        }
+
+        return null;
+    }
 
     /**
      * Factory method to create the appropriate handler for an API system.
@@ -39,8 +64,27 @@ abstract class BaseNotificationHandler
         return match ($apiCanonical) {
             'binance' => new BinanceNotificationHandler,
             'bybit' => new BybitNotificationHandler,
+            'kraken' => new KrakenNotificationHandler,
+            'kucoin' => new KucoinNotificationHandler,
+            'bitget' => new BitgetNotificationHandler,
             default => throw new Exception("No NotificationHandler for API system: {$apiCanonical}")
         };
+    }
+
+    /**
+     * Extract vendor-specific error code from response body.
+     *
+     * Default implementation checks common field names ('code').
+     * Override in exchange-specific handlers for different response formats.
+     *
+     * @param  array<string, mixed>|null  $response  The decoded response body
+     * @return int|null The vendor error code, or null if not present/not an error
+     */
+    public function extractVendorCode(?array $response): ?int
+    {
+        $code = $response['code'] ?? null;
+
+        return $code !== null ? (int) $code : null;
     }
 
     /**
@@ -66,9 +110,9 @@ abstract class BaseNotificationHandler
 
         // Check nested array structure (e.g., [200 => [10003, 10004]])
         foreach ($mappings as $code => $subCodes) {
-            if (!($code === $httpCode && is_array($subCodes) && in_array($vendorCode, $subCodes, strict: true))) { continue; }
-
-return true;
+            if ($code === $httpCode && is_array($subCodes) && in_array($vendorCode, $subCodes, strict: true)) {
+                return true;
+            }
         }
 
         return false;

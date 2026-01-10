@@ -86,15 +86,15 @@ final class PreparePositionsOpeningJob extends BaseQueueableJob
 
         $nextIndex++;
 
-        // // Step 4: Dispatch positions for trading
-        // \Martingalian\Core\Models\Step::create([
-        //     'class' => DispatchPositionSlotsJob::class,
-        //     'arguments' => ['accountId' => $this->account->id],
-        //     'block_uuid' => $this->uuid(),
-        //     'child_block_uuid' => (string) Str::uuid(),
-        //     'workflow_id' => $workflowId,
-        //     'index' => $nextIndex,
-        // ]);
+        // Step 4: Dispatch positions for trading
+        Step::create([
+            'class' => DispatchPositionSlotsJob::class,
+            'arguments' => ['accountId' => $this->account->id],
+            'block_uuid' => $this->uuid(),
+            'child_block_uuid' => (string) Str::uuid(),
+            'workflow_id' => $workflowId,
+            'index' => $nextIndex,
+        ]);
 
         return [
             'account_id' => $this->account->id,

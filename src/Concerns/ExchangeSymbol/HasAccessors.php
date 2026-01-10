@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\ExchangeSymbol;
 
+use Carbon\Carbon;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
 
@@ -63,15 +64,28 @@ trait HasAccessors
     /**
      * Accessor for the `current_price` attribute.
      * Returns the latest candle close price for the 5m timeframe.
+     * Returns null if the candle is stale (older than 15 minutes).
      */
     public function getCurrentPriceAttribute(): ?string
     {
         $latestCandle = $this->candles()
             ->where('timeframe', '5m')
             ->orderByDesc('timestamp')
-            ->first(['close']);
+            ->first(['close', 'candle_time_utc']);
 
-        return $latestCandle?->close;
+        if (! $latestCandle) {
+            return null;
+        }
+
+        // Freshness check: candle must be within the last 15 minutes (3x 5m candles)
+        $candleTime = Carbon::parse($latestCandle->candle_time_utc);
+        $freshnessThreshold = Carbon::now()->subMinutes(15);
+
+        if ($candleTime->lt($freshnessThreshold)) {
+            return null;
+        }
+
+        return $latestCandle->close;
     }
 
     /**

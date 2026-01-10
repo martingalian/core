@@ -16,6 +16,7 @@ use Martingalian\Core\Support\ApiExceptionHandlers\CoinmarketCapExceptionHandler
 use Martingalian\Core\Support\ApiExceptionHandlers\KrakenExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\KucoinExceptionHandler;
 use Martingalian\Core\Support\ApiExceptionHandlers\TaapiExceptionHandler;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
@@ -83,6 +84,25 @@ abstract class BaseExceptionHandler
     public function recordResponseHeaders(ResponseInterface $response): void
     {
         // No-op by default - only complex APIs need this
+    }
+
+    /**
+     * Check HTTP 200 responses for API-level errors and throw if found.
+     * Some APIs (like Bybit) return HTTP 200 even for errors, with the actual
+     * error code in the response body. This method allows those APIs to convert
+     * such responses into exceptions that flow through normal error handling.
+     *
+     * Default implementation does nothing (most APIs use proper HTTP status codes).
+     * Override in exchange-specific handlers that return errors in HTTP 200 responses.
+     *
+     * @param  ResponseInterface  $response  The HTTP 200 response to check
+     * @param  RequestInterface  $request  The original request (needed for RequestException)
+     *
+     * @throws RequestException  If the response contains an API-level error
+     */
+    public function shouldThrowExceptionFromHTTP200(ResponseInterface $response, RequestInterface $request): void
+    {
+        // No-op by default - most APIs use proper HTTP status codes
     }
 
     /**

@@ -39,11 +39,6 @@ final class ApiRequestLogObserver
             return;
         }
 
-        // Skip if successful response (2xx or 3xx)
-        if ($log->http_response_code < 400) {
-            return;
-        }
-
         // Load API system to determine which notification handler to use
         $apiSystem = ApiSystem::find($log->api_system_id);
         if (! $apiSystem) {
@@ -59,7 +54,13 @@ final class ApiRequestLogObserver
         }
 
         $httpCode = $log->http_response_code;
-        $vendorCode = $this->extractVendorCode($log);
+        $vendorCode = $handler->extractVendorCode($log->response);
+
+        // Skip if truly successful (HTTP success AND no vendor error)
+        // Some APIs (Bybit) return HTTP 200 with error codes in the response body
+        if ($httpCode < 400 && $vendorCode === null) {
+            return;
+        }
 
         // Get the notification canonical for this error
         $canonical = $handler->getCanonical($httpCode, $vendorCode);
@@ -101,21 +102,6 @@ final class ApiRequestLogObserver
             relatable: $apiSystem,
             cacheKeys: $cacheKeys
         );
-    }
-
-    /**
-     * Extract vendor-specific error code from response body.
-     */
-    private function extractVendorCode(ApiRequestLog $log): ?int
-    {
-        $response = $log->response;
-
-        if (! is_array($response)) {
-            return null;
-        }
-
-        // Binance uses 'code', Bybit uses 'retCode'
-        return $response['code'] ?? $response['retCode'] ?? null;
     }
 
     private function deactivateExchangeSymbolIfNoTaapiData(ApiRequestLog $log): void
@@ -188,9 +174,9 @@ final class ApiRequestLogObserver
         ];
 
         foreach ($noDataPatterns as $pattern) {
-            if (!(str_contains(haystack: $response, needle: $pattern))) { continue; }
-
-return true;
+            if (str_contains(haystack: $response, needle: $pattern)) {
+                return true;
+            }
         }
 
         return false;
