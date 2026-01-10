@@ -89,6 +89,21 @@ trait HasAccessors
     }
 
     /**
+     * Accessor for the `last_known_price` attribute.
+     * Returns the latest candle close price for the 5m timeframe WITHOUT freshness check.
+     * Used for min notional calculations where we need a price estimate, not real-time accuracy.
+     */
+    public function getLastKnownPriceAttribute(): ?string
+    {
+        $latestCandle = $this->candles()
+            ->where('timeframe', '5m')
+            ->orderByDesc('timestamp')
+            ->first(['close']);
+
+        return $latestCandle?->close;
+    }
+
+    /**
      * Look up the displayed trading pair by raw asset name and api_system_id.
      * Used to convert exchange-specific formats (e.g., PF_XBTUSD) to clean display (e.g., XBT/USD).
      *

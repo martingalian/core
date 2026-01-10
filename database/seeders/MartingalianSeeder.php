@@ -618,7 +618,7 @@ final class MartingalianSeeder extends Seeder
         if (! $existingBinanceAccount) {
             Account::create([
                 'uuid' => (string) Str::uuid(),
-                'name' => 'Main Binance Account',
+                'name' => 'Binance Only Account',
                 'user_id' => $binanceUser->id,
                 'api_system_id' => $binanceApiSystem->id,
                 'portfolio_quote' => 'USDT',

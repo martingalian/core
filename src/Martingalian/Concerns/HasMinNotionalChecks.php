@@ -51,6 +51,9 @@ trait HasMinNotionalChecks
     /**
      * Calculate the effective minimum notional for a symbol based on exchange type.
      *
+     * Uses last_known_price (without freshness check) for Kraken/KuCoin calculations
+     * because we only need a price estimate for min order validation, not real-time accuracy.
+     *
      * @param  ExchangeSymbol  $symbol  The exchange symbol
      * @return float|null The minimum notional value, or null if cannot be calculated
      */
@@ -61,27 +64,27 @@ trait HasMinNotionalChecks
             return (float) $symbol->min_notional;
         }
 
-        // Get current price for dynamic calculations
-        $currentPrice = $symbol->current_price;
+        // Get last known price for dynamic calculations (no freshness requirement)
+        $price = $symbol->last_known_price;
 
         // Priority 2: Kraken (kraken_min_order_size * price)
         if (filled($symbol->kraken_min_order_size)) {
-            if (! filled($currentPrice)) {
+            if (! filled($price)) {
                 return null;
             }
 
-            return (float) Math::mul($symbol->kraken_min_order_size, $currentPrice);
+            return (float) Math::mul($symbol->kraken_min_order_size, $price);
         }
 
         // Priority 3: KuCoin (lot_size * multiplier * price)
         if (filled($symbol->kucoin_lot_size) && filled($symbol->kucoin_multiplier)) {
-            if (! filled($currentPrice)) {
+            if (! filled($price)) {
                 return null;
             }
 
             $contractValue = Math::mul($symbol->kucoin_lot_size, $symbol->kucoin_multiplier);
 
-            return (float) Math::mul($contractValue, $currentPrice);
+            return (float) Math::mul($contractValue, $price);
         }
 
         return null;
