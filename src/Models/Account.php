@@ -29,6 +29,10 @@ use Martingalian\Core\Concerns\Account\InteractsWithApis;
  * @property string|null $trading_quote
  * @property float|null $margin
  * @property bool $can_trade
+ * @property bool $is_active
+ * @property int $position_leverage_long
+ * @property int $position_leverage_short
+ * @property string $margin_mode
  * @property int|null $last_notified_account_balance_history_id
  * @property array|null $credentials
  * @property array|null $credentials_testing
@@ -64,6 +68,9 @@ final class Account extends BaseModel
     protected $casts = [
         'can_trade' => 'boolean',
         'is_active' => 'boolean',
+        'position_leverage_long' => 'integer',
+        'position_leverage_short' => 'integer',
+        'margin_mode' => 'string',
         'credentials' => 'array',
         'credentials_testing' => 'array',
 
@@ -162,7 +169,6 @@ final class Account extends BaseModel
     {
         return $this->belongsTo(ApiSystem::class);
     }
-
 
     /**
      * @return MorphMany<ApiSnapshot, $this>

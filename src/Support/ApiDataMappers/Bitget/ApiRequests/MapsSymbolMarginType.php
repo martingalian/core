@@ -10,6 +10,11 @@ use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsSymbolMarginType
 {
+    /**
+     * Prepare properties for updating margin mode on BitGet.
+     *
+     * BitGet expects lowercase: 'isolated' or 'crossed'.
+     */
     public function prepareSymbolMarginTypeProperties(Position $position): ApiProperties
     {
         $properties = new ApiProperties;
@@ -17,7 +22,10 @@ trait MapsSymbolMarginType
         $properties->set('options.symbol', (string) $position->exchangeSymbol->parsed_trading_pair);
         $properties->set('options.productType', 'USDT-FUTURES');
         $properties->set('options.marginCoin', 'USDT');
-        $properties->set('options.marginMode', 'crossed');
+
+        // Get margin mode from account (already lowercase: isolated/crossed)
+        $marginMode = mb_strtolower($position->account->margin_mode);
+        $properties->set('options.marginMode', $marginMode);
 
         return $properties;
     }

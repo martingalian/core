@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Lifecycles\Position\Bybit;
 
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob as BaseDispatchPositionJob;
+use Martingalian\Core\Jobs\Lifecycles\Position\SetLeverageJob as SetLeverageLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Position\SetMarginModeJob as SetMarginModeLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\VerifyTradingPairNotOpenJob as VerifyTradingPairNotOpenLifecycle;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
@@ -15,8 +17,8 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  *
  * Flow:
  * • Step 1: VerifyTradingPairNotOpenJob - Verify pair not already open (showstopper)
- * • Step 2: SetMarginModeJob - Set margin mode (isolated/cross) [TODO]
- * • Step 3: SetLeverageJob - Set leverage [TODO]
+ * • Step 2: SetMarginModeJob - Set margin mode (isolated/cross)
+ * • Step 3: SetLeverageJob - Set leverage
  * • Step 4: PlaceEntryOrderJob - Place entry order [TODO]
  */
 class DispatchPositionJob extends BaseDispatchPositionJob
@@ -34,8 +36,24 @@ class DispatchPositionJob extends BaseDispatchPositionJob
             workflowId: null
         );
 
-        // TODO: Step 2 - Set margin mode
-        // TODO: Step 3 - Set leverage
+        // Step 2: Set margin mode (isolated/crossed)
+        $marginModeLifecycleClass = $resolver->resolve(SetMarginModeLifecycle::class);
+        $marginModeLifecycle = new $marginModeLifecycleClass($this->position);
+        $nextIndex = $marginModeLifecycle->dispatch(
+            blockUuid: $this->uuid(),
+            startIndex: $nextIndex,
+            workflowId: null
+        );
+
+        // Step 3: Set leverage
+        $leverageLifecycleClass = $resolver->resolve(SetLeverageLifecycle::class);
+        $leverageLifecycle = new $leverageLifecycleClass($this->position);
+        $nextIndex = $leverageLifecycle->dispatch(
+            blockUuid: $this->uuid(),
+            startIndex: $nextIndex,
+            workflowId: null
+        );
+
         // TODO: Step 4 - Place entry order
 
         return [

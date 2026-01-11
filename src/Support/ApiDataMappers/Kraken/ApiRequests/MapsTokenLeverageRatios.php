@@ -11,19 +11,28 @@ use Martingalian\Core\Support\ValueObjects\ApiProperties;
 trait MapsTokenLeverageRatios
 {
     /**
-     * Prepare properties for updating leverage ratio on Kraken Futures.
+     * Prepare properties for updating leverage preferences on Kraken Futures.
      *
      * @see https://docs.kraken.com/api/docs/futures-api/trading/set-leverage-setting/
      *
-     * Note: Setting maxLeverage automatically sets margin mode to ISOLATED.
-     * To use CROSS margin, don't set maxLeverage (use MapsSymbolMarginType instead).
+     * Kraken combines margin mode + leverage in one endpoint:
+     * - Setting maxLeverage = ISOLATED margin with that leverage
+     * - Omitting maxLeverage = CROSS margin (dynamic leverage based on wallet balance)
+     *
+     * For CROSSED margin mode, we only set the symbol (no maxLeverage).
+     * For ISOLATED margin mode, we set both symbol and maxLeverage.
      */
     public function prepareUpdateLeverageRatioProperties(Position $position, int $leverage): ApiProperties
     {
         $properties = new ApiProperties;
         $properties->set('relatable', $position);
         $properties->set('options.symbol', (string) $position->exchangeSymbol->parsed_trading_pair);
-        $properties->set('options.maxLeverage', (string) $leverage);
+
+        // Only set maxLeverage for ISOLATED margin mode
+        // For CROSSED, omitting maxLeverage tells Kraken to use cross margin
+        if ($position->account->margin_mode === 'isolated') {
+            $properties->set('options.maxLeverage', (string) $leverage);
+        }
 
         return $properties;
     }

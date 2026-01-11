@@ -22,8 +22,12 @@ trait MapsSymbolMarginType
         $properties = new ApiProperties;
         $properties->set('relatable', $position);
         $properties->set('options.symbol', (string) $position->exchangeSymbol->parsed_trading_pair);
-        // KuCoin uses 'CROSS' not 'CROSSED'
-        $properties->set('options.marginMode', 'CROSS');
+
+        // Get margin mode from account and convert to KuCoin format (ISOLATED/CROSS)
+        // Note: KuCoin uses 'CROSS' not 'CROSSED'
+        $marginMode = mb_strtoupper($position->account->margin_mode);
+        $apiValue = $marginMode === 'CROSSED' ? 'CROSS' : $marginMode;
+        $properties->set('options.marginMode', $apiValue);
 
         return $properties;
     }

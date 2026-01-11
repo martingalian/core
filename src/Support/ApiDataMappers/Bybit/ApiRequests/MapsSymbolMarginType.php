@@ -24,10 +24,17 @@ trait MapsSymbolMarginType
         $properties->set('relatable', $position);
         $properties->set('options.category', 'linear');
         $properties->set('options.symbol', (string) $position->exchangeSymbol->parsed_trading_pair);
-        // 0 = cross margin, 1 = isolated margin - default to cross
-        $properties->set('options.tradeMode', 0);
-        // Must set leverage when switching margin mode
-        $leverage = (string) ($position->leverage ?? 10);
+
+        // Get margin mode from account: isolated = 1, crossed = 0
+        $tradeMode = $position->account->margin_mode === 'isolated' ? 1 : 0;
+        $properties->set('options.tradeMode', $tradeMode);
+
+        // Must set leverage when switching margin mode - get from account based on direction
+        $leverage = (string) match ($position->direction) {
+            'LONG' => $position->account->position_leverage_long,
+            'SHORT' => $position->account->position_leverage_short,
+            default => 10,
+        };
         $properties->set('options.buyLeverage', $leverage);
         $properties->set('options.sellLeverage', $leverage);
 

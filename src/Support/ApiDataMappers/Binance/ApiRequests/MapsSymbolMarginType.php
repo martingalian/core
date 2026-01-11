@@ -10,13 +10,21 @@ use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsSymbolMarginType
 {
+    /**
+     * Prepare properties for updating margin type on Binance.
+     *
+     * Binance expects: ISOLATED or CROSSED (uppercase).
+     */
     public function prepareUpdateMarginTypeProperties(Position $position): ApiProperties
     {
         $properties = new ApiProperties;
         $properties->set('relatable', $position);
 
         $properties->set('options.symbol', $position->exchangeSymbol->parsed_trading_pair);
-        $properties->set('options.margintype', 'CROSSED');
+
+        // Get margin mode from account (isolated/crossed) and convert to Binance format (ISOLATED/CROSSED)
+        $marginMode = mb_strtoupper($position->account->margin_mode);
+        $properties->set('options.margintype', $marginMode);
 
         return $properties;
     }
