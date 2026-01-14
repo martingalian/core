@@ -9,6 +9,7 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\ApiSystem;
+use Martingalian\Core\Support\Math;
 
 /**
  * VerifyMinAccountBalanceJob (Atomic)
@@ -17,7 +18,7 @@ use Martingalian\Core\Models\ApiSystem;
  * Compares available-balance against the trade configuration's min_account_balance.
  * Stops the workflow gracefully if balance is insufficient.
  */
-class VerifyMinAccountBalanceJob extends BaseApiableJob
+final class VerifyMinAccountBalanceJob extends BaseApiableJob
 {
     public Account $account;
 
@@ -55,8 +56,7 @@ class VerifyMinAccountBalanceJob extends BaseApiableJob
         $availableBalance = $balanceData['available-balance'] ?? '0';
         $minAccountBalance = $this->account->tradeConfiguration->min_account_balance ?? '100';
 
-        // Compare using bccomp for precision (returns -1 if available < min)
-        $this->hasMinBalance = bccomp($availableBalance, $minAccountBalance, scale: 8) >= 0;
+        $this->hasMinBalance = Math::gte($availableBalance, $minAccountBalance, 8);
 
         return [
             'account_id' => $this->account->id,
