@@ -517,9 +517,11 @@ final class MartingalianSeeder extends Seeder
      */
     public function updateExchangeSymbols(): void
     {
-        // From SchemaSeeder12 - Set limit quantity multipliers
+        // From SchemaSeeder12 - Set limit quantity multipliers and gap percentages
         ExchangeSymbol::query()->update([
             'limit_quantity_multipliers' => [2, 2, 2, 2],
+            'percentage_gap_long' => 7.0,
+            'percentage_gap_short' => 8.0,
         ]);
     }
 

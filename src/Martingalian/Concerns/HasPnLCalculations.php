@@ -132,4 +132,103 @@ trait HasPnLCalculations
 
         return $out;
     }
+
+    /**
+     * Calculate P&L analysis for all position levels.
+     *
+     * Returns profit if TP hits at each level (MKT, L1, L2, etc.)
+     * and total loss if SL triggers after all limits fill.
+     *
+     * TP is recalculated at each level based on WAP:
+     * - LONG: TP = WAP × (1 + tpPercent), Profit = WAP × tpPercent × qty
+     * - SHORT: TP = WAP × (1 - tpPercent), Profit = WAP × tpPercent × qty
+     *
+     * @param  string  $direction  'LONG' or 'SHORT'
+     * @param  array{price: string|float, quantity: string|float}  $marketOrder  Market order data
+     * @param  array<int, array{price: string|float, quantity: string|float}>  $limitOrders  Limit orders data
+     * @param  string|float  $tpPercent  Take profit percentage (e.g., 0.36 for 0.36%)
+     * @param  string|float  $slPrice  Stop loss price
+     * @return array{levels: array<int, array{level: string, cumulative_qty: string, wap: string, tp_price: string, tp_profit: string}>, sl_loss: string}
+     */
+    public static function calculatePnLAnalysis(
+        string $direction,
+        array $marketOrder,
+        array $limitOrders,
+        $tpPercent,
+        $slPrice,
+    ): array {
+        $scale = Martingalian::SCALE;
+        $dir = mb_strtoupper(mb_trim($direction));
+
+        if (! in_array($dir, ['LONG', 'SHORT'], true)) {
+            throw new InvalidArgumentException('Direction must be LONG or SHORT.');
+        }
+
+        // Convert TP percent to decimal (e.g., 0.36 -> 0.0036)
+        $tpDecimal = Math::div((string) $tpPercent, '100', $scale);
+        $slPriceStr = (string) $slPrice;
+        $pnlLevels = [];
+
+        // MKT level: only market order filled
+        $mktQty = (string) $marketOrder['quantity'];
+        $mktPrice = (string) $marketOrder['price'];
+        $cumulativeQty = $mktQty;
+        $cumulativeCost = Math::mul($mktQty, $mktPrice, $scale);
+        $mktWap = $mktPrice;
+
+        // TP recalculated from WAP at this level
+        // LONG: TP = WAP × (1 + tpPercent)
+        // SHORT: TP = WAP × (1 - tpPercent)
+        $mktTpPrice = ($dir === 'LONG')
+            ? Math::mul($mktWap, Math::add('1', $tpDecimal, $scale), $scale)
+            : Math::mul($mktWap, Math::sub('1', $tpDecimal, $scale), $scale);
+
+        // Profit = WAP × tpPercent × qty (simplified from TP - WAP)
+        $mktProfit = Math::mul(Math::mul($mktWap, $tpDecimal, $scale), $cumulativeQty, $scale);
+
+        $pnlLevels[] = [
+            'level' => 'MKT',
+            'cumulative_qty' => $cumulativeQty,
+            'wap' => $mktWap,
+            'tp_price' => $mktTpPrice,
+            'tp_profit' => $mktProfit,
+        ];
+
+        // For each limit level
+        foreach ($limitOrders as $i => $row) {
+            $limitQty = (string) $row['quantity'];
+            $limitPrice = (string) $row['price'];
+
+            $cumulativeQty = Math::add($cumulativeQty, $limitQty, $scale);
+            $cumulativeCost = Math::add($cumulativeCost, Math::mul($limitQty, $limitPrice, $scale), $scale);
+            $levelWap = Math::div($cumulativeCost, $cumulativeQty, $scale);
+
+            // TP recalculated from WAP at this level
+            $levelTpPrice = ($dir === 'LONG')
+                ? Math::mul($levelWap, Math::add('1', $tpDecimal, $scale), $scale)
+                : Math::mul($levelWap, Math::sub('1', $tpDecimal, $scale), $scale);
+
+            // Profit = WAP × tpPercent × qty
+            $levelProfit = Math::mul(Math::mul($levelWap, $tpDecimal, $scale), $cumulativeQty, $scale);
+
+            $pnlLevels[] = [
+                'level' => 'L'.($i + 1),
+                'cumulative_qty' => $cumulativeQty,
+                'wap' => $levelWap,
+                'tp_price' => $levelTpPrice,
+                'tp_profit' => $levelProfit,
+            ];
+        }
+
+        // SL loss: assuming all limits filled, then SL hits
+        $finalWap = Math::div($cumulativeCost, $cumulativeQty, $scale);
+        $slLoss = ($dir === 'LONG')
+            ? Math::mul(Math::sub($slPriceStr, $finalWap, $scale), $cumulativeQty, $scale)
+            : Math::mul(Math::sub($finalWap, $slPriceStr, $scale), $cumulativeQty, $scale);
+
+        return [
+            'levels' => $pnlLevels,
+            'sl_loss' => $slLoss,
+        ];
+    }
 }
