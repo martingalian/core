@@ -18,7 +18,7 @@ use Martingalian\Core\Models\Step;
  * - Step N: PreparePositionDataJob (Atomic) - Populates margin, leverage, indicators, etc.
  *
  * Must run AFTER token assignment (exchange_symbol_id must be set).
- * Must run BEFORE PlaceEntryOrderJob.
+ * Must run BEFORE PlaceMarketOrderJob.
  */
 class PreparePositionDataJob extends BasePositionLifecycle
 {

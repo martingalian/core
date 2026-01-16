@@ -6,7 +6,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Position\Kraken;
 
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob as BaseDispatchPositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\Kraken\SetLeveragePreferencesJob as SetLeveragePreferencesLifecycle;
-use Martingalian\Core\Jobs\Lifecycles\Position\PlaceEntryOrderJob as PlaceEntryOrderLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Position\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionDataJob as PreparePositionDataLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\VerifyOrderNotionalJob as VerifyOrderNotionalLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\VerifyTradingPairNotOpenJob as VerifyTradingPairNotOpenLifecycle;
@@ -26,7 +26,7 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  * • Step 2: SetLeveragePreferencesJob - Set margin mode + leverage (combined)
  * • Step 3: PreparePositionDataJob - Populate margin, leverage, indicators
  * • Step 4: VerifyOrderNotionalJob - Fetch mark price, validate notional
- * • Step 5: PlaceEntryOrderJob - Place market entry order
+ * • Step 5: PlaceMarketOrderJob - Place market entry order
  */
 class DispatchPositionJob extends BaseDispatchPositionJob
 {
@@ -74,7 +74,7 @@ class DispatchPositionJob extends BaseDispatchPositionJob
         );
 
         // Step 5: Place entry order
-        $placeEntryLifecycleClass = $resolver->resolve(PlaceEntryOrderLifecycle::class);
+        $placeEntryLifecycleClass = $resolver->resolve(PlaceMarketOrderLifecycle::class);
         $placeEntryLifecycle = new $placeEntryLifecycleClass($this->position);
         $nextIndex = $placeEntryLifecycle->dispatch(
             blockUuid: $this->uuid(),

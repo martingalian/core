@@ -162,8 +162,9 @@ function api_format_price($price, ExchangeSymbol $exchangeSymbol): string
     $t = number_format((float) $tickSize, $precision + 8, '.', '');
 
     // Floor to nearest tick: floor(price / tick) * tick
-    $ratio = floor((float) bcdiv($p, $t, scale: 12)); // high scale to avoid float rounding
-    $floored = bcmul((string) $ratio, $t, scale: $precision + 8);
+    // Use integer division (scale 0) instead of float cast to avoid precision loss on 8-decimal crypto
+    $ratio = bcdiv($p, $t, 0); // Integer division = floor for positive prices
+    $floored = bcmul($ratio, $t, $precision + 8);
 
     // Truncate to price precision
     $dot = mb_strpos($floored, '.');

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Lifecycles\Position\Bitget;
 
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob as BaseDispatchPositionJob;
-use Martingalian\Core\Jobs\Lifecycles\Position\PlaceEntryOrderJob as PlaceEntryOrderLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Position\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionDataJob as PreparePositionDataLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\SetLeverageJob as SetLeverageLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\SetMarginModeJob as SetMarginModeLifecycle;
@@ -24,7 +24,7 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  * • Step 3: SetLeverageJob - Set leverage
  * • Step 4: PreparePositionDataJob - Populate margin, leverage, indicators
  * • Step 5: VerifyOrderNotionalJob - Fetch mark price, validate notional
- * • Step 6: PlaceEntryOrderJob - Place market entry order
+ * • Step 6: PlaceMarketOrderJob - Place market entry order
  */
 class DispatchPositionJob extends BaseDispatchPositionJob
 {
@@ -78,7 +78,7 @@ class DispatchPositionJob extends BaseDispatchPositionJob
         );
 
         // Step 6: Place entry order
-        $placeEntryLifecycleClass = $resolver->resolve(PlaceEntryOrderLifecycle::class);
+        $placeEntryLifecycleClass = $resolver->resolve(PlaceMarketOrderLifecycle::class);
         $placeEntryLifecycle = new $placeEntryLifecycleClass($this->position);
         $nextIndex = $placeEntryLifecycle->dispatch(
             blockUuid: $this->uuid(),

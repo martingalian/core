@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Lifecycles\Position;
 
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
-use Martingalian\Core\Jobs\Atomic\Position\PlaceMarketOrderJob;
+use Martingalian\Core\Jobs\Atomic\Position\PlaceMarketOrderJob as PlaceMarketOrderAtomic;
 use Martingalian\Core\Models\Step;
 
 /**
- * PlaceEntryOrderJob (Lifecycle)
+ * PlaceMarketOrderJob (Lifecycle)
  *
  * Orchestrator that creates step(s) for placing the entry order.
  * Default implementation creates a single atomic step for market order.
@@ -19,12 +19,12 @@ use Martingalian\Core\Models\Step;
  *
  * Must run AFTER PreparePositionDataJob (margin, leverage must be set).
  */
-class PlaceEntryOrderJob extends BasePositionLifecycle
+class PlaceMarketOrderJob extends BasePositionLifecycle
 {
     public function dispatch(string $blockUuid, int $startIndex, ?string $workflowId = null): int
     {
         Step::create([
-            'class' => $this->resolver->resolve(PlaceMarketOrderJob::class),
+            'class' => $this->resolver->resolve(PlaceMarketOrderAtomic::class),
             'arguments' => ['positionId' => $this->position->id],
             'block_uuid' => $blockUuid,
             'index' => $startIndex,
