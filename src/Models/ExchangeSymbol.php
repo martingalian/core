@@ -31,8 +31,8 @@ use Martingalian\Core\Database\Factories\ExchangeSymbolFactory;
  * @property bool $has_early_direction_change
  * @property bool $has_invalid_indicator_direction
  * @property string|null $direction
- * @property float $percentage_gap_long
- * @property float $percentage_gap_short
+ * @property float|null $percentage_gap_long
+ * @property float|null $percentage_gap_short
  * @property int $price_precision
  * @property int $quantity_precision
  * @property float|null $min_notional
