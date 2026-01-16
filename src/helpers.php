@@ -125,7 +125,7 @@ function get_market_order_amount_divider($totalLimitOrders)
 function remove_trailing_zeros($number): string
 {
     // Force decimal string with up to 15 decimals — avoids sci-notation
-    $stringNumber = number_format($number, 15, '.', '');
+    $stringNumber = number_format((float) $number, 15, '.', '');
 
     // Remove trailing zeros and possible ending dot
     $stringNumber = mb_rtrim(mb_rtrim($stringNumber, '0'), '.');

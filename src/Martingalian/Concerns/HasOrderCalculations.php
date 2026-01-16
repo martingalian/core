@@ -485,6 +485,59 @@ trait HasOrderCalculations
     }
 
     /**
+     * Computes a MARKET order with side and position_side for exchange API.
+     *
+     * This is a higher-level wrapper around calculateMarketOrderData() that adds:
+     * - side: BUY (for LONG) or SELL (for SHORT)
+     * - position_side: LONG or SHORT (for hedge mode)
+     *
+     * @param  'LONG'|'SHORT'  $direction  Position direction
+     * @param  string|int|float  $margin  Quote currency margin for the order
+     * @param  int  $leverage  Leverage to apply
+     * @param  string|int|float|null  $referencePrice  Optional basis price
+     * @return array{
+     *   side: 'BUY'|'SELL',
+     *   position_side: 'LONG'|'SHORT',
+     *   quantity: string,
+     *   estimated_price: string,
+     *   margin: string,
+     *   notional: string
+     * }
+     */
+    public static function computeMarketOrder(
+        ExchangeSymbol $exchangeSymbol,
+        string $direction,
+        $margin,
+        int $leverage,
+        $referencePrice = null
+    ): array {
+        $direction = mb_strtoupper(mb_trim($direction));
+        if (! in_array($direction, ['LONG', 'SHORT'], true)) {
+            throw new InvalidArgumentException('Direction must be LONG or SHORT.');
+        }
+
+        // Determine side based on direction
+        $side = $direction === 'LONG' ? 'BUY' : 'SELL';
+
+        // Use existing market order calculation
+        $orderData = self::calculateMarketOrderData(
+            $margin,
+            $leverage,
+            $exchangeSymbol,
+            $referencePrice
+        );
+
+        return [
+            'side' => $side,
+            'position_side' => $direction,
+            'quantity' => $orderData['quantity'],
+            'estimated_price' => $orderData['price'],
+            'margin' => $orderData['margin'],
+            'notional' => $orderData['notional'],
+        ];
+    }
+
+    /**
      * Calculates STOP-MARKET trigger price and quantity from an anchor price and stop percent.
      * - LONG: anchor * (1 - pct)
      * - SHORT: anchor * (1 + pct)

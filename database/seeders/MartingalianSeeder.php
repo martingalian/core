@@ -15,6 +15,7 @@ use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\Martingalian;
 use Martingalian\Core\Models\Position;
+use Martingalian\Core\Models\Subscription;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Models\TokenMapper;
 use Martingalian\Core\Models\TradeConfiguration;
@@ -1186,6 +1187,48 @@ final class MartingalianSeeder extends Seeder
 
         // SECTION 24: Seed Core Symbol Data (symbols, exchange_symbols)
         $this->seedCoreSymbolData();
+
+        // SECTION 25: Deactivate all accounts except account_id = 1
+        $this->deactivateNonPrimaryAccounts();
+    }
+
+    /**
+     * Deactivate all accounts except the primary account (id = 1).
+     * Only account_id = 1 should be active for testing/development.
+     */
+    public function deactivateNonPrimaryAccounts(): void
+    {
+        Account::where('id', '!=', 1)->update(['is_active' => false]);
+    }
+
+    /**
+     * Seed subscription plans.
+     */
+    public function seedSubscriptions(): void
+    {
+        Subscription::updateOrCreate(
+            ['canonical' => 'starter'],
+            [
+                'name' => 'Starter',
+                'description' => 'Entry-level plan with 1 account, 1 exchange, and up to 10K balance.',
+                'max_accounts' => 1,
+                'max_exchanges' => 1,
+                'max_balance' => 10000.00,
+                'is_active' => true,
+            ]
+        );
+
+        Subscription::updateOrCreate(
+            ['canonical' => 'unlimited'],
+            [
+                'name' => 'Unlimited',
+                'description' => 'Full access with unlimited accounts, exchanges, and no balance cap.',
+                'max_accounts' => null,
+                'max_exchanges' => null,
+                'max_balance' => null,
+                'is_active' => true,
+            ]
+        );
     }
 
     /**

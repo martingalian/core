@@ -333,6 +333,19 @@ final class BitgetApi
     }
 
     /**
+     * Get mark price for a symbol.
+     *
+     * Uses the symbol price endpoint which includes mark price.
+     *
+     * @see https://www.bitget.com/api-doc/contract/market/Get-Symbol-Price
+     */
+    public function getMarkPrice(?ApiProperties $properties = null)
+    {
+        // Mark price is included in the symbol price response
+        return $this->getSymbolPrice($properties);
+    }
+
+    /**
      * Set leverage for a position.
      *
      * @see https://www.bitget.com/api-doc/contract/account/Change-Leverage

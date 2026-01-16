@@ -5,24 +5,26 @@ declare(strict_types=1);
 namespace Martingalian\Core\Concerns\ExchangeSymbol;
 
 use InvalidArgumentException;
+use Martingalian\Core\Martingalian\Martingalian;
+use Martingalian\Core\Support\Math;
 
 trait HasTradingComputations
 {
     public function getQuantityForAmount($amount, bool $respectMinNotional = true): string
     {
-        $scale = 18;
+        $price = api_format_price((string) $this->mark_price, $this);
 
-        $price = api_format_price((string) $this->current_price, $this);
-        if (bccomp($price, '0', scale: $scale) <= 0) {
-            throw new InvalidArgumentException("Invalid or missing price for {$this->symbol}.");
+        if (Math::lte($price, '0')) {
+            throw new InvalidArgumentException("Invalid or missing mark_price for {$this->parsed_trading_pair}.");
         }
 
-        $rawQty = bcdiv((string) $amount, $price, scale: $scale);
+        $rawQty = Math::div((string) $amount, $price);
         $qty = api_format_quantity($rawQty, $this);
 
         if ($respectMinNotional) {
-            $notional = bcmul($qty, $price, scale: $scale);
-            if (bccomp($notional, (string) $this->min_notional, scale: $scale) < 0) {
+            $notional = Math::mul($qty, $price);
+
+            if (! Martingalian::meetsMinNotional($this, $notional)) {
                 return '0';
             }
         }
@@ -32,31 +34,29 @@ trait HasTradingComputations
 
     public function getAmountForQuantity(float $quantity): string
     {
-        $scale = 18;
+        $price = api_format_price((string) $this->mark_price, $this);
 
-        $price = api_format_price((string) $this->current_price, $this);
-        if (bccomp($price, '0', scale: $scale) <= 0) {
-            throw new InvalidArgumentException("Invalid or missing price for {$this->symbol}.");
+        if (Math::lte($price, '0')) {
+            throw new InvalidArgumentException("Invalid or missing mark_price for {$this->parsed_trading_pair}.");
         }
 
         $qty = api_format_quantity((string) $quantity, $this);
-        $amount = bcmul($qty, $price, scale: $scale);
+        $amount = Math::mul($qty, $price);
 
         return remove_trailing_zeros($amount);
     }
 
     public function isQuantityBelowMinNotional(float $quantity): bool
     {
-        $scale = 18;
+        $price = api_format_price((string) $this->mark_price, $this);
 
-        $price = api_format_price((string) $this->current_price, $this);
-        if (bccomp($price, '0', scale: $scale) <= 0) {
-            throw new InvalidArgumentException("Invalid or missing price for {$this->symbol}.");
+        if (Math::lte($price, '0')) {
+            throw new InvalidArgumentException("Invalid or missing mark_price for {$this->parsed_trading_pair}.");
         }
 
         $qty = api_format_quantity((string) $quantity, $this);
-        $notional = bcmul($qty, $price, scale: $scale);
+        $notional = Math::mul($qty, $price);
 
-        return bccomp($notional, (string) $this->min_notional, scale: $scale) < 0;
+        return ! Martingalian::meetsMinNotional($this, $notional);
     }
 }

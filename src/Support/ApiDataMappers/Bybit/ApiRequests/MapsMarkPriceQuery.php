@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Support\ApiDataMappers\Bybit\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
-use Martingalian\Core\Models\Position;
+use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsMarkPriceQuery
@@ -17,12 +17,12 @@ trait MapsMarkPriceQuery
      *
      * @see https://bybit-exchange.github.io/docs/v5/market/tickers
      */
-    public function prepareQueryMarkPriceProperties(Position $position): ApiProperties
+    public function prepareQueryMarkPriceProperties(ExchangeSymbol $exchangeSymbol): ApiProperties
     {
         $properties = new ApiProperties;
-        $properties->set('relatable', $position);
+        $properties->set('relatable', $exchangeSymbol);
         $properties->set('options.category', 'linear');
-        $properties->set('options.symbol', (string) $position->exchangeSymbol->parsed_trading_pair);
+        $properties->set('options.symbol', (string) $exchangeSymbol->parsed_trading_pair);
 
         return $properties;
     }

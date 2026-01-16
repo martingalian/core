@@ -10,7 +10,7 @@ use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsMarkPriceQuery
 {
-    public function prepareMarkPriceQueryProperties(ExchangeSymbol $exchangeSymbol): ApiProperties
+    public function prepareQueryMarkPriceProperties(ExchangeSymbol $exchangeSymbol): ApiProperties
     {
         $properties = new ApiProperties;
         $properties->set('relatable', $exchangeSymbol);
@@ -34,7 +34,7 @@ trait MapsMarkPriceQuery
      *     }
      * }
      */
-    public function resolveMarkPriceQueryResponse(Response $response): ?string
+    public function resolveQueryMarkPriceResponse(Response $response): ?string
     {
         $body = json_decode((string) $response->getBody(), associative: true);
 

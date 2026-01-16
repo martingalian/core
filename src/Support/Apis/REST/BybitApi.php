@@ -317,6 +317,19 @@ final class BybitApi
     }
 
     /**
+     * Get mark price for a symbol.
+     *
+     * Uses the tickers endpoint which includes mark price.
+     *
+     * @see https://bybit-exchange.github.io/docs/v5/market/tickers
+     */
+    public function getMarkPrice(?ApiProperties $properties = null)
+    {
+        // Mark price is included in the tickers response
+        return $this->getTickers($properties);
+    }
+
+    /**
      * Set leverage for a symbol.
      *
      * @see https://bybit-exchange.github.io/docs/v5/position/leverage

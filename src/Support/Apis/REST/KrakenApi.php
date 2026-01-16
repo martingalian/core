@@ -277,6 +277,19 @@ final class KrakenApi
     }
 
     /**
+     * Get mark price for a symbol.
+     *
+     * Uses the tickers endpoint which includes mark price.
+     *
+     * @see https://docs.kraken.com/api/docs/futures-api/trading/get-tickers/
+     */
+    public function getMarkPrice(?ApiProperties $properties = null)
+    {
+        // Mark price is included in the tickers response
+        return $this->getTickers($properties);
+    }
+
+    /**
      * Get leverage preferences.
      *
      * @see https://docs.kraken.com/api/docs/futures-api/trading/get-leverage-setting/

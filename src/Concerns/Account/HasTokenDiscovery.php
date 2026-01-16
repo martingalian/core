@@ -350,6 +350,7 @@ trait HasTokenDiscovery
              * They skip correlation/elasticity checks entirely.
              */
             $fastTrackedSymbol = $this->getFastTrackedSymbolForDirection($direction, $batchExclusions);
+            $wasFastTracked = ($fastTrackedSymbol !== null);
             if ($fastTrackedSymbol) {
                 $bestToken = $fastTrackedSymbol;
             }
@@ -400,6 +401,7 @@ trait HasTokenDiscovery
                 'exchange_symbol_id' => $bestToken->id,
                 'direction' => $bestToken->direction,
                 'parsed_trading_pair' => $bestToken->parsed_trading_pair,
+                'was_fast_traded' => $wasFastTracked,
             ]);
 
             $batchExclusions[] = $bestToken->id;
