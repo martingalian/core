@@ -14,11 +14,15 @@ use Martingalian\Core\Support\Math;
  * PreparePositionDataJob (Atomic)
  *
  * Populates position data before market order placement.
- * Sets margin (with subscription cap), leverage, profit percentage,
+ * Sets margin (with subscription cap), profit percentage,
  * indicators, and total limit orders.
  *
+ * NOTE: Leverage is NOT set here. It's determined by DetermineLeverageJob
+ * which runs after this job and calculates optimal leverage based on
+ * the margin and exchange symbol's leverage brackets.
+ *
  * Must run AFTER token assignment (exchange_symbol_id must be set).
- * Must run BEFORE PlaceMarketOrderJob.
+ * Must run BEFORE DetermineLeverageJob and PlaceMarketOrderJob.
  */
 class PreparePositionDataJob extends BaseQueueableJob
 {
@@ -66,38 +70,33 @@ class PreparePositionDataJob extends BaseQueueableJob
             ];
         }
 
-        // 2. Get leverage based on direction
-        $leverage = $direction === 'LONG'
-            ? $account->position_leverage_long
-            : $account->position_leverage_short;
-
-        // 3. Get profit percentage from account
+        // 2. Get profit percentage from account
         $profitPercentage = $account->profit_percentage;
 
-        // 4. Get indicators from exchange symbol
+        // 3. Get indicators from exchange symbol
         $indicatorsValues = $exchangeSymbol->indicators_values;
         $indicatorsTimeframe = $exchangeSymbol->indicators_timeframe;
 
-        // 5. Get total limit orders from exchange symbol (fallback to 4)
+        // 4. Get total limit orders from exchange symbol (fallback to 4)
         $totalLimitOrders = $exchangeSymbol->total_limit_orders ?? 4;
 
-        // Update position with all data
+        // Update position with all data (leverage is set by DetermineLeverageJob)
         $this->position->updateSaving([
             'margin' => $margin,
-            'leverage' => $leverage,
             'profit_percentage' => $profitPercentage,
             'indicators_values' => $indicatorsValues,
             'indicators_timeframe' => $indicatorsTimeframe,
             'total_limit_orders' => $totalLimitOrders,
-            'status' => 'opening',
         ]);
+
+        // Transition to 'opening' status
+        $this->position->updateToOpening();
 
         return [
             'position_id' => $this->position->id,
             'exchange_symbol' => $exchangeSymbol->parsed_trading_pair,
             'direction' => $direction,
             'margin' => $margin,
-            'leverage' => $leverage,
             'profit_percentage' => (string) $profitPercentage,
             'indicators_timeframe' => $indicatorsTimeframe,
             'total_limit_orders' => $totalLimitOrders,

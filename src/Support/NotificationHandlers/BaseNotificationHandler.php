@@ -64,7 +64,6 @@ abstract class BaseNotificationHandler
         return match ($apiCanonical) {
             'binance' => new BinanceNotificationHandler,
             'bybit' => new BybitNotificationHandler,
-            'kraken' => new KrakenNotificationHandler,
             'kucoin' => new KucoinNotificationHandler,
             'bitget' => new BitgetNotificationHandler,
             default => throw new Exception("No NotificationHandler for API system: {$apiCanonical}")

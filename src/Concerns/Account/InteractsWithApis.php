@@ -142,7 +142,6 @@ trait InteractsWithApis
 
     /**
      * Query trade fills (historical executions).
-     * Only supported by Kraken currently.
      */
     public function apiQueryFills(): ApiResponse
     {

@@ -222,7 +222,6 @@ trait HasTokenDiscovery
          *
          * Min order requirements are exchange-specific:
          * - Binance/Bybit/BitGet: Direct min_notional
-         * - Kraken: kraken_min_order_size * current_price
          * - KuCoin: kucoin_lot_size * kucoin_multiplier * current_price
          */
         $correlationType = config('martingalian.token_discovery.correlation_type', 'rolling');

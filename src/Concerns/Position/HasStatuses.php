@@ -23,7 +23,7 @@ trait HasStatuses
 
     public function updateToWatching()
     {
-        $this->updateSaving(['status' => 'watching', 'watched_since' => now()]);
+        $this->updateSaving(['status' => 'watching', 'watched_at' => now()]);
     }
 
     public function updateToWaping()
@@ -33,22 +33,22 @@ trait HasStatuses
 
     public function updateToOpening()
     {
-        $this->updateSaving(['status' => 'opening', 'watched_since' => null]);
+        $this->updateSaving(['status' => 'opening', 'watched_at' => null]);
     }
 
     public function updateToCancelling()
     {
-        $this->updateSaving(['status' => 'cancelling', 'watched_since' => null]);
+        $this->updateSaving(['status' => 'cancelling', 'watched_at' => null]);
     }
 
     public function updateToActive()
     {
-        $this->updateSaving(['status' => 'active', 'watched_since' => null]);
+        $this->updateSaving(['status' => 'active', 'watched_at' => null]);
     }
 
     public function updateToClosing()
     {
-        $this->updateSaving(['status' => 'closing', 'watched_since' => null]);
+        $this->updateSaving(['status' => 'closing', 'watched_at' => null]);
     }
 
     public function updateToClosed()
@@ -56,13 +56,13 @@ trait HasStatuses
         $this->updateSaving([
             'closed_at' => now(),
             'status' => 'closed',
-            'watched_since' => null,
+            'watched_at' => null,
         ]);
     }
 
     public function updateToCancelled(?string $message = null): void
     {
-        $data = ['status' => 'cancelled', 'watched_since' => null];
+        $data = ['status' => 'cancelled', 'watched_at' => null];
 
         if ($this->opened_at !== null) {
             $data['closed_at'] = now();
@@ -77,7 +77,7 @@ trait HasStatuses
 
     public function updateToFailed(?string $message = null): void
     {
-        $data = ['status' => 'failed', 'watched_since' => null];
+        $data = ['status' => 'failed', 'watched_at' => null];
 
         if ($this->opened_at !== null) {
             $data['closed_at'] = now();

@@ -70,7 +70,7 @@ final class JobProxy
         // Get the class name (last part)
         $className = array_pop($parts);
 
-        // Insert exchange canonical before class name (e.g., Binance, Kraken)
+        // Insert exchange canonical before class name (e.g., Binance, Bybit)
         $exchangeNamespace = ucfirst($this->exchangeCanonical);
         $parts[] = $exchangeNamespace;
         $parts[] = $className;

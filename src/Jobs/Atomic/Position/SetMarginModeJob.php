@@ -19,9 +19,6 @@ use Martingalian\Core\Models\Position;
  * - Bybit: tradeMode 1 (isolated) / 0 (cross)
  * - KuCoin: ISOLATED/CROSS (note: CROSS not CROSSED)
  * - BitGet: isolated/crossed (lowercase)
- *
- * Note: This job is NOT used for Kraken. Kraken uses SetLeveragePreferencesJob instead
- * because Kraken combines margin mode + leverage in a single API call.
  */
 class SetMarginModeJob extends BaseApiableJob
 {

@@ -28,7 +28,7 @@ use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsTokenLeverag
  * KuCoin Futures API Data Mapper.
  *
  * Note: KuCoin Futures does NOT support order modification (MapsOrderModify).
- * Unlike Binance, Kraken, and BitGet which have dedicated edit/modify endpoints,
+ * Unlike Binance and BitGet which have dedicated edit/modify endpoints,
  * KuCoin requires canceling the existing order and placing a new one.
  * The Spot API has a modify endpoint, but it internally cancels and recreates.
  *

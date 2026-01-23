@@ -107,8 +107,7 @@ class PlaceMarketOrderJob extends BaseApiableJob
         ]);
 
         // 5. Place order on exchange
-        // COMMENTED FOR SAFETY - Uncomment when ready for live testing
-        // $apiResponse = $this->marketOrder->apiPlace();
+        $apiResponse = $this->marketOrder->apiPlace();
 
         // Calculate actual notional for response
         $actualNotional = $exchangeSymbol->getAmountForQuantity((float) $quantity);
@@ -123,15 +122,13 @@ class PlaceMarketOrderJob extends BaseApiableJob
             'estimated_price' => $markPrice,
             'margin' => bcdiv($notional, (string) $leverage, 8),
             'notional' => $actualNotional,
-            'message' => 'Market order created (apiPlace COMMENTED)',
-            // 'exchange_order_id' => $apiResponse->result['orderId'] ?? null,
+            'message' => 'Market order placed on exchange',
+            'exchange_order_id' => $apiResponse->result['orderId'] ?? null,
         ];
     }
 
     /**
      * Verify the market order was filled.
-     *
-     * COMMENTED: Enable when apiPlace() is active.
      */
     public function doubleCheck(): bool
     {
@@ -139,19 +136,14 @@ class PlaceMarketOrderJob extends BaseApiableJob
             return false;
         }
 
-        // COMMENTED FOR SAFETY - Uncomment when ready for live testing
-        // $this->marketOrder->apiSync();
-        // $this->marketOrder->refresh();
-        // return $this->marketOrder->status === 'FILLED';
+        $this->marketOrder->apiSync();
+        $this->marketOrder->refresh();
 
-        // For now, just verify order was created
-        return $this->marketOrder->exists;
+        return $this->marketOrder->status === 'FILLED';
     }
 
     /**
      * Update position with opening data after market order fills.
-     *
-     * COMMENTED: Enable when apiPlace() is active.
      */
     public function complete(): void
     {
@@ -159,19 +151,18 @@ class PlaceMarketOrderJob extends BaseApiableJob
             return;
         }
 
-        // COMMENTED FOR SAFETY - Uncomment when ready for live testing
-        // When apiPlace() is active, update position with actual fill data:
-        // $this->position->updateSaving([
-        //     'quantity' => $this->marketOrder->quantity,
-        //     'opening_price' => $this->marketOrder->price,
-        //     'opened_at' => now(),
-        //     'status' => 'opened',
-        // ]);
+        // Update position with actual fill data
+        // Note: status stays 'opening' - workflow continues with limit orders
+        $this->position->updateSaving([
+            'quantity' => $this->marketOrder->quantity,
+            'opening_price' => $this->marketOrder->price,
+            'opened_at' => now(),
+        ]);
 
         // Update order reference data
-        // $this->marketOrder->updateSaving([
-        //     'reference_status' => $this->marketOrder->status,
-        // ]);
+        $this->marketOrder->updateSaving([
+            'reference_status' => $this->marketOrder->status,
+        ]);
     }
 
     /**

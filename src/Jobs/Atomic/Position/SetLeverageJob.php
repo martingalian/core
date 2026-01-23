@@ -12,12 +12,9 @@ use Martingalian\Core\Models\Position;
  * SetLeverageJob (Atomic)
  *
  * Sets the leverage ratio for a position's symbol on the exchange.
- * The leverage is determined by the position's direction:
- * - LONG: uses account->position_leverage_long
- * - SHORT: uses account->position_leverage_short
+ * Uses the leverage value stored on the position (set by DetermineLeverageJob).
  *
- * Note: This job is NOT used for Kraken. Kraken uses SetLeveragePreferencesJob instead
- * because Kraken combines margin mode + leverage in a single API call.
+ * Must run AFTER DetermineLeverageJob (position.leverage must be set).
  */
 class SetLeverageJob extends BaseApiableJob
 {
@@ -40,17 +37,21 @@ class SetLeverageJob extends BaseApiableJob
         return $this->position;
     }
 
+    /**
+     * Position must have leverage set by DetermineLeverageJob.
+     */
+    public function startOrFail(): bool
+    {
+        return $this->position->leverage !== null;
+    }
+
     public function computeApiable()
     {
         $tradingPair = $this->position->exchangeSymbol->parsed_trading_pair;
         $direction = $this->position->direction;
 
-        // Get leverage based on position direction
-        $leverage = match ($direction) {
-            'LONG' => $this->position->account->position_leverage_long,
-            'SHORT' => $this->position->account->position_leverage_short,
-            default => throw new \RuntimeException("Invalid position direction: {$direction}"),
-        };
+        // Use leverage determined by DetermineLeverageJob
+        $leverage = (int) $this->position->leverage;
 
         $apiResponse = $this->position->apiUpdateLeverageRatio($leverage);
 

@@ -46,9 +46,22 @@ Route::get('/connectivity-test/status/{blockUuid}', [ConnectivityTestController:
  * Dashboard API Routes
  *
  * Authenticated routes for fetching dashboard data (positions, statistics, charts).
+ * Each endpoint polls independently for component-level autonomy.
  */
+Route::middleware('auth')->prefix('dashboard')->group(function () {
+    // Combined data (legacy, for initial page load)
+    Route::get('/data', [DashboardApiController::class, 'index'])
+        ->name('api.dashboard.data');
 
-// Get dashboard data (global stats + positions)
-// Requires authentication - returns 401 if not authenticated
-Route::middleware('auth')->get('/dashboard/data', [DashboardApiController::class, 'index'])
-    ->name('api.dashboard.data');
+    // Global stats only (poll every 30s)
+    Route::get('/stats', [DashboardApiController::class, 'stats'])
+        ->name('api.dashboard.stats');
+
+    // All positions list (poll every 10s)
+    Route::get('/positions', [DashboardApiController::class, 'positions'])
+        ->name('api.dashboard.positions');
+
+    // Single position detail (poll every 5s per card)
+    Route::get('/positions/{id}', [DashboardApiController::class, 'position'])
+        ->name('api.dashboard.position');
+});

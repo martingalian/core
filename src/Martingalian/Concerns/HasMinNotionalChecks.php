@@ -14,7 +14,6 @@ use Martingalian\Core\Support\Math;
  *
  * Exchange-specific calculations:
  * - Binance/Bybit/BitGet: Direct min_notional field
- * - Kraken: kraken_min_order_size * current_price (contractSize=1 means $1/contract)
  * - KuCoin: kucoin_lot_size * kucoin_multiplier * current_price
  */
 trait HasMinNotionalChecks
@@ -51,7 +50,7 @@ trait HasMinNotionalChecks
     /**
      * Calculate the effective minimum notional for a symbol based on exchange type.
      *
-     * Uses last_known_price (without freshness check) for Kraken/KuCoin calculations
+     * Uses last_known_price (without freshness check) for KuCoin calculations
      * because we only need a price estimate for min order validation, not real-time accuracy.
      *
      * @param  ExchangeSymbol  $symbol  The exchange symbol
@@ -64,20 +63,9 @@ trait HasMinNotionalChecks
             return (float) $symbol->min_notional;
         }
 
-        // Get last known price for dynamic calculations (no freshness requirement)
-        $price = $symbol->last_known_price;
-
-        // Priority 2: Kraken (kraken_min_order_size * price)
-        if (filled($symbol->kraken_min_order_size)) {
-            if (! filled($price)) {
-                return null;
-            }
-
-            return (float) Math::mul($symbol->kraken_min_order_size, $price);
-        }
-
-        // Priority 3: KuCoin (lot_size * multiplier * price)
+        // Priority 2: KuCoin (lot_size * multiplier * price)
         if (filled($symbol->kucoin_lot_size) && filled($symbol->kucoin_multiplier)) {
+            $price = $symbol->last_known_price;
             if (! filled($price)) {
                 return null;
             }

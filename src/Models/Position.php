@@ -18,6 +18,7 @@ use Martingalian\Core\Concerns\Position\InteractsWithApis;
 /**
  * @property Account $account
  * @property ExchangeSymbol $exchangeSymbol
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Order> $orders
  */
 final class Position extends BaseModel
 {
@@ -36,7 +37,7 @@ final class Position extends BaseModel
         'opened_at' => 'datetime',
         'closed_at' => 'datetime',
         'waped_at' => 'datetime',
-        'watched_since' => 'datetime',
+        'watched_at' => 'datetime',
 
         'indicators_values' => 'array',
 

@@ -29,7 +29,7 @@ final class PositionFactory extends Factory
             'direction' => null,
             'opened_at' => null,
             'closed_at' => null,
-            'watched_since' => null,
+            'watched_at' => null,
             'was_waped' => false,
             'waped_at' => null,
             'was_fast_traded' => false,

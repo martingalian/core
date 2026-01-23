@@ -437,7 +437,7 @@ return new class extends Migration
             $table->string('direction')->nullable()->comment('The position direction: LONG, or SHORT');
             $table->uuid('uuid');
             $table->timestamp('opened_at')->nullable();
-            $table->timestamp('watched_since')->nullable()->comment('Since when a position is being watched');
+            $table->timestamp('watched_at')->nullable()->comment('Since when a position is being watched');
             $table->timestamp('closed_at')->nullable();
             $table->string('hedge_step')->nullable();
             $table->boolean('was_waped')->default(false)->comment('If this position received a WAP recalculation');

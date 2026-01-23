@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Lifecycles\Position\Bybit;
 
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob as BaseDispatchPositionJob;
-use Martingalian\Core\Jobs\Lifecycles\Position\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Orders\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionDataJob as PreparePositionDataLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\SetLeverageJob as SetLeverageLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\SetMarginModeJob as SetMarginModeLifecycle;

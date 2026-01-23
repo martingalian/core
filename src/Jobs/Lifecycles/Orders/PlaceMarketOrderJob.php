@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Lifecycles\Position;
+namespace Martingalian\Core\Jobs\Lifecycles\Orders;
 
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
 use Martingalian\Core\Jobs\Atomic\Position\PlaceMarketOrderJob as PlaceMarketOrderAtomic;

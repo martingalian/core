@@ -17,7 +17,6 @@ use Martingalian\Core\Models\Step;
  *
  * This works for exchanges that return all symbols in one API call:
  * - Binance: getLeverageBrackets returns all symbols (requires IP whitelist)
- * - Kraken: marginLevels from instruments endpoint (public, market data)
  *
  * Exchanges requiring per-symbol calls (Bybit, KuCoin, BitGet) have overrides
  * that create child steps for each symbol.

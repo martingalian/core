@@ -266,16 +266,6 @@ final class MartingalianSeeder extends Seeder
             ]
         );
 
-        $kraken = ApiSystem::firstOrCreate(
-            ['canonical' => 'kraken'],
-            [
-                'name' => 'Kraken',
-                'logo_url' => 'https://www.kraken.com/favicon.ico',
-                'is_exchange' => true,
-                'timeframes' => ['5m', '1h', '4h', '12h', '1d'],
-            ]
-        );
-
         $kucoin = ApiSystem::firstOrCreate(
             ['canonical' => 'kucoin'],
             [
@@ -323,7 +313,6 @@ final class MartingalianSeeder extends Seeder
         return [
             'binance' => $binance,
             'bybit' => $bybit,
-            'kraken' => $kraken,
             'kucoin' => $kucoin,
             'bitget' => $bitget,
             'coinmarketcap' => $coinmarketcap,
@@ -550,8 +539,6 @@ final class MartingalianSeeder extends Seeder
         if ($martingalian) {
             $martingalian->binance_api_key = env('BINANCE_API_KEY');
             $martingalian->binance_api_secret = env('BINANCE_API_SECRET');
-            $martingalian->kraken_api_key = env('KRAKEN_API_KEY');
-            $martingalian->kraken_private_key = env('KRAKEN_PRIVATE_KEY');
             $martingalian->kucoin_api_key = env('KUCOIN_API_KEY');
             $martingalian->kucoin_api_secret = env('KUCOIN_API_SECRET');
             $martingalian->kucoin_passphrase = env('KUCOIN_PASSPHRASE');
@@ -629,50 +616,6 @@ final class MartingalianSeeder extends Seeder
                 'trade_configuration_id' => 1,
                 'binance_api_key' => env('TRADER_B_BINANCE_API_KEY'),
                 'binance_api_secret' => env('TRADER_B_BINANCE_API_SECRET'),
-            ]);
-        }
-    }
-
-    /**
-     * Setup Kraken integration: Create Kraken user and account.
-     */
-    public function setupKrakenIntegration(ApiSystem $krakenApiSystem): void
-    {
-        // Create Kraken user (separate from the Binance+Bybit trader)
-        $krakenEmail = env('TRADER_K_EMAIL');
-
-        if (! $krakenEmail) {
-            return;
-        }
-
-        $krakenUser = User::updateOrCreate(
-            ['email' => $krakenEmail],
-            [
-                'name' => env('TRADER_K_NAME'),
-                'password' => bcrypt(env('TRADER_K_PASSWORD', 'password')),
-                'is_active' => true,
-                'is_admin' => false,
-                'pushover_key' => env('TRADER_K_PUSHOVER_KEY'),
-                'notification_channels' => ['mail', 'pushover'],
-            ]
-        );
-
-        // Create Kraken account for this user
-        $existingKrakenAccount = Account::where('user_id', $krakenUser->id)
-            ->where('api_system_id', $krakenApiSystem->id)
-            ->first();
-
-        if (! $existingKrakenAccount) {
-            Account::create([
-                'uuid' => (string) Str::uuid(),
-                'name' => 'Main Kraken Account',
-                'user_id' => $krakenUser->id,
-                'api_system_id' => $krakenApiSystem->id,
-                'portfolio_quote' => 'USD',
-                'trading_quote' => 'USD',
-                'trade_configuration_id' => 1,
-                'kraken_api_key' => env('TRADER_K_API_KEY'),
-                'kraken_private_key' => env('TRADER_K_PRIVATE_KEY'),
             ]);
         }
     }
@@ -1155,10 +1098,7 @@ final class MartingalianSeeder extends Seeder
         // SECTION 17: Setup Bybit Integration (SchemaSeeder19, SchemaSeeder20, SchemaSeeder21)
         $this->setupBybitIntegration($trader, $apiSystems['bybit']);
 
-        // SECTION 17b: Setup Kraken Integration (separate user and account)
-        $this->setupKrakenIntegration($apiSystems['kraken']);
-
-        // SECTION 17c: Setup KuCoin Integration (separate user and account)
+        // SECTION 17b: Setup KuCoin Integration (separate user and account)
         $this->setupKucoinIntegration($apiSystems['kucoin']);
 
         // SECTION 17d: Setup BitGet Integration (separate user and account)
@@ -1236,7 +1176,7 @@ final class MartingalianSeeder extends Seeder
      * Binance token names are the reference since TAAPI indicators use Binance data.
      *
      * Only seeding for exchanges with active API keys: KuCoin and Bybit.
-     * Kraken and BitGet mappings can be added later when their API keys are configured.
+     * BitGet mappings can be added later when their API keys are configured.
      */
     public function seedTokenMappers(array $apiSystems): void
     {
@@ -1251,6 +1191,8 @@ final class MartingalianSeeder extends Seeder
             ['binance_token' => '1000PEPE', 'other_token' => 'PEPE', 'exchange' => 'kucoin'],
             ['binance_token' => '1000SHIB', 'other_token' => 'SHIB', 'exchange' => 'kucoin'],
             ['binance_token' => '1000XEC', 'other_token' => 'XEC', 'exchange' => 'kucoin'],
+            // Pattern: BTC -> XBT (KuCoin uses XBT for Bitcoin)
+            ['binance_token' => 'BTC', 'other_token' => 'XBT', 'exchange' => 'kucoin'],
 
             // Bybit mappings (api_system_id from $apiSystems['bybit'])
             // Pattern: 1000X -> 10000X

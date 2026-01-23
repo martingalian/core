@@ -8,7 +8,6 @@ use Exception;
 use Martingalian\Core\Support\TradingMappers\BinanceTradingMapper;
 use Martingalian\Core\Support\TradingMappers\BitgetTradingMapper;
 use Martingalian\Core\Support\TradingMappers\BybitTradingMapper;
-use Martingalian\Core\Support\TradingMappers\KrakenTradingMapper;
 use Martingalian\Core\Support\TradingMappers\KucoinTradingMapper;
 
 /**
@@ -31,9 +30,6 @@ final class TradingMapperProxy
                 break;
             case 'bybit':
                 $this->mapper = new BybitTradingMapper;
-                break;
-            case 'kraken':
-                $this->mapper = new KrakenTradingMapper;
                 break;
             case 'kucoin':
                 $this->mapper = new KucoinTradingMapper;

@@ -12,13 +12,13 @@ return new class extends Migration
      * Run the migrations.
      *
      * Adds margin_mode column to accounts table.
-     * Margin mode: 'isolated' (default) or 'crossed'.
+     * Margin mode: 'crossed' (default) or 'isolated'.
      */
     public function up(): void
     {
         Schema::table('accounts', function (Blueprint $table) {
-            $table->string('margin_mode')->default('isolated')
-                ->comment('Margin mode: isolated or crossed')
+            $table->string('margin_mode')->default('crossed')
+                ->comment('Margin mode: crossed or isolated')
                 ->after('position_leverage_long');
         });
     }

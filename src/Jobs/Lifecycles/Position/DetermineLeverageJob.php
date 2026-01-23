@@ -5,25 +5,27 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Lifecycles\Position;
 
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
-use Martingalian\Core\Jobs\Atomic\Position\SetLeverageJob as AtomicSetLeverageJob;
+use Martingalian\Core\Jobs\Atomic\Position\DetermineLeverageJob as AtomicDetermineLeverageJob;
 use Martingalian\Core\Models\Step;
 
 /**
- * SetLeverageJob (Lifecycle)
+ * DetermineLeverageJob (Lifecycle)
  *
- * Orchestrator that creates step(s) for setting leverage on the exchange.
+ * Orchestrator that creates step(s) for determining optimal leverage.
  * Default implementation creates a single atomic step.
- * Exchange-specific overrides can add additional logic if needed.
  *
  * Flow:
- * - Step N: SetLeverageJob (Atomic) - Sets leverage ratio on exchange
+ * - Step N: DetermineLeverageJob (Atomic) - Determines leverage based on margin and brackets
+ *
+ * Must run AFTER PreparePositionDataJob (margin must be set).
+ * Must run BEFORE SetLeverageJob.
  */
-class SetLeverageJob extends BasePositionLifecycle
+class DetermineLeverageJob extends BasePositionLifecycle
 {
     public function dispatch(string $blockUuid, int $startIndex, ?string $workflowId = null): int
     {
         Step::create([
-            'class' => $this->resolver->resolve(AtomicSetLeverageJob::class),
+            'class' => $this->resolver->resolve(AtomicDetermineLeverageJob::class),
             'arguments' => ['positionId' => $this->position->id],
             'block_uuid' => $blockUuid,
             'index' => $startIndex,

@@ -39,16 +39,16 @@ final class DiscoverCMCTokenForExchangeSymbolJob extends BaseApiableJob
      * Maps exchange ticker → canonical CMC ticker.
      */
     private const ALIASES = [
-        'XBT' => 'BTC',      // Kraken uses XBT for Bitcoin
-        'XETH' => 'ETH',     // Some exchanges
+        'XBT' => 'BTC',      // ISO 4217 compliant Bitcoin ticker
+        'XETH' => 'ETH',     // Some exchanges use X-prefix
         'XDG' => 'DOGE',     // Dogecoin alias
         'XBTC' => 'BTC',     // Bitcoin alias
-        'XXBT' => 'BTC',     // Kraken format
-        'XLTC' => 'LTC',     // Kraken format
-        'XXRP' => 'XRP',     // Kraken format
-        'XXLM' => 'XLM',     // Kraken format
-        'XZEC' => 'ZEC',     // Kraken format
-        'XXMR' => 'XMR',     // Kraken format
+        'XXBT' => 'BTC',     // Extended X-prefix format
+        'XLTC' => 'LTC',     // Extended X-prefix format
+        'XXRP' => 'XRP',     // Extended X-prefix format
+        'XXLM' => 'XLM',     // Extended X-prefix format
+        'XZEC' => 'ZEC',     // Extended X-prefix format
+        'XXMR' => 'XMR',     // Extended X-prefix format
     ];
 
     public ExchangeSymbol $exchangeSymbol;

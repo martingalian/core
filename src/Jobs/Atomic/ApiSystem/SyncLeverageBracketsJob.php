@@ -14,7 +14,7 @@ use Martingalian\Core\Models\ExchangeSymbol;
  * SyncLeverageBracketsJob (Atomic)
  *
  * Fetches leverage brackets from exchange API and updates exchange_symbols.
- * Used for exchanges that return all symbols in one API call (Binance, Kraken).
+ * Used for exchanges that return all symbols in one API call (Binance).
  */
 class SyncLeverageBracketsJob extends BaseApiableJob
 {
@@ -56,7 +56,7 @@ class SyncLeverageBracketsJob extends BaseApiableJob
             $exchangeSymbol = $symbolData['symbol'] ?? null;
             $brackets = $symbolData['brackets'] ?? null;
 
-            // For Kraken, maxLeverage is stored differently
+            // Some exchanges provide maxLeverage directly instead of brackets array
             if ($brackets === null && isset($symbolData['maxLeverage'])) {
                 $brackets = [
                     [

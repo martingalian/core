@@ -113,7 +113,7 @@ final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
         // 5. Get actual notional using trait method
         $marketOrderNotional = $exchangeSymbol->getAmountForQuantity((float) $marketOrderQuantity);
 
-        // 6. Verify notional meets exchange-specific minimum (handles Kraken, KuCoin differences)
+        // 6. Verify notional meets exchange-specific minimum (handles KuCoin differences)
         if (! Martingalian::meetsMinNotional($exchangeSymbol, $marketOrderNotional)) {
             throw new RuntimeException(
                 "Market order notional ({$marketOrderNotional}) below minimum ({$effectiveMinNotional})"

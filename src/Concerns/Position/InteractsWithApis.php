@@ -39,25 +39,6 @@ trait InteractsWithApis
         );
     }
 
-    /**
-     * Set leverage preferences (Kraken only - combines margin mode + leverage).
-     *
-     * Kraken's API uses a single endpoint for both margin mode and leverage:
-     * - Setting maxLeverage = ISOLATED margin
-     * - Omitting maxLeverage = CROSS margin
-     */
-    public function apiSetLeveragePreferences(int $leverage): ApiResponse
-    {
-        $this->apiProperties = $this->apiMapper()->prepareUpdateLeverageRatioProperties($this, $leverage);
-        $this->apiProperties->set('account', $this->account);
-        $this->apiResponse = $this->account->withApi()->setLeveragePreferences($this->apiProperties);
-
-        return new ApiResponse(
-            response: $this->apiResponse,
-            result: $this->apiMapper()->resolveUpdateLeverageRatioResponse($this->apiResponse)
-        );
-    }
-
     // V4 ready.
     public function apiUpdateLeverageRatio(int $leverage): ApiResponse
     {
