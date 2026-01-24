@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob;
 use Martingalian\Core\Models\Account;
+use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
 /**
@@ -57,7 +58,7 @@ final class DispatchPositionSlotsJob extends BaseQueueableJob
         // Step 1: Dispatch each position (all with same index = parallel execution)
         // Uses exchange-specific DispatchPositionJob lifecycle
         foreach ($positions as $position) {
-            \Martingalian\Core\Models\Step::create([
+            Step::create([
                 'class' => $dispatchJobClass,
                 'arguments' => ['positionId' => $position->id],
                 'block_uuid' => $this->uuid(),

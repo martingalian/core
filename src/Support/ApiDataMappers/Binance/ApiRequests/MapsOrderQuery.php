@@ -6,6 +6,7 @@ namespace Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
 use Martingalian\Core\Models\Order;
+use Martingalian\Core\Support\Math;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsOrderQuery
@@ -31,8 +32,8 @@ trait MapsOrderQuery
             $price = $result['stopPrice'];
             $quantity = 0;
         } else {
-            $price = $result['avgPrice'] !== 0 ? $result['avgPrice'] : $result['price'];
-            $quantity = $result['executedQty'] !== 0 ? $result['executedQty'] : $result['origQty'];
+            $price = Math::gt($result['avgPrice'], 0) ? $result['avgPrice'] : $result['price'];
+            $quantity = Math::gt($result['executedQty'], 0) ? $result['executedQty'] : $result['origQty'];
         }
 
         if ($result['status'] === 'CANCELED') {

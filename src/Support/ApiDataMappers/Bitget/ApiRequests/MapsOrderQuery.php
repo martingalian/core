@@ -6,6 +6,7 @@ namespace Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
 use Martingalian\Core\Models\Order;
+use Martingalian\Core\Support\Math;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsOrderQuery
@@ -59,12 +60,12 @@ trait MapsOrderQuery
         $status = $this->normalizeOrderState($result['state'] ?? '');
 
         // Smart price selection: priceAvg if filled, else price.
-        $priceAvg = (float) ($result['priceAvg'] ?? 0);
-        $price = $priceAvg > 0 ? $result['priceAvg'] : ($result['price'] ?? '0');
+        $priceAvg = $result['priceAvg'] ?? '0';
+        $price = Math::gt($priceAvg, 0) ? $priceAvg : ($result['price'] ?? '0');
 
         // Smart quantity selection: filledQty if > 0, else size.
-        $filledQty = (float) ($result['filledQty'] ?? 0);
-        $quantity = $filledQty > 0 ? $result['filledQty'] : ($result['size'] ?? '0');
+        $filledQty = $result['filledQty'] ?? '0';
+        $quantity = Math::gt($filledQty, 0) ? $filledQty : ($result['size'] ?? '0');
 
         return [
             'order_id' => $result['orderId'] ?? '',
@@ -109,17 +110,17 @@ trait MapsOrderQuery
         $orderType = strtolower($order['orderType'] ?? '');
         $price = (string) ($order['price'] ?? '0');
         $priceAvg = $order['priceAvg'] ?? '0';
-        $triggerPrice = $order['triggerPrice'] ?? null;
+        $triggerPrice = $order['triggerPrice'] ?? '0';
 
         // If there's a trigger price set, this is a conditional order.
-        if ($triggerPrice !== null && (float) $triggerPrice > 0) {
+        if (Math::gt($triggerPrice, 0)) {
             return (string) $triggerPrice;
         }
 
         return match ($orderType) {
             'limit' => $price,
-            'market' => (float) $priceAvg > 0 ? (string) $priceAvg : '0',
-            default => (float) $price > 0 ? $price : '0',
+            'market' => Math::gt($priceAvg, 0) ? (string) $priceAvg : '0',
+            default => Math::gt($price, 0) ? $price : '0',
         };
     }
 }

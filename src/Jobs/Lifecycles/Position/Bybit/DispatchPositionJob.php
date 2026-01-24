@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Position\Bybit;
 
+use Martingalian\Core\Jobs\Lifecycles\Order\PlaceLimitOrdersJob as PlaceLimitOrdersLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Order\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob as BaseDispatchPositionJob;
-use Martingalian\Core\Jobs\Lifecycles\Orders\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionDataJob as PreparePositionDataLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\SetLeverageJob as SetLeverageLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\SetMarginModeJob as SetMarginModeLifecycle;
@@ -25,6 +26,7 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  * • Step 4: PreparePositionDataJob - Populate margin, leverage, indicators
  * • Step 5: VerifyOrderNotionalJob - Fetch mark price, validate notional
  * • Step 6: PlaceMarketOrderJob - Place market entry order
+ * • Step 7: PlaceLimitOrdersJob - Place limit ladder orders (parallel)
  */
 class DispatchPositionJob extends BaseDispatchPositionJob
 {
@@ -81,6 +83,15 @@ class DispatchPositionJob extends BaseDispatchPositionJob
         $placeEntryLifecycleClass = $resolver->resolve(PlaceMarketOrderLifecycle::class);
         $placeEntryLifecycle = new $placeEntryLifecycleClass($this->position);
         $nextIndex = $placeEntryLifecycle->dispatch(
+            blockUuid: $this->uuid(),
+            startIndex: $nextIndex,
+            workflowId: null
+        );
+
+        // Step 7: Place limit ladder orders (parallel)
+        $placeLimitOrdersLifecycleClass = $resolver->resolve(PlaceLimitOrdersLifecycle::class);
+        $placeLimitOrdersLifecycle = new $placeLimitOrdersLifecycleClass($this->position);
+        $nextIndex = $placeLimitOrdersLifecycle->dispatch(
             blockUuid: $this->uuid(),
             startIndex: $nextIndex,
             workflowId: null

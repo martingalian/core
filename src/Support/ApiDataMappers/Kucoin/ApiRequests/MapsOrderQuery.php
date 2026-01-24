@@ -6,6 +6,7 @@ namespace Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests;
 
 use GuzzleHttp\Psr7\Response;
 use Martingalian\Core\Models\Order;
+use Martingalian\Core\Support\Math;
 use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsOrderQuery
@@ -107,18 +108,18 @@ trait MapsOrderQuery
     {
         $type = $order['type'] ?? '';
         $price = (string) ($order['price'] ?? '0');
-        $stopPrice = $order['stopPrice'] ?? null;
+        $stopPrice = $order['stopPrice'] ?? '0';
         $stop = $order['stop'] ?? '';
 
         // If this is a stop order
-        if ($stop !== '' || ($stopPrice !== null && (float) $stopPrice > 0)) {
-            return (string) ($stopPrice ?? $price);
+        if ($stop !== '' || Math::gt($stopPrice, 0)) {
+            return Math::gt($stopPrice, 0) ? (string) $stopPrice : $price;
         }
 
         return match ($type) {
             'limit' => $price,
             'market' => '0',
-            default => (float) $price > 0 ? $price : '0',
+            default => Math::gt($price, 0) ? $price : '0',
         };
     }
 
@@ -129,23 +130,23 @@ trait MapsOrderQuery
     {
         $status = $order['status'] ?? '';
         $isActive = $order['isActive'] ?? false;
-        $filledSize = (float) ($order['filledSize'] ?? 0);
-        $size = (float) ($order['size'] ?? 0);
+        $filledSize = $order['filledSize'] ?? '0';
+        $size = $order['size'] ?? '0';
 
         // Check if fully filled
-        if ($filledSize >= $size && $size > 0) {
+        if (Math::gte($filledSize, $size) && Math::gt($size, 0)) {
             return 'FILLED';
         }
 
         // Check if partially filled
-        if ($filledSize > 0 && $filledSize < $size) {
+        if (Math::gt($filledSize, 0) && Math::lt($filledSize, $size)) {
             return 'PARTIALLY_FILLED';
         }
 
         // Map status values
         return match (mb_strtolower($status)) {
             'open', 'active' => 'NEW',
-            'done' => $filledSize > 0 ? 'FILLED' : 'CANCELLED',
+            'done' => Math::gt($filledSize, 0) ? 'FILLED' : 'CANCELLED',
             'match' => 'PARTIALLY_FILLED',
             default => $isActive ? 'NEW' : 'CANCELLED',
         };
