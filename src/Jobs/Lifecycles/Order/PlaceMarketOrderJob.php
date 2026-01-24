@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Lifecycles\Orders;
+namespace Martingalian\Core\Jobs\Lifecycles\Order;
 
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
-use Martingalian\Core\Jobs\Atomic\Position\PlaceMarketOrderJob as PlaceMarketOrderAtomic;
+use Martingalian\Core\Jobs\Atomic\Order\PlaceMarketOrderJob as PlaceMarketOrderAtomic;
 use Martingalian\Core\Models\Step;
 
 /**

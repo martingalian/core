@@ -59,21 +59,21 @@ trait MapsPlaceOrder
     public function resolvePlaceOrderResponse(Response $response): array
     {
         $order = json_decode((string) $response->getBody(), associative: true);
-        $order['_price'] = $this->computePlaceOrderPrice($order);
+        $order['_price'] = $this->findPlaceOrderPrice($order);
         $order['_orderType'] = $this->canonicalOrderType($order);
 
         return $order;
     }
 
     /**
-     * Compute the effective display price based on order type.
+     * Finds the effective display price based on order type, given the api data.
      *
      * - LIMIT: uses price
      * - MARKET: uses avgPrice (if filled) or 0
      * - STOP_MARKET, STOP_LIMIT, TAKE_PROFIT, TAKE_PROFIT_LIMIT, TAKE_PROFIT_MARKET: uses stopPrice
      * - TRAILING_STOP_MARKET: uses activatePrice or stopPrice
      */
-    private function computePlaceOrderPrice(array $order): string
+    private function findPlaceOrderPrice(array $order): string
     {
         $type = $order['type'] ?? '';
         $price = $order['price'] ?? '0';

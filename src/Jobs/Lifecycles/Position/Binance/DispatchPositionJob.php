@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Position\Binance;
 
-use Martingalian\Core\Jobs\Lifecycles\Orders\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Order\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\DetermineLeverageJob as DetermineLeverageLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob as BaseDispatchPositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionDataJob as PreparePositionDataLifecycle;

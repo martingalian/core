@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Atomic\Position;
+namespace Martingalian\Core\Jobs\Atomic\Order;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
+use Martingalian\Core\Support\Math;
 use RuntimeException;
+use Throwable;
 
 /**
  * PlaceMarketOrderJob (Atomic)
@@ -79,7 +81,7 @@ class PlaceMarketOrderJob extends BaseApiableJob
         // divider = 2^(totalLimitOrders + 1) e.g., 4 limits = 32
         $divider = get_market_order_amount_divider($this->position->total_limit_orders);
         $margin = (string) $this->position->margin;
-        $notional = bcdiv(bcmul($margin, (string) $leverage, 8), (string) $divider, 8);
+        $notional = Math::div(Math::mul($margin, $leverage), $divider);
 
         // 2. Get quantity using trait method (uses mark_price set by VerifyOrderNotionalJob)
         $quantity = $exchangeSymbol->getQuantityForAmount($notional, respectMinNotional: false);
@@ -94,7 +96,7 @@ class PlaceMarketOrderJob extends BaseApiableJob
         $side = $direction === 'LONG' ? 'BUY' : 'SELL';
         $markPrice = api_format_price((string) $exchangeSymbol->mark_price, $exchangeSymbol);
 
-        // 4. Create Order record
+        // 4. Create Order record (reference_* fields set in complete() after first sync)
         $this->marketOrder = Order::create([
             'position_id' => $this->position->id,
             'type' => 'MARKET',
@@ -102,8 +104,6 @@ class PlaceMarketOrderJob extends BaseApiableJob
             'side' => $side,
             'position_side' => $direction,
             'quantity' => $quantity,
-            'reference_quantity' => $quantity,
-            'reference_price' => $markPrice,
         ]);
 
         // 5. Place order on exchange
@@ -120,7 +120,7 @@ class PlaceMarketOrderJob extends BaseApiableJob
             'side' => $side,
             'quantity' => $quantity,
             'estimated_price' => $markPrice,
-            'margin' => bcdiv($notional, (string) $leverage, 8),
+            'margin' => Math::div($notional, $leverage),
             'notional' => $actualNotional,
             'message' => 'Market order placed on exchange',
             'exchange_order_id' => $apiResponse->result['orderId'] ?? null,
@@ -159,8 +159,10 @@ class PlaceMarketOrderJob extends BaseApiableJob
             'opened_at' => now(),
         ]);
 
-        // Update order reference data
+        // Set reference data from first sync (captures actual fill values)
         $this->marketOrder->updateSaving([
+            'reference_price' => $this->marketOrder->price,
+            'reference_quantity' => $this->marketOrder->quantity,
             'reference_status' => $this->marketOrder->status,
         ]);
     }
@@ -168,7 +170,7 @@ class PlaceMarketOrderJob extends BaseApiableJob
     /**
      * Handle exceptions during market order placement.
      */
-    public function resolveException(\Throwable $e): void
+    public function resolveException(Throwable $e): void
     {
         // Log error to position
         $this->position->updateSaving([

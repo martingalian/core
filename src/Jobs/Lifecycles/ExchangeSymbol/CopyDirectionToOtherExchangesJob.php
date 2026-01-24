@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbols;
+namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbol;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\ApiSystem;

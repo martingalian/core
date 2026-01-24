@@ -225,8 +225,9 @@ final class KucoinExceptionHandler extends BaseExceptionHandler
             $json = json_decode($body, associative: true);
 
             if (is_array($json) && isset($json['code'])) {
+                // 200004: Order not exist (eventual consistency during high load)
                 // 300000: Internal error (retryable)
-                if ($json['code'] === '300000') {
+                if (in_array($json['code'], ['200004', '300000'], strict: true)) {
                     return true;
                 }
             }

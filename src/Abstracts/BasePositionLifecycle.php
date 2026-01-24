@@ -25,29 +25,13 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  * );
  * ```
  */
-abstract class BasePositionLifecycle
+abstract class BasePositionLifecycle extends BaseLifecycle
 {
     protected Position $position;
-
-    protected JobProxy $resolver;
 
     public function __construct(Position $position)
     {
         $this->position = $position;
         $this->resolver = JobProxy::with($position->account);
     }
-
-    /**
-     * Dispatch the lifecycle steps.
-     *
-     * @param  string  $blockUuid  The block UUID for step grouping
-     * @param  int  $startIndex  The starting index for steps
-     * @param  string|null  $workflowId  Optional workflow ID for grouping related steps
-     * @return int The next available index (for chaining lifecycles)
-     */
-    abstract public function dispatch(
-        string $blockUuid,
-        int $startIndex,
-        ?string $workflowId = null
-    ): int;
 }

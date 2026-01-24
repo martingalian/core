@@ -212,10 +212,11 @@ final class BitgetExceptionHandler extends BaseExceptionHandler
             $json = json_decode($body, associative: true);
 
             if (is_array($json) && isset($json['code'])) {
+                // 40109: Order cannot be found (eventual consistency during high load)
                 // 45001: System maintenance
                 // 40725: System release error
                 // 40015: System release error
-                if (in_array($json['code'], ['45001', '40725', '40015'], strict: true)) {
+                if (in_array($json['code'], ['40109', '45001', '40725', '40015'], strict: true)) {
                     return true;
                 }
             }

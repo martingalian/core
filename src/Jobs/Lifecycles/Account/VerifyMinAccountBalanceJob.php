@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Account;
 
-use Martingalian\Core\Abstracts\BaseLifecycle;
+use Martingalian\Core\Abstracts\BaseAccountLifecycle;
 use Martingalian\Core\Jobs\Atomic\Account\VerifyMinAccountBalanceJob as AtomicVerifyMinAccountBalanceJob;
 use Martingalian\Core\Models\Step;
 
@@ -15,7 +15,7 @@ use Martingalian\Core\Models\Step;
  * Default implementation creates a single atomic step.
  * Exchange-specific overrides can add additional steps if needed.
  */
-final class VerifyMinAccountBalanceJob extends BaseLifecycle
+final class VerifyMinAccountBalanceJob extends BaseAccountLifecycle
 {
     public function dispatch(string $blockUuid, int $startIndex, ?string $workflowId = null): int
     {

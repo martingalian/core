@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Account;
 
-use Martingalian\Core\Abstracts\BaseLifecycle;
+use Martingalian\Core\Abstracts\BaseAccountLifecycle;
 use Martingalian\Core\Jobs\Atomic\Account\QueryAccountPositionsJob as AtomicQueryAccountPositionsJob;
 use Martingalian\Core\Models\Step;
 
@@ -16,7 +16,7 @@ use Martingalian\Core\Models\Step;
  * Exchange-specific overrides can add additional steps if needed
  * (e.g., querying margin info, leverage settings, etc.).
  */
-class QueryAccountPositionsJob extends BaseLifecycle
+class QueryAccountPositionsJob extends BaseAccountLifecycle
 {
     public function dispatch(string $blockUuid, int $startIndex, ?string $workflowId = null): int
     {

@@ -4,38 +4,22 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Abstracts;
 
-use Martingalian\Core\Models\Account;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
 /**
  * BaseLifecycle
  *
- * Abstract base class for lifecycle orchestrators.
+ * Abstract base class for all lifecycle orchestrators.
  * Lifecycles are NOT steps themselves - they create step(s) for atomic jobs.
  *
- * Usage:
- * ```php
- * $resolver = JobProxy::with($account);
- * $lifecycleClass = $resolver->resolve(Lifecycle\Account\VerifyMinAccountBalanceJob::class);
- * $lifecycle = new $lifecycleClass($account);
- * $nextIndex = $lifecycle->dispatch(
- *     blockUuid: $parentBlockUuid,
- *     startIndex: 1,
- *     workflowId: $workflowId
- * );
- * ```
+ * Subclasses provide their own model and resolver initialization:
+ * - BasePositionLifecycle: Takes a Position, creates resolver from position->account
+ * - BaseAccountLifecycle: Takes an Account, creates resolver from account
+ * - BaseOrderLifecycle: Takes an Order, creates resolver from order->position->account (future)
  */
 abstract class BaseLifecycle
 {
-    protected Account $account;
-
     protected JobProxy $resolver;
-
-    public function __construct(Account $account)
-    {
-        $this->account = $account;
-        $this->resolver = JobProxy::with($account);
-    }
 
     /**
      * Dispatch the lifecycle steps.

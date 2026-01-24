@@ -58,6 +58,7 @@ final class BybitExceptionHandler extends BaseExceptionHandler
             170032,  // Network error
             170146,  // Order creation timeout
             170147,  // Order cancellation timeout
+            170213,  // Order does not exist (eventual consistency during high load)
             177002,  // Server busy
             131200,  // Service error
             131201,  // Internal error

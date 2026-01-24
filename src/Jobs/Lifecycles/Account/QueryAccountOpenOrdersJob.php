@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Account;
 
-use Martingalian\Core\Abstracts\BaseLifecycle;
+use Martingalian\Core\Abstracts\BaseAccountLifecycle;
 use Martingalian\Core\Jobs\Atomic\Account\QueryAccountOpenOrdersJob as AtomicQueryAccountOpenOrdersJob;
 use Martingalian\Core\Models\Step;
 
@@ -16,7 +16,7 @@ use Martingalian\Core\Models\Step;
  * Exchange-specific overrides can add additional steps if needed
  * (e.g., querying conditional orders, stop orders, etc.).
  */
-class QueryAccountOpenOrdersJob extends BaseLifecycle
+class QueryAccountOpenOrdersJob extends BaseAccountLifecycle
 {
     public function dispatch(string $blockUuid, int $startIndex, ?string $workflowId = null): int
     {
