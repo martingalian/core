@@ -84,30 +84,34 @@ class DispatchLimitOrdersJob extends BaseQueueableJob
             exchangeSymbol: $exchangeSymbol,
             limitQuantityMultipliers: $exchangeSymbol->limit_quantity_multipliers,
         ))
-            ->map(fn (array $rung) => Order::create([
-                'position_id' => $this->position->id,
-                'type' => 'LIMIT',
-                'status' => 'NEW',
-                'side' => $side,
-                'position_side' => $direction,
-                'price' => $rung['price'],
-                'quantity' => $rung['quantity'],
-            ]))
+            ->map(function (array $rung) use ($side, $direction) {
+                return Order::create([
+                    'position_id' => $this->position->id,
+                    'type' => 'LIMIT',
+                    'status' => 'NEW',
+                    'side' => $side,
+                    'position_side' => $direction,
+                    'price' => $rung['price'],
+                    'quantity' => $rung['quantity'],
+                ]);
+            })
             ->all();
 
         // 3. Create Steps to place orders on exchange (sequential to allow cancellation on failure)
         $blockUuid = $this->uuid();
         collect($this->limitOrders)
-            ->each(fn (Order $order, int $rungIndex) => Step::create([
-                'class' => $resolver->resolve(PlaceLimitOrderJob::class),
-                'arguments' => [
-                    'orderId' => $order->id,
-                    'rungIndex' => $rungIndex + 1,
-                ],
-                'block_uuid' => $blockUuid,
-                'index' => $rungIndex + 1,
-                'workflow_id' => null,
-            ]));
+            ->each(function (Order $order, int $rungIndex) use ($resolver, $blockUuid) {
+                Step::create([
+                    'class' => $resolver->resolve(PlaceLimitOrderJob::class),
+                    'arguments' => [
+                        'orderId' => $order->id,
+                        'rungIndex' => $rungIndex + 1,
+                    ],
+                    'block_uuid' => $blockUuid,
+                    'index' => $rungIndex + 1,
+                    'workflow_id' => null,
+                ]);
+            });
 
         return [
             'position_id' => $this->position->id,
@@ -115,7 +119,9 @@ class DispatchLimitOrdersJob extends BaseQueueableJob
             'reference_price' => $referencePrice,
             'market_qty' => $marketOrderQty,
             'orders' => collect($this->limitOrders)
-                ->map(fn (Order $o) => ['id' => $o->id, 'price' => $o->price, 'quantity' => $o->quantity])
+                ->map(function (Order $o) {
+                    return ['id' => $o->id, 'price' => $o->price, 'quantity' => $o->quantity];
+                })
                 ->all(),
             'message' => 'Limit orders created and dispatched',
         ];

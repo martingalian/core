@@ -9,6 +9,7 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Martingalian\Martingalian;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Position;
+use Martingalian\Core\Support\Math;
 use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
 use RuntimeException;
 use Throwable;
@@ -97,7 +98,7 @@ final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
         $divider = get_market_order_amount_divider($this->position->total_limit_orders);
         $margin = (string) $this->position->margin;
         $leverage = (string) $this->position->leverage;
-        $notional = bcdiv(bcmul($margin, $leverage, 8), (string) $divider, 8);
+        $notional = Math::div(Math::mul($margin, $leverage), (string) $divider);
 
         // 4. Calculate market order quantity using trait method (respects min notional)
         $marketOrderQuantity = $exchangeSymbol->getQuantityForAmount($notional, respectMinNotional: true);
@@ -111,7 +112,7 @@ final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
         }
 
         // 5. Get actual notional using trait method
-        $marketOrderNotional = $exchangeSymbol->getAmountForQuantity((float) $marketOrderQuantity);
+        $marketOrderNotional = $exchangeSymbol->getAmountForQuantity($marketOrderQuantity);
 
         // 6. Verify notional meets exchange-specific minimum (handles KuCoin differences)
         if (! Martingalian::meetsMinNotional($exchangeSymbol, $marketOrderNotional)) {

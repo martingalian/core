@@ -32,7 +32,7 @@ trait HasTradingComputations
         return $qty === '' ? '0' : $qty;
     }
 
-    public function getAmountForQuantity(float $quantity): string
+    public function getAmountForQuantity(string|float $quantity): string
     {
         $price = api_format_price((string) $this->mark_price, $this);
 
@@ -46,7 +46,7 @@ trait HasTradingComputations
         return remove_trailing_zeros($amount);
     }
 
-    public function isQuantityBelowMinNotional(float $quantity): bool
+    public function isQuantityBelowMinNotional(string|float $quantity): bool
     {
         $price = api_format_price((string) $this->mark_price, $this);
 

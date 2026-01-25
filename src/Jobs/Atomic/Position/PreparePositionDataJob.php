@@ -118,15 +118,15 @@ class PreparePositionDataJob extends BaseQueueableJob
             ?? $account->margin
             ?? '0';
 
-        // Calculate position margin
+        // Calculate position margin: balance × (max_position_percentage / 100)
         $maxPct = $account->max_position_percentage ?? '5.00';
-        $margin = bcmul($balance, bcdiv($maxPct, '100', 8), 2);
+        $margin = Math::mul($balance, Math::div($maxPct, '100'));
 
         // Check subscription cap
         $subscription = $account->user->subscription;
         if ($subscription && ! $subscription->hasUnlimitedBalance()) {
             $maxBalance = $subscription->max_balance;
-            if (bccomp($margin, $maxBalance, 2) > 0) {
+            if (Math::gt($margin, $maxBalance)) {
                 $margin = $maxBalance;
             }
         }

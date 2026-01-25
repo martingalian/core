@@ -110,7 +110,7 @@ class PlaceMarketOrderJob extends BaseApiableJob
         $apiResponse = $this->marketOrder->apiPlace();
 
         // Calculate actual notional for response
-        $actualNotional = $exchangeSymbol->getAmountForQuantity((float) $quantity);
+        $actualNotional = $exchangeSymbol->getAmountForQuantity($quantity);
 
         return [
             'position_id' => $this->position->id,
