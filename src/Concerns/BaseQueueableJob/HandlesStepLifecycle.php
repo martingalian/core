@@ -242,6 +242,12 @@ trait HandlesStepLifecycle
 
     protected function shouldComplete(): void
     {
+        // Guard: Don't call complete() if step status was already updated
+        // (e.g., retryJob() transitioned to Pending, stopJob() would fail)
+        if ($this->stepStatusUpdated) {
+            return;
+        }
+
         if (method_exists($this, 'complete')) {
             $this->complete();
         }

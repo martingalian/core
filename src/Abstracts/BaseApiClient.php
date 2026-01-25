@@ -159,10 +159,16 @@ abstract class BaseApiClient
 
             $options['json'] = $bodyPayload;
         } else {
+            // Check for pre-serialized body (used by Bitget, KuCoin for signed POST requests)
+            $body = $apiRequest->properties->getOr('body', null);
+            if ($body !== null && mb_strtoupper($apiRequest->method) !== 'GET') {
+                $options['body'] = $body;
+            }
+
             // Only set query if there are actual options to send.
             // Setting query => [] causes Guzzle to strip query params from the path.
             $queryOptions = $apiRequest->properties->getOr('options', []);
-            if (! empty($queryOptions)) {
+            if (! empty($queryOptions) && mb_strtoupper($apiRequest->method) === 'GET') {
                 $options['query'] = $queryOptions;
             }
         }

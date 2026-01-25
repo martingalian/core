@@ -374,6 +374,8 @@ final class MartingalianSeeder extends Seeder
                 'trade_configuration_id' => 1,
                 'binance_api_key' => env('TRADER_BB_BINANCE_API_KEY'),
                 'binance_api_secret' => env('TRADER_BB_BINANCE_API_SECRET'),
+                'market_order_margin_percentage_long' => '5.00',
+                'market_order_margin_percentage_short' => '5.00',
             ]
         );
     }
@@ -572,6 +574,8 @@ final class MartingalianSeeder extends Seeder
                 'trade_configuration_id' => 1,
                 'bybit_api_key' => env('TRADER_BB_BYBIT_API_KEY'),
                 'bybit_api_secret' => env('TRADER_BB_BYBIT_API_SECRET'),
+                'market_order_margin_percentage_long' => '5.00',
+                'market_order_margin_percentage_short' => '5.00',
             ]);
         }
     }
@@ -616,6 +620,8 @@ final class MartingalianSeeder extends Seeder
                 'trade_configuration_id' => 1,
                 'binance_api_key' => env('TRADER_B_BINANCE_API_KEY'),
                 'binance_api_secret' => env('TRADER_B_BINANCE_API_SECRET'),
+                'market_order_margin_percentage_long' => '5.00',
+                'market_order_margin_percentage_short' => '5.00',
             ]);
         }
     }
@@ -661,6 +667,8 @@ final class MartingalianSeeder extends Seeder
                 'kucoin_api_key' => env('TRADER_KC_API_KEY'),
                 'kucoin_api_secret' => env('TRADER_KC_API_SECRET'),
                 'kucoin_passphrase' => env('TRADER_KC_PASSPHRASE'),
+                'market_order_margin_percentage_long' => '5.00',
+                'market_order_margin_percentage_short' => '5.00',
             ]);
         }
     }
@@ -706,6 +714,8 @@ final class MartingalianSeeder extends Seeder
                 'bitget_api_key' => env('TRADER_BG_API_KEY'),
                 'bitget_api_secret' => env('TRADER_BG_API_SECRET'),
                 'bitget_passphrase' => env('TRADER_BG_PASSPHRASE'),
+                'market_order_margin_percentage_long' => '5.00',
+                'market_order_margin_percentage_short' => '5.00',
             ]);
         }
     }
@@ -1128,17 +1138,22 @@ final class MartingalianSeeder extends Seeder
         // SECTION 24: Seed Core Symbol Data (symbols, exchange_symbols)
         $this->seedCoreSymbolData();
 
-        // SECTION 25: Deactivate all accounts except account_id = 1
+        // SECTION 25: Activate only the testing account (see method for account IDs)
         $this->deactivateNonPrimaryAccounts();
     }
 
     /**
-     * Deactivate all accounts except the primary account (id = 1).
-     * Only account_id = 1 should be active for testing/development.
+     * Deactivate all accounts except the testing account.
+     * Change the active account ID here to test different exchanges.
      */
     public function deactivateNonPrimaryAccounts(): void
     {
-        Account::where('id', '!=', 1)->update(['is_active' => false]);
+        // Active account for testing (change this to test different exchanges):
+        // 1 = Binance, 2 = Bybit, 3 = KuCoin, 4 = BitGet
+        $activeAccountId = 4; // BitGet
+
+        Account::where('id', '!=', $activeAccountId)->update(['is_active' => false]);
+        Account::where('id', $activeAccountId)->update(['is_active' => true]);
     }
 
     /**

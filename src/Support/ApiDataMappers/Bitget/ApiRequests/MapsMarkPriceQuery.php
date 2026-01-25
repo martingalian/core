@@ -23,21 +23,25 @@ trait MapsMarkPriceQuery
     /**
      * Resolves BitGet symbol price response (mark price).
      *
-     * BitGet V2 response structure:
+     * BitGet V2 response structure (data is an array):
      * {
      *     "code": "00000",
-     *     "data": {
-     *         "symbol": "BTCUSDT",
-     *         "markPrice": "40500.5",
-     *         "indexPrice": "40495.2",
-     *         "lastPrice": "40510.0"
-     *     }
+     *     "msg": "success",
+     *     "data": [
+     *         {
+     *             "symbol": "BTCUSDT",
+     *             "price": "40510.0",
+     *             "indexPrice": "40495.2",
+     *             "markPrice": "40500.5",
+     *             "ts": "1234567890123"
+     *         }
+     *     ]
      * }
      */
     public function resolveQueryMarkPriceResponse(Response $response): ?string
     {
         $body = json_decode((string) $response->getBody(), associative: true);
 
-        return $body['data']['markPrice'] ?? null;
+        return $body['data'][0]['markPrice'] ?? null;
     }
 }

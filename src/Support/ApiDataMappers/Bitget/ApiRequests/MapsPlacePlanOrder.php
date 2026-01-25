@@ -83,7 +83,8 @@ trait MapsPlacePlanOrder
      * Prepare properties for querying a plan order on Bitget.
      *
      * Note: Bitget doesn't have a single plan order query endpoint.
-     * We use the pending orders list and filter by orderId.
+     * We use the pending orders list and filter by orderId in the resolver.
+     * The orderId is NOT a valid API parameter - it's filtered client-side.
      *
      * @see https://www.bitget.com/api-doc/contract/plan/Get-Plan-Order-List
      */
@@ -93,7 +94,7 @@ trait MapsPlacePlanOrder
         $properties->set('relatable', $order);
         $properties->set('options.symbol', (string) $order->position->exchangeSymbol->parsed_trading_pair);
         $properties->set('options.productType', 'USDT-FUTURES');
-        $properties->set('options.orderId', (string) $order->exchange_order_id);
+        // Note: orderId is filtered in resolvePlanOrderQueryResponse(), not via API param
 
         return $properties;
     }

@@ -94,10 +94,13 @@ trait MapsExchangeInformationQuery
                 $pricePrecision = (int) ($contract['pricePlace'] ?? 2);
                 $quantityPrecision = (int) ($contract['volumePlace'] ?? 3);
 
-                // Calculate tick size from priceEndStep or pricePlace
-                $tickSize = isset($contract['priceEndStep'])
-                    ? (float) $contract['priceEndStep']
-                    : pow(10, exponent: -$pricePrecision);
+                // Calculate tick size from priceEndStep and pricePlace using bcmath
+                // priceEndStep is the minimum increment in the last decimal digit
+                // tickSize = priceEndStep / 10^pricePlace
+                // Example: pricePlace=4, priceEndStep=1 → tickSize = 1 / 10000 = 0.0001
+                $priceEndStep = (string) ($contract['priceEndStep'] ?? '1');
+                $divisor = bcpow('10', (string) $pricePrecision, 0);
+                $tickSize = bcdiv($priceEndStep, $divisor, $pricePrecision);
 
                 return [
                     'pair' => $symbol,

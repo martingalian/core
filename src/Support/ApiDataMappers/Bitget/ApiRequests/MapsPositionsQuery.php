@@ -76,6 +76,10 @@ trait MapsPositionsQuery
                 $position['side'] = $holdSide;
                 $position['size'] = abs((float) ($position['total'] ?? 0));
 
+                // Position TP/SL IDs (populated when place-pos-tpsl is used)
+                $position['takeProfitId'] = $position['takeProfitId'] ?? null;
+                $position['stopLossId'] = $position['stopLossId'] ?? null;
+
                 return $position;
             })
             ->keyBy(static function ($position) {

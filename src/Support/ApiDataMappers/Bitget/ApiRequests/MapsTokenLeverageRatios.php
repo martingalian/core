@@ -10,7 +10,12 @@ use Martingalian\Core\Support\ValueObjects\ApiProperties;
 
 trait MapsTokenLeverageRatios
 {
-    public function prepareTokenLeverageRatiosProperties(Position $position, string $leverage): ApiProperties
+    /**
+     * Prepare properties for setting leverage on BitGet.
+     *
+     * BitGet requires: symbol, productType, marginCoin, leverage, holdSide (long/short).
+     */
+    public function prepareUpdateLeverageRatioProperties(Position $position, int $leverage): ApiProperties
     {
         $properties = new ApiProperties;
         $properties->set('relatable', $position);
@@ -38,7 +43,7 @@ trait MapsTokenLeverageRatios
      *     }
      * }
      */
-    public function resolveTokenLeverageRatiosResponse(Response $response): array
+    public function resolveUpdateLeverageRatioResponse(Response $response): array
     {
         $body = json_decode((string) $response->getBody(), associative: true);
 

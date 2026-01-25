@@ -233,6 +233,14 @@ final class BitgetApi
     }
 
     /**
+     * Query order (alias for getOrderDetail for API compatibility).
+     */
+    public function orderQuery(?ApiProperties $properties = null)
+    {
+        return $this->getOrderDetail($properties);
+    }
+
+    /**
      * Cancel a single order.
      *
      * @see https://www.bitget.com/api-doc/contract/trade/Cancel-Order
@@ -364,6 +372,14 @@ final class BitgetApi
     }
 
     /**
+     * Change initial leverage (alias for setLeverage for API compatibility).
+     */
+    public function changeInitialLeverage(?ApiProperties $properties = null)
+    {
+        return $this->setLeverage($properties);
+    }
+
+    /**
      * Set margin mode (crossed or isolated).
      *
      * @see https://www.bitget.com/api-doc/contract/account/Change-Margin-Mode
@@ -379,6 +395,14 @@ final class BitgetApi
         );
 
         return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Update margin type (alias for setMarginMode for API consistency).
+     */
+    public function updateMarginType(?ApiProperties $properties = null)
+    {
+        return $this->setMarginMode($properties);
     }
 
     /**
@@ -459,6 +483,49 @@ final class BitgetApi
         $apiRequest = ApiRequest::make(
             'POST',
             '/api/v2/mix/order/cancel-plan-order',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Place position TP/SL (take-profit and stop-loss attached to position).
+     *
+     * This endpoint attaches TP/SL orders directly to an existing position.
+     * Unlike plan orders, no size parameter is needed - the TP/SL automatically
+     * applies to the entire position and adjusts when position size changes.
+     *
+     * @see https://www.bitget.com/api-doc/contract/plan/Place-Pos-Tpsl-Order
+     */
+    public function placePosTpsl(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/order/place-pos-tpsl',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Modify position TP/SL order trigger price.
+     *
+     * Used to update the trigger price of an existing position TP/SL.
+     * Useful when WAP changes and stop prices need recalculation.
+     *
+     * @see https://www.bitget.com/api-doc/contract/plan/Modify-Tpsl-Order
+     */
+    public function modifyTpslOrder(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/order/modify-tpsl-order',
             $properties
         );
 

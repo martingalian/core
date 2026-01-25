@@ -15,6 +15,7 @@ use Martingalian\Core\Concerns\Order\InteractsWithApis;
 
 /**
  * @property Position $position
+ * @property bool $is_algo
  *
  * @method \Martingalian\Core\Models\ExchangeSymbol exchangeSymbol()
  */

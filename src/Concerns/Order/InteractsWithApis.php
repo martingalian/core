@@ -377,4 +377,33 @@ trait InteractsWithApis
             result: $this->apiMapper()->resolvePlanOrderCancelResponse($this->apiResponse)
         );
     }
+
+    /**
+     * Modify TP/SL order trigger price via Bitget's position TP/SL API.
+     *
+     * Used when WAP changes and stop prices need recalculation.
+     * Only applicable for Bitget orders placed via place-pos-tpsl endpoint.
+     *
+     * @param  string  $newTriggerPrice  The new trigger price for this TP or SL order
+     */
+    public function apiModifyTpsl(string $newTriggerPrice): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->prepareModifyTpslOrderProperties($this, $newTriggerPrice);
+        $this->apiProperties->set('account', $this->apiAccount());
+        $this->apiResponse = $this->apiAccount()->withApi()->modifyTpslOrder($this->apiProperties);
+
+        $finalResponse = new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolveModifyTpslOrderResponse($this->apiResponse)
+        );
+
+        // Update local price on success
+        if ($finalResponse->result['success'] ?? false) {
+            $this->updateSaving([
+                'price' => $newTriggerPrice,
+            ]);
+        }
+
+        return $finalResponse;
+    }
 }

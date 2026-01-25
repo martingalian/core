@@ -15,7 +15,7 @@ trait MapsSymbolMarginType
      *
      * BitGet expects lowercase: 'isolated' or 'crossed'.
      */
-    public function prepareSymbolMarginTypeProperties(Position $position): ApiProperties
+    public function prepareUpdateMarginTypeProperties(Position $position): ApiProperties
     {
         $properties = new ApiProperties;
         $properties->set('relatable', $position);
@@ -44,7 +44,7 @@ trait MapsSymbolMarginType
      *     }
      * }
      */
-    public function resolveSymbolMarginTypeResponse(Response $response): array
+    public function resolveUpdateMarginTypeResponse(Response $response): array
     {
         $body = json_decode((string) $response->getBody(), associative: true);
 

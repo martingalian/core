@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Lifecycles\Position\Bitget;
 
+use Martingalian\Core\Jobs\Lifecycles\Order\Bitget\PlacePositionTpslJob as PlacePositionTpslLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Order\PlaceLimitOrdersJob as PlaceLimitOrdersLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Order\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Position\DetermineLeverageJob as DetermineLeverageLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob as BaseDispatchPositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionDataJob as PreparePositionDataLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\SetLeverageJob as SetLeverageLifecycle;
@@ -22,11 +24,13 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  * Flow:
  * • Step 1: VerifyTradingPairNotOpenJob - Verify pair not already open (showstopper)
  * • Step 2: SetMarginModeJob - Set margin mode (isolated/cross)
- * • Step 3: SetLeverageJob - Set leverage
- * • Step 4: PreparePositionDataJob - Populate margin, leverage, indicators
- * • Step 5: VerifyOrderNotionalJob - Fetch mark price, validate notional
- * • Step 6: PlaceMarketOrderJob - Place market entry order
- * • Step 7: PlaceLimitOrdersJob - Place limit ladder orders (parallel)
+ * • Step 3: PreparePositionDataJob - Populate margin, indicators (no leverage)
+ * • Step 4: DetermineLeverageJob - Determine optimal leverage based on margin and brackets
+ * • Step 5: SetLeverageJob - Set leverage on exchange
+ * • Step 6: VerifyOrderNotionalJob - Fetch mark price, validate notional
+ * • Step 7: PlaceMarketOrderJob - Place market entry order
+ * • Step 8: PlaceLimitOrdersJob - Place limit ladder orders (parallel)
+ * • Step 9: PlacePositionTpslJob - Place combined TP/SL via position endpoint
  */
 class DispatchPositionJob extends BaseDispatchPositionJob
 {
@@ -52,16 +56,7 @@ class DispatchPositionJob extends BaseDispatchPositionJob
             workflowId: null
         );
 
-        // Step 3: Set leverage
-        $leverageLifecycleClass = $resolver->resolve(SetLeverageLifecycle::class);
-        $leverageLifecycle = new $leverageLifecycleClass($this->position);
-        $nextIndex = $leverageLifecycle->dispatch(
-            blockUuid: $this->uuid(),
-            startIndex: $nextIndex,
-            workflowId: null
-        );
-
-        // Step 4: Prepare position data (margin, leverage, indicators)
+        // Step 3: Prepare position data (margin, indicators - leverage determined next)
         $prepareDataLifecycleClass = $resolver->resolve(PreparePositionDataLifecycle::class);
         $prepareDataLifecycle = new $prepareDataLifecycleClass($this->position);
         $nextIndex = $prepareDataLifecycle->dispatch(
@@ -70,7 +65,25 @@ class DispatchPositionJob extends BaseDispatchPositionJob
             workflowId: null
         );
 
-        // Step 5: Verify order notional (fetch mark price, validate notional)
+        // Step 4: Determine optimal leverage based on margin and brackets
+        $determineLeverageLifecycleClass = $resolver->resolve(DetermineLeverageLifecycle::class);
+        $determineLeverageLifecycle = new $determineLeverageLifecycleClass($this->position);
+        $nextIndex = $determineLeverageLifecycle->dispatch(
+            blockUuid: $this->uuid(),
+            startIndex: $nextIndex,
+            workflowId: null
+        );
+
+        // Step 5: Set leverage on exchange
+        $leverageLifecycleClass = $resolver->resolve(SetLeverageLifecycle::class);
+        $leverageLifecycle = new $leverageLifecycleClass($this->position);
+        $nextIndex = $leverageLifecycle->dispatch(
+            blockUuid: $this->uuid(),
+            startIndex: $nextIndex,
+            workflowId: null
+        );
+
+        // Step 6: Verify order notional (fetch mark price, validate notional)
         $verifyNotionalLifecycleClass = $resolver->resolve(VerifyOrderNotionalLifecycle::class);
         $verifyNotionalLifecycle = new $verifyNotionalLifecycleClass($this->position);
         $nextIndex = $verifyNotionalLifecycle->dispatch(
@@ -79,7 +92,7 @@ class DispatchPositionJob extends BaseDispatchPositionJob
             workflowId: null
         );
 
-        // Step 6: Place entry order
+        // Step 7: Place entry order
         $placeEntryLifecycleClass = $resolver->resolve(PlaceMarketOrderLifecycle::class);
         $placeEntryLifecycle = new $placeEntryLifecycleClass($this->position);
         $nextIndex = $placeEntryLifecycle->dispatch(
@@ -88,10 +101,19 @@ class DispatchPositionJob extends BaseDispatchPositionJob
             workflowId: null
         );
 
-        // Step 7: Place limit ladder orders (parallel)
+        // Step 8: Place limit ladder orders (parallel)
         $placeLimitOrdersLifecycleClass = $resolver->resolve(PlaceLimitOrdersLifecycle::class);
         $placeLimitOrdersLifecycle = new $placeLimitOrdersLifecycleClass($this->position);
         $nextIndex = $placeLimitOrdersLifecycle->dispatch(
+            blockUuid: $this->uuid(),
+            startIndex: $nextIndex,
+            workflowId: null
+        );
+
+        // Step 9: Place combined TP/SL via position endpoint
+        $placePositionTpslLifecycleClass = $resolver->resolve(PlacePositionTpslLifecycle::class);
+        $placePositionTpslLifecycle = new $placePositionTpslLifecycleClass($this->position);
+        $nextIndex = $placePositionTpslLifecycle->dispatch(
             blockUuid: $this->uuid(),
             startIndex: $nextIndex,
             workflowId: null

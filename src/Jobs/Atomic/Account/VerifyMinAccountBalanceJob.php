@@ -6,6 +6,7 @@ namespace Martingalian\Core\Jobs\Atomic\Account;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Exceptions\JustEndException;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\ApiSystem;
@@ -16,15 +17,13 @@ use Martingalian\Core\Support\Math;
  *
  * Queries the exchange for account balance and stores in api_snapshots.
  * Compares available-balance against the trade configuration's min_account_balance.
- * Stops the workflow gracefully if balance is insufficient.
+ * Throws exception to stop the workflow gracefully if balance is insufficient.
  */
 final class VerifyMinAccountBalanceJob extends BaseApiableJob
 {
     public Account $account;
 
     public ApiSystem $apiSystem;
-
-    public bool $hasMinBalance = false;
 
     public function __construct(int $accountId)
     {
@@ -55,25 +54,26 @@ final class VerifyMinAccountBalanceJob extends BaseApiableJob
         // Verify minimum balance
         $availableBalance = $balanceData['available-balance'] ?? '0';
         $minAccountBalance = $this->account->tradeConfiguration->min_account_balance ?? '100';
+        $hasMinBalance = Math::gte($availableBalance, $minAccountBalance, 8);
 
-        $this->hasMinBalance = Math::gte($availableBalance, $minAccountBalance, 8);
+        // Store result before potential exception
+        $this->step->update([
+            'response' => [
+                'account_id' => $this->account->id,
+                'balance' => $balanceData,
+                'available_balance' => $availableBalance,
+                'min_account_balance' => $minAccountBalance,
+                'has_min_balance' => $hasMinBalance,
+            ],
+        ]);
 
-        return [
-            'account_id' => $this->account->id,
-            'balance' => $balanceData,
-            'available_balance' => $availableBalance,
-            'min_account_balance' => $minAccountBalance,
-            'has_min_balance' => $this->hasMinBalance,
-        ];
-    }
-
-    /**
-     * Stop the workflow gracefully if balance is below minimum.
-     */
-    public function complete(): void
-    {
-        if (! $this->hasMinBalance) {
-            $this->stopJob();
+        // Insufficient balance - throw to stop workflow gracefully
+        if (! $hasMinBalance) {
+            throw new JustEndException(
+                "Insufficient balance: {$availableBalance} < {$minAccountBalance} (minimum required)"
+            );
         }
+
+        return null; // Result already stored
     }
 }
