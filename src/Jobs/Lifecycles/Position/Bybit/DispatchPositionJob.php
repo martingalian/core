@@ -8,6 +8,7 @@ use Martingalian\Core\Jobs\Lifecycles\Order\PlaceLimitOrdersJob as PlaceLimitOrd
 use Martingalian\Core\Jobs\Lifecycles\Order\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Order\PlaceProfitOrderJob as PlaceProfitOrderLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Order\PlaceStopLossOrderJob as PlaceStopLossOrderLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Position\ActivatePositionJob as ActivatePositionLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\DetermineLeverageJob as DetermineLeverageLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob as BaseDispatchPositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionDataJob as PreparePositionDataLifecycle;
@@ -33,6 +34,7 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  * • Step 8: PlaceLimitOrdersJob - Place limit ladder orders (parallel)
  * • Step 9: PlaceProfitOrderJob - Place take-profit order
  * • Step 10: PlaceStopLossOrderJob - Place stop-loss order
+ * • Step 11: ActivatePositionJob - Validate orders, set status='active'
  */
 class DispatchPositionJob extends BaseDispatchPositionJob
 {
@@ -125,6 +127,15 @@ class DispatchPositionJob extends BaseDispatchPositionJob
         $placeStopLossOrderLifecycleClass = $resolver->resolve(PlaceStopLossOrderLifecycle::class);
         $placeStopLossOrderLifecycle = new $placeStopLossOrderLifecycleClass($this->position);
         $nextIndex = $placeStopLossOrderLifecycle->dispatch(
+            blockUuid: $this->uuid(),
+            startIndex: $nextIndex,
+            workflowId: null
+        );
+
+        // Step 11: Activate position (validate orders, set status='active')
+        $activatePositionLifecycleClass = $resolver->resolve(ActivatePositionLifecycle::class);
+        $activatePositionLifecycle = new $activatePositionLifecycleClass($this->position);
+        $nextIndex = $activatePositionLifecycle->dispatch(
             blockUuid: $this->uuid(),
             startIndex: $nextIndex,
             workflowId: null
