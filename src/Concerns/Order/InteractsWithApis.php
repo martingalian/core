@@ -349,10 +349,17 @@ trait InteractsWithApis
 
     /**
      * Sync a plan order (query and update local record).
+     *
+     * For Bitget TPSL orders: First checks pending list, then history if not found.
      */
     public function apiSyncPlanOrder(): ApiResponse
     {
         $apiResponse = $this->apiQueryPlanOrder();
+
+        // If not found in pending list, check history (order may be filled/cancelled)
+        if (($apiResponse->result['status'] ?? '') === 'NOT_FOUND') {
+            $apiResponse = $this->apiQueryPlanOrderHistory();
+        }
 
         $this->updateSaving([
             'status' => $apiResponse->result['status'],
@@ -361,6 +368,24 @@ trait InteractsWithApis
         ]);
 
         return $apiResponse;
+    }
+
+    /**
+     * Query plan order history (for filled/cancelled orders not in pending list).
+     */
+    public function apiQueryPlanOrderHistory(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->preparePlanOrderQueryProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
+        $this->apiResponse = $this->apiAccount()->withApi()->getPlanOrderHistory($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolvePlanOrderQueryResponse(
+                $this->apiResponse,
+                (string) $this->exchange_order_id
+            )
+        );
     }
 
     /**

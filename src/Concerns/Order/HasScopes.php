@@ -8,6 +8,18 @@ use Illuminate\Database\Eloquent\Builder;
 
 trait HasScopes
 {
+    /**
+     * Orders that can be synced from the exchange.
+     *
+     * Excludes MARKET orders (initial entry orders that execute immediately)
+     * and requires exchange_order_id to exist.
+     */
+    public function scopeSyncable(Builder $query)
+    {
+        return $query->whereNotNull('orders.exchange_order_id')
+            ->whereNotIn('orders.type', ['MARKET', 'MARKET-CANCEL']);
+    }
+
     public function scopeCancellable(Builder $query)
     {
         return $query->whereIn('type', ['LIMIT', 'STOP-LOSS', 'PROFIT-LIMIT', 'PROFIT-MARKET']);

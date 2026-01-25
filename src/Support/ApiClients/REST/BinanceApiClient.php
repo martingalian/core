@@ -58,6 +58,13 @@ final class BinanceApiClient extends BaseApiClient
             $signature
         );
 
+        // For POST/PUT/DELETE, Binance requires params in URL query string
+        // Append the full query (including signature) to the path
+        if (strtoupper($apiRequest->method) !== 'GET') {
+            $fullQuery = Url::buildQuery($apiRequest->properties->getOr('options', []));
+            $apiRequest->path = $apiRequest->path.'?'.$fullQuery;
+        }
+
         return $this->processRequest($apiRequest);
     }
 

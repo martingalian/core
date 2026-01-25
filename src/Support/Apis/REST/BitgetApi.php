@@ -472,6 +472,29 @@ final class BitgetApi
     }
 
     /**
+     * Get plan order history (filled/cancelled TPSL and trigger orders).
+     *
+     * @see https://www.bitget.com/api-doc/contract/plan/Get-Plan-Order-History
+     */
+    public function getPlanOrderHistory(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        // Default to USDT-FUTURES for perpetuals
+        if (! $properties->has('options.productType')) {
+            $properties->set('options.productType', 'USDT-FUTURES');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v2/mix/order/orders-plan-history',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
      * Cancel a plan order.
      *
      * @see https://www.bitget.com/api-doc/contract/plan/Cancel-Plan-Order

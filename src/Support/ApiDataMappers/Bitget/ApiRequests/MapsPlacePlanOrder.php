@@ -94,7 +94,9 @@ trait MapsPlacePlanOrder
         $properties->set('relatable', $order);
         $properties->set('options.symbol', (string) $order->position->exchangeSymbol->parsed_trading_pair);
         $properties->set('options.productType', 'USDT-FUTURES');
-        // Note: orderId is filtered in resolvePlanOrderQueryResponse(), not via API param
+
+        // Use profit_loss planType for TPSL orders (covers pos_profit, pos_loss, profit_plan, loss_plan)
+        $properties->set('options.planType', 'profit_loss');
 
         return $properties;
     }
