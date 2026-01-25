@@ -154,6 +154,8 @@ class PlacePositionTpslJob extends BaseApiableJob
         $stopLossId = $positionData['stopLossId'] ?? null;
 
         // Create TP Order record
+        // Note: is_algo=false because position-level TP/SL use different API endpoints
+        // than plan orders, and we need query/cancel functionality via standard endpoints
         $this->profitOrder = Order::create([
             'position_id' => $this->position->id,
             'type' => 'PROFIT-LIMIT',
@@ -163,7 +165,6 @@ class PlacePositionTpslJob extends BaseApiableJob
             'price' => $this->tpPrice,
             'quantity' => $this->position->quantity,
             'exchange_order_id' => $takeProfitId,
-            'is_algo' => true,
             'opened_at' => now(),
         ]);
 
@@ -177,7 +178,6 @@ class PlacePositionTpslJob extends BaseApiableJob
             'price' => $this->slPrice,
             'quantity' => $this->position->quantity,
             'exchange_order_id' => $stopLossId,
-            'is_algo' => true,
             'opened_at' => now(),
         ]);
 
