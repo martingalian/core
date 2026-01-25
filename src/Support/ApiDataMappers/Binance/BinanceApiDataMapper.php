@@ -19,6 +19,7 @@ use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsOpenOrdersQ
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsOrderCancel;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsOrderModify;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsOrderQuery;
+use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsPlaceAlgoOrder;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsPlaceOrder;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Binance\ApiRequests\MapsServerTimeQuery;
@@ -40,6 +41,7 @@ final class BinanceApiDataMapper extends BaseDataMapper
     use MapsOrderCancel;
     use MapsOrderModify;
     use MapsOrderQuery;
+    use MapsPlaceAlgoOrder;
     use MapsPlaceOrder;
     use MapsPositionsQuery;
     use MapsServerTimeQuery;

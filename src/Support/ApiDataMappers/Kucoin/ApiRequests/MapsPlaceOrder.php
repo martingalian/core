@@ -47,14 +47,16 @@ trait MapsPlaceOrder
 
             case 'STOP-MARKET':
                 $properties->set('options.type', 'market');
-                $properties->set('options.stop', 'down');
+                // Stop direction: BUY closes SHORT (price rises to trigger), SELL closes LONG (price falls)
+                $properties->set('options.stop', $order->side === 'BUY' ? 'up' : 'down');
                 $properties->set('options.stopPriceType', 'MP');
                 $properties->set('options.stopPrice', (string) api_format_price($order->price, $order->position->exchangeSymbol));
                 break;
 
             case 'TAKE-PROFIT':
                 $properties->set('options.type', 'market');
-                $properties->set('options.stop', 'up');
+                // Take-profit direction: opposite of stop-loss (SELL closes LONG at higher price, BUY closes SHORT at lower)
+                $properties->set('options.stop', $order->side === 'SELL' ? 'up' : 'down');
                 $properties->set('options.stopPriceType', 'MP');
                 $properties->set('options.stopPrice', (string) api_format_price($order->price, $order->position->exchangeSymbol));
                 break;

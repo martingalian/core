@@ -396,4 +396,48 @@ final class KucoinApi
     {
         return $this->getRiskLimitLevel($properties);
     }
+
+    /**
+     * Get a single stop order by orderId.
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/orders/get-details-of-a-single-untriggered-stop-order
+     */
+    public function getStopOrderDetail(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+        $orderId = $properties->get('options.orderId');
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            "/api/v1/stopOrders/{$orderId}",
+            $properties
+        );
+
+        // Remove orderId from options since it's in the URL
+        $properties->forget('options.orderId');
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Cancel a stop order by orderId.
+     *
+     * @see https://www.kucoin.com/docs/rest/futures-trading/orders/cancel-stop-orders
+     */
+    public function cancelStopOrder(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+        $orderId = $properties->get('options.orderId');
+
+        $apiRequest = ApiRequest::make(
+            'DELETE',
+            "/api/v1/stopOrders/{$orderId}",
+            $properties
+        );
+
+        // Remove orderId from options since it's in the URL
+        $properties->forget('options.orderId');
+
+        return $this->client->signRequest($apiRequest);
+    }
 }

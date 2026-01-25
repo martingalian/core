@@ -112,6 +112,75 @@ final class BinanceApi
         return $this->client->signRequest($apiRequest);
     }
 
+    /**
+     * Place a conditional algo order (STOP_MARKET, TAKE_PROFIT_MARKET, etc.).
+     *
+     * Since December 9, 2025, Binance migrated conditional orders to the Algo Order API.
+     * Regular placeOrder() endpoint no longer accepts STOP_MARKET orders.
+     *
+     * @see https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Algo-Order
+     */
+    public function placeAlgoOrder(ApiProperties $properties)
+    {
+        $this->validate($properties, [
+            'options.symbol' => 'required|string',
+            'options.side' => 'required|string',
+            'options.quantity' => 'required|string',
+            'options.algoType' => 'required|string',
+            'options.triggerPrice' => 'required|string',
+        ]);
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/fapi/v1/algoOrder',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Query a specific algo order by algoId.
+     *
+     * @see https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/Query-Algo-Historical-Orders
+     */
+    public function queryAlgoOrder(ApiProperties $properties)
+    {
+        $this->validate($properties, [
+            'options.symbol' => 'required|string',
+            'options.algoId' => 'required|string',
+        ]);
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/fapi/v1/algoOrder',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Cancel an algo order by algoId.
+     *
+     * @see https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/Cancel-Algo-Order
+     */
+    public function cancelAlgoOrder(ApiProperties $properties)
+    {
+        $this->validate($properties, [
+            'options.symbol' => 'required|string',
+            'options.algoId' => 'required|string',
+        ]);
+
+        $apiRequest = ApiRequest::make(
+            'DELETE',
+            '/fapi/v1/algoOrder',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
     // https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/All-Orders
     public function getAllOrders(ApiProperties $properties)
     {

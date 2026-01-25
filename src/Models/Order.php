@@ -35,6 +35,7 @@ final class Order extends BaseModel
         'quantity' => 'string',
         'reference_price' => 'string',
         'reference_quantity' => 'string',
+        'is_algo' => 'boolean',
     ];
 
     public function steps()

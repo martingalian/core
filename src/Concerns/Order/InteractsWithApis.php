@@ -27,6 +27,24 @@ trait InteractsWithApis
 
     public function apiCancel(): ApiResponse
     {
+        // Route to exchange-specific endpoints for stop/conditional orders
+        if ($this->is_algo) {
+            return match ($this->apiAccount()->apiSystem->canonical) {
+                'binance' => $this->apiCancelAlgo(),
+                'kucoin' => $this->apiCancelStopOrder(),
+                'bitget' => $this->apiCancelPlanOrder(),
+                default => $this->apiCancelDefault(), // Bybit uses same endpoint
+            };
+        }
+
+        return $this->apiCancelDefault();
+    }
+
+    /**
+     * Default cancel order implementation.
+     */
+    public function apiCancelDefault(): ApiResponse
+    {
         $this->apiProperties = $this->apiMapper()->prepareOrderCancelProperties($this);
         $this->apiProperties->set('account', $this->apiAccount());
         $this->apiResponse = $this->apiAccount()->withApi()->cancelOrder($this->apiProperties);
@@ -34,6 +52,21 @@ trait InteractsWithApis
         return new ApiResponse(
             response: $this->apiResponse,
             result: $this->apiMapper()->resolveOrderCancelResponse($this->apiResponse)
+        );
+    }
+
+    /**
+     * Cancel an algo order via Binance's Algo Order API.
+     */
+    public function apiCancelAlgo(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->prepareAlgoOrderCancelProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
+        $this->apiResponse = $this->apiAccount()->withApi()->cancelAlgoOrder($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolveAlgoOrderCancelResponse($this->apiResponse)
         );
     }
 
@@ -57,8 +90,28 @@ trait InteractsWithApis
         );
     }
 
-    // Queries an order.
+    /**
+     * Query an order.
+     */
     public function apiQuery(): ApiResponse
+    {
+        // Route to exchange-specific endpoints for stop/conditional orders
+        if ($this->is_algo) {
+            return match ($this->apiAccount()->apiSystem->canonical) {
+                'binance' => $this->apiQueryAlgo(),
+                'kucoin' => $this->apiQueryStopOrder(),
+                'bitget' => $this->apiQueryPlanOrder(),
+                default => $this->apiQueryDefault(), // Bybit uses same endpoint with orderFilter
+            };
+        }
+
+        return $this->apiQueryDefault();
+    }
+
+    /**
+     * Default order query implementation.
+     */
+    public function apiQueryDefault(): ApiResponse
     {
         $this->apiProperties = $this->apiMapper()->prepareOrderQueryProperties($this);
         $this->apiProperties->set('account', $this->apiAccount());
@@ -70,22 +123,62 @@ trait InteractsWithApis
         );
     }
 
-    // V4 ready.
+    /**
+     * Sync an order (query and update local record).
+     */
     public function apiSync(): ApiResponse
     {
-        $apiResponse = $this->apiQuery();
+        // Route to exchange-specific sync for stop/conditional orders
+        if ($this->is_algo) {
+            return match ($this->apiAccount()->apiSystem->canonical) {
+                'binance' => $this->apiSyncAlgo(),
+                'kucoin' => $this->apiSyncStopOrder(),
+                'bitget' => $this->apiSyncPlanOrder(),
+                default => $this->apiSyncDefault(), // Bybit uses same endpoint
+            };
+        }
+
+        return $this->apiSyncDefault();
+    }
+
+    /**
+     * Default sync implementation.
+     */
+    public function apiSyncDefault(): ApiResponse
+    {
+        $apiResponse = $this->apiQueryDefault();
 
         $this->updateSaving([
             'status' => $apiResponse->result['status'],
-            'quantity' => $apiResponse->result['quantity'],
+            'quantity' => $apiResponse->result['quantity'] ?? $apiResponse->result['original_quantity'] ?? $this->quantity,
             'price' => $apiResponse->result['price'],
         ]);
 
         return $apiResponse;
     }
 
-    // V4 ready.
+    /**
+     * Place an order.
+     */
     public function apiPlace(): ApiResponse
+    {
+        // Route to exchange-specific endpoints for stop/conditional orders
+        if ($this->is_algo) {
+            return match ($this->apiAccount()->apiSystem->canonical) {
+                'binance' => $this->apiPlaceAlgo(),
+                'kucoin' => $this->apiPlaceDefault(), // KuCoin uses same endpoint with stop params
+                'bitget' => $this->apiPlacePlanOrder(),
+                default => $this->apiPlaceDefault(), // Bybit uses same endpoint with triggerPrice
+            };
+        }
+
+        return $this->apiPlaceDefault();
+    }
+
+    /**
+     * Default place order implementation.
+     */
+    public function apiPlaceDefault(): ApiResponse
     {
         $this->apiProperties = $this->apiMapper()->preparePlaceOrderProperties($this);
         $this->apiProperties->set('account', $this->apiAccount());
@@ -102,5 +195,186 @@ trait InteractsWithApis
         ]);
 
         return $finalResponse;
+    }
+
+    /**
+     * Place an algo order via Binance's Algo Order API.
+     *
+     * Since December 9, 2025, Binance migrated STOP_MARKET orders to this endpoint.
+     * The response returns `algoId` instead of `orderId`.
+     */
+    public function apiPlaceAlgo(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->preparePlaceAlgoOrderProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
+        $this->apiResponse = $this->apiAccount()->withApi()->placeAlgoOrder($this->apiProperties);
+
+        $finalResponse = new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolvePlaceAlgoOrderResponse($this->apiResponse)
+        );
+
+        $this->updateSaving([
+            'exchange_order_id' => $finalResponse->result['orderId'],
+            'opened_at' => now(),
+        ]);
+
+        return $finalResponse;
+    }
+
+    /**
+     * Query an algo order via Binance's Algo Order API.
+     */
+    public function apiQueryAlgo(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->prepareAlgoOrderQueryProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
+        $this->apiResponse = $this->apiAccount()->withApi()->queryAlgoOrder($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolveAlgoOrderQueryResponse($this->apiResponse)
+        );
+    }
+
+    /**
+     * Sync an algo order (query and update local record).
+     */
+    public function apiSyncAlgo(): ApiResponse
+    {
+        $apiResponse = $this->apiQueryAlgo();
+
+        $this->updateSaving([
+            'status' => $apiResponse->result['status'],
+            'quantity' => $apiResponse->result['quantity'],
+            'price' => $apiResponse->result['price'],
+        ]);
+
+        return $apiResponse;
+    }
+
+    // =========================================================================
+    // KuCoin Stop Order Methods
+    // =========================================================================
+
+    /**
+     * Query a stop order via KuCoin's Stop Orders API.
+     */
+    public function apiQueryStopOrder(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->prepareStopOrderQueryProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
+        $this->apiResponse = $this->apiAccount()->withApi()->getStopOrderDetail($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolveStopOrderQueryResponse($this->apiResponse)
+        );
+    }
+
+    /**
+     * Sync a stop order (query and update local record).
+     */
+    public function apiSyncStopOrder(): ApiResponse
+    {
+        $apiResponse = $this->apiQueryStopOrder();
+
+        $this->updateSaving([
+            'status' => $apiResponse->result['status'],
+            'quantity' => $apiResponse->result['original_quantity'] ?? $this->quantity,
+            'price' => $apiResponse->result['price'],
+        ]);
+
+        return $apiResponse;
+    }
+
+    /**
+     * Cancel a stop order via KuCoin's Stop Orders API.
+     */
+    public function apiCancelStopOrder(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->prepareStopOrderCancelProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
+        $this->apiResponse = $this->apiAccount()->withApi()->cancelStopOrder($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolveStopOrderCancelResponse($this->apiResponse)
+        );
+    }
+
+    // =========================================================================
+    // Bitget Plan Order Methods
+    // =========================================================================
+
+    /**
+     * Place a plan order via Bitget's Plan Order API.
+     */
+    public function apiPlacePlanOrder(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->preparePlacePlanOrderProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
+        $this->apiResponse = $this->apiAccount()->withApi()->placePlanOrder($this->apiProperties);
+
+        $finalResponse = new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolvePlacePlanOrderResponse($this->apiResponse)
+        );
+
+        $this->updateSaving([
+            'exchange_order_id' => $finalResponse->result['orderId'],
+            'opened_at' => now(),
+        ]);
+
+        return $finalResponse;
+    }
+
+    /**
+     * Query a plan order via Bitget's Plan Order API.
+     */
+    public function apiQueryPlanOrder(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->preparePlanOrderQueryProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
+        $this->apiResponse = $this->apiAccount()->withApi()->getPlanOrderDetail($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolvePlanOrderQueryResponse(
+                $this->apiResponse,
+                (string) $this->exchange_order_id
+            )
+        );
+    }
+
+    /**
+     * Sync a plan order (query and update local record).
+     */
+    public function apiSyncPlanOrder(): ApiResponse
+    {
+        $apiResponse = $this->apiQueryPlanOrder();
+
+        $this->updateSaving([
+            'status' => $apiResponse->result['status'],
+            'quantity' => $apiResponse->result['quantity'] ?? $this->quantity,
+            'price' => $apiResponse->result['price'],
+        ]);
+
+        return $apiResponse;
+    }
+
+    /**
+     * Cancel a plan order via Bitget's Plan Order API.
+     */
+    public function apiCancelPlanOrder(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->preparePlanOrderCancelProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
+        $this->apiResponse = $this->apiAccount()->withApi()->cancelPlanOrder($this->apiProperties);
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolvePlanOrderCancelResponse($this->apiResponse)
+        );
     }
 }

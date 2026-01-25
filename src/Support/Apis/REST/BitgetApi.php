@@ -403,4 +403,65 @@ final class BitgetApi
 
         return $this->client->publicRequest($apiRequest);
     }
+
+    /**
+     * Place a plan order (conditional/stop order).
+     *
+     * @see https://www.bitget.com/api-doc/contract/plan/Place-Plan-Order
+     */
+    public function placePlanOrder(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/order/place-plan-order',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Get plan order detail.
+     *
+     * Note: Uses the pending list endpoint and filters by orderId.
+     *
+     * @see https://www.bitget.com/api-doc/contract/plan/Get-Plan-Order-List
+     */
+    public function getPlanOrderDetail(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        // Default to USDT-FUTURES for perpetuals
+        if (! $properties->has('options.productType')) {
+            $properties->set('options.productType', 'USDT-FUTURES');
+        }
+
+        $apiRequest = ApiRequest::make(
+            'GET',
+            '/api/v2/mix/order/orders-plan-pending',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
+     * Cancel a plan order.
+     *
+     * @see https://www.bitget.com/api-doc/contract/plan/Cancel-Plan-Order
+     */
+    public function cancelPlanOrder(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/order/cancel-plan-order',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
 }

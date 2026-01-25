@@ -6,6 +6,8 @@ namespace Martingalian\Core\Jobs\Lifecycles\Position\Binance;
 
 use Martingalian\Core\Jobs\Lifecycles\Order\PlaceLimitOrdersJob as PlaceLimitOrdersLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Order\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Order\PlaceProfitOrderJob as PlaceProfitOrderLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Order\PlaceStopLossOrderJob as PlaceStopLossOrderLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\DetermineLeverageJob as DetermineLeverageLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob as BaseDispatchPositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionDataJob as PreparePositionDataLifecycle;
@@ -29,6 +31,8 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  * • Step 6: VerifyOrderNotionalJob - Fetch mark price, validate notional
  * • Step 7: PlaceMarketOrderJob - Place market entry order
  * • Step 8: PlaceLimitOrdersJob - Place limit ladder orders (parallel)
+ * • Step 9: PlaceProfitOrderJob - Place take-profit order
+ * • Step 10: PlaceStopLossOrderJob - Place stop-loss order
  */
 class DispatchPositionJob extends BaseDispatchPositionJob
 {
@@ -103,6 +107,24 @@ class DispatchPositionJob extends BaseDispatchPositionJob
         $placeLimitOrdersLifecycleClass = $resolver->resolve(PlaceLimitOrdersLifecycle::class);
         $placeLimitOrdersLifecycle = new $placeLimitOrdersLifecycleClass($this->position);
         $nextIndex = $placeLimitOrdersLifecycle->dispatch(
+            blockUuid: $this->uuid(),
+            startIndex: $nextIndex,
+            workflowId: null
+        );
+
+        // Step 9: Place take-profit order
+        $placeProfitOrderLifecycleClass = $resolver->resolve(PlaceProfitOrderLifecycle::class);
+        $placeProfitOrderLifecycle = new $placeProfitOrderLifecycleClass($this->position);
+        $nextIndex = $placeProfitOrderLifecycle->dispatch(
+            blockUuid: $this->uuid(),
+            startIndex: $nextIndex,
+            workflowId: null
+        );
+
+        // Step 10: Place stop-loss order
+        $placeStopLossOrderLifecycleClass = $resolver->resolve(PlaceStopLossOrderLifecycle::class);
+        $placeStopLossOrderLifecycle = new $placeStopLossOrderLifecycleClass($this->position);
+        $nextIndex = $placeStopLossOrderLifecycle->dispatch(
             blockUuid: $this->uuid(),
             startIndex: $nextIndex,
             workflowId: null

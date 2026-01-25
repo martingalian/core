@@ -23,6 +23,11 @@ trait MapsOrderQuery
         $properties->set('options.category', 'linear');
         $properties->set('options.orderId', (string) $order->exchange_order_id);
 
+        // Stop orders (is_algo=true) need orderFilter to be found
+        if ($order->is_algo ?? false) {
+            $properties->set('options.orderFilter', 'StopOrder');
+        }
+
         return $properties;
     }
 

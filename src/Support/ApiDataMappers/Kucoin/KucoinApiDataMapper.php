@@ -20,6 +20,7 @@ use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsOrderQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsPlaceOrder;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsServerTimeQuery;
+use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsStopOrder;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsStopOrdersQuery;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsSymbolMarginType;
 use Martingalian\Core\Support\ApiDataMappers\Kucoin\ApiRequests\MapsTokenLeverageRatios;
@@ -50,6 +51,7 @@ final class KucoinApiDataMapper extends BaseDataMapper
     use MapsPlaceOrder;
     use MapsPositionsQuery;
     use MapsServerTimeQuery;
+    use MapsStopOrder;
     use MapsStopOrdersQuery;
     use MapsSymbolMarginType;
     use MapsTokenLeverageRatios;

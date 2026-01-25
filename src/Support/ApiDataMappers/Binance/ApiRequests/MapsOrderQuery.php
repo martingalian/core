@@ -30,10 +30,11 @@ trait MapsOrderQuery
         // Special cases.
         if ($result['type'] === 'STOP_MARKET') {
             $price = $result['stopPrice'];
-            $quantity = 0;
+            // For STOP_MARKET: use executedQty if triggered/filled, otherwise origQty
+            $quantity = Math::gt($result['executedQty'], '0') ? $result['executedQty'] : $result['origQty'];
         } else {
-            $price = Math::gt($result['avgPrice'], 0) ? $result['avgPrice'] : $result['price'];
-            $quantity = Math::gt($result['executedQty'], 0) ? $result['executedQty'] : $result['origQty'];
+            $price = Math::gt($result['avgPrice'], '0') ? $result['avgPrice'] : $result['price'];
+            $quantity = Math::gt($result['executedQty'], '0') ? $result['executedQty'] : $result['origQty'];
         }
 
         if ($result['status'] === 'CANCELED') {
