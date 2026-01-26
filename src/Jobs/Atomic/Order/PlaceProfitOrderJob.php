@@ -170,7 +170,5 @@ class PlaceProfitOrderJob extends BaseApiableJob
         $this->position->updateSaving([
             'error_message' => 'Profit order failed: ' . $e->getMessage(),
         ]);
-
-        throw $e;
     }
 }

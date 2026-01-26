@@ -171,7 +171,5 @@ class PlaceStopLossOrderJob extends BaseApiableJob
         $this->position->updateSaving([
             'error_message' => 'Stop-loss order failed: ' . $e->getMessage(),
         ]);
-
-        throw $e;
     }
 }

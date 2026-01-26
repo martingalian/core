@@ -298,7 +298,5 @@ class PlacePositionTpslJob extends BaseApiableJob
         $this->position->updateSaving([
             'error_message' => 'Position TP/SL failed: ' . $e->getMessage(),
         ]);
-
-        throw $e;
     }
 }

@@ -176,8 +176,5 @@ class PlaceMarketOrderJob extends BaseApiableJob
         $this->position->updateSaving([
             'error_message' => $e->getMessage(),
         ]);
-
-        // Let the exception handler notify admins
-        throw $e;
     }
 }

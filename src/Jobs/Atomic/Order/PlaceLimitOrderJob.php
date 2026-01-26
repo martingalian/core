@@ -122,8 +122,5 @@ class PlaceLimitOrderJob extends BaseApiableJob
         $position->updateSaving([
             'error_message' => "Limit order L{$this->rungIndex} failed: " . $e->getMessage(),
         ]);
-
-        // Let the exception handler notify admins
-        throw $e;
     }
 }

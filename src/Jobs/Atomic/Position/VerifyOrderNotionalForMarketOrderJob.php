@@ -140,7 +140,5 @@ final class VerifyOrderNotionalForMarketOrderJob extends BaseApiableJob
         $this->position->updateSaving([
             'error_message' => $e->getMessage(),
         ]);
-
-        throw $e;
     }
 }

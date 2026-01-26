@@ -8,6 +8,7 @@ use Martingalian\Core\Jobs\Lifecycles\Order\Bitget\PlacePositionTpslJob as Place
 use Martingalian\Core\Jobs\Lifecycles\Order\PlaceLimitOrdersJob as PlaceLimitOrdersLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Order\PlaceMarketOrderJob as PlaceMarketOrderLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\ActivatePositionJob as ActivatePositionLifecycle;
+use Martingalian\Core\Jobs\Lifecycles\Position\CancelPositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\DetermineLeverageJob as DetermineLeverageLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob as BaseDispatchPositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionDataJob as PreparePositionDataLifecycle;
@@ -15,6 +16,7 @@ use Martingalian\Core\Jobs\Lifecycles\Position\SetLeverageJob as SetLeverageLife
 use Martingalian\Core\Jobs\Lifecycles\Position\SetMarginModeJob as SetMarginModeLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\VerifyOrderNotionalJob as VerifyOrderNotionalLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\VerifyTradingPairNotOpenJob as VerifyTradingPairNotOpenLifecycle;
+use Martingalian\Core\Models\Step;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
 /**
@@ -129,6 +131,20 @@ class DispatchPositionJob extends BaseDispatchPositionJob
             startIndex: $nextIndex,
             workflowId: null
         );
+
+        // resolve-exception: Cancel position if any step fails
+        // Note: index=1 allows immediate dispatch when promoted to Pending
+        Step::create([
+            'class' => $resolver->resolve(CancelPositionJob::class),
+            'queue' => 'positions',
+            'block_uuid' => $this->uuid(),
+            'index' => 1,
+            'type' => 'resolve-exception',
+            'arguments' => [
+                'positionId' => $this->position->id,
+                'message' => 'Position opening failed during dispatch workflow',
+            ],
+        ]);
 
         return [
             'position_id' => $this->position->id,
