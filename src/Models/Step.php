@@ -13,6 +13,7 @@ use Martingalian\Core\Concerns\Step\HasStepLogging;
 use Martingalian\Core\States\Cancelled;
 use Martingalian\Core\States\Completed;
 use Martingalian\Core\States\Failed;
+use Martingalian\Core\States\NotRunnable;
 use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Running;
 use Martingalian\Core\States\Skipped;
@@ -143,6 +144,15 @@ final class Step extends BaseModel
     public function isParent(): bool
     {
         return ! empty($this->child_block_uuid);
+    }
+
+    /**
+     * A resolve-exception step that is still NotRunnable (never activated).
+     * These are inert on success paths and should not block parent completion.
+     */
+    public function isDormantResolveException(): bool
+    {
+        return $this->type === 'resolve-exception' && $this->state instanceof NotRunnable;
     }
 
     public function parentIsRunning(): bool
@@ -302,6 +312,14 @@ final class Step extends BaseModel
             $stateClass = get_class($child->state);
             log_step($child->id, "[Step.childStepsAreConcludedFromMap] 🧒 Child ID {$child->id} | State: ".class_basename($stateClass));
 
+            // Dormant resolve-exception steps (NotRunnable) don't block parent completion.
+            // They only activate when siblings fail — on success they remain inert.
+            if ($child->isDormantResolveException()) {
+                log_step($child->id, "[Step.childStepsAreConcludedFromMap] 💤 Child ID {$child->id} is dormant resolve-exception, skipping.");
+
+                continue;
+            }
+
             if (! in_array($stateClass, $this->concludedStepStates(), strict: true)) {
                 log_step($child->id, "[Step.childStepsAreConcludedFromMap] ❌ Child ID {$child->id} is NOT in concluded states. Returning FALSE.");
 
@@ -334,6 +352,12 @@ final class Step extends BaseModel
         }
 
         foreach ($children as $child) {
+            // Dormant resolve-exception steps (NotRunnable) don't block parent completion.
+            // They only activate when siblings fail — on success they remain inert.
+            if ($child->isDormantResolveException()) {
+                continue;
+            }
+
             if (! in_array(get_class($child->state), $this->concludedStepStates(), strict: true)) {
                 return false;
             }

@@ -305,13 +305,27 @@ trait HandlesStepLifecycle
 
     protected function completeIfNotHandled(): void
     {
+        \Illuminate\Support\Facades\Log::channel('jobs')->info('[LIFECYCLE-DEBUG] completeIfNotHandled()', [
+            'step_id' => $this->step->id,
+            'stepStatusUpdated' => $this->stepStatusUpdated,
+            'current_state' => (string) $this->step->state,
+        ]);
+
         if ($this->stepStatusUpdated) {
+            \Illuminate\Support\Facades\Log::channel('jobs')->warning('[LIFECYCLE-DEBUG] SKIPPED completion — stepStatusUpdated=true', [
+                'step_id' => $this->step->id,
+            ]);
+
             return;
         }
 
         $this->finalizeDuration();
         $this->step->state->transitionTo(Completed::class);
         $this->stepStatusUpdated = true;
+
+        \Illuminate\Support\Facades\Log::channel('jobs')->info('[LIFECYCLE-DEBUG] Step transitioned to Completed', [
+            'step_id' => $this->step->id,
+        ]);
     }
 
     // ========================================================================

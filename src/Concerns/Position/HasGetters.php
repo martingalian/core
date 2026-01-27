@@ -17,7 +17,6 @@ trait HasGetters
     {
         return $this->orders()
             ->where('type', 'LIMIT')
-            ->where('position_side', $this->direction)
             ->whereNotIn('status', ['CANCELLED', 'EXPIRED'])
             ->get();
     }
@@ -30,7 +29,6 @@ trait HasGetters
     {
         return $this->orders()
             ->whereIn('type', ['LIMIT', 'MARKET'])
-            ->where('position_side', $this->direction)
             ->where('status', 'FILLED')
             ->get();
     }
@@ -44,7 +42,6 @@ trait HasGetters
         return $this->orders()
             ->whereIn('type', ['LIMIT', 'MARKET'])
             ->whereNotIn('status', ['CANCELLED', 'EXPIRED'])
-            ->where('position_side', $this->direction)
             ->get();
     }
 
@@ -74,7 +71,6 @@ trait HasGetters
     {
         return $this->orders()
             ->where('orders.type', 'LIMIT')
-            ->where('orders.position_side', $this->direction)
             ->where('orders.status', 'FILLED')
             ->count();
     }
@@ -88,7 +84,6 @@ trait HasGetters
         return $this->orders()
             ->where('orders.type', 'LIMIT')
             ->whereNotNull('orders.exchange_order_id')
-            ->where('orders.position_side', $this->direction)
             ->whereIn('orders.status', ['NEW', 'PARTIALLY_FILLED', 'FILLED'])
             ->orderByDesc('orders.quantity')
             ->first();
@@ -102,7 +97,6 @@ trait HasGetters
     {
         return $this->orders()
             ->where('orders.type', 'MARKET')
-            ->where('orders.position_side', $this->direction)
             ->orderByDesc('orders.id')
             ->first();
     }
@@ -115,7 +109,6 @@ trait HasGetters
     {
         return $this->orders()
             ->where('orders.type', 'STOP-MARKET')
-            ->where('orders.position_side', $this->direction)
             ->orderByDesc('orders.id')
             ->first();
     }
@@ -128,7 +121,6 @@ trait HasGetters
     {
         return $this->orders()
             ->where('orders.type', 'MARKET-CANCEL')
-            ->where('orders.position_side', $this->direction)
             ->orderByDesc('orders.id')
             ->first();
     }
@@ -141,7 +133,6 @@ trait HasGetters
     {
         return $this->orders()
             ->whereIn('orders.type', ['PROFIT-LIMIT', 'PROFIT-MARKET'])
-            ->where('orders.position_side', $this->direction)
             ->orderByDesc('orders.id')
             ->first();
     }
@@ -317,7 +308,6 @@ trait HasGetters
     public function nextPendingLimitOrderPrice(): ?string
     {
         $lastFilled = $this->orders()
-            ->where('position_side', $this->direction)
             ->where('status', 'FILLED')
             ->orderByDesc('id')
             ->first();
@@ -325,7 +315,6 @@ trait HasGetters
         $lastId = $lastFilled->id ?? 0;
 
         $next = $this->orders()
-            ->where('position_side', $this->direction)
             ->where('type', 'LIMIT')
             ->whereNotIn('status', ['FILLED', 'CANCELLED', 'EXPIRED'])
             ->where('id', '>', $lastId)
@@ -430,7 +419,6 @@ trait HasGetters
     private function lastFilledLimitOrMarketPrice(): ?string
     {
         $base = $this->orders()
-            ->where('position_side', $this->direction)
             ->where('status', 'FILLED');
 
         $lastFilledLimit = (clone $base)

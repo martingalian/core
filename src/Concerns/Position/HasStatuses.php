@@ -46,6 +46,11 @@ trait HasStatuses
         $this->updateSaving(['status' => 'active', 'watched_at' => null]);
     }
 
+    public function updateToReplacing()
+    {
+        $this->updateSaving(['status' => 'replacing', 'watched_at' => null]);
+    }
+
     public function updateToClosing()
     {
         $this->updateSaving(['status' => 'closing', 'watched_at' => null]);

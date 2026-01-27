@@ -6,10 +6,18 @@ namespace Martingalian\Core\Observers;
 
 use Illuminate\Support\Str;
 
+use Martingalian\Core\Exceptions\NonNotifiableException;
+use Martingalian\Core\Jobs\Lifecycles\Position\ClosePositionJob;
+use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionReplacementJob;
 use Martingalian\Core\Models\Order;
+use Martingalian\Core\Models\Step;
 
 final class OrderObserver
 {
+    private const array INACTIVE_STATUSES = ['CANCELLED', 'EXPIRED'];
+
+    private const array CLOSE_TRIGGER_TYPES = ['PROFIT-LIMIT', 'PROFIT-MARKET', 'STOP-MARKET'];
+
     public function creating(Order $model): void
     {
         if (empty($model->uuid)) {
@@ -32,12 +40,132 @@ final class OrderObserver
                 $model->is_algo = true;
             }
         }
+
+        $this->enforceOrderLimits($model);
     }
 
     public function updating(Order $model): void
     {
         if ($model->status === 'FILLED') {
             $model->filled_at = now();
+        }
+    }
+
+    /**
+     * After an order is updated, check if a profit/stop order status changed.
+     *
+     * - FILLED profit/stop → ClosePositionJob (orderly close)
+     * - EXPIRED/CANCELLED profit/stop → PreparePositionReplacementJob
+     *   (queries exchange to determine if position still exists, then
+     *    dispatches CancelPositionJob or ReplacePositionOrdersJob)
+     *
+     * Uses reference_status to detect changes idempotently — prevents
+     * double-dispatch when multiple syncs process the same order.
+     */
+    public function updated(Order $model): void
+    {
+        if (! in_array($model->type, self::CLOSE_TRIGGER_TYPES, true)) {
+            return;
+        }
+
+        if ($model->status === $model->reference_status) {
+            return;
+        }
+
+        $position = $model->position;
+
+        if ($position === null) {
+            return;
+        }
+
+        // Guard against dispatch if position is already closing/closed
+        if (! in_array($position->status, $position->activeStatuses(), true)) {
+            return;
+        }
+
+        match ($model->status) {
+            'FILLED' => $this->dispatchClosePosition($model, $position),
+            'EXPIRED', 'CANCELLED' => $this->dispatchPositionReplacement($model, $position),
+            default => null,
+        };
+    }
+
+    private function dispatchClosePosition(Order $model, mixed $position): void
+    {
+        $model->updateSaving(['reference_status' => 'FILLED']);
+
+        Step::create([
+            'class' => ClosePositionJob::class,
+            'arguments' => [
+                'positionId' => $position->id,
+                'message' => "{$model->type} order #{$model->id} filled — closing position",
+            ],
+            'child_block_uuid' => (string) Str::uuid(),
+        ]);
+    }
+
+    private function dispatchPositionReplacement(Order $model, mixed $position): void
+    {
+        $model->updateSaving(['reference_status' => $model->status]);
+
+        $action = $model->status === 'EXPIRED' ? 'expired' : 'cancelled';
+
+        Step::create([
+            'class' => PreparePositionReplacementJob::class,
+            'arguments' => [
+                'positionId' => $position->id,
+                'triggerStatus' => $model->status,
+                'message' => "{$model->type} order #{$model->id} {$action} — preparing replacement",
+            ],
+            'child_block_uuid' => (string) Str::uuid(),
+        ]);
+    }
+
+    /**
+     * Enforce maximum active order limits per type on a position.
+     * Prevents duplicate STOP-MARKET, MARKET, PROFIT, or excess LIMIT orders.
+     */
+    private function enforceOrderLimits(Order $model): void
+    {
+        $position = $model->position;
+
+        if ($position === null) {
+            return;
+        }
+
+        $activeQuery = $position->orders()
+            ->whereNotIn('status', self::INACTIVE_STATUSES);
+
+        match ($model->type) {
+            'STOP-MARKET' => $this->blockIfActiveExists($activeQuery, 'STOP-MARKET'),
+            'MARKET' => $this->blockIfActiveExists($activeQuery, 'MARKET'),
+            'MARKET-CANCEL' => $this->blockIfActiveExists($activeQuery, 'MARKET-CANCEL'),
+            'PROFIT-LIMIT', 'PROFIT-MARKET' => $this->blockIfActiveProfitExists($activeQuery),
+            'LIMIT' => $this->blockIfLimitExceeded($activeQuery, $position),
+            default => null,
+        };
+    }
+
+    private function blockIfActiveExists(mixed $query, string $type): void
+    {
+        if ((clone $query)->where('type', $type)->exists()) {
+            throw new NonNotifiableException("{$type} order creation blocked: active order already exists");
+        }
+    }
+
+    private function blockIfActiveProfitExists(mixed $query): void
+    {
+        if ((clone $query)->whereIn('type', ['PROFIT-LIMIT', 'PROFIT-MARKET'])->exists()) {
+            throw new NonNotifiableException('PROFIT order creation blocked: active order already exists');
+        }
+    }
+
+    private function blockIfLimitExceeded(mixed $query, mixed $position): void
+    {
+        $activeCount = (clone $query)->where('type', 'LIMIT')->count();
+
+        if ($activeCount >= $position->total_limit_orders) {
+            throw new NonNotifiableException("LIMIT order creation blocked: {$activeCount}/{$position->total_limit_orders} active");
         }
     }
 }

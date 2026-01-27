@@ -7,8 +7,11 @@ namespace Martingalian\Core\Jobs\Atomic\Order;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Martingalian\Martingalian;
+use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
+use Martingalian\Core\Support\Proxies\ApiDataMapperProxy;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -84,17 +87,31 @@ class PlaceProfitOrderJob extends BaseApiableJob
     {
         $exchangeSymbol = $this->position->exchangeSymbol;
         $direction = $this->position->direction;
+        $canonical = $this->position->account->apiSystem->canonical;
 
         // Side is opposite to close position
         $side = $direction === 'LONG' ? 'SELL' : 'BUY';
 
-        // Calculate profit order data
+        // Fetch fresh mark price so TP re-anchors if price already passed
+        $mapper = new ApiDataMapperProxy($canonical);
+        $properties = $mapper->prepareQueryMarkPriceProperties($exchangeSymbol);
+        $response = Account::admin($canonical)->withApi()->getMarkPrice($properties);
+        $markPrice = $mapper->resolveQueryMarkPriceResponse($response);
+
+        if (! $markPrice || ! is_numeric($markPrice)) {
+            throw new RuntimeException("Failed to fetch mark price for {$exchangeSymbol->parsed_trading_pair}");
+        }
+
+        $exchangeSymbol->updateSaving(['mark_price' => $markPrice]);
+
+        // Calculate profit order data (re-anchor TP if mark price already passed it)
         $profitData = Martingalian::calculateProfitOrder(
             direction: $direction,
             referencePrice: $this->position->opening_price,
             profitPercent: $this->position->profit_percentage,
             currentQty: $this->position->quantity,
             exchangeSymbol: $exchangeSymbol,
+            recalculateOnLowerThanMarkPrice: true,
         );
 
         // Create Order record

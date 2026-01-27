@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Jobs\Atomic\Order;
 
+use Illuminate\Support\Facades\Log;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Models\Position;
@@ -48,32 +49,62 @@ class SyncPositionOrdersJob extends BaseApiableJob
      */
     public function startOrFail(): bool
     {
+        Log::channel('jobs')->info('[SYNC-DEBUG] startOrFail() called', [
+            'position_id' => $this->position->id,
+            'status' => $this->position->status,
+            'opened_statuses' => $this->position->openedStatuses(),
+        ]);
+
         // Position must be in an "opened" status
         if (! in_array($this->position->status, $this->position->openedStatuses(), true)) {
+            Log::channel('jobs')->info('[SYNC-DEBUG] startOrFail() → false (status not in openedStatuses)');
+
             return false;
         }
 
+        $hasSyncable = $this->position->orders()->syncable()->exists();
+        Log::channel('jobs')->info('[SYNC-DEBUG] startOrFail() → syncable exists: '.($hasSyncable ? 'yes' : 'no'));
+
         // Must have at least one syncable order
-        return $this->position->orders()->syncable()->exists();
+        return $hasSyncable;
     }
 
     public function computeApiable()
     {
+        Log::channel('jobs')->info('[SYNC-DEBUG] computeApiable() START', [
+            'position_id' => $this->position->id,
+        ]);
+
         $syncedOrders = [];
         $failedOrders = [];
 
         // Get all syncable orders (non-MARKET with exchange_order_id)
         $orders = $this->position->orders()->syncable()->get();
+        Log::channel('jobs')->info('[SYNC-DEBUG] Found '.count($orders).' syncable orders');
 
         foreach ($orders as $order) {
+            Log::channel('jobs')->info('[SYNC-DEBUG] Syncing order', [
+                'order_id' => $order->id,
+                'type' => $order->type,
+                'status_before' => $order->status,
+            ]);
+
             try {
                 $order->apiSync();
+                Log::channel('jobs')->info('[SYNC-DEBUG] Order synced OK', [
+                    'order_id' => $order->id,
+                    'status_after' => $order->status,
+                ]);
                 $syncedOrders[] = [
                     'id' => $order->id,
                     'type' => $order->type,
                     'status' => $order->status,
                 ];
             } catch (\Throwable $e) {
+                Log::channel('jobs')->error('[SYNC-DEBUG] Order sync FAILED', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
                 $failedOrders[] = [
                     'id' => $order->id,
                     'type' => $order->type,
@@ -81,6 +112,11 @@ class SyncPositionOrdersJob extends BaseApiableJob
                 ];
             }
         }
+
+        Log::channel('jobs')->info('[SYNC-DEBUG] computeApiable() END', [
+            'synced' => count($syncedOrders),
+            'failed' => count($failedOrders),
+        ]);
 
         return [
             'position_id' => $this->position->id,

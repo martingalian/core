@@ -58,7 +58,9 @@ abstract class BaseQueueableJob extends BaseJob
 
         try {
             log_step($stepId, 'Calling prepareJobExecution()...');
+            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} prepareJobExecution()...");
             if (! $this->prepareJobExecution()) {
+                Log::channel('jobs')->warning("[HANDLE-DEBUG] Step #{$stepId} prepareJobExecution()=FALSE — duplicate guard, returning");
                 log_step($stepId, '✓ handle() completed (duplicate execution guard)');
                 log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
 
@@ -86,23 +88,31 @@ abstract class BaseQueueableJob extends BaseJob
             log_step($stepId, '✗ Not exiting early');
 
             log_step($stepId, 'Calling executeJobLogic()...');
+            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} executeJobLogic() START");
             $this->executeJobLogic();
+            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} executeJobLogic() END, stepStatusUpdated={$this->stepStatusUpdated}");
             log_step($stepId, 'executeJobLogic() completed');
 
             log_step($stepId, 'Checking if needs verification...');
+            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} needsVerification() check...");
             if ($this->needsVerification()) {
+                Log::channel('jobs')->warning("[HANDLE-DEBUG] Step #{$stepId} needsVerification()=TRUE — returning early");
                 log_step($stepId, '✓ Needs verification - returning');
                 log_step($stepId, '✓ handle() completed (needs verification)');
                 log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
                 return;
             }
+            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} needsVerification()=FALSE");
             log_step($stepId, '✗ Does not need verification');
 
             log_step($stepId, 'Calling finalizeJobExecution()...');
+            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} finalizeJobExecution() START, stepStatusUpdated={$this->stepStatusUpdated}");
             $this->finalizeJobExecution();
+            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} finalizeJobExecution() END, stepStatusUpdated={$this->stepStatusUpdated}");
             log_step($stepId, 'finalizeJobExecution() completed');
 
             log_step($stepId, '✓ handle() completed successfully');
+            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} handle() completed successfully");
             log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
         } catch (Throwable $e) {
             $errorTime = round((microtime(true) - $startTime) * 1000, precision: 2);

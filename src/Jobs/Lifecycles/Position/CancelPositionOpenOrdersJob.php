@@ -5,19 +5,22 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Lifecycles\Position;
 
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
+use Martingalian\Core\Jobs\Atomic\Position\CancelAlgoOpenOrdersJob as AtomicCancelAlgoOpenOrdersJob;
 use Martingalian\Core\Jobs\Atomic\Position\CancelPositionOpenOrdersJob as AtomicCancelPositionOpenOrdersJob;
 use Martingalian\Core\Models\Step;
 
 /**
  * CancelPositionOpenOrdersJob (Lifecycle)
  *
- * Orchestrator that creates step for cancelling all open orders for a position.
- * Delegates to the atomic job which calls the exchange API.
+ * Orchestrator that creates steps for cancelling all open orders for a position.
+ * Step 1: Bulk cancel regular orders via exchange's cancel-all endpoint.
+ * Step 2: Cancel algo orders individually (stop-loss, etc.) via exchange-specific endpoints.
  */
 class CancelPositionOpenOrdersJob extends BasePositionLifecycle
 {
     public function dispatch(string $blockUuid, int $startIndex, ?string $workflowId = null): int
     {
+        // Step 1: Bulk cancel regular orders
         Step::create([
             'class' => $this->resolver->resolve(AtomicCancelPositionOpenOrdersJob::class),
             'arguments' => ['positionId' => $this->position->id],
@@ -26,6 +29,15 @@ class CancelPositionOpenOrdersJob extends BasePositionLifecycle
             'workflow_id' => $workflowId,
         ]);
 
-        return $startIndex + 1;
+        // Step 2: Cancel algo orders (stop-loss, etc.) via exchange-specific endpoints
+        Step::create([
+            'class' => $this->resolver->resolve(AtomicCancelAlgoOpenOrdersJob::class),
+            'arguments' => ['positionId' => $this->position->id],
+            'block_uuid' => $blockUuid,
+            'index' => $startIndex + 1,
+            'workflow_id' => $workflowId,
+        ]);
+
+        return $startIndex + 2;
     }
 }

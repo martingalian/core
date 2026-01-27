@@ -45,7 +45,7 @@ trait HasScopes
 
     public function openedStatuses()
     {
-        return ['opening', 'waping', 'active', 'new', 'closing', 'cancelling', 'watching'];
+        return ['opening', 'waping', 'active', 'new', 'closing', 'cancelling', 'watching', 'replacing'];
     }
 
     public function activeStatuses()
