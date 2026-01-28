@@ -14,6 +14,14 @@ use Martingalian\Core\Concerns\Order\HasTradingActions;
 use Martingalian\Core\Concerns\Order\InteractsWithApis;
 
 /**
+ * @property int $id
+ * @property int $position_id
+ * @property string $type
+ * @property string $status
+ * @property string|null $reference_status
+ * @property string|null $exchange_order_id
+ * @property string|null $quantity
+ * @property string|null $price
  * @property Position $position
  * @property bool $is_algo
  *

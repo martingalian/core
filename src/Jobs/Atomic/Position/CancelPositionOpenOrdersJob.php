@@ -41,6 +41,13 @@ final class CancelPositionOpenOrdersJob extends BaseApiableJob
 
     public function computeApiable()
     {
+        // Pre-update reference_status to 'CANCELLED' on all syncable orders.
+        // This prevents the OrderObserver from triggering replacement workflows
+        // when these orders are synced after being cancelled.
+        $this->position->orders()
+            ->syncable()
+            ->update(['reference_status' => 'CANCELLED']);
+
         $apiResponse = $this->position->apiCancelOpenOrders();
 
         return [

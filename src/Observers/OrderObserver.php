@@ -11,6 +11,9 @@ use Martingalian\Core\Jobs\Lifecycles\Position\ClosePositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionReplacementJob;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Step;
+use Martingalian\Core\States\Dispatched;
+use Martingalian\Core\States\Pending;
+use Martingalian\Core\States\Running;
 
 final class OrderObserver
 {
@@ -52,22 +55,21 @@ final class OrderObserver
     }
 
     /**
-     * After an order is updated, check if a profit/stop order status changed.
+     * After an order is updated, check if status changed and react accordingly.
      *
-     * - FILLED profit/stop → ClosePositionJob (orderly close)
-     * - EXPIRED/CANCELLED profit/stop → PreparePositionReplacementJob
-     *   (queries exchange to determine if position still exists, then
-     *    dispatches CancelPositionJob or ReplacePositionOrdersJob)
+     * PROFIT/STOP orders:
+     * - FILLED → ClosePositionJob (orderly close)
+     * - EXPIRED/CANCELLED → PreparePositionReplacementJob
+     *
+     * LIMIT orders (DCA):
+     * - EXPIRED/CANCELLED → PreparePositionReplacementJob
+     *   (queries exchange to verify position still exists before recreating)
      *
      * Uses reference_status to detect changes idempotently — prevents
      * double-dispatch when multiple syncs process the same order.
      */
     public function updated(Order $model): void
     {
-        if (! in_array($model->type, self::CLOSE_TRIGGER_TYPES, true)) {
-            return;
-        }
-
         if ($model->status === $model->reference_status) {
             return;
         }
@@ -78,21 +80,36 @@ final class OrderObserver
             return;
         }
 
-        // Guard against dispatch if position is already closing/closed
+        // Guard against dispatch if position is already closing/closed/cancelled
         if (! in_array($position->status, $position->activeStatuses(), true)) {
             return;
         }
 
-        match ($model->status) {
-            'FILLED' => $this->dispatchClosePosition($model, $position),
-            'EXPIRED', 'CANCELLED' => $this->dispatchPositionReplacement($model, $position),
-            default => null,
-        };
+        // PROFIT/STOP orders: FILLED triggers close, CANCELLED/EXPIRED triggers replacement
+        if (in_array($model->type, self::CLOSE_TRIGGER_TYPES, true)) {
+            match ($model->status) {
+                'FILLED' => $this->dispatchClosePosition($model, $position),
+                'EXPIRED', 'CANCELLED' => $this->dispatchPositionReplacement($model, $position),
+                default => null,
+            };
+
+            return;
+        }
+
+        // LIMIT orders: CANCELLED/EXPIRED triggers replacement (recreate missing DCA orders)
+        // Position existence is verified by PreparePositionReplacementJob before recreating
+        if ($model->type === 'LIMIT' && in_array($model->status, ['EXPIRED', 'CANCELLED'], true)) {
+            $this->dispatchPositionReplacement($model, $position);
+        }
     }
 
     private function dispatchClosePosition(Order $model, mixed $position): void
     {
         $model->updateSaving(['reference_status' => 'FILLED']);
+
+        // Set status to 'closing' immediately so SyncPositionOrdersJob
+        // doesn't override it to 'active' before ClosePositionJob runs
+        $position->updateToClosing();
 
         Step::create([
             'class' => ClosePositionJob::class,
@@ -106,7 +123,22 @@ final class OrderObserver
 
     private function dispatchPositionReplacement(Order $model, mixed $position): void
     {
-        $model->updateSaving(['reference_status' => $model->status]);
+        // NOTE: Do NOT update reference_status here.
+        // SmartReplaceOrdersJob needs to find orders where reference_status != status
+        // to know which orders need recreation. RecreateCancelledOrderJob::complete()
+        // updates reference_status after successful recreation.
+
+        // Deduplicate: skip if PreparePositionReplacementJob already pending for this position.
+        // Prevents multiple dispatches when several orders are cancelled at once.
+        $alreadyPending = Step::query()
+            ->where('class', PreparePositionReplacementJob::class)
+            ->whereRaw("JSON_EXTRACT(arguments, '$.positionId') = ?", [$position->id])
+            ->whereIn('state', [Pending::class, Dispatched::class, Running::class])
+            ->exists();
+
+        if ($alreadyPending) {
+            return;
+        }
 
         $action = $model->status === 'EXPIRED' ? 'expired' : 'cancelled';
 

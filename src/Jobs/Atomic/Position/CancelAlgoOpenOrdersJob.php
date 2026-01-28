@@ -48,6 +48,16 @@ final class CancelAlgoOpenOrdersJob extends BaseApiableJob
             ->whereNotIn('status', self::INACTIVE_STATUSES)
             ->get();
 
+        // Pre-update reference_status to 'CANCELLED' on algo orders.
+        // This prevents the OrderObserver from triggering replacement workflows
+        // when these orders are synced after being cancelled.
+        if ($algoOrders->isNotEmpty()) {
+            $this->position->orders()
+                ->where('is_algo', true)
+                ->whereNotIn('status', self::INACTIVE_STATUSES)
+                ->update(['reference_status' => 'CANCELLED']);
+        }
+
         $cancelled = [];
 
         foreach ($algoOrders as $order) {

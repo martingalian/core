@@ -17,7 +17,7 @@ use RuntimeException;
  * Used by CancelPositionJob and ClosePositionJob workflows.
  *
  * Supported statuses:
- * - cancelling, closing, replacing, closed, cancelled, failed
+ * - cancelling, closing, syncing, closed, cancelled, failed
  * - active, watching, waping
  */
 final class UpdatePositionStatusJob extends BaseQueueableJob
@@ -52,8 +52,8 @@ final class UpdatePositionStatusJob extends BaseQueueableJob
             case 'closing':
                 $position->updateToClosing();
                 break;
-            case 'replacing':
-                $position->updateToReplacing();
+            case 'syncing':
+                $position->updateToSyncing();
                 break;
             case 'closed':
                 $position->updateToClosed();

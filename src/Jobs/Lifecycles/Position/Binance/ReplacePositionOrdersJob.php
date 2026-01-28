@@ -23,7 +23,7 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  * Replaces missing orders when position still exists on exchange.
  *
  * Flow (7 steps):
- * 1. UpdatePositionStatusJob → status='replacing'
+ * 1. UpdatePositionStatusJob → status='syncing'
  * 2. CancelPositionOpenOrdersJob → cancel remaining orders on exchange
  * 3. SyncPositionOrdersJob → sync all orders from exchange
  * 4. PlaceLimitOrdersJob → recreate limit ladder
@@ -40,10 +40,10 @@ class ReplacePositionOrdersJob extends BaseReplacePositionOrdersJob
         $resolver = JobProxy::with($this->position->account);
         $blockUuid = $this->uuid();
 
-        // Step 1: Update status to 'replacing'
+        // Step 1: Update status to 'syncing'
         $statusLifecycleClass = $resolver->resolve(UpdatePositionStatusJob::class);
         $statusLifecycle = new $statusLifecycleClass($this->position);
-        $nextIndex = $statusLifecycle->withStatus('replacing')->dispatch(
+        $nextIndex = $statusLifecycle->withStatus('syncing')->dispatch(
             blockUuid: $blockUuid,
             startIndex: 1,
             workflowId: null

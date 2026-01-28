@@ -40,17 +40,17 @@ trait HasScopes
 
     public function ongoingStatuses()
     {
-        return ['active', 'watching', 'opening', 'waping'];
+        return ['active', 'opening', 'waping'];
     }
 
     public function openedStatuses()
     {
-        return ['opening', 'waping', 'active', 'new', 'closing', 'cancelling', 'watching', 'replacing'];
+        return ['opening', 'waping', 'active', 'new', 'closing', 'cancelling', 'syncing'];
     }
 
     public function activeStatuses()
     {
-        return ['active', 'new', 'watching', 'waping'];
+        return ['opening', 'active', 'new', 'waping', 'syncing'];
     }
 
     public function nonActiveStatuses()

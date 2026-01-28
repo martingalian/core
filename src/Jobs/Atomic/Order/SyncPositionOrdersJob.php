@@ -118,6 +118,14 @@ class SyncPositionOrdersJob extends BaseApiableJob
             'failed' => count($failedOrders),
         ]);
 
+        // Set position back to 'active' after syncing completes.
+        // If an observer dispatched another workflow (close/cancel/replace),
+        // that workflow's first step will override this status.
+        $this->position->refresh();
+        if ($this->position->status === 'syncing') {
+            $this->position->updateToActive();
+        }
+
         return [
             'position_id' => $this->position->id,
             'synced_count' => count($syncedOrders),

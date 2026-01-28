@@ -6,8 +6,8 @@ namespace Martingalian\Core\Jobs\Atomic\Position;
 
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
-use Martingalian\Core\Jobs\Lifecycles\Position\CancelPositionJob;
-use Martingalian\Core\Jobs\Lifecycles\Position\ReplacePositionOrdersJob;
+use Martingalian\Core\Jobs\Lifecycles\Position\ClosePositionJob;
+use Martingalian\Core\Jobs\Lifecycles\Position\SmartReplaceOrdersJob;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Step;
@@ -21,7 +21,7 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  * and checks if the position still exists on the exchange.
  *
  * Decision:
- * - Position GONE → dispatches CancelPositionJob (position was closed externally)
+ * - Position GONE → dispatches ClosePositionJob (position was closed externally/manually)
  * - Position EXISTS → dispatches ReplacePositionOrdersJob (orders need recreation)
  */
 final class VerifyPositionExistsOnExchangeJob extends BaseQueueableJob
@@ -83,9 +83,13 @@ final class VerifyPositionExistsOnExchangeJob extends BaseQueueableJob
         $resolver = JobProxy::with($position->account);
 
         if (! $positionExistsOnExchange) {
-            // Position closed externally — cancel locally
+            // Position closed externally — close locally (not cancel, as position was active)
+            // Set status to 'closing' immediately so SyncPositionOrdersJob
+            // doesn't override it to 'active' before ClosePositionJob runs
+            $position->updateToClosing();
+
             Step::create([
-                'class' => $resolver->resolve(CancelPositionJob::class),
+                'class' => $resolver->resolve(ClosePositionJob::class),
                 'arguments' => [
                     'positionId' => $position->id,
                     'message' => $this->message ?? "Position closed externally ({$this->triggerStatus})",
@@ -93,12 +97,11 @@ final class VerifyPositionExistsOnExchangeJob extends BaseQueueableJob
                 'child_block_uuid' => (string) Str::uuid(),
             ]);
         } else {
-            // Position still exists — replace missing orders
+            // Position still exists — smart replace only missing orders
             Step::create([
-                'class' => $resolver->resolve(ReplacePositionOrdersJob::class),
+                'class' => $resolver->resolve(SmartReplaceOrdersJob::class),
                 'arguments' => [
                     'positionId' => $position->id,
-                    'message' => $this->message ?? "Orders {$this->triggerStatus} — replacing",
                 ],
                 'child_block_uuid' => (string) Str::uuid(),
             ]);
@@ -108,7 +111,7 @@ final class VerifyPositionExistsOnExchangeJob extends BaseQueueableJob
             'position_id' => $position->id,
             'symbol' => $tradingPair,
             'position_exists_on_exchange' => $positionExistsOnExchange,
-            'dispatched' => $positionExistsOnExchange ? 'ReplacePositionOrdersJob' : 'CancelPositionJob',
+            'dispatched' => $positionExistsOnExchange ? 'SmartReplaceOrdersJob' : 'ClosePositionJob',
         ];
     }
 }

@@ -35,6 +35,9 @@ final class PrepareSyncOrdersJob extends BaseQueueableJob
 
     public function compute()
     {
+        // Set position to 'syncing' while we sync orders
+        $this->position->updateToSyncing();
+
         $resolver = JobProxy::with($this->position->account);
 
         // Step 1: Sync all position orders from exchange

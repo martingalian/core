@@ -16,6 +16,9 @@ use Martingalian\Core\Concerns\Position\HasTradingActions;
 use Martingalian\Core\Concerns\Position\InteractsWithApis;
 
 /**
+ * @property int $id
+ * @property string $status
+ * @property string $direction
  * @property Account $account
  * @property ExchangeSymbol $exchangeSymbol
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Order> $orders
@@ -37,7 +40,6 @@ final class Position extends BaseModel
         'opened_at' => 'datetime',
         'closed_at' => 'datetime',
         'waped_at' => 'datetime',
-        'watched_at' => 'datetime',
 
         'indicators_values' => 'array',
 

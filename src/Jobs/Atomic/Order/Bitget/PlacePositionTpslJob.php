@@ -68,8 +68,8 @@ class PlacePositionTpslJob extends BaseApiableJob
      */
     public function startOrFail(): bool
     {
-        // Position must be in 'opening' status
-        if ($this->position->status !== 'opening') {
+        // Position must be in an active status (opening, active, syncing, etc.)
+        if (! in_array($this->position->status, $this->position->activeStatuses(), true)) {
             return false;
         }
 

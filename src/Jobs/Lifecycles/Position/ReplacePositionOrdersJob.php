@@ -18,7 +18,7 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  * Base implementation — exchange-specific overrides define the actual steps.
  *
  * Typical flow (exchange-specific):
- * 1. UpdatePositionStatusJob → status='replacing'
+ * 1. UpdatePositionStatusJob → status='syncing'
  * 2. CancelPositionOpenOrdersJob → cancel remaining orders on exchange
  * 3. SyncPositionOrdersJob → sync all orders from exchange
  * 4. PlaceLimitOrdersJob → recreate limit ladder

@@ -121,6 +121,9 @@ trait InteractsWithApis
 
             $order = Order::create($data);
             $apiResponse = $order->apiPlace();
+
+            // Sync to get FILLED status (market orders fill immediately)
+            $order->apiSync();
         }
 
         return $apiResponse ?? new ApiResponse;
