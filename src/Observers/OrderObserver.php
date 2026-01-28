@@ -15,6 +15,7 @@ use Martingalian\Core\Models\Step;
 use Martingalian\Core\States\Dispatched;
 use Martingalian\Core\States\Pending;
 use Martingalian\Core\States\Running;
+use Martingalian\Core\Support\Math;
 
 final class OrderObserver
 {
@@ -174,6 +175,10 @@ final class OrderObserver
      * - Current price/quantity differs from reference values
      *
      * When detected, dispatches PrepareOrderCorrectionJob to restore original values.
+     *
+     * IMPORTANT: Uses Math::equal() for decimal comparison because price/quantity
+     * accessors normalize trailing zeros (e.g., "26500") while reference values
+     * may retain them (e.g., "26500.00000000"). String comparison would false-positive.
      */
     private function checkForOrderModification(Order $model, mixed $position): void
     {
@@ -182,13 +187,16 @@ final class OrderObserver
             return;
         }
 
-        // Check for price drift
+        // Check for price drift using precise decimal comparison
+        // Both values must be non-null to compare
         $hasPriceDrift = $model->reference_price !== null
-            && $model->price !== $model->reference_price;
+            && $model->price !== null
+            && ! Math::equal($model->price, $model->reference_price);
 
-        // Check for quantity drift
+        // Check for quantity drift using precise decimal comparison
         $hasQuantityDrift = $model->reference_quantity !== null
-            && $model->quantity !== $model->reference_quantity;
+            && $model->quantity !== null
+            && ! Math::equal($model->quantity, $model->reference_quantity);
 
         // No modification detected
         if (! $hasPriceDrift && ! $hasQuantityDrift) {
