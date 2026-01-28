@@ -19,7 +19,7 @@ use Throwable;
  * Calculation:
  * - Anchor price: Last limit order price (highest rung index)
  * - Percentage: account.stop_market_initial_percentage
- * - Quantity: position.quantity (total position size)
+ * - Quantity: position.quantity (stored for reference)
  * - Side: opposite of entry (LONG → SELL, SHORT → BUY)
  *
  * Flow:
@@ -29,8 +29,13 @@ use Throwable;
  * 4. Place order on exchange via apiPlace()
  * 5. doubleCheck() verifies order was accepted
  * 6. complete() sets reference_* fields
+ *
+ * Exchange-specific behavior:
+ * - Binance: Uses closePosition=true (auto-closes entire position when
+ *   triggered, regardless of quantity). No need to update stop-loss during WAP.
+ * - Other exchanges: May use explicit quantity (TBD).
  */
-class PlaceStopLossOrderJob extends BaseApiableJob
+final class PlaceStopLossOrderJob extends BaseApiableJob
 {
     public Position $position;
 
@@ -169,7 +174,7 @@ class PlaceStopLossOrderJob extends BaseApiableJob
     public function resolveException(Throwable $e): void
     {
         $this->position->updateSaving([
-            'error_message' => 'Stop-loss order failed: ' . $e->getMessage(),
+            'error_message' => 'Stop-loss order failed: '.$e->getMessage(),
         ]);
     }
 }

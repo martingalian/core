@@ -118,6 +118,10 @@ final class BinanceApi
      * Since December 9, 2025, Binance migrated conditional orders to the Algo Order API.
      * Regular placeOrder() endpoint no longer accepts STOP_MARKET orders.
      *
+     * Supports two modes:
+     * - With explicit quantity: pass options.quantity
+     * - With closePosition: pass options.closePosition='true' (auto-closes entire position)
+     *
      * @see https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Algo-Order
      */
     public function placeAlgoOrder(ApiProperties $properties)
@@ -125,7 +129,8 @@ final class BinanceApi
         $this->validate($properties, [
             'options.symbol' => 'required|string',
             'options.side' => 'required|string',
-            'options.quantity' => 'required|string',
+            'options.quantity' => 'required_without:options.closePosition|string',
+            'options.closePosition' => 'required_without:options.quantity|string',
             'options.algoType' => 'required|string',
             'options.triggerPrice' => 'required|string',
         ]);

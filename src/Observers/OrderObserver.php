@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 
 use Martingalian\Core\Exceptions\NonNotifiableException;
 use Martingalian\Core\Jobs\Lifecycles\Order\PrepareOrderCorrectionJob;
+use Martingalian\Core\Jobs\Lifecycles\Position\ApplyWapJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\ClosePositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionReplacementJob;
 use Martingalian\Core\Models\Order;
@@ -113,6 +114,14 @@ final class OrderObserver
         // Position existence is verified by PreparePositionReplacementJob before recreating
         if ($model->type === 'LIMIT' && in_array($model->status, ['EXPIRED', 'CANCELLED'], true)) {
             $this->dispatchPositionReplacement($model, $position);
+
+            return;
+        }
+
+        // LIMIT orders: FILLED triggers WAP recalculation
+        // When a DCA order fills, recalculate profit order based on breakEvenPrice
+        if ($model->type === 'LIMIT' && $model->status === 'FILLED') {
+            $this->dispatchApplyWap($model, $position);
         }
     }
 
@@ -161,6 +170,39 @@ final class OrderObserver
                 'positionId' => $position->id,
                 'triggerStatus' => $model->status,
                 'message' => "{$model->type} order #{$model->id} {$action} — preparing replacement",
+            ],
+            'child_block_uuid' => (string) Str::uuid(),
+        ]);
+    }
+
+    /**
+     * Dispatch ApplyWapJob when a LIMIT (DCA) order fills.
+     *
+     * WAP (Weighted Average Price) recalculates the profit order price
+     * based on the exchange's breakEvenPrice after a DCA order fills.
+     */
+    private function dispatchApplyWap(Order $model, mixed $position): void
+    {
+        // Update reference_status to prevent double-dispatch
+        $model->updateSaving(['reference_status' => 'FILLED']);
+
+        // Deduplicate: skip if ApplyWapJob already pending for this position.
+        // Prevents multiple dispatches when several LIMIT orders fill at once.
+        $alreadyPending = Step::query()
+            ->where('class', ApplyWapJob::class)
+            ->whereRaw("JSON_EXTRACT(arguments, '$.positionId') = ?", [$position->id])
+            ->whereIn('state', [Pending::class, Dispatched::class, Running::class])
+            ->exists();
+
+        if ($alreadyPending) {
+            return;
+        }
+
+        Step::create([
+            'class' => ApplyWapJob::class,
+            'arguments' => [
+                'positionId' => $position->id,
+                'message' => "LIMIT order #{$model->id} filled — applying WAP",
             ],
             'child_block_uuid' => (string) Str::uuid(),
         ]);
