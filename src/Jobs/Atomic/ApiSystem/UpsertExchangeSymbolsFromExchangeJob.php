@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Lifecycles\ApiSystem;
+namespace Martingalian\Core\Jobs\Atomic\ApiSystem;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
@@ -29,24 +29,27 @@ final class UpsertExchangeSymbolsFromExchangeJob extends BaseApiableJob
         $this->apiSystem = ApiSystem::findOrFail($apiSystemId);
     }
 
-    public function relatable()
+    public function relatable(): ApiSystem
     {
         return $this->apiSystem;
     }
 
-    public function assignExceptionHandler()
+    public function assignExceptionHandler(): void
     {
         $canonical = $this->apiSystem->canonical;
         $this->exceptionHandler = BaseExceptionHandler::make($canonical)
             ->withAccount(Account::admin($canonical));
     }
 
-    public function startOrFail()
+    public function startOrFail(): bool
     {
-        return $this->apiSystem->is_exchange;
+        return (bool) $this->apiSystem->is_exchange;
     }
 
-    public function computeApiable()
+    /**
+     * @return array<string, mixed>
+     */
+    public function computeApiable(): array
     {
         // Fetch all symbols from the exchange
         // Mappers already filter out:

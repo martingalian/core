@@ -6,8 +6,8 @@ namespace Martingalian\Core\Jobs\Models\ExchangeSymbol;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbol\ConfirmPriceAlignmentWithDirectionJob;
-use Martingalian\Core\Jobs\Lifecycles\ExchangeSymbol\CopyDirectionToOtherExchangesJob;
+use Martingalian\Core\Jobs\Atomic\ExchangeSymbol\ConfirmPriceAlignmentWithDirectionJob;
+use Martingalian\Core\Jobs\Atomic\ExchangeSymbol\CopyDirectionToOtherExchangesJob;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Models\Indicator\QuerySymbolIndicatorsJob;
 use Martingalian\Core\Models\ExchangeSymbol;

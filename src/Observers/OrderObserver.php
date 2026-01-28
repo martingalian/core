@@ -7,6 +7,7 @@ namespace Martingalian\Core\Observers;
 use Illuminate\Support\Str;
 
 use Martingalian\Core\Exceptions\NonNotifiableException;
+use Martingalian\Core\Jobs\Lifecycles\Order\PrepareOrderCorrectionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\ClosePositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionReplacementJob;
 use Martingalian\Core\Models\Order;
@@ -65,15 +66,15 @@ final class OrderObserver
      * - EXPIRED/CANCELLED → PreparePositionReplacementJob
      *   (queries exchange to verify position still exists before recreating)
      *
+     * Price/Quantity modification detection:
+     * - Active orders with price != reference_price or quantity != reference_quantity
+     *   trigger PrepareOrderCorrectionJob to restore original values.
+     *
      * Uses reference_status to detect changes idempotently — prevents
      * double-dispatch when multiple syncs process the same order.
      */
     public function updated(Order $model): void
     {
-        if ($model->status === $model->reference_status) {
-            return;
-        }
-
         $position = $model->position;
 
         if ($position === null) {
@@ -82,6 +83,17 @@ final class OrderObserver
 
         // Guard against dispatch if position is already closing/closed/cancelled
         if (! in_array($position->status, $position->activeStatuses(), true)) {
+            return;
+        }
+
+        // First, check for price/quantity modification on active orders.
+        // This runs even if status matches reference_status (modification doesn't change status)
+        if (in_array($model->status, ['NEW', 'PARTIALLY_FILLED'], true)) {
+            $this->checkForOrderModification($model, $position);
+        }
+
+        // Skip status-based checks if status matches reference (already handled)
+        if ($model->status === $model->reference_status) {
             return;
         }
 
@@ -148,6 +160,64 @@ final class OrderObserver
                 'positionId' => $position->id,
                 'triggerStatus' => $model->status,
                 'message' => "{$model->type} order #{$model->id} {$action} — preparing replacement",
+            ],
+            'child_block_uuid' => (string) Str::uuid(),
+        ]);
+    }
+
+    /**
+     * Detect if an active order was modified on the exchange.
+     *
+     * A modification is detected when:
+     * - Order is active (NEW or PARTIALLY_FILLED)
+     * - Has reference values set (reference_price and/or reference_quantity)
+     * - Current price/quantity differs from reference values
+     *
+     * When detected, dispatches PrepareOrderCorrectionJob to restore original values.
+     */
+    private function checkForOrderModification(Order $model, mixed $position): void
+    {
+        // Must have reference values to compare against
+        if ($model->reference_price === null && $model->reference_quantity === null) {
+            return;
+        }
+
+        // Check for price drift
+        $hasPriceDrift = $model->reference_price !== null
+            && $model->price !== $model->reference_price;
+
+        // Check for quantity drift
+        $hasQuantityDrift = $model->reference_quantity !== null
+            && $model->quantity !== $model->reference_quantity;
+
+        // No modification detected
+        if (! $hasPriceDrift && ! $hasQuantityDrift) {
+            return;
+        }
+
+        // Deduplicate: skip if PrepareOrderCorrectionJob already pending for this order.
+        $alreadyPending = Step::query()
+            ->where('class', PrepareOrderCorrectionJob::class)
+            ->whereRaw("JSON_EXTRACT(arguments, '$.orderId') = ?", [$model->id])
+            ->whereIn('state', [Pending::class, Dispatched::class, Running::class])
+            ->exists();
+
+        if ($alreadyPending) {
+            return;
+        }
+
+        $driftType = match (true) {
+            $hasPriceDrift && $hasQuantityDrift => 'price and quantity',
+            $hasPriceDrift => 'price',
+            default => 'quantity',
+        };
+
+        Step::create([
+            'class' => PrepareOrderCorrectionJob::class,
+            'arguments' => [
+                'positionId' => $position->id,
+                'orderId' => $model->id,
+                'message' => "{$model->type} order #{$model->id} modified ({$driftType}) — correcting",
             ],
             'child_block_uuid' => (string) Str::uuid(),
         ]);

@@ -19,9 +19,13 @@ use Martingalian\Core\Concerns\Order\InteractsWithApis;
  * @property string $type
  * @property string $status
  * @property string|null $reference_status
+ * @property string|null $reference_price
+ * @property string|null $reference_quantity
  * @property string|null $exchange_order_id
  * @property string|null $quantity
  * @property string|null $price
+ * @property string|null $filled_quantity
+ * @property string|null $side
  * @property Position $position
  * @property bool $is_algo
  *

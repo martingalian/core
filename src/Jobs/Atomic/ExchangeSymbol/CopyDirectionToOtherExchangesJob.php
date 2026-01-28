@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbol;
+namespace Martingalian\Core\Jobs\Atomic\ExchangeSymbol;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\ApiSystem;
@@ -19,7 +19,7 @@ final class CopyDirectionToOtherExchangesJob extends BaseQueueableJob
     /**
      * @return array<string, mixed>
      */
-    public function compute()
+    public function compute(): array
     {
         // 1. Load source Binance symbol
         $sourceSymbol = ExchangeSymbol::find($this->sourceExchangeSymbolId);

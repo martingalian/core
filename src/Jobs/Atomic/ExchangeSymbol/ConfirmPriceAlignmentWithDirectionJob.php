@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Martingalian\Core\Jobs\Lifecycles\ExchangeSymbol;
+namespace Martingalian\Core\Jobs\Atomic\ExchangeSymbol;
 
 use Exception;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
@@ -21,12 +21,15 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
         $this->exchangeSymbol = ExchangeSymbol::with(['symbol', 'apiSystem'])->findOrFail($exchangeSymbolId);
     }
 
-    public function relatable()
+    public function relatable(): ?ExchangeSymbol
     {
         return $this->exchangeSymbol;
     }
 
-    public function compute()
+    /**
+     * @return array<string, mixed>
+     */
+    public function compute(): array
     {
         // Skip if no direction was concluded - nothing to confirm
         if (! $this->exchangeSymbol->direction) {
@@ -100,7 +103,7 @@ final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob
         return ['response' => "Price alignment for {$this->exchangeSymbol->parsed_trading_pair}-{$direction} CONFIRMED (Open: {$currentOpen}, Close: {$currentClose}, timeframe: {$timeframe})"];
     }
 
-    public function resolveException(Throwable $e)
+    public function resolveException(Throwable $e): void
     {
         // Martingalian::notifyAdmins(
         //     message: "[{$this->exchangeSymbol->id}] - ExchangeSymbol price alignment error - ".ExceptionParser::with($e)->friendlyMessage(),
