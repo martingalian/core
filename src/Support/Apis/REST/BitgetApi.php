@@ -295,6 +295,16 @@ final class BitgetApi
     }
 
     /**
+     * Alias for cancelAllOrders() to match Binance API naming convention.
+     *
+     * Used by ClosePositionJob workflow to cancel all open orders when closing a position.
+     */
+    public function cancelAllOpenOrders(?ApiProperties $properties = null)
+    {
+        return $this->cancelAllOrders($properties);
+    }
+
+    /**
      * Get order fill details (trades).
      *
      * @see https://www.bitget.com/api-doc/contract/trade/Get-Order-Fills
