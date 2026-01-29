@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Martingalian\Core\Martingalian\Martingalian;
 use Martingalian\Core\Models\ApiSnapshot;
+use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\Symbol;
@@ -124,6 +125,25 @@ trait HasTokenDiscovery
          */
         $this->availableExchangeSymbols = $this->availableExchangeSymbols()
             ->where('api_system_id', $this->api_system_id);
+
+        /*
+         * Step 1b: Cross-Exchange Token Restriction (Binance Reference)
+         *
+         * For non-Binance exchanges, only allow tokens that are ALSO tradeable on Binance.
+         * Binance is the reference exchange - if a token isn't tradeable there, we don't
+         * trade it on other exchanges either. This ensures cross-exchange consistency.
+         */
+        $binanceApiSystemId = ApiSystem::where('canonical', 'binance')->value('id');
+
+        if ($this->api_system_id !== $binanceApiSystemId) {
+            $binanceTradeableTokens = ExchangeSymbol::query()
+                ->tradeable()
+                ->where('api_system_id', $binanceApiSystemId)
+                ->pluck('token');
+
+            $this->availableExchangeSymbols = $this->availableExchangeSymbols
+                ->whereIn('token', $binanceTradeableTokens);
+        }
 
         /*
          * Step 1b: Exclude Tokens Already Open on Exchange
