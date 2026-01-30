@@ -55,13 +55,14 @@ final class DispatchPositionSlotsJob extends BaseQueueableJob
         $resolver = JobProxy::with($this->account);
         $dispatchJobClass = $resolver->resolve(DispatchPositionJob::class);
 
-        // Step 1: Dispatch each position (all with same index = parallel execution)
-        // Uses exchange-specific DispatchPositionJob lifecycle
+        // Step 1: Dispatch each position with ISOLATED block_uuids
+        // Each position is fully independent - one failure doesn't cascade to others.
+        // Account-level issues are caught earlier (VerifyMinAccountBalanceJob, etc.)
         foreach ($positions as $position) {
             Step::create([
                 'class' => $dispatchJobClass,
                 'arguments' => ['positionId' => $position->id],
-                'block_uuid' => $this->uuid(),
+                'block_uuid' => (string) Str::uuid(),
                 'child_block_uuid' => (string) Str::uuid(),
                 'workflow_id' => $workflowId,
                 'index' => 1,
