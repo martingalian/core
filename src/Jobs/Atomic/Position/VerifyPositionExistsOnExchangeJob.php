@@ -70,7 +70,7 @@ final class VerifyPositionExistsOnExchangeJob extends BaseQueueableJob
                     ?? '0');
 
                 $absAmount = Math::lt($positionAmt, '0')
-                    ? Math::multiply($positionAmt, '-1')
+                    ? Math::mul($positionAmt, '-1')
                     : $positionAmt;
 
                 if (Math::gt($absAmount, '0')) {

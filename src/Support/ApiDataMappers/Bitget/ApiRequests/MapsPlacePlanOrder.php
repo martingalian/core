@@ -153,6 +153,13 @@ trait MapsPlacePlanOrder
         }
 
         $status = $this->normalizePlanOrderStatus($order['planStatus'] ?? '');
+        $planType = $order['planType'] ?? '';
+
+        // Position-level TPSL orders (pos_profit, pos_loss) have size=0 because they
+        // track the entire position dynamically. Return null for quantity so the
+        // sync fallback uses the order's existing quantity, preventing false drift.
+        $isPositionTpsl = in_array($planType, ['pos_profit', 'pos_loss'], true);
+        $quantity = $isPositionTpsl ? null : (string) ($order['size'] ?? '0');
 
         return [
             'order_id' => $order['orderId'] ?? null,
@@ -160,11 +167,12 @@ trait MapsPlacePlanOrder
             'status' => $status,
             'price' => $this->computePlanOrderDisplayPrice($order),
             '_price' => $this->computePlanOrderDisplayPrice($order),
-            'quantity' => (string) ($order['size'] ?? '0'),
+            'quantity' => $quantity,
             'type' => 'STOP_MARKET',
             '_orderType' => 'STOP_MARKET',
             'side' => $order['side'] ?? '',
             '_isPlanOrder' => true,
+            '_isPositionTpsl' => $isPositionTpsl,
             '_raw' => $order,
         ];
     }

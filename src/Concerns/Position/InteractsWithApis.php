@@ -135,6 +135,13 @@ trait InteractsWithApis
             if ($order->price !== null && $order->status === 'FILLED') {
                 $this->updateSaving(['closing_price' => $order->price]);
             }
+
+            // Set reference fields (snapshot of order state after first sync)
+            $order->updateSaving([
+                'reference_price' => $order->price,
+                'reference_quantity' => $order->quantity,
+                'reference_status' => $order->status,
+            ]);
         }
 
         return $apiResponse ?? new ApiResponse;

@@ -99,12 +99,32 @@ class CancelSingleAlgoOrderJob extends BaseApiableJob
 
     /**
      * Verify the order was cancelled.
+     *
+     * For BitGet position-level TPSL (pos_profit/pos_loss), cancel-plan-order
+     * doesn't work because they're attached to the position. In this case,
+     * we skip verification since the order will remain on exchange until
+     * the position closes.
      */
     public function doubleCheck(): bool
     {
         // Sync order to get current status from exchange
-        $this->order->apiSync();
+        $apiResponse = $this->order->apiSync();
         $this->order->refresh();
+
+        // BitGet position-level TPSL cannot be cancelled via cancel-plan-order.
+        // Detect this by checking the _isPositionTpsl flag in the sync response.
+        // If so, revert local status since the order is still active on exchange.
+        if (($apiResponse->result['_isPositionTpsl'] ?? false) && $this->order->status === 'NEW') {
+            // Order is still active - this is expected for position TPSL
+            // Revert reference_status to match actual status to prevent further drift
+            $this->order->updateSaving([
+                'reference_status' => $this->order->status,
+                'reference_quantity' => $this->order->quantity,
+            ]);
+
+            // Return true to complete the job - the "cancel" is acknowledged as not applicable
+            return true;
+        }
 
         // Order should be CANCELLED
         return $this->order->status === 'CANCELLED';
