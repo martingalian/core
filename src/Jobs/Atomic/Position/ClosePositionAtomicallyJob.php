@@ -97,6 +97,29 @@ final class ClosePositionAtomicallyJob extends BaseApiableJob
             }
         }
 
+        // Check if position still exists on exchange before trying to close
+        // (TP/SL fill may have already closed it)
+        $accountPositions = $position->account->apiQueryPositions()->result ?? [];
+        $symbol = mb_strtoupper($position->parsed_trading_pair);
+        $direction = mb_strtoupper($position->direction);
+        $positionKey = "{$symbol}:{$direction}";
+
+        $positionExistsOnExchange = isset($accountPositions[$positionKey])
+            && abs((float) ($accountPositions[$positionKey]['positionAmt'] ?? $accountPositions[$positionKey]['total'] ?? 0)) > 0.0001;
+
+        if (! $positionExistsOnExchange) {
+            // Position already closed on exchange (via TP/SL fill) - nothing to do
+            return [
+                'position_id' => $position->id,
+                'symbol' => $position->parsed_trading_pair,
+                'filled_limit_count' => $position->totalLimitOrdersFilled(),
+                'pump_cooldown_triggered' => $pumpCooldownTriggered,
+                'cooldown_details' => $cooldownDetails,
+                'result' => ['already_closed' => true],
+                'message' => 'Position already closed on exchange (via TP/SL fill)',
+            ];
+        }
+
         // Close position on exchange
         $apiResponse = $position->apiClose();
 

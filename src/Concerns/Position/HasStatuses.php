@@ -61,6 +61,7 @@ trait HasStatuses
         $this->updateSaving([
             'closed_at' => now(),
             'status' => 'closed',
+            'error_message' => null, // Clear any previous errors on successful close
         ]);
     }
 

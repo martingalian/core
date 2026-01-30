@@ -183,6 +183,12 @@ final class OrderObserver
      */
     private function dispatchApplyWap(Order $model, mixed $position): void
     {
+        // If profit order is already FILLED, skip WAP - close workflow will handle it
+        $profitOrder = $position->profitOrder();
+        if ($profitOrder && $profitOrder->status === 'FILLED') {
+            return;
+        }
+
         // Update reference_status to prevent double-dispatch
         $model->updateSaving(['reference_status' => 'FILLED']);
 

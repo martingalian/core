@@ -6,6 +6,7 @@ namespace Martingalian\Core\Jobs\Atomic\Position;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
+use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Notifications\AlertNotification;
 
@@ -67,6 +68,11 @@ final class UpdateRemainingClosingDataJob extends BaseApiableJob
                 // Log but don't fail - closing price is nice to have
                 info("Failed to get closing price for position {$position->id}: " . $e->getMessage());
             }
+        }
+
+        // Fallback: If no closing price from trades, use profit order's fill price
+        if ($closingPrice === null && $profitOrder instanceof Order && $profitOrder->status === 'FILLED') {
+            $closingPrice = $profitOrder->price;
         }
 
         // Update closing_price if available

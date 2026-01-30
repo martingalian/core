@@ -86,6 +86,11 @@ trait InteractsWithApis
     // V4 ready.
     public function apiClose(): ApiResponse
     {
+        // BitGet uses a dedicated flash close endpoint
+        if ($this->account->apiSystem->canonical === 'bitget') {
+            return $this->apiCloseBitget();
+        }
+
         $apiResponse = $this->account->apiQueryPositions();
         $positions = $apiResponse->result;
         $want = mb_strtoupper(mb_trim($this->parsed_trading_pair));
@@ -122,10 +127,84 @@ trait InteractsWithApis
             $order = Order::create($data);
             $apiResponse = $order->apiPlace();
 
-            // Sync to get FILLED status (market orders fill immediately)
+            // Sync to get FILLED status and fill price (market orders fill immediately)
             $order->apiSync();
+
+            // Set closing_price from the fill price
+            $order->refresh();
+            if ($order->price !== null && $order->status === 'FILLED') {
+                $this->updateSaving(['closing_price' => $order->price]);
+            }
         }
 
         return $apiResponse ?? new ApiResponse;
+    }
+
+    /**
+     * Close position using BitGet's flash close endpoint.
+     *
+     * BitGet has a dedicated endpoint for closing positions that's simpler
+     * and more reliable than placing a market order with proper parameters.
+     *
+     * @see https://www.bitget.com/api-doc/contract/trade/Flash-Close-Position
+     */
+    public function apiCloseBitget(): ApiResponse
+    {
+        $this->apiProperties = new ApiProperties;
+        $this->apiProperties->set('relatable', $this);
+        $this->apiProperties->set('options.symbol', $this->parsed_trading_pair);
+        $this->apiProperties->set('options.productType', 'USDT-FUTURES');
+        $this->apiProperties->set('options.holdSide', mb_strtolower($this->direction));
+        $this->apiProperties->set('account', $this->account);
+
+        $this->apiResponse = $this->account->withApi()->flashClosePosition($this->apiProperties);
+
+        $body = json_decode((string) $this->apiResponse->getBody(), associative: true);
+        $successList = $body['data']['successList'] ?? [];
+
+        // Query the flash close order to get the fill price for closing_price
+        if (! empty($successList)) {
+            $orderId = $successList[0]['orderId'] ?? null;
+            if ($orderId) {
+                $this->setClosingPriceFromBitgetOrder($orderId);
+            }
+        }
+
+        return new ApiResponse(
+            response: $this->apiResponse,
+            result: [
+                'success' => ($body['code'] ?? '') === '00000',
+                'successList' => $successList,
+                'failureList' => $body['data']['failureList'] ?? [],
+            ]
+        );
+    }
+
+    /**
+     * Query a BitGet order and set the closing_price from its fill price.
+     */
+    private function setClosingPriceFromBitgetOrder(string $orderId): void
+    {
+        try {
+            $queryProperties = new ApiProperties;
+            $queryProperties->set('relatable', $this);
+            $queryProperties->set('options.symbol', $this->parsed_trading_pair);
+            $queryProperties->set('options.productType', 'USDT-FUTURES');
+            $queryProperties->set('options.orderId', $orderId);
+            $queryProperties->set('account', $this->account);
+
+            $orderResponse = $this->account->withApi()->getOrderDetail($queryProperties);
+            $orderBody = json_decode((string) $orderResponse->getBody(), associative: true);
+
+            // BitGet returns priceAvg for filled market orders
+            $fillPrice = $orderBody['data']['priceAvg'] ?? $orderBody['data']['price'] ?? null;
+
+            if ($fillPrice !== null && $fillPrice !== '' && (float) $fillPrice > 0) {
+                $this->updateSaving(['closing_price' => $fillPrice]);
+            }
+        } catch (\Throwable $e) {
+            // Log but don't fail - closing_price is nice to have
+            info("Failed to get closing price for BitGet position {$this->id}: " . $e->getMessage());
+        }
     }
 }

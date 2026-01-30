@@ -33,6 +33,16 @@ trait MapsPositionsQuery
                     $position['symbol'] = $this->baseWithQuote($parts['base'], $parts['quote']);
                 }
 
+                // Bybit uses 'side' with Buy/Sell values
+                $side = mb_strtoupper($position['side'] ?? 'BOTH');
+                $size = abs((float) ($position['size'] ?? 0));
+
+                // Add Binance-compatible fields for apiClose() compatibility
+                // positionSide: LONG or SHORT (uppercase)
+                $position['positionSide'] = $side === 'BUY' ? 'LONG' : ($side === 'SELL' ? 'SHORT' : 'BOTH');
+                // positionAmt: positive for long, negative for short (Binance convention)
+                $position['positionAmt'] = $side === 'SELL' ? -$size : $size;
+
                 return $position;
             })
             ->keyBy(static function ($position) {

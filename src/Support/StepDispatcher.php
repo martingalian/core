@@ -428,7 +428,32 @@ final class StepDispatcher
                     continue;
                 }
 
-                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: TRANSITION TO FAILED | No pending resolve-exceptions in child block");
+                // Get the indices of all failed children to check parallel siblings
+                $failedIndices = $failedChildSteps->pluck('index')->unique();
+
+                // Check if there are any non-terminal siblings at the same index as the failed children.
+                // When steps run in parallel (same index), we must wait for ALL to reach terminal state.
+                $nonTerminalParallelSiblings = $childSteps->filter(
+                    static function ($step) use ($failedIndices) {
+                        // Only check steps at the same index as failed steps
+                        if (! $failedIndices->contains($step->index)) {
+                            return false;
+                        }
+
+                        // Skip steps that are already in terminal state
+                        return ! in_array(get_class($step->state), Step::terminalStepStates(), strict: true);
+                    }
+                );
+
+                if ($nonTerminalParallelSiblings->isNotEmpty()) {
+                    $siblingIds = $nonTerminalParallelSiblings->pluck('id')->join(', ');
+                    $siblingStates = $nonTerminalParallelSiblings->map(static fn ($s) => 'ID:'.$s->id.'='.class_basename($s->state))->join(', ');
+                    log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: WAIT - Parallel siblings still running at index [{$failedIndices->join(',')}]: [{$siblingStates}]");
+
+                    continue;
+                }
+
+                log_step($parentStep->id, "[StepDispatcher.transitionParentsToFailed] Parent Step #{$parentStep->id} | DECISION: TRANSITION TO FAILED | No pending resolve-exceptions or parallel siblings");
 
                 // Set error message before transitioning to Failed
                 $parentStep->update([

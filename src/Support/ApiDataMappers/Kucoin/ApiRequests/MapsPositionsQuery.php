@@ -90,6 +90,12 @@ trait MapsPositionsQuery
                 $position['side'] = $qty > 0 ? 'long' : 'short';
                 $position['size'] = abs($qty);
 
+                // Add Binance-compatible fields for apiClose() compatibility
+                // positionSide: LONG or SHORT (uppercase)
+                $position['positionSide'] = $qty > 0 ? 'LONG' : 'SHORT';
+                // positionAmt: keep original sign convention (Binance-compatible)
+                $position['positionAmt'] = $qty;
+
                 return $position;
             })
             ->keyBy(static function ($position) {

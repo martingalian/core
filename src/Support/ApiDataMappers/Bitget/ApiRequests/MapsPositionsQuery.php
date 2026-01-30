@@ -74,7 +74,14 @@ trait MapsPositionsQuery
                 // BitGet uses holdSide: 'long' or 'short'
                 $holdSide = $position['holdSide'] ?? 'long';
                 $position['side'] = $holdSide;
-                $position['size'] = abs((float) ($position['total'] ?? 0));
+                $size = abs((float) ($position['total'] ?? 0));
+                $position['size'] = $size;
+
+                // Add Binance-compatible fields for apiClose() compatibility
+                // positionSide: LONG or SHORT (uppercase)
+                $position['positionSide'] = mb_strtoupper($holdSide);
+                // positionAmt: positive for long, negative for short (Binance convention)
+                $position['positionAmt'] = $holdSide === 'short' ? -$size : $size;
 
                 // Position TP/SL IDs (populated when place-pos-tpsl is used)
                 $position['takeProfitId'] = $position['takeProfitId'] ?? null;

@@ -7,6 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Position;
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Jobs\Atomic\Order\CalculateWapAndModifyProfitOrderJob;
+use Martingalian\Core\Jobs\Atomic\Order\VerifyIfTPIsFilledJob;
 use Martingalian\Core\Jobs\Atomic\Position\UpdatePositionStatusJob as AtomicUpdatePositionStatusJob;
 use Martingalian\Core\Jobs\Lifecycles\Account\QueryAccountPositionsJob as QueryAccountPositionsLifecycle;
 use Martingalian\Core\Models\Position;
@@ -20,11 +21,12 @@ use Martingalian\Core\Support\Proxies\JobProxy;
  * Recalculates the take-profit price based on Binance's breakEvenPrice
  * and modifies the PROFIT order accordingly.
  *
- * Flow (4 steps):
+ * Flow (5 steps):
  * 1. UpdatePositionStatusJob → status='waping'
- * 2. QueryAccountPositionsJob → fetches fresh data with breakEvenPrice
- * 3. CalculateWapAndModifyProfitOrderJob → the WAP calculation
- * 4. UpdatePositionStatusJob → status='active'
+ * 2. VerifyIfTPIsFilledJob → queries exchange, aborts if TP already filled
+ * 3. QueryAccountPositionsJob → fetches fresh data with breakEvenPrice
+ * 4. CalculateWapAndModifyProfitOrderJob → the WAP calculation
+ * 5. UpdatePositionStatusJob → status='active'
  * + resolve-exception: UpdatePositionStatusJob → status='active' (revert on failure)
  */
 class ApplyWapJob extends BaseApiableJob
@@ -93,16 +95,28 @@ class ApplyWapJob extends BaseApiableJob
             'workflow_id' => null,
         ]);
 
-        // Step 2: Query account positions snapshot from exchange
+        // Step 2: Verify TP is not already filled on exchange
+        // This catches the edge case where LIMIT and TP fill in same sync cycle
+        Step::create([
+            'class' => $resolver->resolve(VerifyIfTPIsFilledJob::class),
+            'arguments' => [
+                'positionId' => $this->position->id,
+            ],
+            'block_uuid' => $blockUuid,
+            'index' => 2,
+            'workflow_id' => null,
+        ]);
+
+        // Step 3: Query account positions snapshot from exchange
         $queryPositionsLifecycleClass = $resolver->resolve(QueryAccountPositionsLifecycle::class);
         $queryPositionsLifecycle = new $queryPositionsLifecycleClass($this->position->account);
         $nextIndex = $queryPositionsLifecycle->dispatch(
             blockUuid: $blockUuid,
-            startIndex: 2,
+            startIndex: 3,
             workflowId: null
         );
 
-        // Step 3: Calculate WAP and modify profit order
+        // Step 4: Calculate WAP and modify profit order
         Step::create([
             'class' => $resolver->resolve(CalculateWapAndModifyProfitOrderJob::class),
             'arguments' => [
@@ -114,7 +128,7 @@ class ApplyWapJob extends BaseApiableJob
         ]);
         $nextIndex++;
 
-        // Step 4: Update position status back to 'active'
+        // Step 5: Update position status back to 'active'
         Step::create([
             'class' => $resolver->resolve(AtomicUpdatePositionStatusJob::class),
             'arguments' => [

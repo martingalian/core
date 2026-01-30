@@ -26,6 +26,7 @@ trait MapsPlaceOrder
         $properties->set('options.marginCoin', 'USDT');
         $properties->set('options.side', (string) $this->sideType($order->side));
         $properties->set('options.tradeSide', $this->determineTradeSide($order));
+        $properties->set('options.posSide', $this->determinePosSide($order));
         $properties->set('options.size', (string) api_format_quantity($order->quantity, $order->position->exchangeSymbol));
         $properties->set('options.clientOid', (string) $order->client_order_id);
 
@@ -87,6 +88,11 @@ trait MapsPlaceOrder
      */
     private function determineTradeSide(Order $order): string
     {
+        // MARKET-CANCEL orders are specifically for closing positions
+        if ($order->type === 'MARKET-CANCEL') {
+            return 'close';
+        }
+
         // If the order is marked as reduceOnly, it's closing.
         if ($order->reduce_only ?? false) {
             return 'close';
@@ -94,5 +100,25 @@ trait MapsPlaceOrder
 
         // Default to opening.
         return 'open';
+    }
+
+    /**
+     * Determine the position side for hedge mode.
+     *
+     * BitGet requires posSide in hedge mode to know which position to affect.
+     * 'long' - Long position
+     * 'short' - Short position
+     */
+    private function determinePosSide(Order $order): string
+    {
+        // Use the order's position_side if set (from apiClose)
+        if (! empty($order->position_side)) {
+            return mb_strtolower($order->position_side);
+        }
+
+        // Derive from the position's direction
+        $direction = $order->position->direction ?? 'LONG';
+
+        return mb_strtolower($direction);
     }
 }

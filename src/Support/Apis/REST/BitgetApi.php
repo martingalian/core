@@ -564,4 +564,30 @@ final class BitgetApi
 
         return $this->client->signRequest($apiRequest);
     }
+
+    /**
+     * Flash close a position.
+     *
+     * Closes an entire position at market price in a single API call.
+     * Much simpler than placing a market order with proper parameters.
+     *
+     * Required options:
+     * - symbol: Trading pair (e.g., "JUPUSDT")
+     * - productType: "USDT-FUTURES"
+     * - holdSide: "long" or "short"
+     *
+     * @see https://www.bitget.com/api-doc/contract/trade/Flash-Close-Position
+     */
+    public function flashClosePosition(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/order/close-positions',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
 }
