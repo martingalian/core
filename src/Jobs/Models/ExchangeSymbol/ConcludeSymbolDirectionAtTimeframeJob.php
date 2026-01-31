@@ -12,7 +12,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Models\Indicator\QuerySymbolIndicatorsJob;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\IndicatorHistory;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Martingalian\Core\Models\TradeConfiguration;
 
 /**

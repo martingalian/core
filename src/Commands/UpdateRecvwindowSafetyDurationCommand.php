@@ -6,7 +6,7 @@ namespace Martingalian\Core\Commands;
 
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Support\BaseCommand;
+use StepDispatcher\Support\BaseCommand;
 
 final class UpdateRecvwindowSafetyDurationCommand extends BaseCommand
 {

@@ -6,7 +6,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Order;
 
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
 use Martingalian\Core\Jobs\Atomic\Order\PlaceMarketOrderJob as PlaceMarketOrderAtomic;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * PlaceMarketOrderJob (Lifecycle)

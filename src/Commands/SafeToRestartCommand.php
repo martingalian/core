@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Martingalian\Core\Commands;
 
 use Martingalian\Core\Models\Server;
-use Martingalian\Core\Models\Step;
-use Martingalian\Core\States\Running;
-use Martingalian\Core\Support\BaseCommand;
+use StepDispatcher\Models\Step;
+use StepDispatcher\States\Running;
+use StepDispatcher\Support\BaseCommand;
 
 final class SafeToRestartCommand extends BaseCommand
 {

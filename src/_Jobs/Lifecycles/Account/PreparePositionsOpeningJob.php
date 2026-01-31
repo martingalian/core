@@ -11,7 +11,7 @@ use Martingalian\Core\_Jobs\Models\Account\QueryAccountOpenOrdersJob;
 use Martingalian\Core\_Jobs\Models\Account\QueryAccountPositionsJob;
 use Martingalian\Core\_Jobs\Models\Account\VerifyMinAccountBalanceJob;
 use Martingalian\Core\Models\Account;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /*
  * PreparePositionsOpeningJob

@@ -6,7 +6,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Position;
 
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
 use Martingalian\Core\Jobs\Atomic\Position\UpdateRemainingClosingDataJob as AtomicUpdateRemainingClosingDataJob;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * UpdateRemainingClosingDataJob (Lifecycle)

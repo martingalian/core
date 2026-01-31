@@ -7,7 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\ApiSystem;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Atomic\ApiSystem\SyncLeverageBracketsJob as AtomicSyncLeverageBracketsJob;
 use Martingalian\Core\Models\ApiSystem;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * SyncLeverageBracketsJob (Lifecycle)

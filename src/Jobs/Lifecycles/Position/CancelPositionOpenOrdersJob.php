@@ -7,7 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Position;
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
 use Martingalian\Core\Jobs\Atomic\Position\CancelAlgoOpenOrdersJob as AtomicCancelAlgoOpenOrdersJob;
 use Martingalian\Core\Jobs\Atomic\Position\CancelPositionOpenOrdersJob as AtomicCancelPositionOpenOrdersJob;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * CancelPositionOpenOrdersJob (Lifecycle)

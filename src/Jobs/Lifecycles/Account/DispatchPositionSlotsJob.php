@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\DispatchPositionJob;
 use Martingalian\Core\Models\Account;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
 /**

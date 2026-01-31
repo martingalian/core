@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 use Martingalian\Core\Jobs\Models\Server\TestConnectivityOnServerJob;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\Server;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * ConnectivityTestController

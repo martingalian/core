@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
-use Martingalian\Core\Commands\DispatchStepsCommand;
 use Martingalian\Core\Commands\SafeToRestartCommand;
 use Martingalian\Core\Commands\UpdateRecvwindowSafetyDurationCommand;
 use Martingalian\Core\Listeners\NotificationLogListener;
@@ -28,7 +27,7 @@ use Martingalian\Core\Models\NotificationLog;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Models\SlowQuery;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Martingalian\Core\Models\Symbol;
 use Martingalian\Core\Models\User;
 use Martingalian\Core\Support\NotificationService;
@@ -44,7 +43,7 @@ use Martingalian\Core\Observers\IndicatorObserver;
 use Martingalian\Core\Observers\NotificationLogObserver;
 use Martingalian\Core\Observers\OrderObserver;
 use Martingalian\Core\Observers\PositionObserver;
-use Martingalian\Core\Observers\StepObserver;
+use StepDispatcher\Observers\StepObserver;
 use Martingalian\Core\Observers\SymbolObserver;
 use Martingalian\Core\Observers\UserObserver;
 
@@ -54,7 +53,6 @@ final class CoreServiceProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->commands([
-                DispatchStepsCommand::class,
                 SafeToRestartCommand::class,
                 UpdateRecvwindowSafetyDurationCommand::class,
             ]);

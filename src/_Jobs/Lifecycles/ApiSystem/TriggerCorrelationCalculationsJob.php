@@ -9,7 +9,7 @@ use Martingalian\Core\_Jobs\Models\ExchangeSymbol\CalculateBtcCorrelationJob;
 use Martingalian\Core\_Jobs\Models\ExchangeSymbol\CalculateBtcElasticityJob;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * TriggerCorrelationCalculationsJob

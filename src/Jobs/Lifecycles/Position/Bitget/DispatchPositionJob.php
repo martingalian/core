@@ -16,7 +16,7 @@ use Martingalian\Core\Jobs\Lifecycles\Position\SetLeverageJob as SetLeverageLife
 use Martingalian\Core\Jobs\Lifecycles\Position\SetMarginModeJob as SetMarginModeLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\VerifyOrderNotionalJob as VerifyOrderNotionalLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Position\VerifyTradingPairNotOpenJob as VerifyTradingPairNotOpenLifecycle;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
 /**

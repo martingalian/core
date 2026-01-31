@@ -10,7 +10,7 @@ use Martingalian\Core\Jobs\Atomic\Order\RecreateCancelledOrderJob;
 use Martingalian\Core\Jobs\Atomic\Order\SyncPositionOrdersJob;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
 /**

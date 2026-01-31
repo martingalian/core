@@ -8,7 +8,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Atomic\ExchangeSymbol\SyncLeverageBracketJob;
 use Martingalian\Core\Models\ApiSystem;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * SyncLeverageBracketsJob (Lifecycle - Bybit Override)

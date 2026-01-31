@@ -7,7 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Order;
 use Illuminate\Support\Str;
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
 use Martingalian\Core\Jobs\Atomic\Order\DispatchLimitOrdersJob;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * PlaceLimitOrdersJob (Lifecycle)

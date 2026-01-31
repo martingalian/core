@@ -7,7 +7,7 @@ namespace Martingalian\Core\_Jobs\Lifecycles\ExchangeSymbols;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\_Jobs\Models\ExchangeSymbol\TouchTaapiDataForExchangeSymbolJob;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * TouchTaapiDataForExchangeSymbolsJob

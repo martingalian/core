@@ -7,7 +7,7 @@ namespace Martingalian\Core\Concerns\Order;
 use Illuminate\Support\Str;
 use Martingalian\Core\Jobs\Lifecycles\Positions\ApplyWAPJob;
 use Martingalian\Core\Jobs\Models\Position\UpdatePositionStatusJob;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 trait HandlesChanges
 {

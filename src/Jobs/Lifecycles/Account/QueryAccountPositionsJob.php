@@ -6,7 +6,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Account;
 
 use Martingalian\Core\Abstracts\BaseAccountLifecycle;
 use Martingalian\Core\Jobs\Atomic\Account\QueryAccountPositionsJob as AtomicQueryAccountPositionsJob;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * QueryAccountPositionsJob (Lifecycle)

@@ -10,7 +10,7 @@ use Martingalian\Core\Jobs\Lifecycles\Position\ClosePositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\SmartReplaceOrdersJob;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Martingalian\Core\Support\Math;
 use Martingalian\Core\Support\Proxies\JobProxy;
 

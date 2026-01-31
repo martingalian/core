@@ -12,10 +12,10 @@ use Martingalian\Core\Jobs\Lifecycles\Position\ApplyWapJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\ClosePositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\PreparePositionReplacementJob;
 use Martingalian\Core\Models\Order;
-use Martingalian\Core\Models\Step;
-use Martingalian\Core\States\Dispatched;
-use Martingalian\Core\States\Pending;
-use Martingalian\Core\States\Running;
+use StepDispatcher\Models\Step;
+use StepDispatcher\States\Dispatched;
+use StepDispatcher\States\Pending;
+use StepDispatcher\States\Running;
 use Martingalian\Core\Support\Math;
 
 final class OrderObserver

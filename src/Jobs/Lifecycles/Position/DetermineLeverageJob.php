@@ -6,7 +6,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Position;
 
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
 use Martingalian\Core\Jobs\Atomic\Position\DetermineLeverageJob as AtomicDetermineLeverageJob;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * DetermineLeverageJob (Lifecycle)

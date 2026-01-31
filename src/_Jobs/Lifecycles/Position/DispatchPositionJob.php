@@ -7,7 +7,7 @@ namespace Martingalian\Core\_Jobs\Lifecycles\Position;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\_Jobs\Models\Position\VerifyTradingPairNotOpenJob;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Martingalian\Core\Support\StepActions\Binance\PlaceOrderAction;
 use Martingalian\Core\Support\StepActions\Binance\SetLeverageAction;
 use Martingalian\Core\Support\StepActions\Binance\SetMarginAction;

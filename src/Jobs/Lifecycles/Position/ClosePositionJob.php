@@ -10,7 +10,7 @@ use Martingalian\Core\Jobs\Atomic\Position\UpdatePositionStatusJob as AtomicUpda
 use Martingalian\Core\Jobs\Lifecycles\Account\QueryAccountPositionsJob as QueryAccountPositionsLifecycle;
 use Martingalian\Core\Jobs\Lifecycles\Order\SyncPositionOrdersJob as SyncPositionOrdersLifecycle;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
 /**

@@ -9,7 +9,7 @@ use Martingalian\Core\Abstracts\BaseExceptionHandler;
 use Martingalian\Core\Jobs\Atomic\Position\VerifyPositionExistsOnExchangeJob;
 use Martingalian\Core\Jobs\Lifecycles\Account\QueryAccountPositionsJob as QueryAccountPositionsLifecycle;
 use Martingalian\Core\Models\Position;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
 /**

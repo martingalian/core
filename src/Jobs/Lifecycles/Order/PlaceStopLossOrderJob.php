@@ -6,7 +6,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Order;
 
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
 use Martingalian\Core\Jobs\Atomic\Order\PlaceStopLossOrderJob as PlaceStopLossOrderAtomic;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * PlaceStopLossOrderJob (Lifecycle)

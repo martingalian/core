@@ -11,7 +11,7 @@ use Martingalian\Core\Jobs\Lifecycles\Account\QueryAccountPositionsJob as QueryA
 use Martingalian\Core\Jobs\Lifecycles\Account\VerifyMinAccountBalanceJob as VerifyMinAccountBalanceLifecycle;
 use Martingalian\Core\Jobs\Models\Account\AssignBestTokensToPositionSlotsJob;
 use Martingalian\Core\Models\Account;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
 /**

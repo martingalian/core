@@ -9,8 +9,8 @@ use Martingalian\Core\Exceptions\JustEndException;
 use Martingalian\Core\Exceptions\JustResolveException;
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
 
-use Martingalian\Core\States\Completed;
-use Martingalian\Core\States\Failed;
+use StepDispatcher\States\Completed;
+use StepDispatcher\States\Failed;
 
 use Throwable;
 

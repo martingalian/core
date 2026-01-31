@@ -9,7 +9,7 @@ use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Models\ExchangeSymbol;
 use Martingalian\Core\Models\Indicator;
 use Martingalian\Core\Models\IndicatorHistory;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Throwable;
 
 final class ConfirmPriceAlignmentWithDirectionJob extends BaseQueueableJob

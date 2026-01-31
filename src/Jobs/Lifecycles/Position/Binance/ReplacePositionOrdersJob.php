@@ -14,7 +14,7 @@ use Martingalian\Core\Jobs\Lifecycles\Position\CancelPositionJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\CancelPositionOpenOrdersJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\ReplacePositionOrdersJob as BaseReplacePositionOrdersJob;
 use Martingalian\Core\Jobs\Lifecycles\Position\UpdatePositionStatusJob;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 use Martingalian\Core\Support\Proxies\JobProxy;
 
 /**

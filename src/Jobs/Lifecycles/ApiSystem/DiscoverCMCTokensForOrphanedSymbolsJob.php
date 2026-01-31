@@ -7,7 +7,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\ApiSystem;
 use Martingalian\Core\Abstracts\BaseQueueableJob;
 use Martingalian\Core\Jobs\Models\ExchangeSymbol\DiscoverCMCTokenForExchangeSymbolJob;
 use Martingalian\Core\Models\ExchangeSymbol;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * DiscoverCMCTokensForOrphanedSymbolsJob

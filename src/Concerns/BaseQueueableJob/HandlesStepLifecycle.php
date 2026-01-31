@@ -8,10 +8,10 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 
 use Martingalian\Core\Exceptions\MaxRetriesReachedException;
-use Martingalian\Core\States\Completed;
-use Martingalian\Core\States\Pending;
-use Martingalian\Core\States\Skipped;
-use Martingalian\Core\States\Stopped;
+use StepDispatcher\States\Completed;
+use StepDispatcher\States\Pending;
+use StepDispatcher\States\Skipped;
+use StepDispatcher\States\Stopped;
 
 /**
  * Trait HandlesStepLifecycle

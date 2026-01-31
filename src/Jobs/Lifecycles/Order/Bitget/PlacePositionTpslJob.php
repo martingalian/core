@@ -6,7 +6,7 @@ namespace Martingalian\Core\Jobs\Lifecycles\Order\Bitget;
 
 use Martingalian\Core\Abstracts\BasePositionLifecycle;
 use Martingalian\Core\Jobs\Atomic\Order\Bitget\PlacePositionTpslJob as PlacePositionTpslAtomic;
-use Martingalian\Core\Models\Step;
+use StepDispatcher\Models\Step;
 
 /**
  * PlacePositionTpslJob (Lifecycle) - Bitget
