@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Concerns\BaseModel;
 
-use Martingalian\Core\Abstracts\BaseModel;
+use Illuminate\Database\Eloquent\Model;
 use Martingalian\Core\Models\ModelLog;
 use Martingalian\Core\Observers\ModelLogObserver;
 
@@ -50,13 +50,13 @@ trait LogsApplicationEvents
      *
      * @param  string  $eventType  The type of event (e.g., 'job_failed', 'order_filled')
      * @param  array  $metadata  Additional data to store with the log
-     * @param  BaseModel|null  $relatable  The model that triggered this event (optional)
+     * @param  Model|null  $relatable  The model that triggered this event (optional)
      * @param  string|null  $message  Optional human-readable message
      */
     public function appLog(
         string $eventType,
         array $metadata = [],
-        ?BaseModel $relatable = null,
+        ?Model $relatable = null,
         ?string $message = null
     ): ?ModelLog {
         // Skip if logging is globally disabled
