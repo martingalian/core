@@ -343,9 +343,6 @@ trait ApiExceptionHelpers
             ]
         );
 
-        $typeLabel = str_replace(search: '_', replace: ' ', subject: $type);
-        log_step('api-exceptions', "----- HOSTNAME FORBIDDEN ({$typeLabel}): {$record->ip_address}");
-
         // Notification is sent by ForbiddenHostnameObserver::created() when the record is newly created
     }
 

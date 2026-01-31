@@ -97,8 +97,7 @@ trait HandlesApiJobExceptions
             Artisan::call('martingalian:update-recvwindow-safety-duration');
         } catch (Throwable $commandException) {
             // Command might fail in test environment or when API is unavailable
-            // Log but don't fail the job - we'll still retry with existing recvwindow_margin
-            log_step($this->step->id, 'Failed to update recvwindow safety duration: '.$commandException->getMessage());
+            // We'll still retry with existing recvwindow_margin
         }
 
         $this->retryPerApiThrottlingDelay($e);

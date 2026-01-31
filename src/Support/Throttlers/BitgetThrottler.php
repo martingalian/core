@@ -52,15 +52,9 @@ final class BitgetThrottler extends BaseApiThrottler
     {
         $prefix = self::getCacheKeyPrefix();
 
-        throttle_log($stepId, '   └─ BitgetThrottler::isSafeToDispatch() called');
-
         // 1. Check minimum delay between requests
         $ip = self::getCurrentIp();
         $minDelayMs = config('martingalian.throttlers.bitget.min_delay_ms', 0);
-
-        throttle_log($stepId, '      [Check] Minimum delay between requests...');
-        throttle_log($stepId, "         ├─ Server IP: {$ip}");
-        throttle_log($stepId, "         └─ Min delay configured: {$minDelayMs}ms");
 
         if ($minDelayMs > 0) {
             // Check both IP-based timestamp (from recordResponseHeaders)
@@ -79,34 +73,20 @@ final class BitgetThrottler extends BaseApiThrottler
                 $minDelaySeconds = $minDelayMs / 1000;
                 $elapsedSeconds = now()->timestamp - $lastTimestamp;
 
-                throttle_log($stepId, "         ├─ Last request timestamp: {$lastTimestamp}");
-                throttle_log($stepId, "         ├─ Elapsed since last: {$elapsedSeconds}s");
-                throttle_log($stepId, "         └─ Min delay required: {$minDelaySeconds}s");
-
                 if ($elapsedSeconds < $minDelaySeconds) {
                     $waitSeconds = (int) ceil($minDelaySeconds - $elapsedSeconds);
-                    throttle_log($stepId, '         ❌ THROTTLED by minimum delay');
-                    throttle_log($stepId, "            └─ Must wait: {$waitSeconds}s");
 
                     return $waitSeconds;
                 }
             }
-            throttle_log($stepId, '         ✓ Minimum delay check passed');
-        } else {
-            throttle_log($stepId, '         ✓ No minimum delay configured - skipping');
         }
 
         // 2. Check if IP is currently banned (429 response)
-        throttle_log($stepId, '      [Check] IP ban status...');
         if (self::isCurrentlyBanned()) {
             $secondsRemaining = self::getSecondsUntilBanLifts();
-            throttle_log($stepId, '         ❌ THROTTLED by IP ban');
-            throttle_log($stepId, "            ├─ IP: {$ip}");
-            throttle_log($stepId, "            └─ Ban lifts in: {$secondsRemaining}s");
 
             return $secondsRemaining;
         }
-        throttle_log($stepId, '         ✓ IP not banned');
 
         // 3. Use base class window limit check
         return 0;

@@ -58,47 +58,33 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
 
     public function computeApiable()
     {
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] computeApiable() starting...');
-
         // Load models here, not in constructor
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Loading exchange symbols...');
         $exchangeSymbols = ExchangeSymbol::query()
             ->whereIn('id', $this->exchangeSymbolIds)
             ->get()
             ->keyBy('id');
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Loaded '.$exchangeSymbols->count().' exchange symbols');
 
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Loading indicators...');
         $indicators = Indicator::query()
             ->where('is_active', true)
             ->where('is_computed', false)
             ->where('type', 'conclude-indicators')
             ->get();
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Loaded '.$indicators->count().' indicators');
 
         if ($exchangeSymbols->isEmpty()) {
-            info_if('[QueryAllIndicatorsForSymbolsChunkJob] ERROR: No exchange symbols found');
-
             return ['stored' => 0, 'errors' => ['No exchange symbols found']];
         }
 
         if ($indicators->isEmpty()) {
-            info_if('[QueryAllIndicatorsForSymbolsChunkJob] ERROR: No indicators found');
-
             return ['stored' => 0, 'errors' => ['No indicators found']];
         }
 
         // Build bulk request constructs (one per symbol, each with ALL indicators)
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Building constructs...');
         $constructs = $this->buildConstructs($exchangeSymbols, $indicators);
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Built '.count($constructs).' constructs');
 
         // Use the proper infrastructure to make the API call
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Loading Taapi account...');
         $apiAccount = Account::admin('taapi');
 
         // Build API properties for bulk request
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Building API properties...');
         $payload = [
             'constructs' => $constructs,
         ];
@@ -109,30 +95,21 @@ final class QueryAllIndicatorsForSymbolsChunkJob extends BaseApiableJob
         }
 
         $apiProperties = new ApiProperties($payload);
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] API properties built');
 
         // Make the API call using the proper infrastructure
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Making API call to Taapi...');
         $guzzleResponse = $apiAccount->withApi()->getBulkIndicatorsValues($apiProperties);
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] API call completed with status: '.$guzzleResponse->getStatusCode());
 
         // Parse Guzzle response to array
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Parsing response...');
         $response = json_decode((string) $guzzleResponse->getBody(), associative: true);
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Response parsed, data count: '.(isset($response['data']) ? count($response['data']) : 0));
 
         // Parse and store results
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Storing results...');
         $result = $this->parseAndStoreResults($response, $exchangeSymbols, $indicators);
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] Results stored: '.json_encode($result));
 
         // Add request and response for debugging
         $result['debug_request'] = [
             'construct' => $constructs,
         ];
         $result['debug_response'] = $response;
-
-        info_if('[QueryAllIndicatorsForSymbolsChunkJob] computeApiable() completed successfully');
 
         return $result;
     }

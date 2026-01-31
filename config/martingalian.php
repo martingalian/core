@@ -16,14 +16,12 @@ return [
     |--------------------------------------------------------------------------
     |
     | slow_query_threshold_ms:  Log queries slower than this (in milliseconds).
-    | info_if:                  When true, emit extra info-level logs (useful in staging).
     | can_trade:                Global kill-switch. If false, the bot NEVER places live orders.
     | detect_orphan_positions:  If true, background jobs try to reconcile orphan positions.
     | can_open_positions:       If false, existing positions can be managed/closed, but no new ones open.
     | notifications_enabled:    If false, no notifications will be sent (useful for testing).
     */
     'slow_query_threshold_ms' => env('SLOW_QUERY_THRESHOLD_MS', 2500),
-    'info_if' => env('INFO_IF', false),
     'can_trade' => env('CAN_TRADE', false),
     'detect_orphan_positions' => env('DETECT_ORPHAN_POSITIONS', true),
     'can_open_positions' => env('CAN_OPEN_POSITIONS', false),
@@ -40,20 +38,6 @@ return [
     | Leave empty to disable authentication (not recommended in production).
     */
     'health_check_secret' => env('HEALTH_CHECK_SECRET'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Logging
-    |--------------------------------------------------------------------------
-    |
-    | step_related_logging: When true, enables file-based logging for steps.
-    |                       Logs are written to storage/logs/steps/{step_id}/step.log
-    |                       Dispatcher logs go to storage/logs/dispatcher.log
-    |                       Useful for debugging step execution and throttling.
-    */
-    'logging' => [
-        'step_related_logging' => env('STEP_RELATED_LOGGING', false),
-    ],
 
     /*
     |--------------------------------------------------------------------------

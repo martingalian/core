@@ -50,85 +50,44 @@ abstract class BaseQueueableJob extends BaseJob
         $stepId = $this->step->id ?? 'unknown';
         $jobClass = class_basename($this);
 
-        log_step($stepId, '╔═══════════════════════════════════════════════════════════╗');
-        log_step($stepId, '║       BASE-QUEUEABLE-JOB: handle() START                 ║');
-        log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
-        log_step($stepId, 'Job class: '.$jobClass);
-        log_step($stepId, 'Step ID: '.$stepId);
-
         try {
-            log_step($stepId, 'Calling prepareJobExecution()...');
             Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} prepareJobExecution()...");
             if (! $this->prepareJobExecution()) {
                 Log::channel('jobs')->warning("[HANDLE-DEBUG] Step #{$stepId} prepareJobExecution()=FALSE — duplicate guard, returning");
-                log_step($stepId, '✓ handle() completed (duplicate execution guard)');
-                log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
 
                 return;
             }
-            log_step($stepId, 'prepareJobExecution() completed');
 
-            log_step($stepId, 'Checking if in confirmation mode...');
             if ($this->isInConfirmationMode()) {
-                log_step($stepId, '✓ In confirmation mode - calling handleConfirmationMode()');
                 $this->handleConfirmationMode();
-                log_step($stepId, '✓ handle() completed (confirmation mode)');
-                log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
                 return;
             }
-            log_step($stepId, '✗ Not in confirmation mode');
 
-            log_step($stepId, 'Checking if should exit early...');
             if ($this->shouldExitEarly()) {
-                log_step($stepId, '✓ Should exit early - returning');
-                log_step($stepId, '✓ handle() completed (early exit)');
-                log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
                 return;
             }
-            log_step($stepId, '✗ Not exiting early');
 
-            log_step($stepId, 'Calling executeJobLogic()...');
             Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} executeJobLogic() START");
             $this->executeJobLogic();
             Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} executeJobLogic() END, stepStatusUpdated={$this->stepStatusUpdated}");
-            log_step($stepId, 'executeJobLogic() completed');
 
-            log_step($stepId, 'Checking if needs verification...');
             Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} needsVerification() check...");
             if ($this->needsVerification()) {
                 Log::channel('jobs')->warning("[HANDLE-DEBUG] Step #{$stepId} needsVerification()=TRUE — returning early");
-                log_step($stepId, '✓ Needs verification - returning');
-                log_step($stepId, '✓ handle() completed (needs verification)');
-                log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
                 return;
             }
             Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} needsVerification()=FALSE");
-            log_step($stepId, '✗ Does not need verification');
 
-            log_step($stepId, 'Calling finalizeJobExecution()...');
             Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} finalizeJobExecution() START, stepStatusUpdated={$this->stepStatusUpdated}");
             $this->finalizeJobExecution();
             Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} finalizeJobExecution() END, stepStatusUpdated={$this->stepStatusUpdated}");
-            log_step($stepId, 'finalizeJobExecution() completed');
 
-            log_step($stepId, '✓ handle() completed successfully');
             Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} handle() completed successfully");
-            log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
         } catch (Throwable $e) {
             $errorTime = round((microtime(true) - $startTime) * 1000, precision: 2);
             Log::channel('jobs')->error("[JOB ERROR] Step #{$stepId} | {$jobClass} | After {$errorTime}ms | Error: ".$e->getMessage());
-            log_step($stepId, '⚠️⚠️⚠️ EXCEPTION CAUGHT IN handle() ⚠️⚠️⚠️');
-            log_step($stepId, 'Exception details:');
-            log_step($stepId, '  - Exception class: '.get_class($e));
-            log_step($stepId, '  - Exception message: '.$e->getMessage());
-            log_step($stepId, '  - Exception file: '.$e->getFile().':'.$e->getLine());
-            log_step($stepId, '  - After: '.$errorTime.'ms');
-            log_step($stepId, 'Calling handleException()...');
 
             $this->handleException($e);
-
-            log_step($stepId, 'handleException() completed');
-            log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
         }
     }
 
@@ -144,52 +103,29 @@ abstract class BaseQueueableJob extends BaseJob
         if (! isset($this->step)) {
             // Job failed before step was initialized - log and exit
             Log::channel('jobs')->error('[JOB FAILED] Job failed before step initialization: '.$e->getMessage());
-            log_step('unknown', '⚠️⚠️⚠️ JOB FAILED - STEP NOT INITIALIZED ⚠️⚠️⚠️');
-            log_step('unknown', 'Exception: '.$e->getMessage());
 
             return;
         }
 
         $stepId = $this->step->id;
-        log_step($stepId, '╔═══════════════════════════════════════════════════════════╗');
-        log_step($stepId, '║   BASE-QUEUEABLE-JOB: failed() - LARAVEL FALLBACK       ║');
-        log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
-        log_step($stepId, '⚠️⚠️⚠️ LARAVEL CAUGHT UNHANDLED EXCEPTION ⚠️⚠️⚠️');
-        log_step($stepId, 'This is called when Horizon kills a job due to timeout or crash');
-        log_step($stepId, 'Exception details:');
-        log_step($stepId, '  - Exception class: '.get_class($e));
-        log_step($stepId, '  - Exception message: '.$e->getMessage());
-        log_step($stepId, '  - Exception file: '.$e->getFile().':'.$e->getLine());
 
         // Parse exception for friendly message and stack trace
-        log_step($stepId, 'Parsing exception with ExceptionParser...');
         $parser = \Martingalian\Core\Exceptions\ExceptionParser::with($e);
 
         // Update error_message, error_stack_trace, and response
-        log_step($stepId, 'Updating step with error information...');
         $this->step->update([
             'error_message' => $parser->friendlyMessage(),
             'error_stack_trace' => $parser->stackTrace(),
             'response' => ['exception' => $e->getMessage()],
         ]);
-        log_step($stepId, 'Step updated with error information');
 
         // Finalize duration
-        log_step($stepId, 'Calling finalizeDuration()...');
         $this->finalizeDuration();
-        log_step($stepId, 'Duration finalized');
 
         // Transition to Failed state (only if not already in a terminal state)
-        log_step($stepId, 'Transitioning to Failed state...');
-        log_step($stepId, 'Current state: '.$this->step->state);
         if (! $this->step->state instanceof Failed) {
             $this->step->state->transitionTo(Failed::class);
-            log_step($stepId, 'Transitioned to Failed state');
-        } else {
-            log_step($stepId, 'Step already in Failed state - skipping transition');
         }
-        log_step($stepId, '✓ failed() method completed');
-        log_step($stepId, '╚═══════════════════════════════════════════════════════════╝');
     }
 
     final public function startDuration(): void
@@ -229,9 +165,6 @@ abstract class BaseQueueableJob extends BaseJob
         // Log warning and exit gracefully - the step may have been stuck or is being
         // processed by another worker. Let it fail naturally after exhausting retries.
         if ($this->step->state instanceof Running) {
-            log_step($this->step->id, '⚠️ Step already in Running state - this is a duplicate execution from Horizon retry');
-            log_step($this->step->id, '⚠️ Exiting gracefully to avoid duplicate work');
-
             return false;
         }
 

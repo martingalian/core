@@ -52,15 +52,9 @@ final class BinanceThrottler extends BaseApiThrottler
     {
         $prefix = self::getCacheKeyPrefix();
 
-        throttle_log($stepId, "   └─ BinanceThrottler::isSafeToDispatch() called");
-
         // 1. Check minimum delay between requests
         $ip = self::getCurrentIp();
         $minDelayMs = config('martingalian.throttlers.binance.min_delay_ms', 0);
-
-        throttle_log($stepId, "      [Check] Minimum delay between requests...");
-        throttle_log($stepId, "         ├─ Server IP: {$ip}");
-        throttle_log($stepId, "         └─ Min delay configured: {$minDelayMs}ms");
 
         if ($minDelayMs > 0) {
             // Check both IP-based timestamp (from recordResponseHeaders)
@@ -79,45 +73,26 @@ final class BinanceThrottler extends BaseApiThrottler
                 $minDelaySeconds = $minDelayMs / 1000;
                 $elapsedSeconds = now()->timestamp - $lastTimestamp;
 
-                throttle_log($stepId, "         ├─ Last request timestamp: {$lastTimestamp}");
-                throttle_log($stepId, "         ├─ Elapsed since last: {$elapsedSeconds}s");
-                throttle_log($stepId, "         └─ Min delay required: {$minDelaySeconds}s");
-
                 if ($elapsedSeconds < $minDelaySeconds) {
                     $waitSeconds = (int) ceil($minDelaySeconds - $elapsedSeconds);
-                    throttle_log($stepId, "         ❌ THROTTLED by minimum delay");
-                    throttle_log($stepId, "            └─ Must wait: {$waitSeconds}s");
 
                     return $waitSeconds;
                 }
             }
-            throttle_log($stepId, "         ✓ Minimum delay check passed");
-        } else {
-            throttle_log($stepId, "         ✓ No minimum delay configured - skipping");
         }
 
         // 2. Check if IP is currently banned (418 response)
-        throttle_log($stepId, "      [Check] IP ban status...");
         if (self::isCurrentlyBanned()) {
             $secondsRemaining = self::getSecondsUntilBanLifts();
-            throttle_log($stepId, "         ❌ THROTTLED by IP ban");
-            throttle_log($stepId, "            ├─ IP: {$ip}");
-            throttle_log($stepId, "            └─ Ban lifts in: {$secondsRemaining}s");
 
             return $secondsRemaining;
         }
-        throttle_log($stepId, "         ✓ IP not banned");
 
         // 3. Check if approaching any rate limit (>80% threshold)
-        throttle_log($stepId, "      [Check] Rate limit proximity...");
         $secondsToWait = self::checkRateLimitProximity($accountId, $stepId);
         if ($secondsToWait > 0) {
-            throttle_log($stepId, "         ❌ THROTTLED by rate limit proximity");
-            throttle_log($stepId, "            └─ Must wait: {$secondsToWait}s");
-
             return $secondsToWait;
         }
-        throttle_log($stepId, "         ✓ Rate limit proximity check passed");
 
         return 0;
     }
@@ -267,9 +242,6 @@ final class BinanceThrottler extends BaseApiThrottler
                 ['type' => 'ORDERS', 'interval' => '10s', 'limit' => 50],
             ]);
 
-            throttle_log($stepId, "         ├─ Safety threshold: ".($safetyThreshold * 100).'%');
-            throttle_log($stepId, "         └─ Checking ".count($rateLimits).' rate limit windows...');
-
             foreach ($rateLimits as $rateLimit) {
                 $interval = $rateLimit['interval'];
                 $limit = $rateLimit['limit'];
@@ -287,15 +259,9 @@ final class BinanceThrottler extends BaseApiThrottler
                 $current = Cache::get($key) ?? 0;
                 $percentage = $limit > 0 ? ($current / $limit) : 0;
 
-                throttle_log($stepId, "            [{$type} - {$interval}] Current: {$current}/{$limit} (".round($percentage * 100, precision: 1).'%)');
-
                 if ($percentage > $safetyThreshold) {
-                    throttle_log($stepId, "            ❌ Safety threshold exceeded for {$type} {$interval}");
-                    throttle_log($stepId, "               └─ {$current}/{$limit} = ".round($percentage * 100, precision: 1).'% > '.($safetyThreshold * 100).'%');
-
                     // Calculate time until this window resets
                     $waitTime = self::calculateWindowResetTime($interval);
-                    throttle_log($stepId, "               └─ Window resets in: {$waitTime}s");
 
                     return $waitTime;
                 }
@@ -304,9 +270,6 @@ final class BinanceThrottler extends BaseApiThrottler
             return 0;
         } catch (Throwable $e) {
             // Fail safe - if Cache fails, allow the request
-            throttle_log($stepId, "         ⚠️ Exception in checkRateLimitProximity: ".$e->getMessage());
-            throttle_log($stepId, "         └─ Failing safe - allowing request");
-
             return 0;
         }
     }

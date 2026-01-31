@@ -91,7 +91,7 @@ final class ForbiddenHostnameObserver
                 ]
             );
         } catch (Throwable $e) {
-            log_step('forbidden-hostname', 'Failed to send forbidden hostname notification: '.$e->getMessage());
+            // Fail silently - don't break the application if notification fails
         }
     }
 }

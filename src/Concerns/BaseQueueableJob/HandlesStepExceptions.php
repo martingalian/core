@@ -49,92 +49,42 @@ trait HandlesStepExceptions
     protected function handleException(Throwable $e): void
     {
         $stepId = $this->step->id ?? 'unknown';
-        log_step($stepId, "╔═══════════════════════════════════════════════════════════╗");
-        log_step($stepId, "║         EXCEPTION CAUGHT - STARTING HANDLING              ║");
-        log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
-        log_step($stepId, "EXCEPTION DETAILS:");
-        log_step($stepId, "  - Exception class: ".get_class($e));
-        log_step($stepId, "  - Exception message: ".$e->getMessage());
-        log_step($stepId, "  - Exception code: ".$e->getCode());
-        log_step($stepId, "  - Exception file: ".$e->getFile().":".$e->getLine());
-        log_step($stepId, "  - Job class: ".class_basename($this));
-        log_step($stepId, "  - Current step state: ".(string) $this->step->state);
-        log_step($stepId, "  - Current step retries: ".$this->step->retries);
 
-        log_step($stepId, "DECISION TREE - CHECKING EXCEPTION TYPE:");
-        log_step($stepId, "  [1/5] Checking if isShortcutException()...");
         if ($this->isShortcutException($e)) {
-            log_step($stepId, "  ✓ YES - This is a SHORTCUT exception (MaxRetries/JustResolve/JustEnd)");
-            log_step($stepId, "  → Calling handleShortcutException()");
             $this->handleShortcutException($e);
-            log_step($stepId, "  → handleShortcutException() completed");
-            log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
 
             return;
         }
-        log_step($stepId, "  ✗ NO - Not a shortcut exception");
 
         // Check for permanent database errors (syntax, schema issues) - fail immediately
-        log_step($stepId, "  [2/5] Checking if isPermanentDatabaseError()...");
         if ($this->isPermanentDatabaseError($e)) {
-            log_step($stepId, "  ✓ YES - This is a PERMANENT database error");
-            log_step($stepId, "  → Calling reportAndFail() - WILL FAIL IMMEDIATELY");
             $this->reportAndFail($e);
-            log_step($stepId, "  → reportAndFail() completed");
-            log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
 
             return;
         }
-        log_step($stepId, "  ✗ NO - Not a permanent database error");
 
-        log_step($stepId, "  [3/5] Checking if shouldRetryException()...");
         if ($this->shouldRetryException($e)) {
-            log_step($stepId, "  ✓ YES - Exception should be RETRIED");
-            log_step($stepId, "  → Calling retryJobWithBackoff()");
             $this->retryJobWithBackoff($e);
-            log_step($stepId, "  → retryJobWithBackoff() completed");
-            log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
 
             return;
         }
-        log_step($stepId, "  ✗ NO - Exception should not be retried");
 
-        log_step($stepId, "  [4/5] Checking if shouldIgnoreException()...");
         if ($this->shouldIgnoreException($e)) {
-            log_step($stepId, "  ✓ YES - Exception should be IGNORED (will complete successfully)");
-            log_step($stepId, "  → Calling completeAndIgnoreException()");
             $this->completeAndIgnoreException();
-            log_step($stepId, "  → completeAndIgnoreException() completed");
-            log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
 
             return;
         }
-        log_step($stepId, "  ✗ NO - Exception should not be ignored");
 
-        log_step($stepId, "  [5/5] DEFAULT PATH - Log exception and attempt resolution");
-        log_step($stepId, "  → Calling logExceptionToStep()");
         $this->logExceptionToStep($e);
-        log_step($stepId, "  → logExceptionToStep() completed");
 
-        log_step($stepId, "  → Calling logExceptionToRelatable()");
         $this->logExceptionToRelatable($e);
-        log_step($stepId, "  → logExceptionToRelatable() completed");
 
         // Notifications are sent by ApiRequestLogObserver after log is persisted
-        log_step($stepId, "  → Calling resolveExceptionIfPossible()");
         $this->resolveExceptionIfPossible($e);
-        log_step($stepId, "  → resolveExceptionIfPossible() completed");
 
-        log_step($stepId, "CHECKING stepStatusUpdated flag:");
-        log_step($stepId, "  - stepStatusUpdated = ".($this->stepStatusUpdated ? 'true' : 'false'));
         if (! $this->stepStatusUpdated) {
-            log_step($stepId, "  ⚠️ Step status NOT updated by resolver - calling reportAndFail()");
             $this->reportAndFail($e);
-            log_step($stepId, "  → reportAndFail() completed");
-        } else {
-            log_step($stepId, "  ✓ Step status was updated by resolver - NOT calling reportAndFail()");
         }
-        log_step($stepId, "╚═══════════════════════════════════════════════════════════╝");
     }
 
     // ========================================================================

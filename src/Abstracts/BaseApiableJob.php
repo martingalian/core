@@ -92,83 +92,48 @@ abstract class BaseApiableJob extends BaseQueueableJob
     {
         $stepId = $this->step->id;
 
-        throttle_log($stepId, '╔═══════════════════════════════════════════════════════════╗');
-        throttle_log($stepId, '║   BaseApiableJob::shouldStartOrThrottle() START          ║');
-        throttle_log($stepId, '╚═══════════════════════════════════════════════════════════╝');
-
         // Ensure exception handler is assigned before safety checks
         if (! isset($this->exceptionHandler)) {
             $this->assignExceptionHandler();
         }
 
         // 0. First check exception handler's pre-flight safety check
-        throttle_log($stepId, '[0] Exception handler pre-flight safety check...');
         if (isset($this->exceptionHandler) && ! $this->exceptionHandler->isSafeToMakeRequest()) {
             $this->jobBackoffSeconds = 5; // Default 5 second backoff when not safe
-            throttle_log($stepId, '   ❌ Exception handler says NOT SAFE to make request');
-            throttle_log($stepId, "   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
-            throttle_log($stepId, '╚═══════════════════════════════════════════════════════════╝');
 
             return false; // Not safe - wait and retry
         }
-        throttle_log($stepId, '   ✓ Exception handler says safe to proceed');
 
         // Get throttler for this API system
         $throttler = $this->getThrottlerForApiSystem();
 
         if (! $throttler) {
-            throttle_log($stepId, '[1] No throttler for API system');
-            throttle_log($stepId, '   └─ DECISION: PROCEED (no throttler)');
-            throttle_log($stepId, '╚═══════════════════════════════════════════════════════════╝');
-
             return true; // No throttler = proceed
         }
 
-        $throttlerClass = class_basename($throttler);
-        throttle_log($stepId, "[1] Throttler found: {$throttlerClass}");
-
         // Extract account ID for per-account rate limit tracking (e.g., Binance ORDER limits)
         $accountId = $this->exceptionHandler->account?->id;
-        throttle_log($stepId, '   └─ Account ID: '.($accountId ?? 'NULL'));
 
         // 1. First check IP-based safety (bans, rate limit proximity) if throttler supports it
         if (method_exists($throttler, 'isSafeToDispatch')) {
-            throttle_log($stepId, "[2] Calling {$throttlerClass}::isSafeToDispatch()...");
             $secondsToWait = $throttler::isSafeToDispatch($accountId, $stepId);
 
             if ($secondsToWait > 0) {
                 $this->jobBackoffSeconds = $secondsToWait;
-                throttle_log($stepId, "   ❌ isSafeToDispatch() returned: {$secondsToWait}s");
-                throttle_log($stepId, "   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
-                throttle_log($stepId, '╚═══════════════════════════════════════════════════════════╝');
 
                 return false; // Not safe - wait and retry
             }
-
-            throttle_log($stepId, '   ✓ isSafeToDispatch() returned: 0s (safe to proceed)');
-        } else {
-            throttle_log($stepId, '[2] Throttler does not support isSafeToDispatch() - skipping');
         }
 
         // 2. Then check standard throttling (rate limits, min delays, etc.)
         $retryCount = $this->step->retries ?? 0;
-        throttle_log($stepId, "[3] Calling {$throttlerClass}::canDispatch()...");
-        throttle_log($stepId, "   ├─ Retry count: {$retryCount}");
-        throttle_log($stepId, '   └─ Account ID: '.($accountId ?? 'NULL'));
         $secondsToWait = $throttler::canDispatch($retryCount, $accountId, $stepId);
 
         if ($secondsToWait > 0) {
             $this->jobBackoffSeconds = $secondsToWait;
-            throttle_log($stepId, "   ❌ canDispatch() returned: {$secondsToWait}s");
-            throttle_log($stepId, "   └─ DECISION: RESCHEDULE ({$this->jobBackoffSeconds}s backoff)");
-            throttle_log($stepId, '╚═══════════════════════════════════════════════════════════╝');
 
             return false; // Throttled - retry
         }
-
-        throttle_log($stepId, '   ✓ canDispatch() returned: 0s (proceed)');
-        throttle_log($stepId, '└─ DECISION: PROCEED');
-        throttle_log($stepId, '╚═══════════════════════════════════════════════════════════╝');
 
         return true; // OK to proceed
     }

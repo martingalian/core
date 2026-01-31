@@ -51,15 +51,9 @@ final class BybitThrottler extends BaseApiThrottler
     {
         $prefix = self::getCacheKeyPrefix();
 
-        throttle_log($stepId, "   └─ BybitThrottler::isSafeToDispatch() called");
-
         // 1. Check minimum delay between requests
         $ip = self::getCurrentIp();
         $minDelayMs = config('martingalian.throttlers.bybit.min_delay_ms', 0);
-
-        throttle_log($stepId, "      [Check] Minimum delay between requests...");
-        throttle_log($stepId, "         ├─ Server IP: {$ip}");
-        throttle_log($stepId, "         └─ Min delay configured: {$minDelayMs}ms");
 
         if ($minDelayMs > 0) {
             // Check both IP-based timestamp (from recordResponseHeaders)
@@ -78,88 +72,53 @@ final class BybitThrottler extends BaseApiThrottler
                 $minDelaySeconds = $minDelayMs / 1000;
                 $elapsedSeconds = now()->timestamp - $lastTimestamp;
 
-                throttle_log($stepId, "         ├─ Last request timestamp: {$lastTimestamp}");
-                throttle_log($stepId, "         ├─ Elapsed since last: {$elapsedSeconds}s");
-                throttle_log($stepId, "         └─ Min delay required: {$minDelaySeconds}s");
-
                 if ($elapsedSeconds < $minDelaySeconds) {
                     $waitSeconds = (int) ceil($minDelaySeconds - $elapsedSeconds);
-                    throttle_log($stepId, "         ❌ THROTTLED by minimum delay");
-                    throttle_log($stepId, "            └─ Must wait: {$waitSeconds}s");
 
                     return $waitSeconds;
                 }
             }
-            throttle_log($stepId, "         ✓ Minimum delay check passed");
-        } else {
-            throttle_log($stepId, "         ✓ No minimum delay configured - skipping");
         }
 
         // 2. Check if IP is currently banned (403 response)
-        throttle_log($stepId, "      [Check] IP ban status...");
         if (self::isCurrentlyBanned()) {
             $secondsRemaining = self::getSecondsUntilBanLifts();
-            throttle_log($stepId, "         ❌ THROTTLED by IP ban");
-            throttle_log($stepId, "            ├─ IP: {$ip}");
-            throttle_log($stepId, "            └─ Ban lifts in: {$secondsRemaining}s");
 
             return $secondsRemaining;
         }
-        throttle_log($stepId, "         ✓ IP not banned");
 
         try {
             $ip = self::getCurrentIp();
 
             // 3. Check rate limit threshold
-            throttle_log($stepId, "      [Check] Rate limit threshold...");
             $safetyThreshold = config('martingalian.throttlers.bybit.safety_threshold', 0.1);
             $limitStatus = Cache::get("bybit:{$ip}:limit:status");
             $limitMax = Cache::get("bybit:{$ip}:limit:max");
 
-            throttle_log($stepId, "         ├─ X-Bapi-Limit-Status (remaining): ".($limitStatus ?? 'NULL'));
-            throttle_log($stepId, "         ├─ X-Bapi-Limit (max): ".($limitMax ?? 'NULL'));
-            throttle_log($stepId, "         └─ Safety threshold: ".($safetyThreshold * 100).'%');
-
             // If no rate limit data exists, allow request (fail-safe)
             if ($limitStatus === null || $limitMax === null) {
-                throttle_log($stepId, "         ✓ No rate limit data - allowing request (fail-safe)");
-
                 return 0;
             }
 
             // If max is 0, allow request (avoid division by zero)
             if ($limitMax === 0) {
-                throttle_log($stepId, "         ✓ Max is 0 - allowing request (fail-safe)");
-
                 return 0;
             }
 
             // If status is 0 or negative, we're at or over limit
             if ($limitStatus <= 0) {
-                throttle_log($stepId, "         ❌ THROTTLED by rate limit");
-                throttle_log($stepId, "            └─ Status <= 0 (at or over limit)");
-
                 return 1; // Wait at least 1 second
             }
 
             // Calculate remaining percentage
             $remainingPercentage = $limitStatus / $limitMax;
-            throttle_log($stepId, "         ├─ Remaining percentage: ".round($remainingPercentage * 100, precision: 2).'%');
 
             // If below safety threshold, wait
             if ($remainingPercentage < $safetyThreshold) {
-                throttle_log($stepId, "         ❌ THROTTLED by safety threshold");
-                throttle_log($stepId, "            └─ ".round($remainingPercentage * 100, precision: 2).'% < '.($safetyThreshold * 100).'%');
-
                 return 1; // Wait at least 1 second
             }
-
-            throttle_log($stepId, "         ✓ Rate limit threshold check passed");
         } catch (Throwable $e) {
             // Fail-safe: allow request on error
-            throttle_log($stepId, "         ⚠️ Exception in rate limit check: ".$e->getMessage());
-            throttle_log($stepId, "         └─ Failing safe - allowing request");
-
             return 0;
         }
 
