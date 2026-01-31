@@ -22,6 +22,7 @@ use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsOrderQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsPlaceOrder;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsPlacePlanOrder;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsPlacePosTpsl;
+use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsPlaceTpslOrder;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsPlanOrdersQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsPositionsQuery;
 use Martingalian\Core\Support\ApiDataMappers\Bitget\ApiRequests\MapsServerTimeQuery;
@@ -46,6 +47,7 @@ final class BitgetApiDataMapper extends BaseDataMapper
     use MapsPlaceOrder;
     use MapsPlacePlanOrder;
     use MapsPlacePosTpsl;
+    use MapsPlaceTpslOrder;
     use MapsPlanOrdersQuery;
     use MapsPositionsQuery;
     use MapsServerTimeQuery;

@@ -545,6 +545,30 @@ final class BitgetApi
     }
 
     /**
+     * Place a TP/SL order (individual take-profit or stop-loss).
+     *
+     * Unlike place-pos-tpsl which sets both TP and SL atomically, this creates
+     * individual orders. Uses planType profit_plan (TP) or loss_plan (SL) to
+     * ensure orders appear in the TP/SL tab, not Trigger tab.
+     *
+     * Use this endpoint when recreating cancelled TP/SL orders.
+     *
+     * @see https://www.bitget.com/api-doc/contract/plan/Place-Tpsl-Order
+     */
+    public function placeTpslOrder(?ApiProperties $properties = null)
+    {
+        $properties ??= new ApiProperties;
+
+        $apiRequest = ApiRequest::make(
+            'POST',
+            '/api/v2/mix/order/place-tpsl-order',
+            $properties
+        );
+
+        return $this->client->signRequest($apiRequest);
+    }
+
+    /**
      * Modify position TP/SL order trigger price.
      *
      * Used to update the trigger price of an existing position TP/SL.

@@ -108,6 +108,7 @@ class RecreateCancelledOrderJob extends BaseApiableJob
             'position_side' => $direction,
             'price' => $price,
             'quantity' => $quantity,
+            'is_algo' => $this->cancelledOrder->is_algo,
         ]);
 
         // Place on exchange

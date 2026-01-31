@@ -167,7 +167,7 @@ trait InteractsWithApis
             return match ($this->apiAccount()->apiSystem->canonical) {
                 'binance' => $this->apiPlaceAlgo(),
                 'kucoin' => $this->apiPlaceDefault(), // KuCoin uses same endpoint with stop params
-                'bitget' => $this->apiPlacePlanOrder(),
+                'bitget' => $this->apiPlaceTpslOrder(),
                 default => $this->apiPlaceDefault(), // Bybit uses same endpoint with triggerPrice
             };
         }
@@ -330,6 +330,70 @@ trait InteractsWithApis
     }
 
     /**
+     * Place a TP/SL order via Bitget's place-pos-tpsl endpoint.
+     *
+     * Uses place-pos-tpsl with only the relevant TP or SL parameters
+     * to create position-level orders (not partial). After placement,
+     * queries the position to fetch the new order ID.
+     */
+    public function apiPlaceTpslOrder(): ApiResponse
+    {
+        $this->apiProperties = $this->apiMapper()->preparePlaceTpslOrderProperties($this);
+        $this->apiProperties->set('account', $this->apiAccount());
+        $this->apiResponse = $this->apiAccount()->withApi()->placePosTpsl($this->apiProperties);
+
+        $finalResponse = new ApiResponse(
+            response: $this->apiResponse,
+            result: $this->apiMapper()->resolvePlaceTpslOrderResponse($this->apiResponse)
+        );
+
+        // place-pos-tpsl doesn't return orderId - fetch it from position query
+        if ($finalResponse->result['success'] ?? false) {
+            $orderId = $this->fetchTpslOrderIdFromPosition();
+
+            $this->updateSaving([
+                'exchange_order_id' => $orderId,
+                'opened_at' => now(),
+            ]);
+
+            $finalResponse->result['orderId'] = $orderId;
+        }
+
+        return $finalResponse;
+    }
+
+    /**
+     * Fetch the TP or SL order ID from position query.
+     *
+     * Used after place-pos-tpsl which doesn't return the order ID directly.
+     */
+    private function fetchTpslOrderIdFromPosition(): ?string
+    {
+        $account = $this->apiAccount();
+        $mapper = $this->apiMapper();
+
+        $properties = $mapper->prepareQueryPositionsProperties($account);
+        $properties->set('account', $account);
+
+        $response = $account->withApi()->getPositions($properties);
+        $positions = $mapper->resolveQueryPositionsResponse($response);
+
+        // Find our position by symbol and direction
+        $symbol = $this->position->exchangeSymbol->parsed_trading_pair;
+        $direction = mb_strtoupper($this->position->direction);
+        $key = "{$symbol}:{$direction}";
+
+        $positionData = $positions[$key] ?? [];
+
+        // Return the relevant ID based on order type
+        $isStopLoss = in_array(strtoupper(str_replace('-', '_', $this->type)), ['STOP_MARKET', 'STOP_LOSS'], true);
+
+        return $isStopLoss
+            ? ($positionData['stopLossId'] ?? null)
+            : ($positionData['takeProfitId'] ?? null);
+    }
+
+    /**
      * Query a plan order via Bitget's Plan Order API.
      */
     public function apiQueryPlanOrder(): ApiResponse
@@ -364,7 +428,7 @@ trait InteractsWithApis
         $this->updateSaving([
             'status' => $apiResponse->result['status'],
             'quantity' => $apiResponse->result['quantity'] ?? $this->quantity,
-            'price' => $apiResponse->result['price'],
+            'price' => $apiResponse->result['price'] ?? $this->price,
         ]);
 
         return $apiResponse;
