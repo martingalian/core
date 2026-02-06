@@ -1148,12 +1148,10 @@ final class MartingalianSeeder extends Seeder
      */
     public function deactivateNonPrimaryAccounts(): void
     {
-        // Active account for testing (change this to test different exchanges):
-        // 1 = Binance, 2 = Bybit, 3 = KuCoin, 4 = BitGet
-        $activeAccountId = 4; // BitGet
-
-        Account::where('id', '!=', $activeAccountId)->update(['is_active' => false]);
-        Account::where('id', $activeAccountId)->update(['is_active' => true]);
+        // Activate all accounts except KuCoin (no valid API keys for this server)
+        // 1 = Binance, 2 = Bybit, 3 = KuCoin, 4 = BitGet, 5 = Binance Only
+        Account::query()->update(['is_active' => true]);
+        Account::where('api_system_id', 3)->update(['is_active' => false]);
     }
 
     /**
