@@ -58,6 +58,8 @@ final class UpsertExchangeSymbolsFromExchangeJob extends BaseApiableJob
         // - Non-trading status symbols
         $apiResponse = $this->apiSystem->apiQueryMarketData();
 
+        $totalFromApi = count($apiResponse->result);
+
         // Pre-load all symbols indexed by token for efficient lookup
         $symbolsByToken = Symbol::pluck('id', 'token');
 
@@ -145,7 +147,7 @@ final class UpsertExchangeSymbolsFromExchangeJob extends BaseApiableJob
             'upserted' => $upsertedCount,
             'linked_to_symbols' => $linkedCount,
             'skipped' => $skippedCount,
-            'total_from_api' => count($apiResponse->result),
+            'total_from_api' => $totalFromApi,
         ];
     }
 }

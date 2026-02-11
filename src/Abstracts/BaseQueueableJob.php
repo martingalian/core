@@ -46,15 +46,8 @@ abstract class BaseQueueableJob extends BaseJob
 
     final public function handle(): void
     {
-        $startTime = microtime(true);
-        $stepId = $this->step->id ?? 'unknown';
-        $jobClass = class_basename($this);
-
         try {
-            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} prepareJobExecution()...");
             if (! $this->prepareJobExecution()) {
-                Log::channel('jobs')->warning("[HANDLE-DEBUG] Step #{$stepId} prepareJobExecution()=FALSE — duplicate guard, returning");
-
                 return;
             }
 
@@ -67,26 +60,14 @@ abstract class BaseQueueableJob extends BaseJob
                 return;
             }
 
-            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} executeJobLogic() START");
             $this->executeJobLogic();
-            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} executeJobLogic() END, stepStatusUpdated={$this->stepStatusUpdated}");
 
-            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} needsVerification() check...");
             if ($this->needsVerification()) {
-                Log::channel('jobs')->warning("[HANDLE-DEBUG] Step #{$stepId} needsVerification()=TRUE — returning early");
                 return;
             }
-            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} needsVerification()=FALSE");
 
-            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} finalizeJobExecution() START, stepStatusUpdated={$this->stepStatusUpdated}");
             $this->finalizeJobExecution();
-            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} finalizeJobExecution() END, stepStatusUpdated={$this->stepStatusUpdated}");
-
-            Log::channel('jobs')->info("[HANDLE-DEBUG] Step #{$stepId} handle() completed successfully");
         } catch (Throwable $e) {
-            $errorTime = round((microtime(true) - $startTime) * 1000, precision: 2);
-            Log::channel('jobs')->error("[JOB ERROR] Step #{$stepId} | {$jobClass} | After {$errorTime}ms | Error: ".$e->getMessage());
-
             $this->handleException($e);
         }
     }
