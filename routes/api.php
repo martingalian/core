@@ -18,11 +18,13 @@ use Martingalian\Core\Http\Controllers\Webhooks\NotificationWebhookController;
 // Receives: hard bounce, soft bounce, open events
 // Accepts GET for Zeptomail's verification test, POST for actual webhooks
 Route::match(['get', 'post'], '/webhooks/zeptomail/events', [NotificationWebhookController::class, 'zeptomail'])
+    ->middleware('throttle:30,1')
     ->name('webhooks.zeptomail');
 
 // Pushover receipt callback endpoint
 // Receives: emergency notification acknowledgment
 Route::post('/webhooks/pushover/receipt', [NotificationWebhookController::class, 'pushover'])
+    ->middleware('throttle:10,1')
     ->name('webhooks.pushover');
 
 /**
@@ -35,11 +37,13 @@ Route::post('/webhooks/pushover/receipt', [NotificationWebhookController::class,
 // Start connectivity test for user-provided credentials
 // Creates test steps for all apiable servers and returns block_uuid for polling
 Route::post('/connectivity-test/start', [ConnectivityTestController::class, 'start'])
+    ->middleware('throttle:3,1')
     ->name('connectivity-test.start');
 
 // Get connectivity test status by block_uuid
 // Returns progress and results of all server connectivity tests
 Route::get('/connectivity-test/status/{blockUuid}', [ConnectivityTestController::class, 'status'])
+    ->middleware('throttle:30,1')
     ->name('connectivity-test.status');
 
 /**
@@ -48,7 +52,7 @@ Route::get('/connectivity-test/status/{blockUuid}', [ConnectivityTestController:
  * Authenticated routes for fetching dashboard data (positions, statistics, charts).
  * Each endpoint polls independently for component-level autonomy.
  */
-Route::middleware('auth')->prefix('dashboard')->group(function () {
+Route::middleware(['auth', 'throttle:60,1'])->prefix('dashboard')->group(function () {
     // Combined data (legacy, for initial page load)
     Route::get('/data', [DashboardApiController::class, 'index'])
         ->name('api.dashboard.data');
