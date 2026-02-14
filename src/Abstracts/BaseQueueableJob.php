@@ -4,172 +4,33 @@ declare(strict_types=1);
 
 namespace Martingalian\Core\Abstracts;
 
-use Illuminate\Support\Str;
-use Log;
-use Martingalian\Core\Concerns\BaseQueueableJob\FormatsStepResult;
-use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepExceptions;
-use Martingalian\Core\Concerns\BaseQueueableJob\HandlesStepLifecycle;
 use Martingalian\Core\Exceptions\NonNotifiableException;
-use StepDispatcher\Models\Step;
-use StepDispatcher\States\Failed;
-use StepDispatcher\States\Running;
+use StepDispatcher\Abstracts\BaseStepJob;
+use StepDispatcher\Support\ExceptionParser;
 use Throwable;
 
 /*
  * BaseQueueableJob
  *
- * • Core abstract class for all step-based jobs in the GraphEngine system.
- * • Manages lifecycle transitions, status guards, retries, skips, and failures.
- * • Integrates with `Step` model and uses `HandlesStepLifecycle` for flow control.
- * • Supports optional "confirming-completion" mode via `confirmCompletionOrRetry()`.
- * • Executes compute logic and handles result formatting/storage.
- * • Provides structured logging and exception capture for robust debugging.
+ * Martingalian-specific extension of BaseStepJob.
+ * Adds project-specific defaults ($retries, $timeout) and hooks:
+ * - shouldExitEarly() throws NonNotifiableException (not RuntimeException)
+ * - onExceptionLogged() logs to relatable model via appLog()
  */
-abstract class BaseQueueableJob extends BaseJob
+abstract class BaseQueueableJob extends BaseStepJob
 {
-    use FormatsStepResult;
-    use HandlesStepExceptions;
-    use HandlesStepLifecycle;
+    // Max retries for a "always pending" job. Then update to "failed".
+    public int $retries = 20;
 
-    public Step $step;
-
-    public int $jobBackoffSeconds = 10;
-
-    public bool $stepStatusUpdated = false;
-
-    public float $startMicrotime = 0.0;
-
-    public ?BaseDatabaseExceptionHandler $databaseExceptionHandler = null;
-
-    // Must be implemented by subclasses to define the compute logic.
-    abstract protected function compute();
-
-    final public function handle(): void
-    {
-        try {
-            if (! $this->prepareJobExecution()) {
-                return;
-            }
-
-            if ($this->isInConfirmationMode()) {
-                $this->handleConfirmationMode();
-                return;
-            }
-
-            if ($this->shouldExitEarly()) {
-                return;
-            }
-
-            $this->executeJobLogic();
-
-            if ($this->needsVerification()) {
-                return;
-            }
-
-            $this->finalizeJobExecution();
-        } catch (Throwable $e) {
-            $this->handleException($e);
-        }
-    }
-
-    final public function failed(Throwable $e): void
-    {
-        /*
-         * Last-resort handler if the Laravel queue system catches an unhandled error.
-         * This is called when Horizon kills a job due to timeout or other unhandled exceptions.
-         * Update step error_message, error_stack_trace, and transition to Failed state.
-         */
-
-        // Check if step property is initialized before accessing it
-        if (! isset($this->step)) {
-            // Job failed before step was initialized - log and exit
-            Log::channel('jobs')->error('[JOB FAILED] Job failed before step initialization: '.$e->getMessage());
-
-            return;
-        }
-
-        $stepId = $this->step->id;
-
-        // Parse exception for friendly message and stack trace
-        $parser = \Martingalian\Core\Exceptions\ExceptionParser::with($e);
-
-        // Update error_message, error_stack_trace, and response
-        $this->step->update([
-            'error_message' => $parser->friendlyMessage(),
-            'error_stack_trace' => $parser->stackTrace(),
-            'response' => ['exception' => $e->getMessage()],
-        ]);
-
-        // Finalize duration
-        $this->finalizeDuration();
-
-        // Transition to Failed state (only if not already in a terminal state)
-        if (! $this->step->state instanceof Failed) {
-            $this->step->state->transitionTo(Failed::class);
-        }
-    }
-
-    final public function startDuration(): void
-    {
-        $this->startMicrotime = microtime(true);
-    }
-
-    final public function finalizeDuration(): void
-    {
-        $durationMs = abs((int) ((microtime(true) - $this->startMicrotime) * 1000));
-
-        $this->step->update(['duration' => $durationMs]);
-    }
-
-    final public function uuid(): string
-    {
-        return $this->step->child_block_uuid ?? Str::uuid()->toString();
-    }
+    // Laravel job timeout configuration.
+    // Set to 0 to rely on Horizon's supervisor timeout instead of job-level timeout.
+    // This ensures Laravel properly recognizes Horizon timeouts and calls failed() method.
+    public $timeout = 0;
 
     /**
-     * Determine if this step should be escalated to high priority.
-     * Default: escalate when step has reached 50% of max retries.
-     * Override in child jobs for custom priority escalation logic.
+     * Override to throw NonNotifiableException instead of RuntimeException
+     * when startOrFail() returns false.
      */
-    protected function shouldChangeToHighPriority(): bool
-    {
-        return $this->step->retries >= ($this->retries / 2);
-    }
-
-    protected function prepareJobExecution(): bool
-    {
-        // Refresh step from database to get latest state (it should be Dispatched)
-        $this->step->refresh();
-
-        // Guard against duplicate execution - if step is already Running,
-        // this is a retry from Horizon after a timeout/crash.
-        // Log warning and exit gracefully - the step may have been stuck or is being
-        // processed by another worker. Let it fail naturally after exhausting retries.
-        if ($this->step->state instanceof Running) {
-            return false;
-        }
-
-        $this->step->state->transitionTo(Running::class);
-        $this->startDuration();
-        $this->attachRelatable();
-
-        // Initialize database exception handler for all jobs
-        $this->databaseExceptionHandler = BaseDatabaseExceptionHandler::make('mysql');
-
-        // Note: checkMaxRetries() moved to shouldExitEarly() to occur AFTER throttle check
-        return true;
-    }
-
-    protected function isInConfirmationMode(): bool
-    {
-        return $this->shouldRunConfirmingCompletionMode();
-    }
-
-    protected function handleConfirmationMode(): void
-    {
-        $this->confirmCompletionOrRetry();
-    }
-
     protected function shouldExitEarly(): bool
     {
         if (! $this->shouldStartOrStop()) {
@@ -200,34 +61,36 @@ abstract class BaseQueueableJob extends BaseJob
         return false;
     }
 
-    protected function executeJobLogic(): void
+    /**
+     * Log exception to the relatable model via appLog().
+     * This is Martingalian-specific behavior — the generic BaseStepJob has a no-op.
+     */
+    protected function onExceptionLogged(Throwable $e): void
     {
-        if ($this->step->double_check === 0) {
-            $this->computeAndStoreResult();
-        }
-    }
-
-    protected function needsVerification(): bool
-    {
-        if ($this->shouldDoubleCheck()) {
-            return true;
+        // Guard against accessing step before initialization
+        if (! isset($this->step)) {
+            return;
         }
 
-        if (! $this->shouldConfirmOrRetry()) {
-            $this->retryForConfirmation();
+        // Get the relatable model from the step
+        $relatable = $this->step->relatable;
 
-            return true;
+        // Only log if relatable exists and has the appLog method
+        if (! $relatable || ! method_exists($relatable, 'appLog')) {
+            return;
         }
 
-        return false;
-    }
+        $parser = ExceptionParser::with($e);
 
-    protected function finalizeJobExecution(): void
-    {
-        if ($this->shouldComplete()) {
-            $this->complete();
-        }
-
-        $this->completeIfNotHandled();
+        // Create ModelLog entry on the relatable model
+        $relatable->appLog(
+            eventType: 'step_failed',
+            metadata: [
+                'exception_class' => get_class($e),
+                'exception_message' => $parser->friendlyMessage(),
+            ],
+            relatable: $this->step,
+            message: $parser->friendlyMessage()
+        );
     }
 }

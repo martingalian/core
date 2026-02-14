@@ -217,6 +217,38 @@ abstract class BaseApiableJob extends BaseQueueableJob
     }
 
     /**
+     * Hook: Delegate retry decisions to the API exception handler.
+     */
+    protected function externalRetryException(Throwable $e): bool
+    {
+        return isset($this->exceptionHandler)
+            && method_exists($this->exceptionHandler, 'retryException')
+            && $this->exceptionHandler->retryException($e);
+    }
+
+    /**
+     * Hook: Delegate ignore decisions to the API exception handler.
+     */
+    protected function externalIgnoreException(Throwable $e): bool
+    {
+        return isset($this->exceptionHandler)
+            && method_exists($this->exceptionHandler, 'ignoreException')
+            && $this->exceptionHandler->ignoreException($e);
+    }
+
+    /**
+     * Hook: Delegate exception resolution to the API exception handler.
+     */
+    protected function externalResolveException(Throwable $e): void
+    {
+        if (isset($this->exceptionHandler)
+            && method_exists($this->exceptionHandler, 'resolveException')
+        ) {
+            $this->exceptionHandler->resolveException($e);
+        }
+    }
+
+    /**
      * Override to provide API-specific diagnostic information for retry failures.
      * Checks if the current hostname is forbidden for this account/API system.
      */

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Martingalian\Core\Jobs\Atomic\Position;
 
 use Martingalian\Core\Abstracts\BaseQueueableJob;
-use Martingalian\Core\Exceptions\JustResolveException;
+use StepDispatcher\Exceptions\JustResolveException;
 use Martingalian\Core\Models\Order;
 use Martingalian\Core\Models\Position;
 use Martingalian\Core\Support\Math;

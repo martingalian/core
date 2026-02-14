@@ -6,7 +6,7 @@ namespace Martingalian\Core\Jobs\Atomic\Account;
 
 use Martingalian\Core\Abstracts\BaseApiableJob;
 use Martingalian\Core\Abstracts\BaseExceptionHandler;
-use Martingalian\Core\Exceptions\JustEndException;
+use StepDispatcher\Exceptions\JustEndException;
 use Martingalian\Core\Models\Account;
 use Martingalian\Core\Models\ApiSnapshot;
 use Martingalian\Core\Models\ApiSystem;

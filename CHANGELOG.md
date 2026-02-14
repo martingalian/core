@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.2.0 - 2026-02-14
+
+### Improvements
+
+- [IMPROVED] Extract generic step orchestration into `martingalian/step-dispatcher`'s `BaseStepJob` — `BaseQueueableJob` now extends it with Martingalian-specific defaults and hooks
+- [IMPROVED] `BaseApiableJob` now uses hook methods (`externalRetryException`, `externalIgnoreException`, `externalResolveException`) to wire API exception handler
+- [IMPROVED] Remove `BaseJob` class (absorbed into `BaseStepJob`), 3 traits, 3 exceptions, `ExceptionParser`, and database exception handling (all moved to step-dispatcher)
+
 ## 1.1.0 - 2026-02-13
 
 ### Security
